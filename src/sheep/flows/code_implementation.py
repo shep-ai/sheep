@@ -14,7 +14,6 @@ from sheep.agents import (
     create_code_reviewer_agent,
 )
 from sheep.config.settings import get_settings
-from sheep.observability import trace_flow
 from sheep.observability.logging import AgentLogger, get_logger
 from sheep.tools import (
     GitCommitTool,
@@ -187,16 +186,8 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
         )
 
         try:
-            # Get Langfuse client
-            from sheep.observability.langfuse_client import get_langfuse
-            langfuse = get_langfuse()
-
-            # Wrap crew execution with Langfuse span as per official docs
-            if langfuse:
-                with langfuse.start_as_current_observation(as_type="span", name="research-crew-execution"):
-                    result = crew.kickoff()
-            else:
-                result = crew.kickoff()
+            # OpenInference will automatically capture crew execution details
+            result = crew.kickoff()
 
             state.research_findings = str(result)
             self.flow_logger.result(f"Research completed: {len(state.research_findings)} chars")
@@ -254,16 +245,8 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
         )
 
         try:
-            # Get Langfuse client
-            from sheep.observability.langfuse_client import get_langfuse
-            langfuse = get_langfuse()
-
-            # Wrap crew execution with Langfuse span as per official docs
-            if langfuse:
-                with langfuse.start_as_current_observation(as_type="span", name="implement-crew-execution"):
-                    result = crew.kickoff()
-            else:
-                result = crew.kickoff()
+            # OpenInference will automatically capture crew execution details
+            result = crew.kickoff()
 
             state.changes_made = str(result)
             self.flow_logger.result(f"Implementation completed")
@@ -329,16 +312,8 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
         )
 
         try:
-            # Get Langfuse client
-            from sheep.observability.langfuse_client import get_langfuse
-            langfuse = get_langfuse()
-
-            # Wrap crew execution with Langfuse span as per official docs
-            if langfuse:
-                with langfuse.start_as_current_observation(as_type="span", name="review-crew-execution"):
-                    result = crew.kickoff()
-            else:
-                result = crew.kickoff()
+            # OpenInference will automatically capture crew execution details
+            result = crew.kickoff()
 
             state.review_result = str(result)
 
@@ -466,18 +441,32 @@ def run_code_implementation(
         "auto_push": auto_push,
     }
 
-    # Run flow with Langfuse tracing
-    with trace_flow(
-        "code-implementation",
-        metadata={
-            "repo": repo_path,
-            "issue": issue_description[:100],
-            "branch": branch_name,
-        },
-        session_id=session_id,
-        user_id=user_id,
-    ):
-        # Run the flow - OpenInference will capture detailed traces
-        flow.kickoff(inputs=input_data)
+    # Run the flow - OpenInference will automatically capture all traces
+    # including input, output, and detailed execution steps
+    flow.kickoff(inputs=input_data)
+
+    # Update the current OpenTelemetry span with the final output
+    # This ensures we see the actual results instead of just "success"
+    try:
+        from opentelemetry import trace
+
+        current_span = trace.get_current_span()
+        if current_span and current_span.is_recording():
+            # Set output attributes on the current span
+            output_data = {
+                "final_status": flow.state.final_status,
+                "branch_name": flow.state.branch_name,
+                "working_path": flow.state.working_path,
+                "changes_made": flow.state.changes_made[:500] if flow.state.changes_made else None,
+                "pushed": str(flow.state.pushed),
+                "review_iterations": str(flow.state.review_iterations),
+                "error": flow.state.error,
+            }
+            # Set as span attributes (OpenTelemetry format)
+            for key, value in output_data.items():
+                if value is not None:
+                    current_span.set_attribute(f"output.{key}", str(value))
+    except Exception:
+        pass  # Ignore errors in span updates
 
     return flow.state

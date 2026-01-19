@@ -10,7 +10,6 @@ from pydantic import BaseModel, Field
 
 from sheep.agents import create_chat_agent
 from sheep.config.settings import get_settings
-from sheep.observability import trace_flow
 from sheep.observability.logging import AgentLogger, get_logger
 
 _logger = get_logger(__name__)
@@ -130,16 +129,9 @@ class ChatFlow(Flow[ChatState]):
         )
 
         try:
-            # Get Langfuse client
-            from sheep.observability.langfuse_client import get_langfuse
-            langfuse = get_langfuse()
-
-            # Wrap crew execution with Langfuse span as per official docs
-            if langfuse:
-                with langfuse.start_as_current_observation(as_type="span", name="chat-crew-execution"):
-                    result = crew.kickoff()
-            else:
-                result = crew.kickoff()
+            # OpenInference will automatically capture crew execution details
+            # No need to manually wrap - it creates proper trace hierarchy
+            result = crew.kickoff()
 
             state.answer = str(result)
             state.final_status = "completed"
@@ -192,17 +184,25 @@ def run_chat(
         "context_path": context_path,
     }
 
-    # Run flow with Langfuse tracing
-    with trace_flow(
-        "chat",
-        metadata={
-            "question": question[:100],
-            "has_context": context_path is not None,
-        },
-        session_id=session_id,
-        user_id=user_id,
-    ):
-        # Run the flow - OpenInference will capture detailed traces
-        flow.kickoff(inputs=input_data)
+    # Run the flow - OpenInference will automatically capture all traces
+    flow.kickoff(inputs=input_data)
+
+    # Set output on the current OpenTelemetry span using semantic conventions
+    try:
+        from opentelemetry import trace
+        import json
+
+        current_span = trace.get_current_span()
+        if current_span and current_span.is_recording():
+            # Use OpenInference semantic convention for output
+            output_data = {
+                "answer": flow.state.answer[:1000] if flow.state.answer else None,
+                "final_status": flow.state.final_status,
+                "error": flow.state.error,
+            }
+            # Set as 'output.value' which is the OpenInference convention
+            current_span.set_attribute("output.value", json.dumps(output_data))
+    except Exception:
+        pass  # Ignore errors in span updates
 
     return flow.state
