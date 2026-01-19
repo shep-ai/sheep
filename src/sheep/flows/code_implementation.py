@@ -187,7 +187,17 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
         )
 
         try:
-            result = crew.kickoff()
+            # Get Langfuse client
+            from sheep.observability.langfuse_client import get_langfuse
+            langfuse = get_langfuse()
+
+            # Wrap crew execution with Langfuse span as per official docs
+            if langfuse:
+                with langfuse.start_as_current_observation(as_type="span", name="research-crew-execution"):
+                    result = crew.kickoff()
+            else:
+                result = crew.kickoff()
+
             state.research_findings = str(result)
             self.flow_logger.result(f"Research completed: {len(state.research_findings)} chars")
             return "success"
@@ -244,7 +254,17 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
         )
 
         try:
-            result = crew.kickoff()
+            # Get Langfuse client
+            from sheep.observability.langfuse_client import get_langfuse
+            langfuse = get_langfuse()
+
+            # Wrap crew execution with Langfuse span as per official docs
+            if langfuse:
+                with langfuse.start_as_current_observation(as_type="span", name="implement-crew-execution"):
+                    result = crew.kickoff()
+            else:
+                result = crew.kickoff()
+
             state.changes_made = str(result)
             self.flow_logger.result(f"Implementation completed")
             return "success"
@@ -309,7 +329,17 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
         )
 
         try:
-            result = crew.kickoff()
+            # Get Langfuse client
+            from sheep.observability.langfuse_client import get_langfuse
+            langfuse = get_langfuse()
+
+            # Wrap crew execution with Langfuse span as per official docs
+            if langfuse:
+                with langfuse.start_as_current_observation(as_type="span", name="review-crew-execution"):
+                    result = crew.kickoff()
+            else:
+                result = crew.kickoff()
+
             state.review_result = str(result)
 
             # Check if review passed
@@ -427,6 +457,16 @@ def run_code_implementation(
         repo_name = Path(repo_path).name
         session_id = f"sheep-{repo_name}-{uuid.uuid4().hex[:8]}"
 
+    # Prepare input
+    input_data = {
+        "repo_path": repo_path,
+        "issue_description": issue_description,
+        "branch_name": branch_name,
+        "use_worktree": use_worktree,
+        "auto_push": auto_push,
+    }
+
+    # Run flow with Langfuse tracing
     with trace_flow(
         "code-implementation",
         metadata={
@@ -437,14 +477,7 @@ def run_code_implementation(
         session_id=session_id,
         user_id=user_id,
     ):
-        flow.kickoff(
-            inputs={
-                "repo_path": repo_path,
-                "issue_description": issue_description,
-                "branch_name": branch_name,
-                "use_worktree": use_worktree,
-                "auto_push": auto_push,
-            }
-        )
+        # Run the flow - OpenInference will capture detailed traces
+        flow.kickoff(inputs=input_data)
 
     return flow.state

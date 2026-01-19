@@ -16,6 +16,11 @@ from sheep.tools.file_tools import (
     FileSearchTool,
     DirectoryTreeTool,
 )
+from sheep.tools.web_tools import (
+    WebFetchTool,
+    WebSearchTool,
+    ShellCommandTool,
+)
 
 __all__ = [
     # Git tools
@@ -32,4 +37,8 @@ __all__ = [
     "FileWriteTool",
     "FileSearchTool",
     "DirectoryTreeTool",
+    # Web tools
+    "WebFetchTool",
+    "WebSearchTool",
+    "ShellCommandTool",
 ]

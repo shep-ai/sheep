@@ -48,9 +48,14 @@ class LangfuseSettings(BaseSettings):
 
     public_key: SecretStr | None = Field(default=None, alias="LANGFUSE_PUBLIC_KEY")
     secret_key: SecretStr | None = Field(default=None, alias="LANGFUSE_SECRET_KEY")
-    host: str = Field(default="https://cloud.langfuse.com", alias="LANGFUSE_HOST")
+    # Support both LANGFUSE_BASE_URL (official) and LANGFUSE_HOST (legacy)
+    host: str = Field(
+        default="https://cloud.langfuse.com",
+        validation_alias="LANGFUSE_BASE_URL",
+        alias="LANGFUSE_HOST",
+    )
     enabled: bool = Field(default=True, alias="LANGFUSE_ENABLED")
-    # Control OpenLit tracing (set to false to disable verbose JSON console output)
+    # Control OpenInference tracing
     openlit_enabled: bool = Field(default=False, alias="LANGFUSE_OPENLIT_ENABLED")
 
     @property
