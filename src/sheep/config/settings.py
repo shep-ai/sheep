@@ -50,6 +50,8 @@ class LangfuseSettings(BaseSettings):
     secret_key: SecretStr | None = Field(default=None, alias="LANGFUSE_SECRET_KEY")
     host: str = Field(default="https://cloud.langfuse.com", alias="LANGFUSE_HOST")
     enabled: bool = Field(default=True, alias="LANGFUSE_ENABLED")
+    # Control OpenLit tracing (set to false to disable verbose JSON console output)
+    openlit_enabled: bool = Field(default=False, alias="LANGFUSE_OPENLIT_ENABLED")
 
     @property
     def is_configured(self) -> bool:

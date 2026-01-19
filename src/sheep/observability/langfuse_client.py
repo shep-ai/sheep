@@ -1,5 +1,6 @@
 """Langfuse integration for observability."""
 
+import os
 from contextlib import contextmanager
 from functools import wraps
 from typing import Any, Callable, Generator, TypeVar
@@ -17,7 +18,7 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 def init_observability() -> Langfuse | None:
     """
-    Initialize observability (Langfuse client).
+    Initialize observability (Langfuse client and OpenLit for automatic tracing).
 
     Returns:
         Langfuse client if configured, None otherwise.
@@ -37,6 +38,37 @@ def init_observability() -> Langfuse | None:
             host=settings.langfuse.host,
         )
         _logger.info("Langfuse initialized", host=settings.langfuse.host)
+
+        # Initialize OpenLit for automatic CrewAI tracing (if enabled)
+        if settings.langfuse.openlit_enabled:
+            try:
+                # Suppress OpenTelemetry console output by setting env vars before import
+                os.environ.setdefault("OTEL_SDK_DISABLED", "false")
+                os.environ.setdefault("OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED", "false")
+
+                import openlit
+
+                # Configure OpenLit to send data to Langfuse without console output
+                openlit.init(
+                    otlp_endpoint=f"{settings.langfuse.host}/api/public/ingestion",
+                    otlp_headers={
+                        "Authorization": f"Bearer {settings.langfuse.public_key.get_secret_value()}:{settings.langfuse.secret_key.get_secret_value()}"
+                    },
+                    disable_batch=False,
+                    # Disable console logging of telemetry
+                    disabled_instrumentations=None,
+                )
+                _logger.info("OpenLit instrumentation enabled for automatic tracing")
+            except ImportError:
+                _logger.warning(
+                    "OpenLit not installed. Install with: pip install openlit\n"
+                    "Automatic CrewAI tracing will not be available."
+                )
+            except Exception as e:
+                _logger.warning("Failed to initialize OpenLit", error=str(e))
+        else:
+            _logger.info("OpenLit tracing disabled (set LANGFUSE_OPENLIT_ENABLED=true to enable)")
+
         return _langfuse_client
     except Exception as e:
         _logger.warning("Failed to initialize Langfuse", error=str(e))
