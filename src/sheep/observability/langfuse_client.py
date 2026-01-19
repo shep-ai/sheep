@@ -53,6 +53,8 @@ def trace_flow(
     name: str,
     metadata: dict[str, Any] | None = None,
     tags: list[str] | None = None,
+    session_id: str | None = None,
+    user_id: str | None = None,
 ) -> Generator[Any, None, None]:
     """
     Context manager for tracing a flow execution.
@@ -61,12 +63,19 @@ def trace_flow(
         name: Name of the flow.
         metadata: Optional metadata to attach to the trace.
         tags: Optional tags for filtering.
+        session_id: Optional session ID to group related traces.
+        user_id: Optional user ID to track user-specific executions.
 
     Yields:
         Langfuse trace object if configured, None otherwise.
 
     Example:
-        >>> with trace_flow("code-implementation", metadata={"repo": "/path"}) as trace:
+        >>> with trace_flow(
+        ...     "code-implementation",
+        ...     metadata={"repo": "/path"},
+        ...     session_id="user-123-session-456",
+        ...     user_id="user-123",
+        ... ) as trace:
         ...     # Flow execution here
         ...     pass
     """
@@ -79,6 +88,8 @@ def trace_flow(
         name=name,
         metadata=metadata or {},
         tags=tags or [],
+        session_id=session_id,
+        user_id=user_id,
     )
     try:
         yield trace

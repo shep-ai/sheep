@@ -1,5 +1,6 @@
 """Code Implementation Flow - From issue to pushed changes."""
 
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -30,8 +31,8 @@ class CodeImplementationState(BaseModel):
     """State for the code implementation flow."""
 
     # Input
-    repo_path: str = Field(description="Path to the repository")
-    issue_description: str = Field(description="Description of the feature/bug/task")
+    repo_path: str = Field(default="", description="Path to the repository")
+    issue_description: str = Field(default="", description="Description of the feature/bug/task")
     branch_name: str | None = Field(default=None, description="Branch name to create")
     use_worktree: bool = Field(default=False, description="Use git worktree")
     auto_push: bool = Field(default=True, description="Automatically push changes")
@@ -390,6 +391,8 @@ def run_code_implementation(
     use_worktree: bool = False,
     auto_push: bool = True,
     verbose: bool = False,
+    session_id: str | None = None,
+    user_id: str | None = None,
 ) -> CodeImplementationState:
     """
     Run the code implementation flow.
@@ -401,6 +404,8 @@ def run_code_implementation(
         use_worktree: Use git worktree for isolated development.
         auto_push: Automatically push changes after commit.
         verbose: Enable verbose output.
+        session_id: Optional session ID for grouping related flows.
+        user_id: Optional user ID for tracking user-specific executions.
 
     Returns:
         Final state of the flow execution.
@@ -410,13 +415,28 @@ def run_code_implementation(
         ...     repo_path="/path/to/repo",
         ...     issue_description="Add user logout functionality",
         ...     branch_name="feature/logout",
+        ...     session_id="user-session-123",
         ... )
         >>> print(result.final_status)
         completed
     """
     flow = CodeImplementationFlow(verbose=verbose)
 
-    with trace_flow("code-implementation", metadata={"repo": repo_path}):
+    # Generate session_id if not provided (repo-based session)
+    if session_id is None:
+        repo_name = Path(repo_path).name
+        session_id = f"sheep-{repo_name}-{uuid.uuid4().hex[:8]}"
+
+    with trace_flow(
+        "code-implementation",
+        metadata={
+            "repo": repo_path,
+            "issue": issue_description[:100],
+            "branch": branch_name,
+        },
+        session_id=session_id,
+        user_id=user_id,
+    ):
         flow.kickoff(
             inputs={
                 "repo_path": repo_path,
