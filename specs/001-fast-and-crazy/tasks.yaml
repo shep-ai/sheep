@@ -1,0 +1,225 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fast-and-crazy
+summary: >
+  7 tasks across 3 phases implementing the --fast flag for the Sheep CLI implement command.
+
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+
+  - CrewAI Flow
+  - Pydantic
+  - Typer
+  - Rich
+  - pytest
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: "Add fast_mode field to CodeImplementationState"
+    description: >
+      Add a fast_mode boolean field (default False) to the Pydantic state model.
+      This is the foundational change — all routing and LLM logic depends on this field.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - "CodeImplementationState has a fast_mode field of type bool with default False"
+      - "Existing state fields are unchanged"
+      - "State can be instantiated with fast_mode=True and fast_mode=False"
+    tdd:
+      red:
+        - "Write test that creates CodeImplementationState(fast_mode=True) and asserts state.fast_mode is True"
+        - "Write test that creates CodeImplementationState() and asserts state.fast_mode is False (default)"
+      green:
+        - "Add fast_mode: bool = Field(default=False, description='Skip research and review, use fast LLM') to CodeImplementationState after line 37"
+      refactor:
+        - "None expected — single field addition"
+    estimatedEffort: "10min"
+
+  - id: task-2
+    phaseId: phase-1
+    title: "Add router after setup_branch for conditional research skip"
+    description: >
+      Refactor the flow to insert a @router after setup_branch that routes to either
+      'research_codebase' (normal) or 'implement_changes' (fast). Convert research_codebase
+      and implement_changes to string-based @listen decorators to support routing targets.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "New route_after_setup method decorated with @router(setup_branch)"
+      - "When fast_mode=False, route_after_setup returns 'research_codebase'"
+      - "When fast_mode=True, route_after_setup returns 'implement_changes'"
+      - "research_codebase uses @listen('research_codebase') instead of @listen(setup_branch)"
+      - "implement_changes uses @listen('implement_changes') instead of @listen(research_codebase)"
+      - "research_codebase returns 'implement_changes' on success (to chain to implement step)"
+      - "Normal flow still works: setup -> research -> implement -> review -> commit"
+    tdd:
+      red:
+        - "Write test that instantiates CodeImplementationFlow, sets state.fast_mode=True, calls route_after_setup('success'), and asserts return value is 'implement_changes'"
+        - "Write test that sets state.fast_mode=False, calls route_after_setup('success'), and asserts return value is 'research_codebase'"
+        - "Write test that route_after_setup('error') returns 'error' regardless of fast_mode"
+      green:
+        - "Add @router(setup_branch) method route_after_setup that checks self.state.fast_mode"
+        - "Change @listen(setup_branch) to @listen('research_codebase') on research_codebase"
+        - "Change @listen(research_codebase) to @listen('implement_changes') on implement_changes"
+        - "Change research_codebase to return 'implement_changes' on success instead of 'success'"
+      refactor:
+        - "Verify error propagation is clean — setup error should still short-circuit the flow"
+    estimatedEffort: "30min"
+
+  - id: task-3
+    phaseId: phase-1
+    title: "Add router after implement_changes for conditional review skip"
+    description: >
+      Add a @router after implement_changes that routes to 'commit_and_push' (fast mode)
+      or continues to review_changes (normal mode). Adjust review_changes listener to
+      work with the new routing.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - "New route_after_implementation method decorated with @router(implement_changes)"
+      - "When fast_mode=True, returns 'commit_and_push'"
+      - "When fast_mode=False, returns 'review_changes'"
+      - "review_changes uses @listen('review_changes') to receive from the router"
+      - "Existing route_after_review still works for review->implement loop"
+      - "Normal flow is completely unchanged in behavior"
+    tdd:
+      red:
+        - "Write test that sets fast_mode=True, calls route_after_implementation('success'), asserts 'commit_and_push'"
+        - "Write test that sets fast_mode=False, calls route_after_implementation('success'), asserts 'review_changes'"
+      green:
+        - "Add @router(implement_changes) method route_after_implementation"
+        - "Change @listen(implement_changes) on review_changes to @listen('review_changes')"
+        - "Update route_after_review to return 'implement_changes' (string) for needs_changes path"
+      refactor:
+        - "Review all @listen/@router decorators for consistency — ensure string-based routing is used throughout"
+    estimatedEffort: "25min"
+
+  - id: task-4
+    phaseId: phase-2
+    title: "Use fast LLM for implementer agent in fast mode"
+    description: >
+      In the implement_changes method, conditionally pass get_fast_llm() to
+      create_code_implementer_agent when state.fast_mode is True.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - "When fast_mode=True, create_code_implementer_agent receives get_fast_llm() as llm parameter"
+      - "When fast_mode=False, create_code_implementer_agent is called without llm (uses default reasoning LLM)"
+      - "get_fast_llm is imported in code_implementation.py"
+    tdd:
+      red:
+        - "Write test that mocks create_code_implementer_agent and get_fast_llm, sets fast_mode=True, calls implement_changes, and asserts create_code_implementer_agent was called with llm=get_fast_llm()"
+        - "Write test that sets fast_mode=False and asserts create_code_implementer_agent was called without explicit llm (or llm=None)"
+      green:
+        - "Add get_fast_llm import from sheep.config.llm"
+        - "In implement_changes, add: llm = get_fast_llm() if self.state.fast_mode else None"
+        - "Pass llm=llm to create_code_implementer_agent()"
+      refactor:
+        - "None expected — minimal conditional"
+    estimatedEffort: "15min"
+
+  - id: task-5
+    phaseId: phase-2
+    title: "Adjust task description for missing research findings in fast mode"
+    description: >
+      When fast_mode is True, research_findings will be None. Modify the implementation task
+      description to handle this — use a fast-mode-specific description that tells the agent
+      to explore inline as needed.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "When fast_mode=True, task description does not reference state.research_findings"
+      - "When fast_mode=True, task description instructs the agent to explore the codebase inline"
+      - "When fast_mode=False, task description is unchanged from current behavior"
+    tdd:
+      red:
+        - "Write test that mocks Crew.kickoff, sets fast_mode=True with research_findings=None, calls implement_changes, and asserts the Task description does not contain 'None' as a literal string for research findings"
+        - "Write test that sets fast_mode=False with research_findings='some findings', and asserts the Task description includes 'some findings'"
+      green:
+        - "Add conditional in implement_changes: build different description string based on self.state.fast_mode"
+        - "Fast mode description omits research section and adds instruction to explore codebase as needed"
+      refactor:
+        - "Extract the task description building into a clear conditional block"
+    estimatedEffort: "15min"
+
+  - id: task-6
+    phaseId: phase-3
+    title: "Add --fast CLI flag and pass to flow"
+    description: >
+      Add --fast/-f boolean flag to the implement command in cli.py. Pass fast_mode to
+      run_code_implementation. Update run_code_implementation signature to accept and
+      forward fast_mode to the flow input_data.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-5
+    acceptanceCriteria:
+      - "implement command accepts --fast/-f boolean flag with default False"
+      - "fast_mode is passed to run_code_implementation()"
+      - "run_code_implementation accepts fast_mode parameter and includes it in input_data"
+      - "Calling without --fast preserves existing behavior"
+    tdd:
+      red:
+        - "Write test that calls run_code_implementation with fast_mode=True, mocks the flow, and asserts input_data includes fast_mode=True"
+        - "Write test using Typer CliRunner that invokes implement with --fast and asserts it's passed through"
+      green:
+        - "Add fast: bool = typer.Option(False, '--fast', '-f', help='Fast mode: skip research and review, use fast LLM') to implement command"
+        - "Pass fast_mode=fast to run_code_implementation()"
+        - "Add fast_mode: bool = False parameter to run_code_implementation"
+        - "Add 'fast_mode': fast_mode to input_data dict"
+      refactor:
+        - "None expected — standard parameter threading"
+    estimatedEffort: "15min"
+
+  - id: task-7
+    phaseId: phase-3
+    title: "Display execution mode in CLI startup panel"
+    description: >
+      Add a 'Mode' line to the Rich Panel output in the implement command that shows
+      'Fast' or 'Normal' based on the --fast flag.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - "Panel output includes 'Mode: Fast' when --fast is passed"
+      - "Panel output includes 'Mode: Normal' when --fast is not passed"
+    tdd:
+      red:
+        - "Write test using Typer CliRunner that invokes implement with --fast and asserts 'Mode' and 'Fast' appear in output"
+        - "Write test that invokes implement without --fast and asserts 'Mode' and 'Normal' appear in output"
+      green:
+        - "Add mode line to Panel string: f\"[bold]Mode:[/bold] {'Fast' if fast else 'Normal'}\\n\""
+      refactor:
+        - "Verify panel formatting looks clean with the new line"
+    estimatedEffort: "10min"
+
+totalEstimate: "2h"
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation proceeds bottom-up: first the state model gets the fast_mode field (task 1),
+  then the flow graph is refactored to support conditional routing at two branching points
+  (tasks 2-3), then the implementer agent is wired to use the fast LLM and handle missing
+  research context (tasks 4-5), and finally the CLI flag and display are added (tasks 6-7).
+
+  Tasks 2 and 3 are the most complex — they refactor existing @listen decorators from
+  function-reference-based to string-based routing, matching the pattern already established
+  by commit_and_push. Tasks 4-5 can potentially run in parallel with task 3 since they
+  only depend on task 2's routing infrastructure being in place. Tasks 6-7 are thin
+  integration layers that wire the CLI to the flow.
+
+  Each task follows TDD: write a failing test first (RED), implement the minimum to pass
+  (GREEN), then clean up (REFACTOR). The test file tests/test_fast_mode.py accumulates
+  tests across all tasks.

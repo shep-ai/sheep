@@ -1,0 +1,127 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fast-and-crazy
+summary: >
+  Add a --fast/-f flag to the implement CLI command that activates a speed-first execution mode.
+  The implementation uses CrewAI Flow's existing @router decorator pattern to conditionally skip
+  research and review steps, passes get_fast_llm() to the implementer agent via its existing
+  llm parameter, and adds fast_mode as a Pydantic field on CodeImplementationState following the
+  same pattern as use_worktree and auto_push. Three files are modified (cli.py, code_implementation.py,
+  flows/__init__.py) and one test file is created. No new dependencies or architectural changes required.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+
+  - CrewAI Flow (@start, @listen, @router)
+  - Pydantic BaseModel
+  - Typer (CLI)
+  - Rich (Panel display)
+  - pytest + unittest.mock
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: "State & Flow Routing"
+    description: >
+      Add fast_mode to the flow state model and refactor the flow graph to support conditional
+      step-skipping via @router decorators. This is the core of the feature — it changes the
+      flow from a linear chain to a conditionally branching graph. Comes first because all other
+      changes depend on the state field and routing infrastructure being in place.
+    parallel: false
+
+  - id: phase-2
+    name: "LLM Override & Task Description"
+    description: >
+      Wire the fast LLM into the implementer agent when fast_mode is active, and adjust the
+      implementation task description to handle missing research findings. This phase builds
+      on the routing from phase 1 and completes the flow-level behavior changes.
+    parallel: false
+
+  - id: phase-3
+    name: "CLI Integration & Display"
+    description: >
+      Add the --fast/-f flag to the Typer CLI command, pass it through to the flow, and
+      display the execution mode in the Rich startup panel. This is the user-facing surface
+      that wires everything together.
+    parallel: false
+
+filesToCreate:
+  - tests/test_fast_mode.py
+
+filesToModify:
+  - src/sheep/flows/code_implementation.py
+  - src/sheep/cli.py
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The Sheep CLI uses CrewAI Flow for orchestrating multi-step agent workflows. The current
+  `CodeImplementationFlow` is a linear chain: `setup_branch` (@start) -> `research_codebase`
+  (@listen) -> `implement_changes` (@listen) -> `review_changes` (@listen) -> `route_after_review`
+  (@router) -> `commit_and_push` (@listen string). Flow state is managed through a single
+  Pydantic `CodeImplementationState` model that accumulates results across steps.
+
+  The fast mode feature introduces conditional branching into this linear flow using the same
+  `@router` pattern already established by `route_after_review` (code_implementation.py:335).
+  The flow graph becomes:
+
+  ```
+  Normal:  setup -> route -> research -> implement -> route -> review <-> implement -> commit
+  Fast:    setup -> route -> implement -> route -> commit
+  ```
+
+  This is achieved by converting `@listen(function_ref)` decorators to `@listen("string_event")`
+  and inserting `@router` methods at branching points. This pattern is already proven in the
+  codebase — `commit_and_push` uses `@listen("commit_and_push")` with string-based routing.
+
+  ## Key Design Decisions
+
+  **1. Conditional routing via @router (not if/early-return or separate flow class)**
+
+  The @router decorator is the native CrewAI Flow mechanism for branching. Adding router methods
+  after `setup_branch` and `implement_changes` follows the existing `route_after_review` pattern.
+  Alternative approaches — early returns inside steps (creates noise in traces), or a separate
+  `FastCodeImplementationFlow` class (violates DRY by duplicating 3 of 5 steps) — were rejected.
+
+  **2. LLM override at the flow level (not agent factory level)**
+
+  The `create_code_implementer_agent` already accepts an optional `llm` parameter (code_agents.py:68).
+  When fast_mode is True, the flow passes `get_fast_llm()` explicitly. This keeps the agent
+  factory agnostic of execution modes — the flow owns orchestration decisions.
+
+  **3. fast_mode as a Pydantic state field (not flow instance variable)**
+
+  Adding `fast_mode: bool = Field(default=False)` to `CodeImplementationState` follows the exact
+  pattern of `use_worktree` and `auto_push` (code_implementation.py:36-37). It's serializable,
+  inspectable in traces, and accessible to all flow steps via `self.state`.
+
+  **4. Single --fast flag (not --mode or separate --skip-* flags)**
+
+  A boolean `--fast/-f` flag matches the existing Typer conventions (`--worktree/-w`, `--no-push`,
+  `--verbose/-V`). The short form `-f` doesn't conflict with any existing flags.
+
+  ## Implementation Strategy
+
+  Phase 1 (State & Routing) comes first because the state field and flow graph changes are the
+  foundation everything else depends on. Phase 2 (LLM Override) builds on the routing to
+  complete the flow behavior. Phase 3 (CLI) is last because it's the thin integration layer
+  that passes the flag through — it's simplest to test once the underlying flow works correctly.
+
+  Each phase uses TDD: write a failing test for the expected behavior, implement the minimum
+  code to pass it, then clean up.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Refactoring @listen decorators breaks normal flow | Tests for normal mode behavior written first; verify existing flow graph is preserved |
+  | @router after setup_branch conflicts with existing @listen(setup_branch) on research_codebase | Convert to string-based @listen("research_codebase") — proven pattern in codebase |
+  | Missing research_findings causes errors in implement_changes task description | Conditional task description: fast mode omits research reference, tells agent to explore inline |
+  | review_changes still triggered in fast mode via @listen(implement_changes) | Convert to @listen on string event so it only fires in normal mode routing path |
+  | CrewAI Flow @router return value doesn't match any @listen | Verified: string-based routing works — route_after_review returns "commit_and_push" and commit_and_push listens on that exact string |

@@ -1,0 +1,281 @@
+name: fast-and-crazy
+summary: >
+  Technical research for adding a --fast flag to the Sheep CLI implement command.
+  The feature requires changes to 3 core files (cli.py, code_implementation.py, flows/__init__.py)
+  plus new tests. Key decisions: use CrewAI Flow's conditional routing via @router decorator
+  to skip steps, pass fast_mode through state, and override the implementer agent's LLM
+  via the existing get_fast_llm() factory. No new dependencies needed.
+
+relatedFeatures: []
+
+technologies:
+  - CrewAI Flow (@start, @listen, @router decorators for flow control)
+  - Pydantic BaseModel (CodeImplementationState for flow state)
+  - Typer (CLI flag definition)
+  - Rich (Panel display for mode indicator)
+  - pytest + unittest.mock (testing)
+
+relatedLinks: []
+
+decisions:
+  - title: "Flow Control Strategy for Skipping Steps"
+    chosen: "Add @router after setup_branch to conditionally skip research, and add @router after implement_changes to conditionally skip review"
+    rejected:
+      - "Use if/early-return inside research_codebase and review_changes — would still execute the methods, create unnecessary log entries, and couple skip logic to each step rather than the flow graph"
+      - "Create a separate FastCodeImplementationFlow class — duplicates the setup_branch, implement_changes, and commit_and_push logic; violates DRY and increases maintenance burden"
+      - "Use CrewAI Flow conditional_paths or dynamic routing — the codebase already uses @router/@listen pattern consistently; introducing a new pattern adds complexity without benefit"
+    rationale: >
+      The existing flow uses @start → @listen → @listen → @router → @listen chaining.
+      The cleanest approach is to add a @router after setup_branch that checks state.fast_mode:
+      if True, route directly to implement_changes (skipping research); if False, route to
+      research_codebase (existing behavior). Similarly, after implement_changes, a new @router
+      checks fast_mode to skip review. This uses the same @router pattern already used in
+      route_after_review (code_implementation.py:335), keeping the codebase consistent.
+      The flow graph changes from linear to conditionally branching while preserving all
+      existing behavior when fast_mode is False.
+
+  - title: "LLM Override Strategy for Fast Mode Implementation"
+    chosen: "Pass get_fast_llm() to create_code_implementer_agent(llm=...) when fast_mode is True in the flow's implement_changes method"
+    rejected:
+      - "Add a fast_mode parameter to create_code_implementer_agent — changes the agent factory API for a flow-level concern; the agent shouldn't know about execution modes"
+      - "Override at the Settings level by temporarily changing reasoning_model — mutating global settings is dangerous, especially with lru_cache on get_settings()"
+      - "Create a separate create_fast_implementer_agent factory — unnecessary duplication; the only difference is the LLM instance passed in"
+    rationale: >
+      The create_code_implementer_agent already accepts an optional llm parameter
+      (code_agents.py:68). When llm is None, it defaults to get_reasoning_llm(). In fast mode,
+      the flow simply passes get_fast_llm() explicitly. This is the most minimal change —
+      one conditional in implement_changes, no changes to agent factories, and it follows
+      the existing pattern where the flow is responsible for orchestration decisions.
+
+  - title: "State Management for Fast Mode Flag"
+    chosen: "Add fast_mode: bool = Field(default=False) to CodeImplementationState"
+    rejected:
+      - "Store fast_mode as an instance variable on CodeImplementationFlow — breaks the Pydantic state pattern used throughout; state would not be serializable or inspectable via traces"
+      - "Use a separate config dict passed alongside state — the flow already uses a single state object; adding a parallel config channel is inconsistent with existing fields like use_worktree and auto_push"
+    rationale: >
+      CodeImplementationState is the single source of truth for flow execution parameters
+      (see existing fields: use_worktree, auto_push at code_implementation.py:37-38). Adding
+      fast_mode here follows the exact same pattern and makes it available to all flow steps
+      via self.state. It's also captured in observability traces since the state is serialized.
+
+  - title: "CLI Flag Design"
+    chosen: "Add --fast / -f boolean flag to the implement command with default False"
+    rejected:
+      - "Add --mode flag with choices (normal, fast, crazy) — over-engineered for a single boolean toggle; YAGNI"
+      - "Use --skip-research and --skip-review as separate flags — more granular but adds complexity; the spec explicitly says skip both together as a single mode"
+    rationale: >
+      The spec requires a single --fast flag (FR-1). Using -f as the short form is intuitive
+      and doesn't conflict with existing flags (-i for issue, -b for branch, -w for worktree,
+      -V for verbose). Typer boolean options with default=False are the established pattern
+      in this CLI (see --worktree and --no-push at cli.py:68-78).
+
+  - title: "Testing Strategy"
+    chosen: "Unit tests mocking CrewAI Crew.kickoff and git tools, testing flow routing and state logic directly"
+    rejected:
+      - "Integration tests with real LLM calls — slow, expensive, flaky, not suitable for CI"
+      - "Only test CLI flag parsing — insufficient; the routing logic is the core of this feature"
+    rationale: >
+      The existing test suite (test_config.py, test_tools.py) uses pytest with unittest.mock.
+      The most valuable tests for this feature verify: (1) CodeImplementationState accepts
+      fast_mode, (2) the flow routing skips research/review when fast_mode is True, (3) the
+      implementer uses fast LLM in fast mode, (4) normal mode is unaffected. Mocking
+      Crew.kickoff() and git tools keeps tests fast and deterministic.
+
+openQuestions:
+  - question: "How should the @router after setup_branch coexist with the existing @listen on research_codebase?"
+    resolved: true
+    answer: >
+      The current flow has @listen(setup_branch) on research_codebase (line 140). To add
+      conditional routing: add @router(setup_branch) method route_after_setup that returns
+      either 'research_codebase' or 'implement_changes' based on state.fast_mode. Change
+      research_codebase to @listen('research_codebase') (string-based listener). Change
+      implement_changes to @listen('implement_changes') and have research_codebase route
+      to 'implement_changes' on success. This follows the existing pattern where
+      commit_and_push uses @listen('commit_and_push') with string-based routing (line 345).
+
+  - question: "Will skipping research affect the implement_changes task description since it references state.research_findings?"
+    resolved: true
+    answer: >
+      Yes. In fast mode, state.research_findings will be None since research is skipped.
+      The implement_changes task description template (line 219) includes {state.research_findings}.
+      In fast mode, use a conditional to build a different task description that tells the
+      implementer to explore the codebase inline as needed, rather than referencing missing
+      research findings. The implementer agent still has FileReadTool, FileSearchTool, and
+      GitStatusTool, so it can do minimal exploration during implementation.
+
+  - question: "Does CrewAI Flow @router support routing to string-event @listen methods?"
+    resolved: true
+    answer: >
+      Yes. The existing codebase confirms this: route_after_review (line 335) returns
+      'commit_and_push' as a string, and commit_and_push listens on @listen('commit_and_push')
+      (line 345). String-based routing is an established pattern in this codebase.
+
+  - question: "Should implement_changes handle being called from both the research path and the fast path?"
+    resolved: true
+    answer: >
+      Yes. implement_changes will be changed to @listen('implement_changes') and will receive
+      input from either research_codebase (normal mode) or route_after_setup (fast mode).
+      The method already receives a string result parameter — it just needs to handle both
+      'success' (from research) and any string from the router. The conditional task description
+      based on state.fast_mode handles the difference in available context.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Flow Control Strategy for Skipping Steps
+
+  **Chosen:** Add @router after setup_branch for conditional step-skipping via CrewAI Flow's native routing
+
+  **Rejected:**
+  - If/early-return inside each step — still executes methods, creates noise in logs/traces
+  - Separate FastCodeImplementationFlow class — duplicates 3 of 5 steps, DRY violation
+  - Dynamic/conditional_paths API — introduces new pattern when @router is already established
+
+  **Rationale:** The codebase already uses @router for post-review routing (code_implementation.py:335). Adding routers after setup_branch and implement_changes follows this established pattern. The flow graph becomes:
+
+  ```
+  Normal:  setup → route → research → implement → route → review ↔ implement → commit
+  Fast:    setup → route → implement → route → commit
+  ```
+
+  ### 2. LLM Override for Fast Mode
+
+  **Chosen:** Pass `get_fast_llm()` to `create_code_implementer_agent(llm=...)` when fast_mode is True
+
+  **Rejected:**
+  - Modify agent factory to accept fast_mode — couples agent to flow concern
+  - Mutate Settings — dangerous with lru_cache singleton
+  - New fast agent factory — unnecessary duplication
+
+  **Rationale:** The agent factory already accepts an optional `llm` parameter (code_agents.py:68). One conditional line in the flow passes the fast LLM instead of relying on the default reasoning LLM.
+
+  ### 3. State Management
+
+  **Chosen:** Add `fast_mode: bool = Field(default=False)` to `CodeImplementationState`
+
+  **Rejected:**
+  - Flow instance variable — breaks Pydantic state serialization pattern
+  - Separate config object — inconsistent with existing single-state approach
+
+  **Rationale:** Follows the same pattern as `use_worktree` and `auto_push` fields (code_implementation.py:37-38).
+
+  ### 4. CLI Flag Design
+
+  **Chosen:** `--fast` / `-f` boolean flag on implement command
+
+  **Rejected:**
+  - `--mode` with choices — over-engineered for a toggle
+  - Separate `--skip-research` / `--skip-review` flags — spec says skip both together
+
+  **Rationale:** Consistent with existing boolean flags (--worktree, --no-push). Short form -f doesn't conflict with existing flags.
+
+  ### 5. Testing Strategy
+
+  **Chosen:** Unit tests with mocked CrewAI and git tools
+
+  **Rejected:**
+  - Integration tests with real LLMs — slow, flaky, expensive
+  - CLI-only tests — misses routing logic
+
+  **Rationale:** Follows existing test patterns (pytest + unittest.mock).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | CrewAI Flow | Step routing/orchestration | Use (existing) | @router decorator handles conditional paths natively |
+  | Pydantic | State model | Use (existing) | fast_mode field follows established pattern |
+  | Typer | CLI flag | Use (existing) | Boolean option matches --worktree pattern |
+  | Rich | Mode display | Use (existing) | Panel already renders startup info |
+  | pytest | Testing | Use (existing) | Established test framework in project |
+
+  No new libraries needed. All changes use existing dependencies.
+
+  ## Security Considerations
+
+  - **No security impact.** Fast mode only changes which steps execute and which LLM is used. It doesn't bypass any authentication, authorization, or input validation.
+  - The fast LLM still has the same tool access permissions as the reasoning LLM — it can read/write files in the working directory. This is the same attack surface as normal mode.
+  - No new user inputs are introduced beyond a boolean flag.
+
+  ## Performance Implications
+
+  - **Positive:** Fast mode eliminates 2-4 LLM calls (1 research + 1-3 review iterations), reducing total execution time significantly.
+  - **Positive:** The fast LLM (gpt-4o-mini) has lower latency per call compared to the reasoning model (claude-3.5-sonnet).
+  - **Positive:** Fewer API calls means lower cost per execution.
+  - **Neutral:** No memory or CPU impact — the flow simply skips steps.
+  - **Trade-off:** Lower quality code output is expected since research context is missing and a less capable model is used. This is the explicit trade-off the user opts into with --fast.
+
+  ## Architecture Notes
+
+  ### Files to Modify
+
+  1. **`src/sheep/flows/code_implementation.py`** (Medium changes)
+     - Add `fast_mode` field to `CodeImplementationState` (after line 38)
+     - Add `@router(setup_branch)` method `route_after_setup` that checks `state.fast_mode`
+     - Change `research_codebase` from `@listen(setup_branch)` to `@listen("research_codebase")`
+     - Change `implement_changes` from `@listen(research_codebase)` to `@listen("implement_changes")`
+     - Have `research_codebase` route to `"implement_changes"` on success
+     - Add `@router(implement_changes)` method `route_after_implementation` — fast mode → "commit_and_push", normal → review_changes
+     - In `implement_changes`, conditionally use `get_fast_llm()` when `state.fast_mode is True`
+     - In `implement_changes`, adjust task description when `research_findings` is None (fast mode)
+     - Add `fast_mode` to `run_code_implementation()` parameters and `input_data` dict
+
+  2. **`src/sheep/cli.py`** (Low changes)
+     - Add `--fast` / `-f` boolean flag to `implement` command (after line 78)
+     - Pass `fast_mode` to `run_code_implementation` (line 114)
+     - Add `Mode: Fast/Normal` line to startup Panel (line 103-111)
+
+  3. **`src/sheep/flows/__init__.py`** (No changes needed)
+     - `run_code_implementation` is re-exported; the new parameter passes through via the function signature
+
+  4. **`tests/test_fast_mode.py`** (New file)
+     - Test `CodeImplementationState` accepts `fast_mode` field
+     - Test flow routing skips research when `fast_mode=True`
+     - Test implementer uses fast LLM in fast mode
+     - Test normal mode behavior is completely unaffected
+
+  ### Flow Graph Change
+
+  Current flow:
+  ```
+  setup_branch (@start)
+    └→ research_codebase (@listen setup_branch)
+         └→ implement_changes (@listen research_codebase)
+              └→ review_changes (@listen implement_changes)
+                   └→ route_after_review (@router review_changes)
+                        ├→ "commit_and_push" (passed)
+                        └→ implement_changes (needs_changes)
+  commit_and_push (@listen "commit_and_push")
+  ```
+
+  New flow:
+  ```
+  setup_branch (@start)
+    └→ route_after_setup (@router setup_branch) ← NEW
+         ├→ "research_codebase" (normal mode)
+         └→ "implement_changes" (fast mode)
+  research_codebase (@listen "research_codebase")
+    └→ routes to "implement_changes"
+  implement_changes (@listen "implement_changes")
+    └→ route_after_implementation (@router implement_changes) ← NEW
+         ├→ review_changes (normal mode)
+         └→ "commit_and_push" (fast mode)
+  review_changes (@listen route_after_implementation) [normal mode only]
+    └→ route_after_review (@router review_changes, existing)
+         ├→ "commit_and_push" (passed)
+         └→ "implement_changes" (needs_changes)
+  commit_and_push (@listen "commit_and_push")
+  ```
+
+  ### Implementation Order
+
+  1. Add `fast_mode` to `CodeImplementationState`
+  2. Refactor flow routing (setup router, implementation router, string-based listeners)
+  3. Add LLM override and task description conditional in `implement_changes`
+  4. Update `run_code_implementation` signature
+  5. Add CLI flag and panel display
+  6. Write tests
+
+  ---
+
+  _Research completed 2026-02-19_

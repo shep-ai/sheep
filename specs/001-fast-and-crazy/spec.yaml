@@ -1,0 +1,178 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fast-and-crazy
+number: 001
+branch: feat/001-fast-and-crazy
+oneLiner: Add a --fast flag that skips research/review steps and uses the fast LLM for bold, speed-first implementation
+userQuery: >
+  i want something fast and crazy
+summary: >
+  Add a "fast and crazy" execution mode to the Sheep CLI. When activated via a --fast flag
+  on the implement command, this mode skips the research and code review steps, uses the
+  fast LLM model for implementation (instead of the reasoning model), and goes straight from
+  branch setup to implementation to commit/push. This trades thoroughness for speed — ideal
+  for small changes, prototyping, or when the user already knows exactly what they want.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures:
+  []
+
+technologies:
+  - Python 3.11+
+  - CrewAI (agent orchestration framework)
+  - Pydantic / Pydantic Settings (configuration and state)
+  - Typer (CLI framework)
+  - Rich (terminal UI)
+  - structlog (structured logging)
+  - Langfuse + OpenInference (observability/tracing)
+  - GitPython / subprocess git (version control)
+  - httpx (HTTP client)
+  - DuckDuckGo Search (web search)
+  - Hatchling (build system)
+  - Ruff (linting/formatting)
+  - MyPy (type checking)
+  - pytest (testing)
+  - Docker / docker-compose (containerization)
+  - GitHub Actions (CI/CD)
+
+relatedLinks:
+  []
+
+openQuestions:
+  - question: "What does 'fast and crazy' mean in the context of this agentic platform?"
+    resolved: true
+    answer: >
+      Recommend interpreting as a new --fast CLI flag that creates a speed-first execution mode.
+      This mode skips the research and review steps in CodeImplementationFlow and uses the fast
+      LLM for implementation instead of the reasoning model. Rationale: (1) The codebase already
+      has a fast/reasoning LLM distinction but no way for the user to force fast mode,
+      (2) the sequential flow (research→implement→review) is the main latency bottleneck,
+      (3) this is the simplest interpretation that delivers real value as a small feature.
+      Alternative: If the user meant parallel execution or a completely new experimental flow,
+      that would be M-L in size and should be a separate feature.
+
+  - question: "Should fast mode skip research only, review only, or both?"
+    resolved: true
+    answer: >
+      Recommend skipping both research AND review. Rationale: The goal is maximum speed.
+      Research adds 1 full LLM call + tool usage, review adds 1-3 LLM calls with potential
+      re-implementation loops. Skipping both gives the biggest speed improvement. The user
+      choosing --fast is explicitly opting into a "just do it" approach. The implementer agent
+      still has access to file read/search tools, so it can do minimal exploration inline.
+
+  - question: "Should fast mode use the fast LLM or reasoning LLM for implementation?"
+    resolved: true
+    answer: >
+      Recommend using the fast LLM (gpt-4o-mini by default) for the implementation step.
+      Rationale: This is the "crazy" part — using a cheaper, faster model for the actual
+      code writing. It matches the spirit of the request and provides the most noticeable
+      speed difference. The fast model is still capable for straightforward changes.
+      Alternative: Keep the reasoning model but skip research/review — this would be
+      "fast but cautious" rather than "fast and crazy".
+
+  - question: "Should the --fast flag also skip the git commit message generation and use a simpler template?"
+    resolved: true
+    answer: >
+      Recommend keeping the existing commit message logic unchanged. Rationale: Commit message
+      generation is cheap (string formatting, not an LLM call) and doesn't add meaningful
+      latency. Good commit messages are valuable even for quick changes.
+
+  - question: "Should there be a SHEEP_FAST_MODE environment variable as a persistent default?"
+    resolved: true
+    answer: >
+      Recommend NOT adding an environment variable for this initial implementation. Rationale:
+      Fast mode is a per-invocation choice, not a persistent preference. Users who always want
+      fast mode can alias the command. Adding a setting increases scope without clear value.
+      Can be added later if users request it.
+
+  - question: "Should the CLI output indicate that fast mode is active?"
+    resolved: true
+    answer: >
+      Recommend yes — display a clear indicator in the Rich panel output that fast mode is
+      active (e.g., show 'Mode: Fast' in the startup panel). Rationale: Users should have
+      confirmation that their flag was recognized, and it helps distinguish output from
+      normal runs when reviewing terminal history.
+
+content: |
+  ## Problem Statement
+
+  The Sheep CLI's `implement` command always runs the full 5-step flow:
+  setup → research → implement → review → commit/push. This is thorough but slow.
+  For small changes, prototyping, or cases where the user knows exactly what they want,
+  there's no way to trade thoroughness for speed.
+
+  Users need a "fast and crazy" mode that skips optional steps (research, review) and uses
+  the fast LLM model for implementation, going straight from branch setup to implementation
+  to commit/push.
+
+  ## Success Criteria
+
+  - [ ] `sheep implement . -i "..." --fast` completes successfully, skipping research and review steps
+  - [ ] Fast mode uses the fast LLM (SHEEP_FAST_MODEL) for the implementation agent instead of the reasoning model
+  - [ ] Fast mode flow executes exactly 3 steps: setup_branch → implement_changes → commit_and_push
+  - [ ] Normal mode (without --fast) behavior is completely unchanged
+  - [ ] CLI startup panel displays "Mode: Fast" when --fast is active
+  - [ ] All existing tests continue to pass
+  - [ ] New unit tests cover the fast mode flow path
+
+  ## Functional Requirements
+
+  - **FR-1**: Add a `--fast` / `-f` boolean flag to the `implement` CLI command (default: False)
+  - **FR-2**: Add a `fast_mode` boolean field to `CodeImplementationState` (default: False)
+  - **FR-3**: When `fast_mode` is True, `CodeImplementationFlow` must skip the `research_codebase` step entirely
+  - **FR-4**: When `fast_mode` is True, `CodeImplementationFlow` must skip the `review_changes` step and its router entirely
+  - **FR-5**: When `fast_mode` is True, the `implement_changes` step must use the fast LLM (`get_fast_llm()`) instead of the reasoning LLM for the implementer agent
+  - **FR-6**: When `fast_mode` is True, the `implement_changes` step must proceed directly to `commit_and_push` after completion
+  - **FR-7**: The `run_code_implementation()` function must accept and forward a `fast_mode` parameter
+  - **FR-8**: The CLI startup panel must display the execution mode (e.g., "Mode: Fast" or "Mode: Normal")
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Fast mode must not break the existing normal flow — all current behavior must be preserved when `--fast` is not passed
+  - **NFR-2**: The implementation must follow existing patterns: CrewAI Flow routing, Pydantic state, factory functions, Typer CLI conventions
+  - **NFR-3**: Fast mode should result in noticeably fewer LLM calls (2 steps instead of 4-5 steps including review retries)
+  - **NFR-4**: Observability must still work in fast mode — Langfuse/OpenInference tracing should capture the abbreviated flow
+  - **NFR-5**: Code changes must pass ruff linting and mypy type checking
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | What does "fast and crazy" mean? | --fast flag: skip research + review, use fast LLM | Most impactful, smallest scope, builds on existing fast/reasoning LLM distinction |
+  | 2 | Skip research only, review only, or both? | Skip both | Maximum speed; user is explicitly opting into "just do it" |
+  | 3 | Which LLM for fast implementation? | Fast LLM (gpt-4o-mini) | The "crazy" part — cheaper, faster model for code writing |
+  | 4 | Simplify commit messages too? | No — keep as-is | Commit messages are cheap string formatting, not LLM calls |
+  | 5 | Add SHEEP_FAST_MODE env var? | No — CLI flag only | Per-invocation choice; env var can be added later |
+  | 6 | Show fast mode indicator in CLI? | Yes — "Mode: Fast" in panel | User confirmation + distinguishes output in history |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/sheep/cli.py` | Low | Add --fast flag to implement command, pass to flow, display in panel |
+  | `src/sheep/flows/code_implementation.py` | Medium | Add fast_mode to state, add routing logic to skip research/review, override LLM in fast mode |
+  | `src/sheep/flows/__init__.py` | Low | Forward fast_mode parameter in run_code_implementation |
+  | `tests/` | Low | Add tests for fast mode flow path |
+
+  ## Dependencies
+
+  - CrewAI framework (core dependency — Flow routing with @router/@listen)
+  - Pydantic for state management (adding fast_mode field)
+  - Existing tool implementations (reusable as-is)
+  - Existing LLM factory functions (get_fast_llm already exists)
+
+  ## Size Estimate
+
+  **S** — This feature touches 3-4 files with focused changes:
+  1. Add a boolean field to state model
+  2. Add conditional routing in the flow
+  3. Add a CLI flag
+  4. Add tests
+  No new modules, no architectural changes, no new dependencies.
+
+  ---
+
+  _Generated by feature agent — requirements phase complete_

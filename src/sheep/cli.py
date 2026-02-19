@@ -76,6 +76,12 @@ def implement(
         "--no-push",
         help="Don't push changes after commit",
     ),
+    fast: bool = typer.Option(
+        False,
+        "--fast",
+        "-f",
+        help="Fast mode: skip research and review, use fast LLM",
+    ),
     verbose: bool = typer.Option(
         False,
         "--verbose",
@@ -105,7 +111,8 @@ def implement(
             f"[bold]Repository:[/bold] {repo_path.resolve()}\n"
             f"[bold]Branch:[/bold] {branch or '(auto-generated)'}\n"
             f"[bold]Worktree:[/bold] {worktree}\n"
-            f"[bold]Auto-push:[/bold] {not no_push}",
+            f"[bold]Auto-push:[/bold] {not no_push}\n"
+            f"[bold]Mode:[/bold] {'Fast' if fast else 'Normal'}",
             title="🐑 Sheep - Code Implementation",
             expand=False,
         )
@@ -117,6 +124,7 @@ def implement(
         branch_name=branch,
         use_worktree=worktree,
         auto_push=not no_push,
+        fast_mode=fast,
         verbose=verbose,
     )
 

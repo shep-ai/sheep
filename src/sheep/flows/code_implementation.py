@@ -13,6 +13,7 @@ from sheep.agents import (
     create_code_researcher_agent,
     create_code_reviewer_agent,
 )
+from sheep.config.llm import get_fast_llm
 from sheep.config.settings import get_settings
 from sheep.observability.logging import AgentLogger, get_logger
 from sheep.tools import (
@@ -35,6 +36,7 @@ class CodeImplementationState(BaseModel):
     branch_name: str | None = Field(default=None, description="Branch name to create")
     use_worktree: bool = Field(default=False, description="Use git worktree")
     auto_push: bool = Field(default=True, description="Automatically push changes")
+    fast_mode: bool = Field(default=False, description="Skip research and review, use fast LLM")
 
     # Derived state
     working_path: str | None = Field(default=None, description="Actual working directory")
@@ -137,7 +139,16 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
             self.flow_logger.error(str(e))
             return "error"
 
-    @listen(setup_branch)
+    @router(setup_branch)
+    def route_after_setup(self, setup_result: str) -> str:
+        """Route based on fast_mode: skip research in fast mode."""
+        if setup_result == "error":
+            return "error"
+        if self.state.fast_mode:
+            return "implement_changes"
+        return "research_codebase"
+
+    @listen("research_codebase")
     def research_codebase(self, setup_result: str) -> str:
         """Research the codebase to understand implementation needs."""
         if setup_result == "error":
@@ -191,14 +202,14 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
 
             state.research_findings = str(result)
             self.flow_logger.result(f"Research completed: {len(state.research_findings)} chars")
-            return "success"
+            return "implement_changes"
         except Exception as e:
             state.error = f"Research failed: {e}"
             state.final_status = "error"
             self.flow_logger.error(str(e))
             return "error"
 
-    @listen(research_codebase)
+    @listen("implement_changes")
     def implement_changes(self, research_result: str) -> str:
         """Implement the required code changes."""
         if research_result == "error":
@@ -207,10 +218,36 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
         self.flow_logger.action("Implementing changes")
         state = self.state
 
-        implementer = create_code_implementer_agent(verbose=self.verbose)
+        if state.fast_mode:
+            llm = get_fast_llm()
+            implementer = create_code_implementer_agent(llm=llm, verbose=self.verbose)
+        else:
+            implementer = create_code_implementer_agent(verbose=self.verbose)
 
-        implementation_task = Task(
-            description=f"""
+        if state.fast_mode:
+            description = f"""
+            Implement the following changes:
+
+            {state.issue_description}
+
+            Working directory: {state.working_path}
+
+            You are in fast mode — no prior research was done. Explore the codebase
+            as needed using file read and search tools to understand the structure
+            before making changes.
+
+            Guidelines:
+            1. First, briefly explore the project structure to orient yourself
+            2. Follow the existing code patterns and conventions
+            3. Make minimal, focused changes - only what's needed
+            4. Ensure proper error handling where appropriate
+            5. Add comments only where logic isn't self-evident
+            6. Do not add unnecessary features or "improvements"
+
+            After making changes, verify them with git status and git diff.
+            """
+        else:
+            description = f"""
             Based on the research findings, implement the changes for:
 
             {state.issue_description}
@@ -228,7 +265,10 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
             5. Do not add unnecessary features or "improvements"
 
             After making changes, verify them with git status and git diff.
-            """,
+            """
+
+        implementation_task = Task(
+            description=description,
             expected_output="""
             A summary of changes made including:
             1. List of files modified/created
@@ -257,7 +297,16 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
             self.flow_logger.error(str(e))
             return "error"
 
-    @listen(implement_changes)
+    @router(implement_changes)
+    def route_after_implementation(self, impl_result: str) -> str:
+        """Route based on fast_mode: skip review in fast mode."""
+        if impl_result == "error":
+            return "error"
+        if self.state.fast_mode:
+            return "commit_and_push"
+        return "review_changes"
+
+    @listen("review_changes")
     def review_changes(self, impl_result: str) -> str:
         """Review the implemented changes."""
         if impl_result == "error":
@@ -395,6 +444,7 @@ def run_code_implementation(
     branch_name: str | None = None,
     use_worktree: bool = False,
     auto_push: bool = True,
+    fast_mode: bool = False,
     verbose: bool = False,
     session_id: str | None = None,
     user_id: str | None = None,
@@ -439,6 +489,7 @@ def run_code_implementation(
         "branch_name": branch_name,
         "use_worktree": use_worktree,
         "auto_push": auto_push,
+        "fast_mode": fast_mode,
     }
 
     # Run the flow - OpenInference will automatically capture all traces
