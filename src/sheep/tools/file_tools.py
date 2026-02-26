@@ -15,12 +15,8 @@ class FileReadInput(BaseModel):
     """Input for reading a file."""
 
     file_path: str = Field(description="Path to the file to read")
-    start_line: int | None = Field(
-        default=None, description="Starting line number (1-indexed)"
-    )
-    end_line: int | None = Field(
-        default=None, description="Ending line number (inclusive)"
-    )
+    start_line: int | None = Field(default=None, description="Starting line number (1-indexed)")
+    end_line: int | None = Field(default=None, description="Ending line number (inclusive)")
 
 
 class FileReadTool(BaseTool):
@@ -105,9 +101,7 @@ class FileSearchInput(BaseModel):
 
     directory: str = Field(description="Directory to search in")
     pattern: str = Field(description="Search pattern (regex or text)")
-    file_pattern: str = Field(
-        default="*", description="File glob pattern (e.g., '*.py', '*.ts')"
-    )
+    file_pattern: str = Field(default="*", description="File glob pattern (e.g., '*.py', '*.ts')")
     max_results: int = Field(default=50, description="Maximum number of results")
 
 

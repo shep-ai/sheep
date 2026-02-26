@@ -59,9 +59,7 @@ class GitDiffInput(BaseModel):
     """Input for git diff."""
 
     repo_path: str = Field(description="Path to the git repository")
-    file_path: str | None = Field(
-        default=None, description="Optional specific file to diff"
-    )
+    file_path: str | None = Field(default=None, description="Optional specific file to diff")
     staged: bool = Field(default=False, description="Show staged changes only")
 
 
@@ -243,12 +241,8 @@ class GitPushInput(BaseModel):
 
     repo_path: str = Field(description="Path to the git repository")
     remote: str = Field(default="origin", description="Remote name")
-    branch: str | None = Field(
-        default=None, description="Branch to push (default: current branch)"
-    )
-    set_upstream: bool = Field(
-        default=True, description="Set upstream tracking reference"
-    )
+    branch: str | None = Field(default=None, description="Branch to push (default: current branch)")
+    set_upstream: bool = Field(default=True, description="Set upstream tracking reference")
 
 
 class GitPushTool(BaseTool):
@@ -293,9 +287,7 @@ class GitWorktreeInput(BaseModel):
     repo_path: str = Field(description="Path to the main git repository")
     worktree_path: str = Field(description="Path where worktree should be created")
     branch_name: str = Field(description="Branch name for the worktree")
-    base_branch: str = Field(
-        default="main", description="Base branch to create worktree from"
-    )
+    base_branch: str = Field(default="main", description="Base branch to create worktree from")
 
 
 class GitWorktreeTool(BaseTool):

@@ -87,21 +87,19 @@ class WebSearchTool(BaseTool):
                     # Try with increased timeout and proxy settings
                     with DDGS(timeout=20, proxies=None) as ddgs:
                         # Use the text search
-                        search_results = list(ddgs.text(
-                            query,
-                            max_results=max_results,
-                        ))
+                        search_results = list(
+                            ddgs.text(
+                                query,
+                                max_results=max_results,
+                            )
+                        )
 
                         for i, result in enumerate(search_results, 1):
                             title = result.get("title", "No title")
                             url = result.get("href", "No URL")
                             snippet = result.get("body", "No description")
 
-                            results.append(
-                                f"{i}. **{title}**\n"
-                                f"   URL: {url}\n"
-                                f"   {snippet}\n"
-                            )
+                            results.append(f"{i}. **{title}**\n   URL: {url}\n   {snippet}\n")
 
                     # If we got results, break out of retry loop
                     if results:
@@ -137,10 +135,7 @@ class WebSearchTool(BaseTool):
                     f"use the web_fetch tool to retrieve it directly."
                 )
 
-            return (
-                f"Search results for '{query}':\n\n"
-                + "\n".join(results)
-            )
+            return f"Search results for '{query}':\n\n" + "\n".join(results)
 
         except ImportError:
             return (

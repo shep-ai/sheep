@@ -87,5 +87,3 @@ def init_observability() -> None:
         )
     except Exception as e:
         _logger.warning("Failed to initialize OpenInference", error=str(e))
-
-
