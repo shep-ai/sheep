@@ -1,0 +1,110 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: random-word-file
+summary: >
+  Add RANDOM_WORD.txt (a single hardcoded English word with trailing newline) to
+  the repository root, and a pytest test at tests/test_random_word_file.py that
+  asserts the file exists, contains exactly one token, and ends with a single LF.
+  No new dependencies required.
+
+relatedFeatures: []
+technologies:
+  - Python 3.11+ (stdlib pathlib for test path resolution)
+  - pytest 8.x (existing test runner)
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Content File Creation'
+    description: >
+      Create RANDOM_WORD.txt at the repository root with a single lowercase
+      English word followed by exactly one LF newline. This is a static committed
+      asset — no generation script. Comes first because the test in phase-2
+      asserts this file's existence and content.
+    parallel: false
+
+  - id: phase-2
+    name: 'Test Coverage'
+    description: >
+      Add tests/test_random_word_file.py with assertions covering FR-1 (file
+      exists), FR-2 (exactly one whitespace-delimited token), and FR-3 (file
+      ends with exactly one LF). Follows the TDD cycle: write the failing test
+      first (RED), then verify it passes after phase-1 creates the file (GREEN),
+      then review for any cleanup (REFACTOR).
+    parallel: false
+
+filesToCreate:
+  - RANDOM_WORD.txt
+  - tests/test_random_word_file.py
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature adds two files to the repository without modifying any existing
+  source or configuration:
+
+  1. `RANDOM_WORD.txt` — placed at the repo root alongside the existing static
+     content files (JOKE.md, JOKE2.md, JOKE3.md, SHEEP.md, DESIGN_PATTERN.md).
+     It follows the same pattern: a single committed asset, no build-time
+     generation, no runtime generation.
+
+  2. `tests/test_random_word_file.py` — placed in the `tests/` directory that
+     pytest discovers via `testpaths = ["tests"]` in `pyproject.toml`. Follows
+     the naming convention of `test_config.py` and `test_tools.py`. Uses only
+     `pathlib.Path` from the Python stdlib; no new imports or dependencies.
+
+  The feature intentionally touches no existing files, no CI configuration, and
+  no dependency manifests.
+
+  ## Key Design Decisions
+
+  ### 1. Hardcoded static word (not a generation script)
+
+  The spec open-question resolution explicitly selects a hardcoded word. All
+  existing root content files are static committed assets. Adding a script would
+  over-engineer an S-sized task and conflict with NFR-2 (no new dependencies).
+
+  ### 2. Dedicated test module at tests/test_random_word_file.py
+
+  Consistent with the one-module-per-concern convention (`test_config.py`,
+  `test_tools.py`). Pytest discovers it automatically. Inline assertions in an
+  existing test file would mix unrelated concerns.
+
+  ### 3. pathlib.Path(__file__).parent.parent for repo-root resolution
+
+  Idiomatic stdlib pattern for navigating from `tests/` up to the repo root.
+  Avoids hardcoding absolute paths or using `os.getcwd()` (which is
+  pytest-invocation-directory-dependent).
+
+  ### 4. Three assertions: existence + split() == 1 + ends with '\n'
+
+  Maps 1:1 to FR-1, FR-2, FR-3. Running in microseconds (trivial file read)
+  satisfies NFR-3 (<1 s). Dictionary validation rejected as overkill that would
+  add a network call or large word corpus.
+
+  ### 5. UTF-8, single lowercase word, single trailing LF
+
+  FR-3 mandates POSIX text file (LF, no BOM, no CRLF). NFR-5 mandates UTF-8.
+  A common English noun or adjective avoids any encoding edge cases and reads
+  naturally in a directory listing.
+
+  ## Implementation Strategy
+
+  Phase ordering follows natural dependency: the content file must exist before
+  the test can pass. TDD discipline is preserved by writing the test first
+  (RED), then creating the file (GREEN), then reviewing for cleanup (REFACTOR).
+  Both files are self-contained; no wiring to existing modules is required.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Accidental CRLF line ending on Windows | Write file on Linux; verify with `file RANDOM_WORD.txt` or hex dump if in doubt |
+  | Word accidentally contains whitespace or punctuation | Choose a simple common noun (e.g., "serendipity"); visually verify before commit |
+  | Test path resolution breaks in unusual pytest invocation dirs | Use `pathlib.Path(__file__).parent.parent` (relative to test file, not CWD) |
+  | git marks file as binary or non-text | Content is pure ASCII subset of UTF-8; git will treat it as text automatically |
