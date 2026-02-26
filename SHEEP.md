@@ -1,0 +1,3 @@
+# A Sheep Story
+
+Once upon a time, a small sheep named Woolbert lived on a hillside where the grass was always perfectly green — except, he was convinced, on the other side of the fence. One crisp morning, Woolbert finally squeezed through a gap in the wooden rails and trotted triumphantly onto the neighbouring slope. He took one hopeful bite of the grass and chewed slowly. It tasted exactly the same. Woolbert stood there for a long moment, ears flat, reconsidering his entire worldview. Then he noticed the view from this side of the fence was actually rather lovely, and the afternoon sun was warm on his fleece. He settled down contentedly, deciding that the other side of the fence was wonderful — and that home might have been pretty great all along.
