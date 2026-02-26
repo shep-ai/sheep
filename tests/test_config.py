@@ -16,7 +16,9 @@ def test_settings_defaults():
         "SHEEP_LOG_LEVEL",
     ]
 
-    with patch.dict(os.environ, {k: "" for k in env_vars_to_clear}, clear=False):
+    with patch.dict(os.environ, {}, clear=False):
+        for k in env_vars_to_clear:
+            os.environ.pop(k, None)
         # Need to clear the lru_cache to get fresh settings
         from sheep.config.settings import get_settings
 
@@ -33,8 +35,12 @@ def test_llm_settings_providers():
     """Test that LLM settings correctly identify available providers."""
     from sheep.config.settings import LLMSettings
 
+    api_keys = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_API_KEY", "CURSOR_API_KEY"]
     # No providers configured
-    settings = LLMSettings()
+    with patch.dict(os.environ, {}, clear=False):
+        for k in api_keys:
+            os.environ.pop(k, None)
+        settings = LLMSettings()
     assert settings.get_available_providers() == []
 
 
@@ -42,10 +48,14 @@ def test_langfuse_settings_configured():
     """Test Langfuse configuration detection."""
     from sheep.config.settings import LangfuseSettings
 
-    # Not configured
-    settings = LangfuseSettings()
-    assert not settings.is_configured
+    langfuse_keys = ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_BASE_URL", "LANGFUSE_HOST"]
+    with patch.dict(os.environ, {}, clear=False):
+        for k in langfuse_keys:
+            os.environ.pop(k, None)
+        # Not configured
+        settings = LangfuseSettings()
+        assert not settings.is_configured
 
-    # Partially configured
-    settings = LangfuseSettings(public_key="pk-test")  # type: ignore
-    assert not settings.is_configured
+        # Partially configured
+        settings = LangfuseSettings(public_key="pk-test")  # type: ignore
+        assert not settings.is_configured
