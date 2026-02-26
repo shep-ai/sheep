@@ -1,0 +1,147 @@
+name: random-word-file
+summary: >
+  This feature requires two files: RANDOM_WORD.txt at the repo root containing
+  a single lowercase English word with a trailing newline, and
+  tests/test_random_word_file.py asserting the file's existence and format.
+  No new dependencies are needed; pathlib from the Python stdlib handles all
+  file operations in the test.
+
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+ (stdlib pathlib for test file-path resolution)
+  - pytest 8.x (existing test runner)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Word Selection Method'
+    chosen: 'Hardcoded static word committed directly as file content'
+    rejected:
+      - 'Python script at commit-time — adds tooling overhead for no benefit; the spec explicitly resolves this as overkill for an S-sized task'
+      - 'External word API or corpus file — introduces network/asset dependency; completely disproportionate to scope'
+    rationale: >
+      The spec open-question resolution explicitly selects a hardcoded static
+      word. Existing root content files (JOKE.md, SHEEP.md, DESIGN_PATTERN.md)
+      were all created as static committed assets with no generation tooling.
+      Matching that pattern keeps the PR diff minimal (one new file, one new
+      test) and satisfies NFR-2 (no new Python package dependencies).
+
+  - title: 'Test File Location and Structure'
+    chosen: 'tests/test_random_word_file.py using pathlib.Path to resolve repo root'
+    rejected:
+      - 'Inline assertions inside an existing test file — mixing unrelated concerns; harder to read and locate'
+      - 'Shell-based CI check (e.g., a Makefile target) — inconsistent with the project pytest-only test strategy defined in pyproject.toml [tool.pytest.ini_options]'
+    rationale: >
+      All existing tests live under tests/ and are discovered via pytest with
+      testpaths = ["tests"] in pyproject.toml. A dedicated test_random_word_file.py
+      follows the one-module-per-concern naming convention seen in test_config.py
+      and test_tools.py. Using pathlib.Path(__file__).parent.parent to navigate
+      from tests/ up to the repo root is the idiomatic stdlib pattern and
+      requires zero additional imports beyond what pytest already provides.
+
+  - title: 'File Encoding and Line-Ending Format'
+    chosen: 'UTF-8, single lowercase word, single trailing LF newline (POSIX text file)'
+    rejected:
+      - 'No trailing newline (bare bytes) — triggers git "No newline at end of file" warning; non-POSIX; spec FR-3 explicitly forbids this'
+      - 'Windows CRLF line ending — spec FR-3 explicitly forbids CRLF; would also fail the test assertion on non-Windows CI'
+    rationale: >
+      FR-3 mandates a POSIX-compliant text file ending with exactly one LF and
+      no BOM. NFR-5 mandates UTF-8. A single common English word satisfies FR-4
+      without touching any edge cases in character encoding. Writing the file
+      with a text editor or echo produces the correct format by default on Linux.
+
+  - title: 'Test Assertion Scope'
+    chosen: 'Assert file exists, split() length == 1 (one token), and file ends with exactly one newline'
+    rejected:
+      - 'Assert only file existence — too weak; would pass even if the file were empty or contained multiple words'
+      - 'Assert against a dictionary API or wordlist — introduces a network call or large asset; NFR-3 requires test to complete in under 1 second'
+    rationale: >
+      The success criteria in the spec enumerate three checkable properties:
+      existence (FR-1), single-token content (FR-2), and POSIX newline (FR-3).
+      All three can be verified with a plain open() / read() in well under 1 s.
+      Checking split() length == 1 on the stripped content catches both empty
+      files and multi-word content in a single assertion.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Word Selection Method
+
+  **Chosen:** Hardcoded static word committed as file content
+
+  **Rejected:**
+  - Python generation script — over-engineered for S-sized task; spec explicitly rejects this
+  - External word API/corpus — network dependency; completely disproportionate
+
+  **Rationale:** Consistent with JOKE.md, SHEEP.md, DESIGN_PATTERN.md — all
+  static committed assets. No tooling overhead, zero new dependencies (NFR-2).
+
+  ### 2. Test File Location and Structure
+
+  **Chosen:** `tests/test_random_word_file.py` using `pathlib.Path` for root resolution
+
+  **Rejected:**
+  - Inline assertions in existing test file — mixes concerns, harder to locate
+  - Shell/Makefile CI check — inconsistent with pytest-only strategy in pyproject.toml
+
+  **Rationale:** Follows naming convention of `test_config.py`, `test_tools.py`.
+  `pathlib.Path(__file__).parent.parent` is idiomatic stdlib navigation from
+  `tests/` to repo root. Discovered by pytest automatically via `testpaths = ["tests"]`.
+
+  ### 3. File Encoding and Format
+
+  **Chosen:** UTF-8, single lowercase word, single trailing LF (`\n`)
+
+  **Rejected:**
+  - No trailing newline — violates FR-3; triggers git warning
+  - CRLF line endings — violates FR-3; breaks CI on Linux
+
+  **Rationale:** FR-3 mandates POSIX text file; NFR-5 mandates UTF-8. A common
+  English word avoids any encoding edge cases.
+
+  ### 4. Test Assertion Scope
+
+  **Chosen:** Assert existence + `split()` length == 1 + ends with `\n`
+
+  **Rejected:**
+  - Existence-only check — too weak; misses empty or multi-word content
+  - Dictionary/wordlist validation — network call or large asset; violates NFR-3 (< 1 s)
+
+  **Rationale:** Three assertions map 1:1 to FR-1, FR-2, FR-3. All run in
+  microseconds via stdlib file read.
+
+  ## Library Analysis
+
+  | Library    | Purpose                        | Decision | Reasoning                                      |
+  | ---------- | ------------------------------ | -------- | ---------------------------------------------- |
+  | pathlib    | Resolve repo root from test    | Use      | Python stdlib; zero dependency overhead        |
+  | pytest     | Test runner                    | Use      | Already in dev dependencies; project standard  |
+  | random     | Word generation                | Reject   | Not needed; word is hardcoded static value     |
+  | requests   | Fetch word from API            | Reject   | Network dependency; overkill for S-sized task  |
+
+  ## Security Considerations
+
+  No security implications. The file contains a single static English word with
+  no user input, no secrets, and no executable content. It is tracked by git
+  (NFR-4) and committed as a plain text asset.
+
+  ## Performance Implications
+
+  The test reads a file containing roughly 20 bytes. Wall-clock time is in the
+  microsecond range — well within the NFR-3 budget of 1 second. No caching,
+  fixtures, or async machinery is required.
+
+  ## Architecture Notes
+
+  Two files touch the repository:
+
+  1. `RANDOM_WORD.txt` — repo root, alongside existing content files.
+     No build system changes; it is a plain data file, not a Python source.
+
+  2. `tests/test_random_word_file.py` — follows the existing test module
+     naming convention. Uses only Python stdlib (`pathlib`). Discovered
+     automatically by pytest via `testpaths = ["tests"]` in `pyproject.toml`.
+     No changes to `pyproject.toml` or any CI configuration are required.
