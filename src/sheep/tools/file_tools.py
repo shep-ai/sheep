@@ -1,6 +1,5 @@
 """File operation tools for agents."""
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -16,12 +15,8 @@ class FileReadInput(BaseModel):
     """Input for reading a file."""
 
     file_path: str = Field(description="Path to the file to read")
-    start_line: int | None = Field(
-        default=None, description="Starting line number (1-indexed)"
-    )
-    end_line: int | None = Field(
-        default=None, description="Ending line number (inclusive)"
-    )
+    start_line: int | None = Field(default=None, description="Starting line number (1-indexed)")
+    end_line: int | None = Field(default=None, description="Ending line number (inclusive)")
 
 
 class FileReadTool(BaseTool):
@@ -45,7 +40,7 @@ class FileReadTool(BaseTool):
             return f"Error: Path is not a file: {file_path}"
 
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
 
             if start_line is not None or end_line is not None:
@@ -106,9 +101,7 @@ class FileSearchInput(BaseModel):
 
     directory: str = Field(description="Directory to search in")
     pattern: str = Field(description="Search pattern (regex or text)")
-    file_pattern: str = Field(
-        default="*", description="File glob pattern (e.g., '*.py', '*.ts')"
-    )
+    file_pattern: str = Field(default="*", description="File glob pattern (e.g., '*.py', '*.ts')")
     max_results: int = Field(default=50, description="Maximum number of results")
 
 
@@ -261,8 +254,6 @@ class DirectoryTreeTool(BaseTool):
                 for i, entry in enumerate(entries):
                     is_last = i == len(entries) - 1 and not truncated
                     connector = "└── " if is_last else "├── "
-                    new_prefix = prefix + ("    " if is_last else "│   ")
-
                     self._build_tree(
                         entry,
                         lines,

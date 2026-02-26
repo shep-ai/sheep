@@ -2,7 +2,6 @@
 
 import subprocess
 from pathlib import Path
-from typing import Any
 
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -60,9 +59,7 @@ class GitDiffInput(BaseModel):
     """Input for git diff."""
 
     repo_path: str = Field(description="Path to the git repository")
-    file_path: str | None = Field(
-        default=None, description="Optional specific file to diff"
-    )
+    file_path: str | None = Field(default=None, description="Optional specific file to diff")
     staged: bool = Field(default=False, description="Show staged changes only")
 
 
@@ -170,7 +167,7 @@ class GitCreateBranchTool(BaseTool):
             if base_branch:
                 args.append(base_branch)
 
-            result = _run_git(args, path)
+            _run_git(args, path)
             return f"Created and switched to branch: {branch_name}"
         except subprocess.CalledProcessError as e:
             return f"Git error: {e.stderr}"
@@ -196,7 +193,7 @@ class GitCheckoutTool(BaseTool):
             return f"Error: Repository path does not exist: {repo_path}"
 
         try:
-            result = _run_git(["checkout", branch_name], path)
+            _run_git(["checkout", branch_name], path)
             return f"Switched to branch: {branch_name}"
         except subprocess.CalledProcessError as e:
             return f"Git error: {e.stderr}"
@@ -244,12 +241,8 @@ class GitPushInput(BaseModel):
 
     repo_path: str = Field(description="Path to the git repository")
     remote: str = Field(default="origin", description="Remote name")
-    branch: str | None = Field(
-        default=None, description="Branch to push (default: current branch)"
-    )
-    set_upstream: bool = Field(
-        default=True, description="Set upstream tracking reference"
-    )
+    branch: str | None = Field(default=None, description="Branch to push (default: current branch)")
+    set_upstream: bool = Field(default=True, description="Set upstream tracking reference")
 
 
 class GitPushTool(BaseTool):
@@ -294,9 +287,7 @@ class GitWorktreeInput(BaseModel):
     repo_path: str = Field(description="Path to the main git repository")
     worktree_path: str = Field(description="Path where worktree should be created")
     branch_name: str = Field(description="Branch name for the worktree")
-    base_branch: str = Field(
-        default="main", description="Base branch to create worktree from"
-    )
+    base_branch: str = Field(default="main", description="Base branch to create worktree from")
 
 
 class GitWorktreeTool(BaseTool):
@@ -330,7 +321,7 @@ class GitWorktreeTool(BaseTool):
             _run_git(["fetch", "--all"], path, check=False)
 
             # Create worktree with new branch
-            result = _run_git(
+            _run_git(
                 ["worktree", "add", "-b", branch_name, str(worktree), base_branch],
                 path,
             )
