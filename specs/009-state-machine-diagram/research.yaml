@@ -1,0 +1,213 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: state-machine-diagram
+summary: >
+  This feature requires creating a single new markdown file (STATE_MACHINE.md) at the
+  repository root. No libraries, build tools, or code changes are needed — Mermaid diagrams
+  render natively on GitHub. Key decisions cover file structure convention, Mermaid
+  stateDiagram-v2 syntax style, and the specific state machine topology for the order
+  fulfillment domain.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Markdown
+  - Mermaid stateDiagram-v2
+
+relatedLinks:
+  - https://mermaid.js.org/syntax/stateDiagram.html
+  - https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams
+
+# Structured technology decisions
+decisions:
+  - title: 'File Structure Convention'
+    chosen: 'Terse format: level-1 heading + 1-3 sentence prose intro + single fenced Mermaid block'
+    rejected:
+      - 'DESIGN_PATTERN.md-style with multiple sections (Overview, Structure, Trade-offs) — too verbose for a small diagram file; spec explicitly targets <=50 lines'
+      - 'Diagram-only with no prose — violates FR-3 and the established heading->intro->content pattern shared by JOKE.md and SHEEP.md'
+    rationale: >
+      Reading the existing root-level content files reveals two tiers: DESIGN_PATTERN.md is
+      a long-form reference document (~237 lines), while JOKE.md (14 lines) and SHEEP.md (4 lines)
+      are terse. The spec explicitly targets the terse tier (<=50 lines) and cites JOKE.md and
+      SHEEP.md as the convention to follow. The minimal structure (heading, 1-3 sentence intro,
+      content) satisfies FR-2, FR-3, NFR-2, and NFR-3 simultaneously.
+
+  - title: 'Mermaid Diagram Type and Syntax Version'
+    chosen: 'stateDiagram-v2 (the v2 syntax)'
+    rejected:
+      - 'stateDiagram (v1 syntax) — deprecated in recent Mermaid versions; v2 is the current recommended syntax and renders correctly on GitHub'
+      - 'flowchart/graph TD — could approximate a state machine visually but lacks first-class state/transition semantics, pseudostate support ([*]), and is semantically incorrect for a state machine'
+    rationale: >
+      The spec (FR-4) explicitly requires stateDiagram-v2. Beyond compliance, v2 syntax adds
+      proper support for [*] pseudostates (required by FR-6), nested composite states (not needed
+      here but future-safe), and improved GitHub rendering. The v1 syntax is still valid but
+      its deprecation trajectory makes v2 the correct choice for any new content.
+
+  - title: 'State Naming Convention'
+    chosen: 'snake_case identifiers as direct state names; quoted aliases only where a name would be ambiguous'
+    rejected:
+      - 'CamelCase identifiers — unconventional in Mermaid examples and less readable as plain state names in the diagram source'
+      - 'Space-separated labels as direct identifiers (e.g. "payment pending") — Mermaid requires quoting or aliasing for multi-word names; inconsistent and error-prone'
+    rationale: >
+      Mermaid stateDiagram-v2 natively supports snake_case identifiers as both the internal name
+      and the rendered label, keeping the syntax minimal. The spec (NFR-4) explicitly calls for
+      snake_case or short readable labels. For this domain (placed, payment_pending, paid, shipped,
+      delivered, cancelled) snake_case is immediately readable without aliasing.
+
+  - title: 'State Machine Topology (States and Transitions)'
+    chosen: >
+      6 named states: placed, payment_pending, paid, shipped, delivered, cancelled.
+      Happy path: [*] -> placed -> payment_pending -> paid -> shipped -> delivered -> [*].
+      Cancellation branch from placed, payment_pending, or paid -> cancelled -> [*].
+      Transition labels on non-obvious triggers only (e.g. "payment received", "cancel").
+    rejected:
+      - 'Include a "refunded" state after cancellation — adds a 7th state that is plausible but not required by the spec, and pushes toward the upper bound of the 5-7 range without meaningful diagram improvement'
+      - 'Collapse payment_pending and paid into a single "payment" state — reduces branching opportunities and fails FR-5 (minimum 5 states) if other states are also merged'
+    rationale: >
+      Six states hits the middle of the 5-7 target range (FR-5). The cancellation edge from
+      three different states (placed, payment_pending, paid) satisfies FR-7 branching
+      convincingly and realistically — orders cannot be cancelled after shipping in most
+      fulfillment models. delivered and cancelled are the two natural terminal states
+      (both transition to [*], satisfying FR-6). Transition labels are added only where the
+      trigger is non-obvious, consistent with NFR-4.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should transition labels use action verbs or event names?'
+    resolved: true
+    options:
+      - option: 'Action verbs (e.g. "submit payment", "ship order", "cancel")'
+        description: >
+          Labels describe what action triggers the transition. Reads naturally in English
+          and is consistent with UML statechart notation where transitions are labeled
+          with events or triggers.
+        selected: true
+      - option: 'Past-tense events (e.g. "payment submitted", "order shipped")'
+        description: >
+          Labels describe what happened to cause the transition. More event-sourcing-like
+          but feels verbose and less natural in a short diagram.
+        selected: false
+      - option: 'No labels — rely on state names alone'
+        description: >
+          Omits all transition labels, relying on state names to imply the trigger.
+          Simplest, but NFR-4 says labels should be present where the trigger is non-obvious,
+          so some labels are required.
+        selected: false
+    selectionRationale: >
+      Action verbs are the conventional Mermaid style shown in official documentation examples
+      and are most readable at a glance. NFR-4 requires labels "where the trigger is non-obvious",
+      which is satisfied without over-labeling: obvious transitions can omit labels while less
+      obvious ones (paid -> shipped, cancel edges) get brief verb labels.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-26
+
+  ## Technology Decisions
+
+  ### 1. File Structure Convention
+
+  **Chosen:** Terse format — level-1 heading, 1–3 sentence prose intro, single fenced Mermaid block.
+
+  **Rejected:**
+  - DESIGN_PATTERN.md multi-section format — too verbose; spec targets ≤50 lines
+  - Diagram-only (no prose) — violates FR-3 and established heading→intro→content pattern
+
+  **Rationale:** The existing root-level content files fall into two tiers. DESIGN_PATTERN.md is a
+  long-form reference (~237 lines). JOKE.md and SHEEP.md are terse (4–14 lines). The spec explicitly
+  cites the terse tier as the target convention and sets a ≤50 line limit. Reading both files
+  confirms the pattern: `# Title`, brief prose, then content.
+
+  ---
+
+  ### 2. Mermaid Diagram Type and Syntax Version
+
+  **Chosen:** `stateDiagram-v2`
+
+  **Rejected:**
+  - `stateDiagram` (v1) — deprecated; v2 is current and recommended on GitHub
+  - `flowchart`/`graph TD` — semantically incorrect for a state machine; lacks [*] pseudostate support
+
+  **Rationale:** The spec (FR-4) mandates stateDiagram-v2. Beyond compliance, v2 adds proper
+  pseudostate support ([*]) required by FR-6, and renders correctly on GitHub without any tooling.
+
+  ---
+
+  ### 3. State Naming Convention
+
+  **Chosen:** `snake_case` identifiers as direct state names.
+
+  **Rejected:**
+  - CamelCase — unconventional in Mermaid; less readable in diagram source
+  - Space-separated labels as identifiers — requires quoting in all Mermaid contexts; error-prone
+
+  **Rationale:** NFR-4 explicitly calls for snake_case. For this domain all six state names
+  (placed, payment_pending, paid, shipped, delivered, cancelled) are readable without aliasing.
+
+  ---
+
+  ### 4. State Machine Topology
+
+  **Chosen:** 6 named states with cancellation branching from three states.
+
+  ```
+  [*] → placed → payment_pending → paid → shipped → delivered → [*]
+         ↓               ↓           ↓
+         └───────── cancelled ────────┘
+                        ↓
+                       [*]
+  ```
+
+  **Rejected:**
+  - Adding "refunded" after cancellation — unnecessary 7th state; adds complexity without value
+  - Merging payment_pending + paid — reduces branching, risks failing FR-5 minimum
+
+  **Rationale:** 6 states is mid-range for the 5–7 target. Cancellation from three states
+  demonstrates meaningful branching (FR-7). Two terminal states (delivered, cancelled → [*])
+  satisfy FR-6. Labels on non-obvious transitions only (NFR-4).
+
+  ---
+
+  ## Library Analysis
+
+  | Library / Tool | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | Mermaid stateDiagram-v2 | State machine diagram syntax | Use | Natively rendered by GitHub; no build step; explicitly required by FR-4 |
+  | Mermaid stateDiagram v1 | Legacy diagram syntax | Reject | Deprecated; v2 is current standard |
+  | External SVG/PNG image | Pre-rendered diagram asset | Reject | Requires build tooling, binary assets, breaks NFR-5 self-containment |
+  | PlantUML | Alternative UML diagram tool | Reject | Not natively rendered by GitHub; Mermaid is the GitHub-native choice |
+
+  ---
+
+  ## Security Considerations
+
+  None applicable. This feature creates a static markdown file with a Mermaid diagram. There
+  is no code execution, no user input, no authentication surface, and no external network
+  requests at authoring time. Mermaid diagrams are rendered client-side by GitHub's markdown
+  pipeline; there are no XSS vectors in stateDiagram-v2 content consisting of state names
+  and transition labels.
+
+  ---
+
+  ## Performance Implications
+
+  None applicable. A single ≤50 line markdown file has negligible impact on repository size
+  or clone times. GitHub renders Mermaid diagrams lazily in the browser; a 6-state diagram
+  is well within Mermaid's rendering performance envelope.
+
+  ---
+
+  ## Architecture Notes
+
+  This is a pure content addition with no architectural impact. The file follows the same
+  root-level standalone markdown convention as JOKE.md, SHEEP.md, and DESIGN_PATTERN.md:
+  no imports, no links to external resources, no modifications to existing files. The only
+  integration point is GitHub's native Mermaid rendering, which requires no configuration.
+
+  The implementation is a single atomic step: create STATE_MACHINE.md. There are no
+  dependencies, no sequencing concerns, and no risk of conflicts with other files.
