@@ -2,7 +2,6 @@
 
 import base64
 import os
-from typing import Any
 
 from langfuse import get_client
 
@@ -88,5 +87,3 @@ def init_observability() -> None:
         )
     except Exception as e:
         _logger.warning("Failed to initialize OpenInference", error=str(e))
-
-
