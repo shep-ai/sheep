@@ -2,10 +2,9 @@
 
 import uuid
 from pathlib import Path
-from typing import Any
 
 from crewai import Crew, Task
-from crewai.flow.flow import Flow, listen, start
+from crewai.flow.flow import Flow, start
 from pydantic import BaseModel, Field
 
 from sheep.agents import create_chat_agent
@@ -189,8 +188,9 @@ def run_chat(
 
     # Set output on the current OpenTelemetry span using semantic conventions
     try:
-        from opentelemetry import trace
         import json
+
+        from opentelemetry import trace
 
         current_span = trace.get_current_span()
         if current_span and current_span.is_recording():

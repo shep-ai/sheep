@@ -23,9 +23,7 @@ class LLMSettings(BaseSettings):
 
     # Cursor
     cursor_api_key: SecretStr | None = Field(default=None, alias="CURSOR_API_KEY")
-    cursor_api_base: str = Field(
-        default="https://api.cursor.sh/v1", alias="CURSOR_API_BASE"
-    )
+    cursor_api_base: str = Field(default="https://api.cursor.sh/v1", alias="CURSOR_API_BASE")
 
     def get_available_providers(self) -> list[str]:
         """Return list of configured providers."""
