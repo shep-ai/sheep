@@ -2,7 +2,6 @@
 
 import subprocess
 from pathlib import Path
-from typing import Any
 
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
@@ -170,7 +169,7 @@ class GitCreateBranchTool(BaseTool):
             if base_branch:
                 args.append(base_branch)
 
-            result = _run_git(args, path)
+            _run_git(args, path)
             return f"Created and switched to branch: {branch_name}"
         except subprocess.CalledProcessError as e:
             return f"Git error: {e.stderr}"
@@ -196,7 +195,7 @@ class GitCheckoutTool(BaseTool):
             return f"Error: Repository path does not exist: {repo_path}"
 
         try:
-            result = _run_git(["checkout", branch_name], path)
+            _run_git(["checkout", branch_name], path)
             return f"Switched to branch: {branch_name}"
         except subprocess.CalledProcessError as e:
             return f"Git error: {e.stderr}"
@@ -330,7 +329,7 @@ class GitWorktreeTool(BaseTool):
             _run_git(["fetch", "--all"], path, check=False)
 
             # Create worktree with new branch
-            result = _run_git(
+            _run_git(
                 ["worktree", "add", "-b", branch_name, str(worktree), base_branch],
                 path,
             )

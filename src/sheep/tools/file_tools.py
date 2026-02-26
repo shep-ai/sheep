@@ -1,6 +1,5 @@
 """File operation tools for agents."""
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -45,7 +44,7 @@ class FileReadTool(BaseTool):
             return f"Error: Path is not a file: {file_path}"
 
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
 
             if start_line is not None or end_line is not None:
@@ -261,7 +260,7 @@ class DirectoryTreeTool(BaseTool):
                 for i, entry in enumerate(entries):
                     is_last = i == len(entries) - 1 and not truncated
                     connector = "└── " if is_last else "├── "
-                    new_prefix = prefix + ("    " if is_last else "│   ")
+                    prefix + ("    " if is_last else "│   ")
 
                     self._build_tree(
                         entry,

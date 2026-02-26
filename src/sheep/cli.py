@@ -1,7 +1,6 @@
 """Sheep CLI - Command line interface for the agentic platform."""
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -30,7 +29,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "--version",
         "-v",
@@ -46,7 +45,7 @@ def main(
 
 @app.command()
 def implement(
-    repo_path: Path = typer.Argument(
+    repo_path: Path = typer.Argument(  # noqa: B008
         ...,
         help="Path to the git repository",
         exists=True,
@@ -59,7 +58,7 @@ def implement(
         "-i",
         help="Description of the feature, bug, or task to implement",
     ),
-    branch: Optional[str] = typer.Option(
+    branch: str | None = typer.Option(
         None,
         "--branch",
         "-b",
@@ -150,7 +149,7 @@ def chat(
         ...,
         help="Question to ask",
     ),
-    context: Optional[Path] = typer.Option(
+    context: Path | None = typer.Option(  # noqa: B008
         None,
         "--context",
         "-c",
@@ -249,7 +248,7 @@ def config() -> None:
 
 @app.command()
 def init(
-    path: Path = typer.Argument(
+    path: Path = typer.Argument(  # noqa: B008
         ".",
         help="Path where to initialize the project",
     ),
