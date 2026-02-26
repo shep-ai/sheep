@@ -1,0 +1,148 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: undefined-feature
+summary: >
+  Add spec intake validation to the sheep CLI by placing a Pydantic @field_validator on a new
+  SpecInput model (src/sheep/models/spec.py), wiring a --force bypass flag into the implement
+  command, adding two configurable thresholds to Settings, and displaying Rich error panels with
+  interactive re-prompt. All required libraries are already present; no new dependencies are
+  introduced.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+ (math.log2, collections.Counter — stdlib entropy)
+  - Pydantic v2 @field_validator (already in project)
+  - pydantic-settings BaseSettings (already in project — for threshold env vars)
+  - Typer (already in project — --force flag)
+  - Rich Panel/Text (already in project — error display)
+  - structlog (already in project — validation-skipped WARNING)
+  - Langfuse (already in project — observability event on forced bypass)
+  - pytest (already in project — unit tests)
+
+relatedLinks:
+  - https://docs.pydantic.dev/latest/concepts/validators/#field-validators
+  - https://docs.pydantic.dev/latest/concepts/pydantic_settings/
+  - https://typer.tiangolo.com/tutorial/options/
+  - https://rich.readthedocs.io/en/stable/panel.html
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Foundation — Models Package & Entropy Utility'
+    description: >
+      Create the src/sheep/models/ package and implement compute_shannon_entropy and the SpecInput
+      Pydantic model with its @field_validator. This phase establishes the validation contract that
+      everything else depends on. It is pure-Python with no CLI or filesystem involvement, making it
+      trivially unit-testable in isolation (NFR-2).
+    parallel: false
+
+  - id: phase-2
+    name: 'Configuration — Threshold Env Vars'
+    description: >
+      Add spec_min_chars and spec_min_entropy fields to the existing Settings class in
+      src/sheep/config/settings.py, following the exact pattern of SHEEP_MAX_ITERATIONS. The
+      validator introduced in phase-1 calls get_settings() at runtime, so thresholds must be
+      registered before wiring the CLI. Tests clear @lru_cache to verify env override behavior.
+    parallel: false
+
+  - id: phase-3
+    name: 'CLI Integration — --force Flag, Error Panel & Re-prompt'
+    description: >
+      Wire the validated SpecInput model into the implement command: add --force/--skip-validation
+      Typer option, wrap issue input in a validation loop that constructs SpecInput, catches
+      pydantic.ValidationError, displays a Rich error panel, and re-prompts (tty) or exits 1
+      (piped). Emit structlog WARNING + Langfuse event when --force is used. Depends on phases
+      1 and 2 so Settings thresholds are accessible and SpecInput raises the right errors.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/sheep/models/__init__.py
+  - src/sheep/models/spec.py
+  - tests/test_spec_validation.py
+
+filesToModify:
+  - src/sheep/config/settings.py
+  - src/sheep/cli.py
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-26
+
+  ## Architecture Overview
+
+  The existing codebase passes spec content as raw strings (`issue: str` CLI option →
+  `issue_description: str` in `CodeImplementationState`). No dedicated spec data contract exists
+  today.
+
+  This feature introduces the first such contract — `SpecInput` in `src/sheep/models/spec.py` —
+  following the same Pydantic v2 model pattern already used for `CodeImplementationState`,
+  `ChatState`, and all tool inputs in `src/sheep/flows/` and `src/sheep/agents/`.
+
+  The validation boundary is the `implement` command in `src/sheep/cli.py`. When the user provides
+  `--issue <text>`, the CLI wraps it in `SpecInput(user_query=text)` before passing it to
+  `run_code_implementation`. Pydantic's `@field_validator` fires at construction time, enforcing
+  all rules regardless of call site — critical since additional entrypoints may be added later.
+
+  ## Key Design Decisions
+
+  ### 1. Pydantic @field_validator on SpecInput (not a CLI guard)
+  Validation is in the model, not scattered at every call site. The existing CLI already uses a
+  `console.print(Panel(..., border_style="red"))` pattern for error display (failure branch in
+  cli.py:143). Catching `pydantic.ValidationError` and rendering it as a Rich panel is a minimal
+  addition to existing machinery.
+
+  ### 2. Pure stdlib Shannon entropy (math.log2 + collections.Counter)
+  H = -Σ p_i log₂(p_i) over character frequencies. O(n) single pass, <1 ms for 10,000 chars.
+  No new dependencies; satisfies NFR-1 performance budget. Returns 0.0 for empty string (correct
+  by convention; also unreachable via the length check which fires first).
+
+  ### 3. Thresholds in existing Settings class (not a subclass)
+  Two scalar fields (`spec_min_chars: int`, `spec_min_entropy: float`) added directly to the
+  top-level `Settings` class, mirroring `SHEEP_MAX_ITERATIONS` and `SHEEP_LOG_LEVEL` exactly.
+  The `@lru_cache` on `get_settings()` means zero repeated I/O; tests use the established
+  `get_settings.cache_clear()` pattern from `test_config.py`.
+
+  ### 4. --force as a Typer bool Option on implement only
+  Matches the existing flags (`--no-push`, `--worktree`, `--verbose`) in signature and style.
+  No other spec-creation entrypoints exist today; YAGNI applies to a shared option factory.
+  Structured `structlog` WARNING with `spec_number`, `rule_skipped`, `input_length` fields
+  satisfies NFR-3 via the existing observability pipeline.
+
+  ### 5. Error code embedded in ValueError message ("[input_too_short] ...")
+  FR-8 specifies ValueError with machine-readable error code and human-readable message.
+  A bracketed prefix (e.g., `[input_too_short] Input is 4 characters; minimum is 20.`)
+  satisfies both requirements without custom exception subclasses or PydanticCustomError.
+  The CLI extracts the code by splitting on `]`; future callers can do the same.
+
+  ### 6. Re-prompt loop with sys.stdin.isatty() detection
+  FR-5 requires interactive re-prompt vs non-interactive exit. `sys.stdin.isatty()` is the
+  standard detection mechanism. `typer.prompt()` is already available in the Typer dependency.
+  The while loop wraps only SpecInput construction + validation, not the entire flow.
+
+  ## Implementation Strategy
+
+  Phase ordering is strictly sequential: the model (phase-1) must exist before settings
+  reference it via `get_settings()`, and both must be complete before the CLI wires them
+  together (phase-3). Each phase is independently testable — phase-1 tests need no settings
+  mock, phase-2 tests need no CLI mock, phase-3 tests can stub settings via `cache_clear()`.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Breaking existing implement behavior | --force defaults to False; SpecInput wraps only the issue string; all existing flags and flow wiring are unchanged |
+  | lru_cache stale thresholds in tests | Follow test_config.py pattern: get_settings.cache_clear() in test setup/teardown |
+  | mypy --strict failure on new code | Explicit type annotations on all new functions; no Any; verify during REFACTOR step |
+  | ruff violations | Line-length 100 is the project rule; format all new files before marking task complete |
+  | sys.stdin.isatty() in test env | Test non-interactive path (isatty()=False → Exit(1)) via CliRunner; interactive loop tested separately with mocked prompt |
+

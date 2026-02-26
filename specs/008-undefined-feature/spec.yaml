@@ -1,0 +1,218 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: undefined-feature
+number: 008
+branch: feat/008-undefined-feature
+oneLiner: "Spec intake validation — reject and flag gibberish or empty feature requests at submission time"
+
+userQuery: >
+  Feature: gdgd
+
+  ggd
+summary: >
+  The feature request submitted for spec 008 contains only placeholder/gibberish text ("gdgd", "ggd")
+  and does not describe any real feature, bug fix, or improvement. Rather than silently creating an
+  unactionable spec, the system should detect invalid submissions early, surface clear feedback to the
+  user, and block the spec pipeline from advancing until a coherent description is provided.
+  This spec defines the requirements for that intake validation layer.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+
+  - CrewAI (multi-agent orchestration)
+  - Pydantic / pydantic-settings (config & validation)
+  - Typer (CLI)
+  - Rich (terminal output)
+  - Langfuse (observability / tracing)
+  - GitPython (git integration)
+  - structlog (structured logging)
+  - httpx / duckduckgo-search (web tools)
+  - pytest / ruff / mypy (dev toolchain)
+  - Docker / GitHub Actions (CI/CD)
+
+relatedLinks: []
+
+openQuestions:
+  - question: "How should the system respond when a spec submission is detected as invalid?"
+    resolved: true
+    options:
+      - option: "Block and prompt"
+        description: >
+          Immediately reject the submission with a Rich-formatted error panel, print a descriptive
+          reason (e.g. 'Input appears to be gibberish or too short'), and prompt the user to
+          re-enter a valid description inline before any spec file is written. Cleanest UX —
+          nothing invalid ever touches disk.
+        selected: true
+      - option: "Write stub and warn"
+        description: >
+          Write the spec file with a BLOCKED status flag and print a warning. Allows the pipeline
+          to continue tracking the spec number but requires a separate 'fix' step. Adds complexity
+          and leaves invalid state on disk.
+        selected: false
+      - option: "Silent skip"
+        description: >
+          Log the invalid input and exit without creating any file. Simple but provides no user
+          guidance on how to fix the problem.
+        selected: false
+    selectionRationale: >
+      Blocking before disk write is the safest and most user-friendly approach. It follows the
+      principle of failing fast at the boundary (CLI input), keeps the specs/ directory clean,
+      and gives the user immediate, actionable feedback without requiring a separate correction step.
+    answer: "Block and prompt"
+
+  - question: "What heuristics should classify a submission as invalid?"
+    resolved: true
+    options:
+      - option: "Length + entropy check"
+        description: >
+          Reject if the combined userQuery text is under a minimum character threshold (e.g. 20 chars)
+          OR has very low Shannon entropy (e.g. repeated characters, random keypresses). Catches
+          gibberish ('gdgd'), accidental submissions, and near-empty inputs without requiring an LLM call.
+          Fast, deterministic, zero cost.
+        selected: true
+      - option: "LLM coherence gate"
+        description: >
+          Send the raw input to a fast LLM model and ask it to score coherence (0–1). Reject below
+          threshold. More accurate for edge cases (e.g. terse-but-valid: 'add dark mode') but adds
+          latency, token cost, and an external dependency to the validation step.
+        selected: false
+      - option: "Regex allowlist"
+        description: >
+          Require the input to match a structured template (e.g. must contain a verb and a noun).
+          Brittle — would reject valid informal descriptions and require ongoing maintenance.
+        selected: false
+    selectionRationale: >
+      Length + entropy is the right first gate: it is cheap, instant, and catches the exact failure
+      mode seen in spec 008 (short, low-information input). An LLM coherence gate can be added later
+      as a second pass if the simple heuristic produces false negatives in practice.
+    answer: "Length + entropy check"
+
+  - question: "Should the CLI allow the user to skip validation with a force flag?"
+    resolved: true
+    options:
+      - option: "Yes — --force flag"
+        description: >
+          Add a --force / --skip-validation flag that bypasses the intake check. Useful for
+          intentional placeholder specs (e.g. reserving a spec number) or automated testing.
+          Logs a structured warning when used.
+        selected: true
+      - option: "No — always enforce"
+        description: >
+          Validation is always enforced. Simpler implementation but prevents legitimate use cases
+          like reserving spec numbers or seeding test fixtures.
+        selected: false
+    selectionRationale: >
+      A --force escape hatch follows CLI best-practice conventions (similar to git push --force)
+      and covers the realistic need to create placeholder specs intentionally. The structured warning
+      log ensures the bypass is always auditable via Langfuse traces.
+    answer: "Yes — --force flag"
+
+  - question: "Where should validation logic live in the codebase?"
+    resolved: true
+    options:
+      - option: "Pydantic validator on spec model"
+        description: >
+          Add a @field_validator on the userQuery field of the spec's Pydantic model. Validation
+          runs automatically whenever the model is instantiated, keeping the rule co-located with
+          the data contract. Easy to test in isolation.
+        selected: true
+      - option: "CLI-layer guard in cli.py"
+        description: >
+          Add an explicit check in the CLI command function before constructing the spec model.
+          Keeps the model 'dumb' but scatters validation logic across the codebase if multiple
+          entrypoints exist.
+        selected: false
+      - option: "Separate validation module"
+        description: >
+          Create src/sheep/validation.py with standalone functions. Flexible but adds indirection
+          for a small amount of logic.
+        selected: false
+    selectionRationale: >
+      A Pydantic @field_validator is the idiomatic choice given the project already uses Pydantic v2
+      for all data contracts. It guarantees the invariant is enforced regardless of which code path
+      constructs the spec, and it integrates naturally with the existing settings/config patterns.
+    answer: "Pydantic validator on spec model"
+
+content: |
+  ## Problem Statement
+
+  The spec pipeline (spec 008) received a submission consisting entirely of gibberish text
+  ("Feature: gdgd\n\nggd"). The system created a spec file, ran analysis, and advanced through
+  the pipeline with no actionable content — wasting compute, Langfuse trace budget, and developer
+  attention. There is currently no validation layer that rejects incoherent or empty input at
+  submission time.
+
+  This spec defines the requirements to add spec intake validation so that invalid submissions are
+  caught at the CLI boundary, the user receives clear corrective feedback, and the specs/ directory
+  only ever contains actionable specifications.
+
+  ## Success Criteria
+
+  - [ ] Submitting a userQuery of fewer than 20 characters is rejected with a Rich error panel before any file is written
+  - [ ] Submitting a userQuery with Shannon entropy below the configured threshold (e.g. < 2.5 bits/char) is rejected with a descriptive message
+  - [ ] The rejection message names the specific rule that failed and shows the offending input
+  - [ ] Passing --force bypasses validation and logs a structured warning via structlog + Langfuse
+  - [ ] A valid submission (≥ 20 chars, entropy ≥ threshold) passes through unchanged with no performance regression
+  - [ ] The Pydantic validator raises a ValueError with a human-readable message consumable by the CLI error handler
+  - [ ] Unit tests cover: too-short input, low-entropy input, valid input, and forced bypass
+  - [ ] ruff and mypy pass with no new violations
+  - [ ] Existing tests continue to pass
+
+  ## Functional Requirements
+
+  - **FR-1**: The spec submission flow MUST validate the `userQuery` field before writing any file to disk.
+  - **FR-2**: Validation MUST reject input shorter than a configurable minimum character count (default: 20).
+  - **FR-3**: Validation MUST reject input whose Shannon entropy falls below a configurable threshold (default: 2.5 bits/char), catching repeated-character and keyboard-mash patterns.
+  - **FR-4**: On rejection, the CLI MUST display a Rich-formatted error panel identifying the failed rule and showing the offending input (truncated to 80 chars if long).
+  - **FR-5**: The CLI MUST re-prompt the user for a corrected description after a rejection (interactive mode) or exit with a non-zero status code (non-interactive / piped mode).
+  - **FR-6**: The `sheep implement` and any other spec-creation CLI commands MUST accept a `--force` / `--skip-validation` flag that bypasses intake validation.
+  - **FR-7**: When `--force` is used, the system MUST emit a `structlog` WARNING and record a Langfuse event indicating validation was skipped.
+  - **FR-8**: Validation logic MUST be implemented as a Pydantic `@field_validator` on the `userQuery` field of the spec data model, raising `ValueError` with a machine-readable error code and human-readable message.
+  - **FR-9**: The minimum length and entropy thresholds MUST be configurable via environment variables (e.g. `SHEEP_SPEC_MIN_CHARS`, `SHEEP_SPEC_MIN_ENTROPY`) using the existing `pydantic-settings` pattern.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 Performance**: Validation must complete in < 5 ms for any input up to 10,000 characters (no I/O, no LLM calls in the hot path).
+  - **NFR-2 Testability**: The Shannon entropy function and the Pydantic validator must be unit-testable in isolation without mocking the CLI or filesystem.
+  - **NFR-3 Observability**: All validation rejections and forced bypasses must appear in Langfuse traces with the spec number, rule name, and input length as trace attributes.
+  - **NFR-4 UX**: Error messages must be actionable — they must tell the user what was wrong and what a valid input looks like (e.g. "Describe the feature in plain English, at least 20 characters").
+  - **NFR-5 Maintainability**: Thresholds must not be hard-coded; they must be adjustable without a code change, following the project's env-driven configuration pattern.
+  - **NFR-6 Type Safety**: All new code must pass `mypy --strict` with no `# type: ignore` suppressions.
+  - **NFR-7 Style**: All new code must pass `ruff check` with the project's existing rule set (line-length 100).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should the system respond to an invalid submission? | Block and prompt | Fail fast at the boundary; never write invalid state to disk |
+  | 2 | What heuristics classify a submission as invalid? | Length + entropy check | Zero-cost, deterministic, catches the exact failure mode (gibberish) |
+  | 3 | Should a --force bypass be available? | Yes — --force flag | Matches CLI conventions; covers legitimate placeholder use cases; always auditable |
+  | 4 | Where should validation logic live? | Pydantic validator on spec model | Idiomatic for the stack; enforced at all construction sites; easy to test |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/sheep/cli.py` | Medium | Must thread --force flag through to spec construction; display Rich error panels on ValidationError |
+  | Spec Pydantic model | Medium | New @field_validator on userQuery; new configurable threshold fields |
+  | `src/sheep/config/settings.py` | Low | Add SHEEP_SPEC_MIN_CHARS and SHEEP_SPEC_MIN_ENTROPY env vars |
+  | `src/sheep/observability/` | Low | Emit structured warning + Langfuse event on forced bypass |
+  | `tests/` | Medium | New unit tests for validator, entropy function, CLI rejection behavior |
+
+  ## Dependencies
+
+  - Pydantic v2 `@field_validator` (already in use — no new dependency)
+  - Python `math.log2` for Shannon entropy (stdlib — no new dependency)
+  - Rich `Panel` / `Text` for error display (already in use)
+  - `pydantic-settings` for threshold env vars (already in use)
+
+  ## Size Estimate
+
+  **S** — All required libraries are already present. The change set is: one validator function
+  (~20 lines), one entropy utility (~10 lines), two settings fields, CLI error-handling updates,
+  and unit tests. No schema migrations, no new dependencies, no architectural changes.

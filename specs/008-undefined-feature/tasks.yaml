@@ -1,0 +1,259 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: undefined-feature
+summary: >
+  7 tasks across 3 phases. Phase-1 (2 tasks) builds the models package and entropy utility.
+  Phase-2 (1 task) adds configurable thresholds to Settings. Phase-3 (3 tasks) wires the CLI
+  --force flag, error panel, and re-prompt loop. A final cross-cutting task verifies toolchain
+  compliance (mypy, ruff, existing tests).
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create src/sheep/models/ package with compute_shannon_entropy'
+    description: >
+      Create the src/sheep/models/__init__.py package stub and src/sheep/models/spec.py
+      containing the compute_shannon_entropy(text: str) -> float helper. The function uses
+      math.log2 and collections.Counter to compute H = -Σ p_i log₂(p_i) over character
+      frequencies, returning 0.0 for empty input. No model or validator yet — just the
+      pure utility function.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'src/sheep/models/__init__.py exists and is importable'
+      - 'compute_shannon_entropy("") returns 0.0'
+      - 'compute_shannon_entropy("a") returns 0.0 (single character, zero entropy)'
+      - 'compute_shannon_entropy("ab") returns 1.0 (two equally likely chars)'
+      - 'compute_shannon_entropy("aabb") returns 1.0 (same distribution)'
+      - 'compute_shannon_entropy("gdgd") returns a value below 2.5 (low entropy)'
+      - 'compute_shannon_entropy("Add dark mode to the settings panel") returns above 2.5'
+      - 'Function is typed: accepts str, returns float, passes mypy --strict'
+    tdd:
+      red:
+        - 'Write tests/test_spec_validation.py with test_entropy_empty, test_entropy_single_char, test_entropy_two_chars, test_entropy_low (gibberish), test_entropy_high (real sentence)'
+        - 'Run pytest tests/test_spec_validation.py — all fail (ImportError)'
+      green:
+        - 'Create src/sheep/models/__init__.py (empty package stub)'
+        - 'Create src/sheep/models/spec.py with compute_shannon_entropy using collections.Counter + math.log2'
+        - 'Run pytest — all entropy tests pass'
+      refactor:
+        - 'Verify function docstring is clear; confirm type annotations; run mypy --strict on the new file'
+        - 'Run ruff check src/sheep/models/spec.py; fix any line-length or style violations'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add SpecInput Pydantic model with @field_validator'
+    description: >
+      Add the SpecInput Pydantic v2 model to src/sheep/models/spec.py with a single
+      user_query: str field and a @field_validator('user_query') @classmethod that calls
+      compute_shannon_entropy and get_settings() to enforce the minimum-length and
+      minimum-entropy rules. Raises ValueError with bracketed error code prefix on failure.
+      The validator must be callable before phase-2 lands (settings thresholds have defaults),
+      so task-2 can be written and tested against default threshold values.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'SpecInput(user_query="Add dark mode to settings panel") succeeds without error'
+      - 'SpecInput(user_query="hi") raises pydantic.ValidationError'
+      - 'ValidationError message for short input contains "[input_too_short]"'
+      - 'SpecInput(user_query="gdgd") raises pydantic.ValidationError'
+      - 'ValidationError message for low-entropy input contains "[input_low_entropy]"'
+      - 'Validator calls get_settings() to read thresholds (not hard-coded)'
+      - 'All new code passes mypy --strict with no type: ignore'
+    tdd:
+      red:
+        - 'Add test_spec_input_valid, test_spec_input_too_short, test_spec_input_low_entropy, test_spec_input_error_codes to tests/test_spec_validation.py'
+        - 'Run pytest — new tests fail (SpecInput not yet defined)'
+      green:
+        - 'Add SpecInput(BaseModel) class to src/sheep/models/spec.py with user_query field'
+        - 'Add @field_validator that checks len(user_query) < settings.spec_min_chars → raise ValueError("[input_too_short] ...")'
+        - 'Add entropy check: compute_shannon_entropy(user_query) < settings.spec_min_entropy → raise ValueError("[input_low_entropy] ...")'
+        - 'Run pytest — all SpecInput tests pass (using default threshold values)'
+      refactor:
+        - 'Extract error message formatting into a helper or inline f-string; ensure messages are actionable (include actual vs required values)'
+        - 'Confirm the validator error messages tell the user what a valid input looks like (FR-4, NFR-4)'
+        - 'Run mypy --strict and ruff check; fix any violations'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add spec_min_chars and spec_min_entropy to Settings'
+    description: >
+      Add two new fields to the top-level Settings class in src/sheep/config/settings.py:
+      spec_min_chars: int = Field(default=20, alias="SHEEP_SPEC_MIN_CHARS") and
+      spec_min_entropy: float = Field(default=2.5, alias="SHEEP_SPEC_MIN_ENTROPY").
+      These mirror the existing max_iterations and log_level field patterns exactly.
+      Tests verify that env var overrides take effect when the lru_cache is cleared.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Settings().spec_min_chars == 20 (default)'
+      - 'Settings().spec_min_entropy == 2.5 (default)'
+      - 'Setting SHEEP_SPEC_MIN_CHARS=50 via env and clearing cache yields spec_min_chars == 50'
+      - 'Setting SHEEP_SPEC_MIN_ENTROPY=3.0 via env and clearing cache yields spec_min_entropy == 3.0'
+      - 'SpecInput validator reads thresholds from get_settings() correctly (integration check)'
+    tdd:
+      red:
+        - 'Add test_settings_spec_min_chars_default, test_settings_spec_min_entropy_default, test_settings_spec_min_chars_env_override, test_settings_spec_min_entropy_env_override to tests/test_config.py'
+        - 'Run pytest tests/test_config.py — new tests fail (fields not yet defined)'
+      green:
+        - 'Add spec_min_chars and spec_min_entropy fields to Settings class in settings.py'
+        - 'Run pytest tests/test_config.py — all new tests pass'
+      refactor:
+        - 'Confirm field ordering is logical (group with other SHEEP_ execution settings)'
+        - 'Run mypy --strict and ruff check on settings.py; fix any violations'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Add --force/--skip-validation flag to implement command'
+    description: >
+      Add force: bool = typer.Option(False, "--force", "--skip-validation", help="...") to the
+      implement command signature in src/sheep/cli.py. When force=True, skip SpecInput
+      construction entirely, emit a structlog WARNING with fields spec_number="N/A",
+      rule_skipped="all", input_length=len(issue), then proceed to run_code_implementation
+      as before. This task does not yet wire the SpecInput validation loop — that is task-5.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'sheep implement --help shows --force / --skip-validation flag'
+      - 'sheep implement . --issue "hi" --force proceeds without raising ValidationError'
+      - 'With --force, structlog emits a WARNING log entry containing rule_skipped field'
+      - 'Without --force, behavior is identical to pre-feature (issue string passed through unchanged for now)'
+      - 'mypy and ruff pass on cli.py'
+    tdd:
+      red:
+        - 'Add test_implement_force_flag_present (CLI --help output check) and test_implement_force_skips_validation to tests/test_spec_validation.py using typer.testing.CliRunner'
+        - 'Run pytest — tests fail (--force not yet defined)'
+      green:
+        - 'Add force: bool = typer.Option(False, "--force", "--skip-validation") to implement signature'
+        - 'Add if force: branch that calls structlog.get_logger().warning("validation_skipped", ...) and continues'
+        - 'Run pytest — force flag tests pass'
+      refactor:
+        - 'Ensure --force help text clearly states it bypasses intake validation (user-facing)'
+        - 'Run mypy --strict and ruff check on cli.py'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Wire SpecInput validation loop into implement command'
+    description: >
+      In the implement command (when force=False), wrap the issue string in a while loop that
+      constructs SpecInput(user_query=issue), catches pydantic.ValidationError, extracts the
+      first error message, displays a Rich Panel(message, title="Invalid Spec Input",
+      border_style="red") with a hint line, then: if sys.stdin.isatty(), re-prompts via
+      typer.prompt() and loops; otherwise raises typer.Exit(1). On success the validated
+      user_query is passed to run_code_implementation as issue_description.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Passing a short issue (< 20 chars) without --force prints a red Rich error panel and exits 1 in non-interactive mode'
+      - 'Passing a low-entropy issue (e.g. "gdgdgdgdgdgdgdgdgdgd") without --force prints error panel and exits 1 in non-interactive mode'
+      - 'Error panel contains the specific failed rule name (input_too_short or input_low_entropy)'
+      - 'Error panel contains the offending input truncated to 80 chars'
+      - 'Error panel contains a hint telling the user what a valid input looks like'
+      - 'A valid issue string passes through to run_code_implementation unchanged'
+      - 'Non-zero exit code (1) is returned for invalid input in non-interactive mode'
+    tdd:
+      red:
+        - 'Add test_implement_rejects_short_issue, test_implement_rejects_low_entropy_issue, test_implement_error_panel_content, test_implement_valid_passes_through to tests/test_spec_validation.py using CliRunner'
+        - 'Run pytest — tests fail (validation loop not yet wired)'
+      green:
+        - 'Replace direct issue usage in implement command with a while loop: try SpecInput(user_query=issue); on ValidationError extract message, print Panel, check isatty(), prompt or exit; on success break'
+        - 'Import pydantic.ValidationError and sys at top of cli.py'
+        - 'Run pytest — validation loop tests pass'
+      refactor:
+        - 'Extract error panel creation into a small helper function _display_validation_error(message: str) -> None within cli.py to keep implement readable'
+        - 'Ensure input truncation to 80 chars is applied (FR-4)'
+        - 'Run mypy --strict and ruff check; fix any violations'
+    estimatedEffort: '1h'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Emit Langfuse event on forced bypass'
+    description: >
+      When --force is used, in addition to the structlog WARNING already emitted in task-4,
+      also emit a Langfuse trace event indicating validation was skipped. This satisfies FR-7
+      and NFR-3 (observability auditability). The implementation should follow the existing
+      pattern in src/sheep/observability/ for emitting custom events — checking if Langfuse
+      is configured before attempting to emit.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'When --force is used and Langfuse is configured, a trace event with name "validation_skipped" is emitted'
+      - 'The event includes input_length as a trace attribute'
+      - 'When Langfuse is not configured, no error is raised (graceful skip)'
+      - 'The event emission does not block or slow down the CLI path measurably'
+    tdd:
+      red:
+        - 'Add test_force_emits_langfuse_event (with mocked Langfuse client) to tests/test_spec_validation.py'
+        - 'Run pytest — test fails'
+      green:
+        - 'In the force=True branch of implement, call the appropriate observability helper to emit a Langfuse event (or use get_logger().warning with extra fields if observability auto-propagates to Langfuse)'
+        - 'Run pytest — Langfuse event test passes'
+      refactor:
+        - 'Review existing observability patterns in src/sheep/observability/ to ensure the event emission follows established conventions'
+        - 'Run mypy --strict and ruff check'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Full toolchain verification — mypy, ruff, existing tests'
+    description: >
+      Run the full project toolchain to confirm no regressions and no new violations. This
+      task acts as a gate before the branch is considered complete. All existing tests must
+      pass, mypy --strict must pass on all new and modified files, and ruff check must pass
+      on the entire src/ tree.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'pytest runs all tests with zero failures (existing + new)'
+      - 'mypy --strict src/sheep/models/ src/sheep/config/settings.py src/sheep/cli.py exits 0'
+      - 'ruff check src/ exits 0 with no new violations'
+      - 'All 7 unit test cases described in the spec are present and passing: too-short input, low-entropy input, valid input, forced bypass, error panel content, re-prompt (mocked), non-interactive exit'
+    tdd: null
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '3h 50min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is structured as three phases that must be completed in order.
+
+  First, the validation foundation is built in isolation: a new `src/sheep/models/` package
+  provides the `compute_shannon_entropy` utility and the `SpecInput` Pydantic model with its
+  `@field_validator`. These are pure Python with no CLI or filesystem dependencies, so they can
+  be tested immediately and completely without any mocking infrastructure.
+
+  Next, the configurable thresholds are registered in the existing `Settings` class so that the
+  validator can read env-driven values via `get_settings()` rather than hard-coded constants. The
+  `@lru_cache` pattern and `cache_clear()` test approach are already established in `test_config.py`.
+
+  Finally, the CLI is wired together in three focused steps: first the `--force` flag is added
+  with its structlog WARNING, then the SpecInput validation loop replaces the direct issue
+  passthrough, and finally the Langfuse event emission is added to the force bypass path. A
+  concluding verification task runs the full toolchain to confirm zero regressions.
+
+  Each task produces a passing test suite before moving to the next, following strict TDD
+  discipline throughout.
+

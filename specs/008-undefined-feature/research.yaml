@@ -1,0 +1,424 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: undefined-feature
+summary: >
+  The intake validation feature requires adding a Pydantic @field_validator on a new SpecInput
+  model, a Shannon entropy utility using stdlib math.log2, two configurable thresholds in
+  pydantic-settings, and CLI error-panel display with a --force bypass flag. All required
+  libraries are already present in the project; no new dependencies are needed.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+ (stdlib math.log2 + collections.Counter for entropy)
+  - Pydantic v2 @field_validator (already in use)
+  - pydantic-settings BaseSettings (already in use — for threshold env vars)
+  - Typer (already in use — for --force flag)
+  - Rich Panel/Text (already in use — for error display)
+  - structlog (already in use — for validation-skipped warning)
+  - Langfuse (already in use — for observability event on bypass)
+
+relatedLinks:
+  - https://docs.pydantic.dev/latest/concepts/validators/#field-validators
+  - https://docs.pydantic.dev/latest/concepts/pydantic_settings/
+  - https://typer.tiangolo.com/tutorial/options/
+  - https://rich.readthedocs.io/en/stable/panel.html
+
+# Structured technology decisions
+decisions:
+  - title: 'Validation Entry Point — Where to Put the Pydantic Validator'
+    chosen: >
+      Add a @field_validator('user_query') @classmethod on a new SpecInput Pydantic model
+      in src/sheep/models/spec.py, raising ValueError with a structured message. The CLI
+      catch block converts ValidationError into a Rich Panel display.
+    rejected:
+      - >
+        CLI-layer guard in cli.py only — scatters validation logic at the call site; if a
+        second entrypoint (e.g. a future REST API or test fixture) constructs the spec model
+        directly, the guard is bypassed silently.
+      - >
+        Standalone validation module (src/sheep/validation.py) — adds an extra indirection
+        layer for a small block of logic; caller must remember to invoke it explicitly rather
+        than relying on construction-time enforcement by Pydantic.
+    rationale: >
+      The project uses Pydantic v2 throughout for all data contracts (CodeImplementationState,
+      ChatState, tool inputs). Placing validation inside @field_validator matches this pattern
+      and enforces the invariant at every construction site automatically. The CLI already
+      catches exceptions and displays Rich panels on the implement command's error path, so
+      converting ValidationError to a panel requires minimal new code. This is the idiomatic
+      Pydantic v2 approach and aligns with the existing codebase conventions.
+
+  - title: 'Shannon Entropy Implementation — Pure Stdlib'
+    chosen: >
+      Pure stdlib implementation using math.log2 and collections.Counter in a standalone
+      helper function compute_shannon_entropy(text: str) -> float defined alongside the
+      SpecInput model. No third-party library.
+    rejected:
+      - >
+        scipy.stats.entropy — introduces a heavy scientific computing dependency (~50 MB)
+        for a 6-line calculation that is trivially implementable with stdlib alone. Contradicts
+        the spec Size Estimate of S (no new dependencies).
+      - >
+        nltk or textstat for text analysis — these libraries target NLP tasks (tokenization,
+        readability), not simple character-frequency entropy. Would add installation complexity
+        and runtime overhead with no benefit over stdlib.
+    rationale: >
+      Shannon entropy over character frequencies is H = -sum(p_i * log2(p_i)). It requires
+      only a frequency count (collections.Counter) and logarithm (math.log2), both stdlib.
+      NFR-1 performance requirement (<5 ms for 10 000 characters) is easily met by a single
+      O(n) pass. Keeping this in stdlib maintains the project's zero-new-dependency stance
+      for this feature.
+
+  - title: 'Configurable Thresholds — Added to Existing Settings Class'
+    chosen: >
+      Add spec_min_chars: int = Field(default=20, alias="SHEEP_SPEC_MIN_CHARS") and
+      spec_min_entropy: float = Field(default=2.5, alias="SHEEP_SPEC_MIN_ENTROPY") as
+      fields directly on the existing Settings class in src/sheep/config/settings.py.
+    rejected:
+      - >
+        Hard-code thresholds as module-level constants — violates NFR-5 (must be adjustable
+        without a code change) and contradicts the project's established env-driven config
+        approach visible in every existing settings field (SHEEP_MAX_ITERATIONS, SHEEP_LOG_LEVEL).
+      - >
+        Separate SpecSettings BaseSettings subclass — unnecessary indirection for two scalar
+        fields. LLMSettings and LangfuseSettings exist as subclasses because they group related
+        secrets and have computed properties (is_configured, get_available_providers). Two
+        plain numeric fields do not warrant a dedicated subclass.
+    rationale: >
+      Mirrors the pattern of SHEEP_MAX_ITERATIONS and SHEEP_LOG_LEVEL exactly. Tests clear
+      the @lru_cache with get_settings.cache_clear() to test env overrides — this pattern
+      is already established in test_config.py and works identically for the new fields.
+      Access via settings.spec_min_chars is the simplest consistent call site.
+
+  - title: '--force / --skip-validation CLI Flag Scope'
+    chosen: >
+      Add force: bool = typer.Option(False, "--force", "--skip-validation") to the sheep
+      implement command only (the sole spec-creation entrypoint today). When True, skip
+      SpecInput construction, emit structlog WARNING with spec_number/rule_skipped/input_length
+      fields, then proceed.
+    rejected:
+      - >
+        Global Typer app-level --force via @app.callback — semantically wrong; sheep config
+        and sheep chat have no validation to bypass, making --force a confusing no-op on
+        those subcommands.
+      - >
+        Shared Typer option factory function imported by all spec-creation commands — premature
+        abstraction when only one spec-creation command exists. Duplicates the problem of
+        knowing which commands need it and adds indirection for no current benefit.
+    rationale: >
+      --force follows the exact pattern of --no-push, --worktree, and --verbose already on
+      the implement command (all are bool typer.Option with defaults). No other spec-creation
+      entrypoints exist today; YAGNI applies. Structured warning satisfies NFR-3 (bypass
+      appears in Langfuse traces via structlog's existing observability pipeline).
+
+  - title: 'Rich Error Panel Format and Re-prompt Behavior'
+    chosen: >
+      Catch pydantic.ValidationError in the CLI command, extract the first error message,
+      display via console.print(Panel(message, title="[bold red]Invalid Spec Input[/bold red]",
+      border_style="red")) with a hint line. Re-prompt with typer.prompt() in a while loop
+      if sys.stdin.isatty(), or raise typer.Exit(1) in non-interactive/piped mode.
+    rejected:
+      - >
+        Print raw ValidationError repr — exposes Pydantic's internal JSON structure to the
+        user (a dict with loc, msg, type keys), which is unreadable and violates NFR-4
+        (messages must be actionable).
+      - >
+        Always exit with code 1, even in interactive mode — poor UX; forces user to retype
+        the full command including --branch, --worktree, --no-push flags after every rejection.
+    rationale: >
+      The existing CLI implement command already shows a Rich error panel on flow failure
+      (bold red markup, console.print). Reusing this pattern ensures visual consistency.
+      FR-5 explicitly requires interactive re-prompt vs non-interactive exit, making the
+      sys.stdin.isatty() branch necessary. typer.prompt() handles terminal detection and
+      is already available in the project's Typer dependency.
+
+  - title: 'New Module Placement — src/sheep/models/spec.py'
+    chosen: >
+      Create a new src/sheep/models/ package containing spec.py with SpecInput and
+      compute_shannon_entropy. This separates data contracts from flow orchestration,
+      config, and tool logic.
+    rejected:
+      - >
+        Inline in src/sheep/flows/code_implementation.py — mixes input contract logic with
+        flow orchestration; makes the validator harder to discover and test independently
+        without importing CrewAI flow machinery.
+      - >
+        Inline in src/sheep/cli.py — entangles the data model with the presentation layer;
+        test imports would also pull in Typer and Rich, adding unnecessary test dependencies
+        and violating NFR-2 (unit-testable without mocking CLI or filesystem).
+    rationale: >
+      The project already has a clean package structure: agents/, config/, flows/,
+      observability/, tools/. A models/ package fits naturally as the home for data contracts.
+      Importing src/sheep/models/spec.py in tests requires no CLI or filesystem mocking,
+      directly satisfying NFR-2. The SpecInput model is also the first dedicated spec data
+      contract in the codebase, positioning it for future structured fields (title, priority).
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'How should the validator access settings thresholds — via get_settings() or via class-level defaults?'
+    resolved: true
+    options:
+      - option: Call get_settings() inside the @field_validator body
+        description: >
+          The validator calls get_settings() at runtime to read current thresholds. Since
+          get_settings() is @lru_cache, this is effectively zero-overhead after warmup. Tests
+          clear the cache with get_settings.cache_clear() to override thresholds via env vars,
+          matching the existing test_config.py pattern exactly.
+        selected: true
+      - option: Accept thresholds as model fields with defaults
+        description: >
+          Add min_chars: int = Field(default=20) and min_entropy: float = Field(default=2.5)
+          directly on SpecInput, allowing per-instance override. Flexible for tests (no env
+          var mocking needed) but deviates from the project's centralized pydantic-settings
+          pattern and leaks config concerns into the data model.
+        selected: false
+      - option: Module-level constants with settings fallback
+        description: >
+          Define MIN_CHARS = get_settings().spec_min_chars at module import time, caching the
+          threshold for the process lifetime. Simple but breaks test isolation — changing env
+          vars mid-test-session has no effect because the constant is evaluated at import time,
+          not call time.
+        selected: false
+    selectionRationale: >
+      Calling get_settings() inside the validator body matches how other project components
+      access configuration (the observability and LLM modules all call get_settings() at
+      usage time). The @lru_cache ensures no repeated I/O. Tests already use cache_clear()
+      to test threshold overrides for other settings fields, so this approach requires no new
+      test infrastructure.
+
+  - question: 'What error code/key should the ValueError include for machine-readable parsing?'
+    resolved: true
+    options:
+      - option: Include error_code prefix in the message string (e.g. "[input_too_short] ...")
+        description: >
+          Embed a structured error code as a prefix in the ValueError message string. Simple
+          to implement and visible in both the Rich panel and any programmatic caller that
+          catches ValidationError and reads .errors()[0]["msg"]. No additional Pydantic
+          machinery needed.
+        selected: true
+      - option: Raise a custom exception subclass (SpecValidationError)
+        description: >
+          Define class SpecValidationError(ValueError) with code and message attributes.
+          Enables type-safe programmatic error handling but requires the CLI catch block to
+          handle both ValidationError and SpecValidationError, complicating the error path.
+          Also contradicts FR-8 which specifies ValueError specifically.
+        selected: false
+      - option: Use Pydantic's custom error type via PydanticCustomError
+        description: >
+          Return PydanticCustomError("input_too_short", "...") from the validator. Provides
+          a structured type and message_template fields in ValidationError.errors(), but adds
+          dependency on pydantic.v1 compat or pydantic_core — more complex than needed for
+          two simple rules.
+        selected: false
+    selectionRationale: >
+      FR-8 specifies "raising ValueError with a machine-readable error code and human-readable
+      message." Embedding the error code as a bracketed prefix (e.g. "[input_too_short] Input
+      is 4 characters; minimum is 20.") satisfies both requirements with zero additional
+      infrastructure. The CLI panel parser and any future programmatic callers can split on
+      the first ']' to extract the code. This is the simplest approach that fulfills the spec.
+
+  - question: 'Should compute_shannon_entropy handle empty string input gracefully?'
+    resolved: true
+    options:
+      - option: Return 0.0 for empty string (entropy of empty input is defined as 0)
+        description: >
+          Guard with "if not text: return 0.0" before the Counter computation. Mathematically
+          correct by convention (an empty sequence has no uncertainty). Prevents ZeroDivisionError
+          in the probability calculation. Since the length check (min 20 chars) runs first in
+          the validator, an empty string would be caught before entropy is computed anyway.
+        selected: true
+      - option: Raise ValueError for empty string in compute_shannon_entropy
+        description: >
+          Treat empty input as a programming error and raise ValueError("text must not be empty").
+          Adds defensive programming but is redundant since the @field_validator length check
+          always fires before entropy is computed; entropy would never receive an empty string
+          in normal operation.
+        selected: false
+      - option: Let ZeroDivisionError propagate from the probability calculation
+        description: >
+          No special handling — if division by zero occurs, the exception propagates up. Violates
+          NFR-2 (testable in isolation) because entropy tests with edge-case inputs would produce
+          unexpected exceptions rather than 0.0, and violates the principle of pure functions
+          returning defined values for all valid inputs.
+        selected: false
+    selectionRationale: >
+      Returning 0.0 for an empty string is mathematically conventional (information entropy of
+      a length-0 sequence is 0) and prevents any possibility of ZeroDivisionError. Since the
+      validator's length check fires first, this guard is primarily defensive — it ensures
+      compute_shannon_entropy is a pure, total function with no surprising exceptions, making
+      it trivially unit-testable in isolation per NFR-2.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-26
+
+  ## Technology Decisions
+
+  ### 1. Validation Entry Point — Pydantic @field_validator on SpecInput Model
+
+  **Chosen:** New `SpecInput` Pydantic model with `@field_validator('user_query')` in
+  `src/sheep/models/spec.py`.
+
+  **Rejected:**
+  - CLI-layer guard in `cli.py` only — bypassed by any non-CLI construction site
+  - Standalone `src/sheep/validation.py` module — unnecessary indirection for small logic
+
+  **Rationale:** The project uses Pydantic v2 throughout for all data contracts
+  (`CodeImplementationState`, `ChatState`, tool inputs). A `@field_validator` is enforced at
+  every construction site automatically. The CLI already catches exceptions and renders Rich
+  panels on the implement command's error path, so wrapping `ValidationError` costs minimal
+  new code.
+
+  ### 2. Shannon Entropy — Pure Stdlib Implementation
+
+  **Chosen:** `compute_shannon_entropy(text: str) -> float` using `math.log2` +
+  `collections.Counter`. O(n) time, no new dependencies.
+
+  **Rejected:**
+  - `scipy.stats.entropy` — ~50 MB dependency for a 6-line formula
+  - `nltk` / `textstat` — NLP-focused; wrong tool for character-frequency entropy
+
+  **Rationale:** `H = -Σ p_i log₂(p_i)` is trivially expressible in stdlib. NFR-1 (<5 ms
+  for 10 000 chars) is met comfortably. Zero new dependencies aligns with Size Estimate S.
+
+  ### 3. Configurable Thresholds — Added to Existing Settings Class
+
+  **Chosen:** Two new fields on the top-level `Settings` class:
+  ```
+  spec_min_chars: int = Field(default=20, alias="SHEEP_SPEC_MIN_CHARS")
+  spec_min_entropy: float = Field(default=2.5, alias="SHEEP_SPEC_MIN_ENTROPY")
+  ```
+
+  **Rejected:**
+  - Hard-coded module constants — violates NFR-5 (no code change to adjust thresholds)
+  - Separate `SpecSettings` subclass — two scalar fields don't warrant a dedicated subclass
+
+  **Rationale:** Mirrors `SHEEP_MAX_ITERATIONS` and `SHEEP_LOG_LEVEL` exactly. Tests clear
+  `@lru_cache` with `get_settings.cache_clear()` to override thresholds — this pattern is
+  already established in `test_config.py`.
+
+  ### 4. --force Flag — Typer Option on implement Command Only
+
+  **Chosen:** `force: bool = typer.Option(False, "--force", "--skip-validation")` on the
+  `implement` command. When `True`: skip `SpecInput` construction, emit `structlog` WARNING
+  with `spec_number`, `rule_skipped`, `input_length` fields, then proceed.
+
+  **Rejected:**
+  - Global `@app.callback` --force — semantically wrong; `config` and `chat` have nothing to bypass
+  - Shared option factory function — premature abstraction (only one spec-creation command exists)
+
+  **Rationale:** Follows the exact pattern of `--no-push`, `--worktree`, `--verbose` on the
+  same command. Structured warning satisfies NFR-3 via the existing structlog/Langfuse pipeline.
+
+  ### 5. Rich Error Panel and Re-prompt Behavior
+
+  **Chosen:** Catch `pydantic.ValidationError` → `Panel(message, border_style="red")` + hint
+  line. Loop with `typer.prompt()` if `sys.stdin.isatty()`, else `typer.Exit(1)`.
+
+  **Rejected:**
+  - Raw `ValidationError` repr — unreadable JSON, violates NFR-4
+  - Always exit with code 1 — forces user to retype full command with all flags
+
+  **Rationale:** Reuses established CLI Rich panel pattern. FR-5 explicitly requires
+  interactive re-prompt vs non-interactive exit; `sys.stdin.isatty()` is the standard
+  detection mechanism for this in CLI tools.
+
+  ### 6. New Module Placement — src/sheep/models/spec.py
+
+  **Chosen:** New `src/sheep/models/` package with `spec.py` containing `SpecInput` and
+  `compute_shannon_entropy`.
+
+  **Rejected:**
+  - Inline in `flows/code_implementation.py` — mixes input contract with flow orchestration
+  - Inline in `cli.py` — entangles data model with presentation; pollutes test imports
+
+  **Rationale:** Fits the existing package structure (agents/, config/, flows/, observability/,
+  tools/). Test imports need no CLI or filesystem mocking — directly satisfying NFR-2.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `math` (stdlib) | Shannon entropy log₂ | Use | Zero-cost; formula is 6 lines |
+  | `collections.Counter` (stdlib) | Character frequency | Use | O(n), already in stdlib |
+  | `pydantic` v2 `@field_validator` | Spec input validation | Use | Already in project; idiomatic |
+  | `pydantic-settings` `BaseSettings` | Threshold env vars | Use | Already in project; existing pattern |
+  | `typer.Option` | --force flag | Use | Already in project; matches other flags |
+  | `rich.panel.Panel` | Error display | Use | Already in project; used by CLI |
+  | `structlog` | Validation-skipped warning | Use | Already in project; observability |
+  | `scipy.stats` | Entropy calculation | Reject | 50 MB dependency; stdlib sufficient |
+  | `nltk` / `textstat` | Text analysis | Reject | NLP-focused; wrong tool for char entropy |
+  | LLM coherence gate | Semantic validation | Reject | Adds latency/cost; spec chose heuristics |
+
+  ## Security Considerations
+
+  - **Input truncation in error display**: The panel truncates offending input to 80 characters
+    (FR-4) to prevent terminal flooding from adversarial long inputs. Use
+    `text[:80] + "…" if len(text) > 80 else text`.
+  - **No shell injection risk**: All validation is pure Python string processing; no subprocess
+    or eval calls are involved.
+  - **--force audit trail**: Structlog WARNING is emitted before any file write when --force is
+    used. If Langfuse is configured, the event appears in traces with spec_number and
+    input_length attributes, satisfying NFR-3 auditability.
+  - **No sensitive data in logs**: The validator logs only the failed rule name and character
+    count — not the full raw input. The full truncated input is shown only in the local Rich
+    panel (never persisted to disk or sent to external services).
+
+  ## Performance Implications
+
+  - **Entropy computation**: O(n) single pass using `collections.Counter`. For a 10 000-character
+    input: ~0.2 ms on CPython 3.11. Well within NFR-1's 5 ms budget.
+  - **Pydantic validation overhead**: `@field_validator` runs synchronously at model construction.
+    No I/O, no subprocess calls. Pydantic v2 (Rust-backed) is sub-millisecond for string fields.
+  - **No regression for valid inputs**: Validator short-circuits after the length check for long
+    inputs (no entropy computation needed if length > min_chars and string is clearly non-gibberish).
+    Typical valid inputs (50–500 chars) validate in <1 ms total.
+  - **Settings cache**: `get_settings()` is `@lru_cache`; threshold reads incur zero I/O after
+    first call.
+
+  ## Architecture Notes
+
+  ### New Files
+  - `src/sheep/models/__init__.py` — new package
+  - `src/sheep/models/spec.py` — `SpecInput` model with `@field_validator` and
+    `compute_shannon_entropy` helper
+  - `tests/test_spec_validation.py` — unit tests for validator and entropy function
+
+  ### Modified Files
+  - `src/sheep/config/settings.py` — add `spec_min_chars` and `spec_min_entropy` fields
+  - `src/sheep/cli.py` — add `--force` option to `implement`; catch `pydantic.ValidationError`;
+    display Rich error panel; re-prompt (tty) or exit (pipe)
+
+  ### Integration Flow
+  ```
+  CLI implement command
+      │
+      ├── --force=True ──────────────────→ structlog WARNING + Langfuse event → proceed
+      │
+      └── --force=False
+              │
+              ↓ constructs SpecInput(user_query=raw_input)
+          @field_validator reads get_settings().spec_min_chars / spec_min_entropy
+          calls compute_shannon_entropy(user_query)
+              │
+              ├── valid ─────────────────→ proceed to CodeImplementationFlow
+              │
+              └── invalid (ValueError)
+                      │
+                      ↓ CLI catches ValidationError
+                  Rich Panel display (rule name + offending input truncated to 80 chars)
+                      │
+                      ├── sys.stdin.isatty() → typer.prompt() loop → retry
+                      └── piped / CI       → typer.Exit(1)
+  ```
+
+  ### No Spec Model Exists Today
+  The codebase passes spec content as raw strings (`issue_description: str` in
+  `CodeImplementationState`). The new `SpecInput` model is the first dedicated spec data
+  contract in the project, and its `src/sheep/models/` home positions the codebase for
+  future structured spec fields (title, priority, tags) without requiring a move later.

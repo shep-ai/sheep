@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     verbose: bool = Field(default=False, alias="SHEEP_VERBOSE")
     max_iterations: int = Field(default=25, alias="SHEEP_MAX_ITERATIONS")
 
+    # Spec intake validation thresholds
+    spec_min_chars: int = Field(default=20, alias="SHEEP_SPEC_MIN_CHARS")
+    spec_min_entropy: float = Field(default=2.5, alias="SHEEP_SPEC_MIN_ENTROPY")
+
     # Sub-configurations
     llm: LLMSettings = Field(default_factory=LLMSettings)
     langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)

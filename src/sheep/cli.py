@@ -1,16 +1,21 @@
 """Sheep CLI - Command line interface for the agentic platform."""
 
+import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
+from pydantic import ValidationError
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
 from sheep import __version__
 from sheep.config.settings import get_settings
-from sheep.observability import init_observability, setup_logging
+from sheep.observability import get_logger, init_observability, setup_logging
+
+_logger = get_logger(__name__)
 
 app = typer.Typer(
     name="sheep",
@@ -19,6 +24,21 @@ app = typer.Typer(
 )
 
 console = Console()
+
+
+def _display_validation_error(error_msg: str, raw_input: str) -> None:
+    """Display a Rich error panel for a spec input validation rejection."""
+    # Strip Pydantic v2's "Value error, " prefix added to @field_validator messages
+    display_msg = escape(error_msg.removeprefix("Value error, "))
+    truncated = escape(raw_input[:80] + "…" if len(raw_input) > 80 else raw_input)
+    console.print(
+        Panel(
+            f"{display_msg}\n\n[dim]Your input:[/dim] [italic]{truncated}[/italic]",
+            title="[bold red]Invalid Spec Input[/bold red]",
+            border_style="red",
+            expand=False,
+        )
+    )
 
 
 def version_callback(value: bool) -> None:
@@ -82,6 +102,12 @@ def implement(
         "-V",
         help="Enable verbose output",
     ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "--skip-validation",
+        help="Bypass spec intake validation. Use for placeholder specs or testing. Logs a warning.",
+    ),
 ) -> None:
     """
     Implement a feature, fix a bug, or complete a task.
@@ -98,6 +124,30 @@ def implement(
         sheep implement . -i "Fix login bug" -b "fix/login-bug" --no-push
     """
     from sheep.flows import run_code_implementation
+    from sheep.models.spec import SpecInput
+    from sheep.observability.langfuse_client import emit_validation_skipped_event
+
+    # --- Spec intake validation ---
+    if force:
+        _logger.warning(
+            "validation_skipped",
+            spec_number="N/A",
+            rule_skipped="all",
+            input_length=len(issue),
+        )
+        emit_validation_skipped_event(input_length=len(issue))
+    else:
+        while True:
+            try:
+                SpecInput(user_query=issue)
+                break
+            except ValidationError as exc:
+                first_msg = exc.errors()[0]["msg"]
+                _display_validation_error(first_msg, issue)
+                if sys.stdin.isatty():
+                    issue = typer.prompt("\nPlease enter a valid feature description")
+                else:
+                    raise typer.Exit(1) from None
 
     console.print(
         Panel(

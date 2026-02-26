@@ -2,7 +2,6 @@
 
 import base64
 import os
-from typing import Any
 
 from langfuse import get_client
 
@@ -11,6 +10,28 @@ from sheep.observability.logging import get_logger
 
 _instrumented = False
 _logger = get_logger(__name__)
+
+
+def emit_validation_skipped_event(input_length: int) -> None:
+    """Emit a Langfuse trace event when spec intake validation is bypassed via --force.
+
+    Gracefully no-ops when Langfuse is not configured or the client call fails.
+    """
+    settings = get_settings()
+    if not settings.langfuse.is_configured:
+        return
+    try:
+        client = get_client()
+        client.create_event(
+            name="validation_skipped",
+            metadata={
+                "input_length": input_length,
+                "rule_skipped": "all",
+            },
+            level="WARNING",
+        )
+    except Exception as e:  # noqa: BLE001
+        _logger.warning("Failed to emit Langfuse validation_skipped event", error=str(e))
 
 
 def init_observability() -> None:
