@@ -12,7 +12,7 @@ summary: >
   following the same content-file pattern established by RANDOM_WORD.txt and RANDOM.txt.
   Include pytest tests that validate the file's existence, content structure (multi-line
   poem), and POSIX-compliant line endings.
-phase: Analysis
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -27,7 +27,51 @@ technologies:
 relatedLinks: []
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: 'How many lines should the poem contain?'
+    resolved: true
+    options:
+      - option: 'Short (4–6 lines)'
+        description: 'A compact poem — haiku-adjacent or quatrain. Fastest to author, easy to validate with a simple line-count assertion. Matches the "short and fast" spirit of the user request.'
+        selected: true
+      - option: 'Medium (7–12 lines)'
+        description: 'A slightly longer poem with more room for narrative or imagery. Still clearly "short" but allows more creative expression. Line-count assertion remains straightforward.'
+        selected: false
+      - option: 'Unconstrained'
+        description: 'No fixed line count — tests only validate "more than one line". Maximally flexible but provides weaker structural guarantees and less predictable content.'
+        selected: false
+    selectionRationale: 'A 4–6 line poem directly honors "short and fast!!!" and maps cleanly to a precise line-count assertion (FR-3). It also fits the established micro-content pattern of the repo (single word, single fact). A haiku or quatrain is self-contained and readable at a glance.'
+    answer: 'Short (4–6 lines)'
+
+  - question: 'Should the test assert an exact line count or a minimum line count?'
+    resolved: true
+    options:
+      - option: 'Exact line count'
+        description: 'Assert len(lines) == N for a fixed N. Tightly couples test to the authored content but makes the structural contract explicit and unambiguous.'
+        selected: false
+      - option: 'Minimum line count (>= 2)'
+        description: 'Assert the poem has at least 2 non-empty lines. Decoupled from the exact poem — any valid multi-line poem passes. Easier to maintain if the poem is ever revised.'
+        selected: true
+      - option: 'Range check (2–12 lines)'
+        description: 'Assert the poem falls within a defined range. Balances flexibility with a meaningful upper bound, preventing a single-line or overly long file from passing.'
+        selected: false
+    selectionRationale: 'A minimum line count (>= 2) validates the structural intent — "this is a poem, not a word or sentence" — without hard-coding the exact stanza shape. This mirrors how test_random_word_file.py validates "exactly one token" as a structural property, not the specific word. It also makes the test resilient to minor poem edits without requiring test changes.'
+    answer: 'Minimum line count (>= 2)'
+
+  - question: 'What poetic form should the poem use?'
+    resolved: true
+    options:
+      - option: 'Free verse'
+        description: 'No fixed meter or rhyme scheme. Quickest to author, no risk of awkward forced rhymes. Content can focus on a whimsical or tech-flavored theme matching the repo tone.'
+        selected: true
+      - option: 'Haiku (5-7-5 syllables)'
+        description: 'Traditional 3-line form with strict syllable counts. Elegant and constrained, but syllable validation in tests is complex and unnecessary for this repo pattern.'
+        selected: false
+      - option: 'Rhyming quatrain'
+        description: 'Four lines with an ABAB or AABB rhyme scheme. Approachable and fun, but rhyme quality is subjective and rhyme enforcement in tests is impractical.'
+        selected: false
+    selectionRationale: 'Free verse is fastest to author and keeps tests purely structural (line count, POSIX endings) rather than requiring syllable or rhyme validation — neither of which fits the lightweight test pattern of this repo. The content can still be creative and fun.'
+    answer: 'Free verse'
 
 # Markdown content (the actual spec)
 content: |
@@ -38,47 +82,59 @@ content: |
   validation. This feature adds a poem variant — a short, original poem stored in
   RANDOM_POEM.txt at the repository root.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] `RANDOM_POEM.txt` exists at the repository root
+  - [ ] The file contains an original poem of 4–6 lines (free verse)
+  - [ ] The file is valid UTF-8 with no BOM
+  - [ ] The file ends with exactly one LF (`\n`), no CRLF
+  - [ ] `tests/test_random_poem_file.py` exists and contains exactly 3 test functions
+  - [ ] `test_file_exists()` passes
+  - [ ] `test_file_is_multiline_poem()` passes (>= 2 non-empty lines)
+  - [ ] `test_file_ends_with_single_lf()` passes
+  - [ ] All existing tests continue to pass (no regressions)
+  - [ ] `pytest` exits with code 0 after the feature is merged
 
-  ```
-  /
-  ├── RANDOM_WORD.txt        # Single word content file (spec 010)
-  ├── RANDOM.txt             # Single-line fact content file (spec 010)
-  ├── JOKE.md / JOKE2.md / JOKE3.md  # Joke markdown files (specs 006-009)
-  ├── SHEEP.md               # Story content file (spec 008)
-  ├── tests/
-  │   ├── test_random_word_file.py   # Template for new content file tests
-  │   ├── test_config.py
-  │   └── test_tools.py
-  ├── specs/
-  │   └── 011-random-poem-generator/
-  └── src/sheep/             # Platform source (not touched by this feature)
-  ```
+  ## Functional Requirements
 
-  Content files live at the repo root. Test files follow `tests/test_<feature>.py`
-  naming. The spec 010 RANDOM_WORD.txt feature is the closest prior art and defines
-  the implementation template.
+  - **FR-1**: A file named `RANDOM_POEM.txt` MUST be created at the repository root.
+  - **FR-2**: `RANDOM_POEM.txt` MUST contain an original, human-readable poem written
+    in free verse.
+  - **FR-3**: The poem MUST span at least 2 non-empty lines (target: 4–6 lines).
+  - **FR-4**: A test module `tests/test_random_poem_file.py` MUST be created containing
+    exactly three test functions: `test_file_exists`, `test_file_is_multiline_poem`,
+    and `test_file_ends_with_single_lf`.
+  - **FR-5**: `test_file_exists` MUST assert that `RANDOM_POEM.txt` exists at
+    `REPO_ROOT / "RANDOM_POEM.txt"` using `pathlib.Path`.
+  - **FR-6**: `test_file_is_multiline_poem` MUST assert that the file contains at
+    least 2 non-empty lines when read as UTF-8 text.
+  - **FR-7**: `test_file_ends_with_single_lf` MUST assert (a) the file ends with
+    `b"\n"`, (b) the file does NOT end with `b"\r\n"`, and (c) the final byte is LF.
+  - **FR-8**: No existing files MAY be modified by this feature.
 
-  ### Architecture Patterns
+  ## Non-Functional Requirements
 
-  - **Content files**: Plain static files committed directly — no code generation,
-    no runtime logic. All content is hand-authored or agent-authored at commit time.
-  - **Test pattern**: Each content file gets a `tests/test_<name>.py` module with
-    three canonical test functions:
-      1. `test_file_exists()` — path assertion
-      2. `test_file_<content_shape>()` — structural content assertion
-      3. `test_file_ends_with_single_lf()` — POSIX line-ending compliance
-  - **POSIX compliance**: Files must end with exactly one `\n`, no `\r\n`.
-  - **Encoding**: UTF-8 throughout.
+  - **NFR-1 — Encoding**: `RANDOM_POEM.txt` MUST be UTF-8 encoded without a BOM.
+    The test MUST read the file with `encoding="utf-8"`.
+  - **NFR-2 — POSIX line endings**: All lines in `RANDOM_POEM.txt` MUST use LF
+    (`\n`) only. CRLF (`\r\n`) is explicitly forbidden.
+  - **NFR-3 — Additive only**: This feature MUST NOT modify any existing source,
+    test, or configuration file. It is purely additive.
+  - **NFR-4 — No new dependencies**: No new Python packages or CI infrastructure
+    changes are required or permitted.
+  - **NFR-5 — Test naming convention**: The test module MUST follow the existing
+    pattern `tests/test_<content_file_stem_lowercase>.py`.
+  - **NFR-6 — Content originality**: The poem content MUST be original (not a
+    well-known copyrighted work). A whimsical or tech-flavored theme consistent
+    with the repo's character is preferred.
 
-  ### Relevant Technologies
+  ## Product Questions & AI Recommendations
 
-  - **Python / pathlib**: Tests use `Path(__file__).parent.parent` to resolve
-    `REPO_ROOT` and locate content files.
-  - **pytest**: Test runner configured via `pyproject.toml` (`testpaths = ["tests"]`,
-    `asyncio_mode = "auto"`). No special plugins needed for file tests.
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How many lines should the poem contain? | Short (4–6 lines) | Honors "short and fast", maps to a clear structural assertion, fits the micro-content pattern |
+  | 2 | Should the test assert exact or minimum line count? | Minimum line count (>= 2) | Decouples test from specific stanza shape; validates multi-line intent without hard-coding content |
+  | 3 | What poetic form? | Free verse | Fastest to author; no syllable/rhyme validation needed; keeps tests purely structural |
 
   ## Affected Areas
 
@@ -98,7 +154,7 @@ content: |
   ## Size Estimate
 
   **S** — This is a purely additive, content-only feature. It requires:
-  1. Authoring a short poem (~4–12 lines) and writing it to `RANDOM_POEM.txt`.
+  1. Authoring a short poem (~4–6 lines) and writing it to `RANDOM_POEM.txt`.
   2. Creating `tests/test_random_poem_file.py` with ~20 lines of pytest code modelled
      directly on the existing `test_random_word_file.py`.
 
