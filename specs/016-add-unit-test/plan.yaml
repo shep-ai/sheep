@@ -1,0 +1,107 @@
+name: add-unit-test
+summary: >
+  Add tests/test_git_tools.py containing TestGitStatusTool with three test
+  methods covering all reachable branches of GitStatusTool._run(). The
+  implementation is purely additive: one new test file, zero production code
+  changes, zero new dependencies. All test infrastructure is already in place.
+
+relatedFeatures: []
+technologies:
+  - Python 3.11+
+  - pytest 8+
+  - pytest-asyncio 0.24+
+  - unittest.mock (stdlib)
+  - tempfile (stdlib)
+  - subprocess (stdlib, mocked)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: Write TestGitStatusTool
+    description: >
+      Create tests/test_git_tools.py with the TestGitStatusTool class and all
+      three test methods. This is the only phase because the feature is a single
+      self-contained file with no prerequisite changes — all infrastructure
+      (pytest, mocking, tempfile) is already in place.
+    parallel: false
+
+filesToCreate:
+  - tests/test_git_tools.py
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The project follows a strict one-test-file-per-source-module convention:
+  - `tests/test_tools.py` → `src/sheep/tools/file_tools.py`
+  - `tests/test_config.py` → `src/sheep/config.py`
+  - `tests/test_git_tools.py` (new) → `src/sheep/tools/git_tools.py`
+
+  The new file slots into the existing `tests/` package (which has `__init__.py`)
+  and is discovered automatically by pytest via the `testpaths = ["tests"]` and
+  `test_*.py` naming settings in `pyproject.toml`. No configuration changes needed.
+
+  `GitStatusTool` is importable as `from sheep.tools.git_tools import GitStatusTool`
+  because the project is installed in editable mode with `src/` layout registered
+  in `pyproject.toml`.
+
+  ## Key Design Decisions
+
+  ### Mock Target: subprocess.run (not _run_git)
+  Patch `sheep.tools.git_tools.subprocess.run` directly. This intercepts exactly
+  what `GitStatusTool._run()` calls via the `_run_git` helper, returns a controlled
+  `MagicMock` standing in for `CompletedProcess[str]`, and is immune to internal
+  refactoring of the private `_run_git` symbol. Patching a private symbol would
+  couple tests to implementation details and break on innocent refactors. NFR-4
+  and NFR-5 make this the only conformant choice.
+
+  ### Test Class: plain pytest class (no unittest.TestCase)
+  `test_tools.py` uses `class TestFileTools` without `unittest.TestCase`
+  inheritance. Matching this pattern with `class TestGitStatusTool` keeps the
+  codebase uniform and allows future use of pytest fixtures/parametrize without
+  refactoring.
+
+  ### Temporary Directory: tempfile.TemporaryDirectory
+  Every test in `test_tools.py` that needs on-disk paths uses
+  `with tempfile.TemporaryDirectory() as tmpdir`. Matching this idiom satisfies
+  NFR-3 (same code style) and ensures automatic cleanup even on test failure.
+  The `tmp_path` pytest fixture is equally valid but would introduce visual
+  inconsistency across the test suite.
+
+  ### Branch Coverage: three test methods
+  `GitStatusTool._run()` has exactly three reachable code paths:
+  1. Path does not exist → early return with error string
+  2. `git status --porcelain -b` returns empty stdout → "Working tree is clean"
+  3. `git status --porcelain -b` returns non-empty stdout → raw output returned
+
+  Three methods cover 100% of observable behaviour while remaining firmly S-sized.
+
+  ### Import Ordering
+  `pyproject.toml` activates ruff with isort ("I") rules. Imports must follow
+  stdlib → third-party → project ordering, matching `test_config.py` which already
+  imports `from unittest.mock import patch` in its stdlib block.
+
+  ## Implementation Strategy
+
+  Single phase. Write the test file following the established pattern in
+  `test_tools.py`: class docstring, per-method docstrings, no type annotations on
+  test functions, `tempfile.TemporaryDirectory` for paths that must exist on disk,
+  and `unittest.mock.patch` as a context manager targeting
+  `sheep.tools.git_tools.subprocess.run`. The mock returns a `MagicMock` with
+  `.stdout` set to the desired string to simulate `CompletedProcess`.
+
+  The path-not-found test requires no subprocess mock — it exercises the early
+  return before `_run_git` is called, using a guaranteed-nonexistent path.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | structlog emits log output during tests | Benign — structlog is a no-op without explicit sink configuration; NFR-5 prohibits conftest.py changes |
+  | ruff/isort lint failures | Follow stdlib→third-party→project import order exactly as in test_config.py |
+  | pytest-asyncio interference | GitStatusTool._run() is synchronous; asyncio_mode=auto has no effect on sync test methods |
+  | Real git subprocess invoked | subprocess.run patched for the duration of each relevant test method; path-not-found test never reaches _run_git |
