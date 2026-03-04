@@ -1,0 +1,100 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: add-unit-test
+number: 016
+branch: feat/016-add-unit-test
+oneLiner: Add a single new unit test to improve coverage of an untested module
+
+summary: >
+  This feature adds one new unit test to the existing pytest test suite. The
+  codebase already has tests for config, file tools, and generated content files,
+  but several modules (git_tools, agents, flows, observability) have no test
+  coverage. The task is to write one focused, passing unit test targeting a
+  currently uncovered area.
+
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+
+  - pytest
+  - pytest-asyncio
+  - unittest.mock
+  - pathlib
+
+relatedLinks: []
+
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The project has a growing test suite under `tests/` but coverage is incomplete.
+  Modules such as `sheep/tools/git_tools.py`, `sheep/agents/`, `sheep/flows/`, and
+  `sheep/observability/` have zero test coverage. Adding even a single unit test
+  for one of these modules improves the baseline and establishes a pattern for
+  future coverage expansion.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  src/sheep/
+  ├── agents/          # CrewAI agent definitions (code_agents.py, general_agents.py)
+  ├── config/          # Pydantic settings, LLM factory (settings.py, llm.py)
+  ├── flows/           # Orchestration workflows (code_implementation.py, chat.py)
+  ├── tools/           # BaseTool subclasses (file_tools.py, git_tools.py, web_tools.py)
+  └── observability/   # Structured logging + Langfuse (logging.py, langfuse_client.py)
+
+  tests/
+  ├── test_config.py            # Settings, LLMSettings, LangfuseSettings
+  ├── test_tools.py             # FileReadTool, FileWriteTool, DirectoryTreeTool
+  ├── test_random_word_file.py  # Content-file existence and format checks
+  └── test_state_machine_md.py  # Markdown structure checks
+  ```
+
+  ### Architecture Patterns
+
+  - All tools extend `crewai.tools.BaseTool` with Pydantic input schemas; tested
+    by calling `tool._run(...)` directly.
+  - Configuration uses `@lru_cache` on `get_settings()`; tests call
+    `get_settings.cache_clear()` before each test.
+  - Tests use `tempfile.TemporaryDirectory` for file-based isolation and
+    `unittest.mock.patch.dict(os.environ)` for environment isolation.
+  - Pytest asyncio mode is set to `auto` so async tests need no extra decorator.
+
+  ### Relevant Technologies
+
+  - **pytest** — test runner and discovery (`tests/` directory, `pyproject.toml` config)
+  - **pytest-asyncio** — async test support (asyncio_mode = auto)
+  - **unittest.mock** — env-var and function patching
+  - **pathlib.Path** — cross-platform path handling in tests
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tests/` | High | New test file or added test function goes here |
+  | `src/sheep/tools/git_tools.py` | Medium | Most likely target: git tools have no tests; many methods can be tested with mocked subprocess output |
+  | `src/sheep/observability/logging.py` | Low | Alternative target: `setup_logging` and `get_logger` are pure functions easy to unit-test |
+  | `pyproject.toml` | None | No changes needed; pytest config already correct |
+
+  ## Dependencies
+
+  - `pytest>=8.0.0` — already a dev dependency
+  - `pytest-asyncio>=0.24.0` — already a dev dependency
+  - `unittest.mock` — stdlib, no installation needed
+  - The module under test (e.g., `sheep.tools.git_tools`) must be importable;
+    no new dependencies are required
+
+  ## Size Estimate
+
+  **S** — A single unit test requires writing one test function (or one test
+  class with one method), choosing a target module, and verifying it passes
+  with `pytest`. This is a hours-level task with no architectural changes.
