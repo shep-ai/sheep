@@ -1,0 +1,9 @@
+# Traffic Light State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Red
+    Red --> Green
+    Green --> Yellow
+    Yellow --> Red
+```
