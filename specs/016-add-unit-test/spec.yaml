@@ -9,11 +9,12 @@ oneLiner: Add a single new unit test to improve coverage of an untested module
 summary: >
   This feature adds one new unit test to the existing pytest test suite. The
   codebase already has tests for config, file tools, and generated content files,
-  but several modules (git_tools, agents, flows, observability) have no test
+  but several modules (git_tools, agents, flows, observability) have zero test
   coverage. The task is to write one focused, passing unit test targeting a
-  currently uncovered area.
+  currently uncovered area — specifically GitStatusTool from git_tools.py, using
+  mocked subprocess output to avoid real git dependency.
 
-phase: Analysis
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -25,76 +26,160 @@ technologies:
   - pytest-asyncio
   - unittest.mock
   - pathlib
+  - subprocess (mocked)
 
 relatedLinks: []
 
-openQuestions: []
+openQuestions:
+  - question: 'Which module should the new unit test target?'
+    resolved: true
+    options:
+      - option: 'git_tools.py (GitStatusTool)'
+        description: >
+          Test GitStatusTool._run() using unittest.mock.patch to mock subprocess.run.
+          This covers the most complex untested module, follows the existing BaseTool
+          pattern already established in test_tools.py, and requires no external
+          dependencies. Mocking subprocess output makes tests fully deterministic.
+        selected: true
+      - option: 'observability/logging.py (get_logger)'
+        description: >
+          Test get_logger() to verify it returns a structlog BoundLogger instance.
+          Simpler to test (pure function, no I/O), but lower value since it just
+          wraps structlog with no project-specific logic. Less representative of
+          the patterns needed for future coverage expansion.
+        selected: false
+    selectionRationale: >
+      GitStatusTool is the highest-value target: it has real business logic
+      (path existence checks, clean-tree detection, error formatting), follows the
+      BaseTool pattern already tested in test_tools.py, and demonstrates the
+      subprocess-mocking pattern needed to eventually cover all git tools.
+    answer: 'git_tools.py (GitStatusTool)'
 
-# Markdown content (the actual spec)
+  - question: 'Should the test live in an existing file or a new test file?'
+    resolved: true
+    options:
+      - option: 'New file: tests/test_git_tools.py'
+        description: >
+          Creates a dedicated test module for git_tools, matching the project's
+          one-module-one-test-file convention (test_tools.py for file_tools.py,
+          test_config.py for config). Keeps git tool tests isolated and easy to
+          extend. Preferred for maintainability.
+        selected: true
+      - option: 'Add to existing tests/test_tools.py'
+        description: >
+          Appends a new class to the existing test_tools.py. Avoids creating a new
+          file but conflates file tools and git tools in one module, breaking the
+          1:1 convention. Makes future expansion harder to discover.
+        selected: false
+    selectionRationale: >
+      A dedicated tests/test_git_tools.py matches the project's established
+      convention (one test file per source module) and makes it obvious where to
+      add future git tool tests. It also keeps test_tools.py focused on file tools.
+    answer: 'New file: tests/test_git_tools.py'
+
+  - question: 'How many test cases should the single unit test cover?'
+    resolved: true
+    options:
+      - option: 'One focused test method'
+        description: >
+          Write exactly one test function testing a single behaviour (e.g.
+          "clean working tree returns clean message"). Strictly satisfies the spec
+          ("one unit test"), fastest to implement, lowest risk of scope creep.
+        selected: false
+      - option: 'One test class with 2-3 methods'
+        description: >
+          Write a TestGitStatusTool class with 2-3 test methods covering the main
+          branches: path-not-found error, clean tree, and changes present. Same
+          file, same effort level (S), but far more useful coverage and a better
+          pattern for contributors to follow. Still unambiguously "one unit test
+          class" per the spec intent.
+        selected: true
+    selectionRationale: >
+      A class with 2-3 methods covering the key code paths (missing path, clean
+      tree, dirty tree) is still S-sized work and provides substantially more
+      value than a single assertion. The spec says "one unit test" in the sense of
+      one logical test addition, not literally one assert. This approach also
+      demonstrates the mocking pattern completely, making it easy for contributors
+      to add more tests.
+    answer: 'One test class with 2-3 methods'
+
 content: |
   ## Problem Statement
 
   The project has a growing test suite under `tests/` but coverage is incomplete.
   Modules such as `sheep/tools/git_tools.py`, `sheep/agents/`, `sheep/flows/`, and
-  `sheep/observability/` have zero test coverage. Adding even a single unit test
-  for one of these modules improves the baseline and establishes a pattern for
-  future coverage expansion.
+  `sheep/observability/` have zero test coverage. Adding a focused unit test for
+  `GitStatusTool` improves the baseline, demonstrates the subprocess-mocking
+  pattern, and establishes a model for future git-tool coverage expansion.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] A new file `tests/test_git_tools.py` exists in the repository
+  - [ ] The file contains a `TestGitStatusTool` class with at least 2 test methods
+  - [ ] All new tests pass when running `pytest tests/test_git_tools.py`
+  - [ ] All pre-existing tests continue to pass (`pytest` exits 0 with no regressions)
+  - [ ] No real git subprocess is invoked during the tests (subprocess.run is mocked)
+  - [ ] No new production code is added or modified
+  - [ ] No new dependencies are added to `pyproject.toml`
 
-  ```
-  src/sheep/
-  ├── agents/          # CrewAI agent definitions (code_agents.py, general_agents.py)
-  ├── config/          # Pydantic settings, LLM factory (settings.py, llm.py)
-  ├── flows/           # Orchestration workflows (code_implementation.py, chat.py)
-  ├── tools/           # BaseTool subclasses (file_tools.py, git_tools.py, web_tools.py)
-  └── observability/   # Structured logging + Langfuse (logging.py, langfuse_client.py)
+  ## Functional Requirements
 
-  tests/
-  ├── test_config.py            # Settings, LLMSettings, LangfuseSettings
-  ├── test_tools.py             # FileReadTool, FileWriteTool, DirectoryTreeTool
-  ├── test_random_word_file.py  # Content-file existence and format checks
-  └── test_state_machine_md.py  # Markdown structure checks
-  ```
+  - **FR-1**: A new test file `tests/test_git_tools.py` must be created containing
+    a `TestGitStatusTool` class that tests `sheep.tools.git_tools.GitStatusTool`.
+  - **FR-2**: The test class must include a test verifying that `GitStatusTool._run()`
+    returns an error string when given a path that does not exist.
+  - **FR-3**: The test class must include a test verifying that `GitStatusTool._run()`
+    returns "Working tree is clean" (or equivalent) when `git status --porcelain`
+    produces empty output.
+  - **FR-4**: The test class must include a test verifying that `GitStatusTool._run()`
+    returns the raw porcelain status output when git reports changes.
+  - **FR-5**: All subprocess calls must be intercepted via `unittest.mock.patch`
+    targeting `sheep.tools.git_tools.subprocess.run`, so tests are fully
+    deterministic and require no git installation at test time.
+  - **FR-6**: Tests must use `tempfile.TemporaryDirectory` (or `tmp_path` fixture)
+    for any path that must exist on disk, following the pattern in `test_tools.py`.
 
-  ### Architecture Patterns
+  ## Non-Functional Requirements
 
-  - All tools extend `crewai.tools.BaseTool` with Pydantic input schemas; tested
-    by calling `tool._run(...)` directly.
-  - Configuration uses `@lru_cache` on `get_settings()`; tests call
-    `get_settings.cache_clear()` before each test.
-  - Tests use `tempfile.TemporaryDirectory` for file-based isolation and
-    `unittest.mock.patch.dict(os.environ)` for environment isolation.
-  - Pytest asyncio mode is set to `auto` so async tests need no extra decorator.
+  - **NFR-1**: Tests must complete in under 1 second total — no real I/O or network.
+  - **NFR-2**: The test file must be discoverable by pytest with zero configuration
+    changes (file named `test_*.py`, classes named `Test*`, methods named `test_*`).
+  - **NFR-3**: The test file must follow the same code style as existing test files:
+    no type annotations on test functions, docstrings on each test method, and
+    imports grouped as stdlib → third-party → project.
+  - **NFR-4**: The mock setup must be minimal — patch only `subprocess.run`, not
+    internal helpers — to avoid coupling tests to implementation details.
+  - **NFR-5**: The new test must not require any changes to `pyproject.toml`,
+    `conftest.py`, or any source file.
 
-  ### Relevant Technologies
+  ## Product Questions & AI Recommendations
 
-  - **pytest** — test runner and discovery (`tests/` directory, `pyproject.toml` config)
-  - **pytest-asyncio** — async test support (asyncio_mode = auto)
-  - **unittest.mock** — env-var and function patching
-  - **pathlib.Path** — cross-platform path handling in tests
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Which module to target? | git_tools.py (GitStatusTool) | Highest-value: real branching logic, follows BaseTool pattern, shows subprocess-mock technique |
+  | 2 | New file or append to existing? | New file: tests/test_git_tools.py | Matches 1:1 module-to-test-file convention; keeps test_tools.py focused |
+  | 3 | One method or a small class? | One test class with 2-3 methods | Covers all code branches, still S-sized, better pattern for contributors |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `tests/` | High | New test file or added test function goes here |
-  | `src/sheep/tools/git_tools.py` | Medium | Most likely target: git tools have no tests; many methods can be tested with mocked subprocess output |
-  | `src/sheep/observability/logging.py` | Low | Alternative target: `setup_logging` and `get_logger` are pure functions easy to unit-test |
+  | `tests/` | High | New file `test_git_tools.py` added here |
+  | `src/sheep/tools/git_tools.py` | Read-only | Target module; no changes to source code |
+  | `src/sheep/observability/logging.py` | None | Not targeted; `get_logger` import pulled transitively but not tested here |
   | `pyproject.toml` | None | No changes needed; pytest config already correct |
 
   ## Dependencies
 
   - `pytest>=8.0.0` — already a dev dependency
-  - `pytest-asyncio>=0.24.0` — already a dev dependency
+  - `pytest-asyncio>=0.24.0` — already a dev dependency (asyncio_mode = auto)
   - `unittest.mock` — stdlib, no installation needed
-  - The module under test (e.g., `sheep.tools.git_tools`) must be importable;
-    no new dependencies are required
+  - `tempfile` — stdlib, no installation needed
+  - `sheep.tools.git_tools` must be importable from the test environment (it is,
+    via the `src/` layout already configured in `pyproject.toml`)
 
   ## Size Estimate
 
-  **S** — A single unit test requires writing one test function (or one test
-  class with one method), choosing a target module, and verifying it passes
-  with `pytest`. This is a hours-level task with no architectural changes.
+  **S** — One new test file with one test class and 2-3 test methods. All
+  infrastructure (pytest, mocking, tempfile isolation) is already in place.
+  No source code changes. Estimated effort: under 1 hour.
