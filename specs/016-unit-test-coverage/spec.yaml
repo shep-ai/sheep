@@ -5,9 +5,10 @@ oneLiner: Add comprehensive unit tests to improve test coverage across the Sheep
 summary: >
   Add unit tests for under-tested modules in the Sheep agentic platform. The current test suite
   covers only basic config settings, file tools, and content-validation tests for markdown/text files.
-  Key modules like git_tools, web_tools, LLM configuration, observability/logging, CLI, and Pydantic
-  state models have no unit tests. This feature adds focused unit tests to close those coverage gaps.
-phase: Analysis
+  Key modules like git_tools, web_tools, LLM configuration, observability/logging, and Pydantic
+  state models have no unit tests. This feature adds focused unit tests to close those coverage gaps,
+  targeting all tool classes, factory functions, logging utilities, and state models.
+phase: Requirements
 sizeEstimate: M
 
 relatedFeatures: []
@@ -25,7 +26,98 @@ technologies:
 
 relatedLinks: []
 
-openQuestions: []
+openQuestions:
+  - question: 'Should CLI commands (cli.py) be included in the unit test scope?'
+    resolved: true
+    options:
+      - option: 'Exclude CLI tests'
+        description: >
+          CLI commands (implement, chat, config, init) are thin wrappers that delegate to
+          flows and settings. They involve typer.Exit, Rich console output, and file I/O
+          (shutil.copy), making them integration-level tests. Excluding them keeps the scope
+          focused on pure unit-testable logic with clear inputs and outputs.
+        selected: true
+      - option: 'Include CLI tests'
+        description: >
+          Testing CLI commands with typer.testing.CliRunner would cover argument parsing,
+          version callback, and error exit codes. This adds coverage but increases scope
+          and requires mocking flows, console output, and file operations.
+        selected: false
+    selectionRationale: >
+      CLI commands are thin orchestration wrappers. The real logic lives in flows, settings,
+      and tools — all of which are covered by other test files. Testing CLI commands adds
+      marginal value relative to the mocking complexity. Defer CLI tests to a future
+      integration-test feature.
+    answer: 'Exclude CLI tests'
+
+  - question: 'What coverage threshold should be targeted?'
+    resolved: true
+    options:
+      - option: 'No threshold enforcement'
+        description: >
+          Add tests without enforcing a numeric coverage gate. Focus on testing meaningful
+          code paths rather than chasing a number. Coverage reporting is still run for
+          visibility but the build does not fail on low coverage.
+        selected: false
+      - option: 'Enforce 60% minimum'
+        description: >
+          Set pytest-cov --cov-fail-under=60. This is achievable with the planned tests
+          and prevents future regressions. It is a reasonable baseline for a project that
+          currently has very low coverage.
+        selected: true
+      - option: 'Enforce 80% minimum'
+        description: >
+          An aggressive target that would require testing flows and CLI commands as well,
+          which are integration-level. Likely too ambitious for this feature scope.
+        selected: false
+    selectionRationale: >
+      60% is a practical baseline that the planned tests can comfortably achieve. It provides
+      a regression gate without forcing integration-level tests into the unit test scope.
+      The threshold can be raised incrementally in future features.
+    answer: 'Enforce 60% minimum'
+
+  - question: 'Should tests for langfuse_client.py be included?'
+    resolved: true
+    options:
+      - option: 'Include langfuse_client tests'
+        description: >
+          Test init_observability by mocking get_settings, os.environ, langfuse.get_client,
+          and CrewAIInstrumentor. Covers the conditional initialization logic (already-instrumented
+          guard, unconfigured settings, auth failure, import error). Moderately complex mocking
+          but tests real branching logic.
+        selected: true
+      - option: 'Exclude langfuse_client tests'
+        description: >
+          The module is mostly glue code that sets environment variables and calls external
+          libraries. Mocking it thoroughly is tedious and the tests would be brittle against
+          Langfuse SDK changes.
+        selected: false
+    selectionRationale: >
+      init_observability has meaningful branching logic (guard clause, config check, auth check,
+      openlit toggle, import error handling) that is worth testing. The mocking is manageable
+      since each branch is short. Including it rounds out coverage of the observability package.
+    answer: 'Include langfuse_client tests'
+
+  - question: 'How should the _run_git helper function be tested?'
+    resolved: true
+    options:
+      - option: 'Test indirectly via tool tests'
+        description: >
+          Mock subprocess.run at the tool-test level. Each tool test already exercises _run_git
+          indirectly. This avoids testing a private helper directly and keeps tests focused on
+          public API (tool._run).
+        selected: true
+      - option: 'Test _run_git directly plus tool tests'
+        description: >
+          Add dedicated tests for _run_git to verify command construction, check=True/False
+          behavior, and error propagation. Then also test each tool. More thorough but
+          creates some duplication.
+        selected: false
+    selectionRationale: >
+      _run_git is a thin wrapper around subprocess.run. Testing it indirectly through each tool
+      is sufficient and avoids coupling tests to a private function. If _run_git is ever refactored,
+      tests won't break as long as tool behavior is preserved.
+    answer: 'Test indirectly via tool tests'
 
 content: |
   ## Problem Statement
@@ -33,76 +125,64 @@ content: |
   The Sheep codebase has minimal unit test coverage. Only three source modules are tested:
   - `config/settings.py` — basic defaults and provider detection (3 tests)
   - `tools/file_tools.py` — FileReadTool, FileWriteTool, DirectoryTreeTool (4 tests)
-  - Two content-validation test files (`test_random_word_file.py`, `test_state_machine_md.py`) that verify static markdown/text files, not source code.
+  - Two content-validation test files that verify static markdown/text files, not source code.
 
   The following source modules have **zero** unit tests:
-  - `tools/git_tools.py` — 8 tool classes with subprocess calls
+  - `tools/git_tools.py` — 8 tool classes wrapping subprocess calls
   - `tools/web_tools.py` — WebFetchTool, WebSearchTool, ShellCommandTool
   - `config/llm.py` — LLM factory functions (create_llm, get_fast_llm, get_reasoning_llm)
   - `observability/logging.py` — setup_logging, get_logger, AgentLogger class
-  - `observability/langfuse_client.py` — init_observability
-  - `cli.py` — Typer CLI commands (implement, chat, config, init)
-  - `flows/code_implementation.py` — CodeImplementationState model, flow logic
+  - `observability/langfuse_client.py` — init_observability with conditional initialization
+  - `flows/code_implementation.py` — CodeImplementationState model
   - `flows/chat.py` — ChatState model
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
-  ```
-  src/sheep/
-  ├── __init__.py              # Version string
-  ├── cli.py                   # Typer CLI entry point (4 commands)
-  ├── config/
-  │   ├── __init__.py
-  │   ├── settings.py          # Pydantic settings (LLM, Langfuse, Git, main Settings)
-  │   └── llm.py               # LLM factory (create_llm, get_fast_llm, get_reasoning_llm)
-  ├── agents/
-  │   ├── __init__.py
-  │   ├── code_agents.py       # 3 agent factory functions
-  │   └── general_agents.py    # 1 agent factory function
-  ├── flows/
-  │   ├── __init__.py
-  │   ├── code_implementation.py  # CodeImplementationFlow + state model
-  │   └── chat.py              # ChatFlow + state model
-  ├── tools/
-  │   ├── __init__.py
-  │   ├── file_tools.py        # FileRead, FileWrite, FileSearch, DirectoryTree tools
-  │   ├── git_tools.py         # GitStatus, GitDiff, GitLog, GitCreateBranch, GitCheckout, GitCommit, GitPush, GitWorktree tools
-  │   └── web_tools.py         # WebFetch, WebSearch, ShellCommand tools
-  └── observability/
-      ├── __init__.py
-      ├── logging.py           # Structured logging + AgentLogger
-      └── langfuse_client.py   # Langfuse/OpenInference init
-  tests/
-  ├── __init__.py
-  ├── test_config.py           # 3 tests for settings
-  ├── test_tools.py            # 4 tests for file tools
-  ├── test_random_word_file.py # 3 content tests
-  └── test_state_machine_md.py # 6 content tests
-  ```
+  - [ ] All 8 git tool classes tested: GitStatusTool, GitDiffTool, GitLogTool, GitCreateBranchTool, GitCheckoutTool, GitCommitTool, GitPushTool, GitWorktreeTool
+  - [ ] Each git tool has happy-path, error-path, and nonexistent-path tests (minimum 3 tests per tool)
+  - [ ] WebFetchTool tested with mocked httpx (success, HTTP error, request error, content truncation)
+  - [ ] WebSearchTool tested with mocked duckduckgo_search (success, no results, rate limit, import error)
+  - [ ] ShellCommandTool tested (success, nonexistent working dir, timeout)
+  - [ ] create_llm tested for each provider routing path (openai, anthropic, google, cursor, default)
+  - [ ] get_fast_llm and get_reasoning_llm tested to verify correct model/temperature delegation
+  - [ ] setup_logging tested to verify structlog.configure is called with correct log level
+  - [ ] get_logger tested to return a structlog BoundLogger
+  - [ ] AgentLogger tested for all 5 methods (thinking, action, tool_call, result, error)
+  - [ ] init_observability tested for all branches (already instrumented, not configured, auth failure, openlit disabled, success, import error)
+  - [ ] CodeImplementationState default values and field types validated
+  - [ ] ChatState default values and field types validated
+  - [ ] All tests pass with `pytest` (zero failures)
+  - [ ] Coverage reaches >= 60% with `pytest --cov=sheep --cov-fail-under=60`
+  - [ ] No modifications to source code — test files only
 
-  ### Architecture Patterns
-  - **Pydantic Settings**: All configuration via `pydantic-settings` with env var loading and `.env` file support. `lru_cache` on `get_settings()`.
-  - **CrewAI BaseTool**: All tools extend `BaseTool` with Pydantic input schemas and a `_run()` method.
-  - **Factory Functions**: Agents and LLMs created via factory functions that accept optional overrides.
-  - **CrewAI Flow**: Orchestration via `crewai.flow.flow.Flow` with `@start`, `@listen`, `@router` decorators.
-  - **Subprocess Isolation**: Git and shell tools use `subprocess.run()` — easily mockable.
-  - **Structured Logging**: Uses `structlog` with Rich console output.
+  ## Functional Requirements
 
-  ### Relevant Technologies
-  - **pytest** as test runner (configured in `pyproject.toml` with `testpaths = ["tests"]`, `asyncio_mode = "auto"`)
-  - **pytest-cov** available for coverage reporting
-  - **unittest.mock** used in existing tests (`patch.dict` for env vars)
-  - **Pydantic v2** for all models and settings
-  - **tempfile** used in existing tests for filesystem isolation
+  - **FR-1**: Create `tests/test_git_tools.py` with unit tests for all 8 git tool classes. Each tool test must mock `subprocess.run` via `unittest.mock.patch` and verify correct git command construction, stdout parsing, and error handling (CalledProcessError).
+  - **FR-2**: Create `tests/test_web_tools.py` with unit tests for WebFetchTool (mock httpx.Client), WebSearchTool (mock duckduckgo_search.DDGS), and ShellCommandTool (mock subprocess.run). Test success, error, and edge-case paths for each tool.
+  - **FR-3**: Create `tests/test_llm.py` with unit tests for `create_llm`, `get_fast_llm`, and `get_reasoning_llm`. Mock `crewai.LLM` constructor and `get_settings` to verify provider-based API key routing and model/temperature parameters.
+  - **FR-4**: Create `tests/test_logging.py` with unit tests for `setup_logging` (mock `structlog.configure`), `get_logger` (verify returns BoundLogger), and `AgentLogger` (mock Rich Console and structlog logger to verify all 5 log methods).
+  - **FR-5**: Create `tests/test_langfuse.py` with unit tests for `init_observability`. Mock settings, `langfuse.get_client`, and optionally `CrewAIInstrumentor` to test all conditional branches (guard, config, auth, openlit, success, import error).
+  - **FR-6**: Create `tests/test_models.py` with unit tests for `CodeImplementationState` and `ChatState` Pydantic models. Verify default values, field types, and that models can be instantiated with partial and full inputs.
+  - **FR-7**: All test files must follow existing conventions: test files in `tests/` directory, class-based grouping for related tests, direct `_run()` calls on tool instances, `patch.dict` for env vars, `get_settings.cache_clear()` before settings tests.
+  - **FR-8**: Configure `pytest-cov` with `--cov-fail-under=60` in `pyproject.toml` to enforce the coverage threshold in CI.
 
-  ### Testing Conventions (from existing tests)
-  - Test files named `test_<module>.py` in the `tests/` directory
-  - Class-based grouping used for related tests (`class TestFileTools`)
-  - Direct `_run()` calls on tool instances (not via CrewAI execution)
-  - `unittest.mock.patch.dict` for environment variable isolation
-  - `lru_cache` clearing pattern: `get_settings.cache_clear()` before testing settings
-  - `tempfile.TemporaryDirectory` for filesystem tests
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Tests must execute in under 10 seconds total. No real network calls, no real subprocess execution, no disk I/O outside of tempfile — all external dependencies must be mocked.
+  - **NFR-2**: Tests must be deterministic — no flaky tests due to timing, ordering, or external state. Each test must be independently runnable.
+  - **NFR-3**: Tests must not require any API keys, network access, or git repositories. All external dependencies must be mocked or stubbed.
+  - **NFR-4**: Test code must follow the same Python style as the existing codebase (type hints, descriptive docstrings on test classes, f-strings for assertions where helpful).
+  - **NFR-5**: Each test file must be importable in isolation — no cross-file test dependencies.
+  - **NFR-6**: Mock patches must be scoped narrowly (per-test or per-class) to avoid test pollution. Use `get_settings.cache_clear()` in setUp/tearDown when testing settings-dependent code.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should CLI commands be unit-tested? | Exclude CLI tests | CLI commands are thin wrappers; real logic is in flows/tools. Defer to integration tests. |
+  | 2 | What coverage threshold to enforce? | 60% minimum | Achievable with planned tests; provides regression gate without forcing integration tests. |
+  | 3 | Should langfuse_client.py be tested? | Yes, include | Has meaningful branching logic worth covering; mocking is manageable. |
+  | 4 | How to test the _run_git helper? | Indirectly via tool tests | Avoids coupling to private API; each tool test exercises it anyway. |
 
   ## Affected Areas
 
@@ -112,18 +192,10 @@ content: |
   | tests/test_web_tools.py (new) | High | WebFetch, WebSearch, ShellCommand need mocked tests |
   | tests/test_llm.py (new) | Medium | LLM factory functions with provider routing logic |
   | tests/test_logging.py (new) | Medium | AgentLogger and setup_logging configuration |
+  | tests/test_langfuse.py (new) | Medium | init_observability conditional branches |
+  | tests/test_models.py (new) | Low | Pydantic state models defaults and validation |
   | tests/test_config.py (existing) | Low | May extend with additional settings edge cases |
-  | tests/test_models.py (new) | Low | Pydantic state models (CodeImplementationState, ChatState) defaults and validation |
-
-  ## Success Criteria
-
-  - [ ] Unit tests for all git tools (GitStatus, GitDiff, GitLog, GitCreateBranch, GitCheckout, GitCommit, GitPush, GitWorktree)
-  - [ ] Unit tests for web tools (WebFetchTool, WebSearchTool, ShellCommandTool)
-  - [ ] Unit tests for LLM factory functions (create_llm, get_fast_llm, get_reasoning_llm)
-  - [ ] Unit tests for observability/logging (setup_logging, get_logger, AgentLogger)
-  - [ ] Unit tests for Pydantic state models (CodeImplementationState, ChatState)
-  - [ ] All tests pass with `pytest`
-  - [ ] No modifications to source code — tests only
+  | pyproject.toml | Low | Add --cov-fail-under=60 to pytest configuration |
 
   ## Dependencies
 
@@ -135,7 +207,7 @@ content: |
 
   ## Size Estimate
 
-  **M** — 5-8 new test files covering ~15 classes/functions across 6 modules. Each tool class
-  needs 2-4 test cases (happy path, error path, edge cases). Straightforward mocking of
-  subprocess calls and HTTP clients. No architectural changes needed. Estimated ~300-500 lines
-  of test code total.
+  **M** — 6 new test files + 1 minor edit to pyproject.toml, covering ~18 classes/functions
+  across 6 source modules. Each tool class needs 3-4 test cases (happy path, error path,
+  edge cases). Straightforward mocking of subprocess, httpx, and structlog. No architectural
+  changes needed. Estimated ~400-600 lines of test code total.
