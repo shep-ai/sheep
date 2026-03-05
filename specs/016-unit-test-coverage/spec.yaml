@@ -1,0 +1,141 @@
+name: unit-test-coverage
+number: 016
+branch: feat/016-unit-test-coverage
+oneLiner: Add comprehensive unit tests to improve test coverage across the Sheep codebase
+summary: >
+  Add unit tests for under-tested modules in the Sheep agentic platform. The current test suite
+  covers only basic config settings, file tools, and content-validation tests for markdown/text files.
+  Key modules like git_tools, web_tools, LLM configuration, observability/logging, CLI, and Pydantic
+  state models have no unit tests. This feature adds focused unit tests to close those coverage gaps.
+phase: Analysis
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+
+  - pytest (with pytest-asyncio, pytest-cov)
+  - unittest.mock (patch, MagicMock)
+  - Pydantic / pydantic-settings
+  - CrewAI (BaseTool, Agent, Flow)
+  - structlog
+  - typer (CLI)
+  - httpx
+  - subprocess (mocked for git/shell tools)
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The Sheep codebase has minimal unit test coverage. Only three source modules are tested:
+  - `config/settings.py` — basic defaults and provider detection (3 tests)
+  - `tools/file_tools.py` — FileReadTool, FileWriteTool, DirectoryTreeTool (4 tests)
+  - Two content-validation test files (`test_random_word_file.py`, `test_state_machine_md.py`) that verify static markdown/text files, not source code.
+
+  The following source modules have **zero** unit tests:
+  - `tools/git_tools.py` — 8 tool classes with subprocess calls
+  - `tools/web_tools.py` — WebFetchTool, WebSearchTool, ShellCommandTool
+  - `config/llm.py` — LLM factory functions (create_llm, get_fast_llm, get_reasoning_llm)
+  - `observability/logging.py` — setup_logging, get_logger, AgentLogger class
+  - `observability/langfuse_client.py` — init_observability
+  - `cli.py` — Typer CLI commands (implement, chat, config, init)
+  - `flows/code_implementation.py` — CodeImplementationState model, flow logic
+  - `flows/chat.py` — ChatState model
+
+  ## Codebase Analysis
+
+  ### Project Structure
+  ```
+  src/sheep/
+  ├── __init__.py              # Version string
+  ├── cli.py                   # Typer CLI entry point (4 commands)
+  ├── config/
+  │   ├── __init__.py
+  │   ├── settings.py          # Pydantic settings (LLM, Langfuse, Git, main Settings)
+  │   └── llm.py               # LLM factory (create_llm, get_fast_llm, get_reasoning_llm)
+  ├── agents/
+  │   ├── __init__.py
+  │   ├── code_agents.py       # 3 agent factory functions
+  │   └── general_agents.py    # 1 agent factory function
+  ├── flows/
+  │   ├── __init__.py
+  │   ├── code_implementation.py  # CodeImplementationFlow + state model
+  │   └── chat.py              # ChatFlow + state model
+  ├── tools/
+  │   ├── __init__.py
+  │   ├── file_tools.py        # FileRead, FileWrite, FileSearch, DirectoryTree tools
+  │   ├── git_tools.py         # GitStatus, GitDiff, GitLog, GitCreateBranch, GitCheckout, GitCommit, GitPush, GitWorktree tools
+  │   └── web_tools.py         # WebFetch, WebSearch, ShellCommand tools
+  └── observability/
+      ├── __init__.py
+      ├── logging.py           # Structured logging + AgentLogger
+      └── langfuse_client.py   # Langfuse/OpenInference init
+  tests/
+  ├── __init__.py
+  ├── test_config.py           # 3 tests for settings
+  ├── test_tools.py            # 4 tests for file tools
+  ├── test_random_word_file.py # 3 content tests
+  └── test_state_machine_md.py # 6 content tests
+  ```
+
+  ### Architecture Patterns
+  - **Pydantic Settings**: All configuration via `pydantic-settings` with env var loading and `.env` file support. `lru_cache` on `get_settings()`.
+  - **CrewAI BaseTool**: All tools extend `BaseTool` with Pydantic input schemas and a `_run()` method.
+  - **Factory Functions**: Agents and LLMs created via factory functions that accept optional overrides.
+  - **CrewAI Flow**: Orchestration via `crewai.flow.flow.Flow` with `@start`, `@listen`, `@router` decorators.
+  - **Subprocess Isolation**: Git and shell tools use `subprocess.run()` — easily mockable.
+  - **Structured Logging**: Uses `structlog` with Rich console output.
+
+  ### Relevant Technologies
+  - **pytest** as test runner (configured in `pyproject.toml` with `testpaths = ["tests"]`, `asyncio_mode = "auto"`)
+  - **pytest-cov** available for coverage reporting
+  - **unittest.mock** used in existing tests (`patch.dict` for env vars)
+  - **Pydantic v2** for all models and settings
+  - **tempfile** used in existing tests for filesystem isolation
+
+  ### Testing Conventions (from existing tests)
+  - Test files named `test_<module>.py` in the `tests/` directory
+  - Class-based grouping used for related tests (`class TestFileTools`)
+  - Direct `_run()` calls on tool instances (not via CrewAI execution)
+  - `unittest.mock.patch.dict` for environment variable isolation
+  - `lru_cache` clearing pattern: `get_settings.cache_clear()` before testing settings
+  - `tempfile.TemporaryDirectory` for filesystem tests
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | tests/test_git_tools.py (new) | High | 8 git tool classes with subprocess calls need mocked tests |
+  | tests/test_web_tools.py (new) | High | WebFetch, WebSearch, ShellCommand need mocked tests |
+  | tests/test_llm.py (new) | Medium | LLM factory functions with provider routing logic |
+  | tests/test_logging.py (new) | Medium | AgentLogger and setup_logging configuration |
+  | tests/test_config.py (existing) | Low | May extend with additional settings edge cases |
+  | tests/test_models.py (new) | Low | Pydantic state models (CodeImplementationState, ChatState) defaults and validation |
+
+  ## Success Criteria
+
+  - [ ] Unit tests for all git tools (GitStatus, GitDiff, GitLog, GitCreateBranch, GitCheckout, GitCommit, GitPush, GitWorktree)
+  - [ ] Unit tests for web tools (WebFetchTool, WebSearchTool, ShellCommandTool)
+  - [ ] Unit tests for LLM factory functions (create_llm, get_fast_llm, get_reasoning_llm)
+  - [ ] Unit tests for observability/logging (setup_logging, get_logger, AgentLogger)
+  - [ ] Unit tests for Pydantic state models (CodeImplementationState, ChatState)
+  - [ ] All tests pass with `pytest`
+  - [ ] No modifications to source code — tests only
+
+  ## Dependencies
+
+  - **pytest >= 8.0.0** — already in dev dependencies
+  - **pytest-cov >= 5.0.0** — already in dev dependencies for coverage reporting
+  - **unittest.mock** — stdlib, no additional install needed
+  - **tempfile** — stdlib, used for filesystem isolation in git tool tests
+  - All source modules are already importable; tools use `_run()` directly
+
+  ## Size Estimate
+
+  **M** — 5-8 new test files covering ~15 classes/functions across 6 modules. Each tool class
+  needs 2-4 test cases (happy path, error path, edge cases). Straightforward mocking of
+  subprocess calls and HTTP clients. No architectural changes needed. Estimated ~300-500 lines
+  of test code total.
