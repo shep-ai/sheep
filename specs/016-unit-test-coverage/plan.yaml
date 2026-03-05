@@ -1,0 +1,150 @@
+name: unit-test-coverage
+summary: >
+  Add comprehensive unit tests for under-tested modules in the Sheep agentic platform.
+  Uses unittest.mock exclusively (no new dependencies), tests tools via their public _run()
+  method following existing conventions, organizes tests in class-based groupings, and
+  configures pytest-cov with a 60% fail-under threshold. Six new test files cover git tools,
+  web tools, LLM config, logging, langfuse observability, and Pydantic state models.
+
+relatedFeatures: []
+technologies:
+  - Python 3.11+
+  - pytest >= 8.0.0
+  - pytest-cov >= 5.0.0
+  - unittest.mock (stdlib)
+  - tempfile (stdlib)
+  - Pydantic / pydantic-settings
+  - CrewAI BaseTool
+  - structlog
+  - httpx
+  - subprocess
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Coverage Infrastructure'
+    description: >
+      Configure pytest-cov with --cov-fail-under=60 in pyproject.toml. This comes first
+      because it establishes the coverage baseline and regression gate that all subsequent
+      test files contribute toward. Quick, low-risk change.
+    parallel: false
+
+  - id: phase-2
+    name: 'Tool Tests — Git & Web'
+    description: >
+      Add tests for the highest-impact, most test-dense modules: git_tools.py (8 tool classes)
+      and web_tools.py (3 tool classes). These modules have the most branching logic and
+      subprocess/network interactions to mock. Covers the bulk of untested tool code.
+    parallel: true
+
+  - id: phase-3
+    name: 'Config & Observability Tests'
+    description: >
+      Add tests for LLM factory functions (config/llm.py), logging utilities
+      (observability/logging.py), and langfuse initialization (observability/langfuse_client.py).
+      These modules have moderate complexity with provider routing, structlog configuration,
+      and conditional initialization logic.
+    parallel: true
+
+  - id: phase-4
+    name: 'State Model Tests & Validation'
+    description: >
+      Add tests for Pydantic state models (CodeImplementationState, ChatState). These are
+      the simplest tests — verifying defaults, field types, and instantiation. Final phase
+      validates the 60% coverage threshold is met.
+    parallel: false
+
+filesToCreate:
+  - tests/test_git_tools.py
+  - tests/test_web_tools.py
+  - tests/test_llm.py
+  - tests/test_logging.py
+  - tests/test_langfuse.py
+  - tests/test_models.py
+
+filesToModify:
+  - pyproject.toml
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The test suite follows the existing project conventions established in `tests/test_tools.py`
+  and `tests/test_config.py`:
+
+  - **Test files in `tests/` directory** — one test file per source module
+  - **Class-based grouping** — one test class per tool/class under test (e.g., `TestGitStatusTool`)
+  - **Direct `_run()` calls** — tool tests call `_run()` directly, bypassing CrewAI framework
+  - **`unittest.mock.patch`** — all external dependencies mocked at the module boundary
+  - **`get_settings.cache_clear()`** — used before tests that patch environment variables
+
+  Each test file maps to exactly one source module:
+  | Test File | Source Module |
+  | --------- | ------------- |
+  | test_git_tools.py | sheep/tools/git_tools.py |
+  | test_web_tools.py | sheep/tools/web_tools.py |
+  | test_llm.py | sheep/config/llm.py |
+  | test_logging.py | sheep/observability/logging.py |
+  | test_langfuse.py | sheep/observability/langfuse_client.py |
+  | test_models.py | sheep/flows/code_implementation.py + sheep/flows/chat.py |
+
+  ## Key Design Decisions
+
+  ### 1. Mocking Strategy: unittest.mock only
+  Existing tests use `unittest.mock.patch` and `patch.dict`. Adding pytest-mock or respx
+  would introduce inconsistency for marginal benefit. All mocking needs (subprocess, httpx,
+  structlog, os.environ) are well-served by stdlib.
+
+  ### 2. Tool Testing via _run()
+  Following test_tools.py convention, tools are tested by calling `_run()` directly.
+  This isolates our logic from CrewAI's BaseTool.run() dispatch layer.
+
+  ### 3. Patch Targets — patch where used
+  - `sheep.tools.git_tools.subprocess.run` — git tools
+  - `sheep.tools.web_tools.httpx.Client` — WebFetchTool
+  - `sheep.config.llm.LLM` — create_llm
+  - `sheep.config.llm.get_settings` — LLM factory tests
+  - `sheep.observability.logging.structlog.configure` — setup_logging
+  - `sheep.observability.langfuse_client.get_settings` — init_observability
+  - `sheep.observability.langfuse_client.get_client` — init_observability
+
+  Note: ShellCommandTool imports subprocess inside `_run()`, so the patch target is
+  `subprocess.run` (the fresh import). WebSearchTool imports `duckduckgo_search.DDGS`
+  inside `_run()`, so mock at the package level.
+
+  ### 4. Coverage Configuration in pyproject.toml
+  Add `addopts = "--cov=sheep --cov-report=term-missing --cov-fail-under=60"` to the
+  existing `[tool.pytest.ini_options]` section. This ensures coverage is always checked
+  without requiring CLI flag memory.
+
+  ### 5. Langfuse _instrumented Flag Reset
+  Tests reset `sheep.observability.langfuse_client._instrumented = False` in setUp to
+  ensure each test starts clean. Simple and avoids importlib.reload side effects.
+
+  ## Implementation Strategy
+
+  **Phase 1** (Infrastructure) comes first to establish the coverage gate. Without it,
+  there's no way to verify the 60% target is met.
+
+  **Phase 2** (Git & Web Tools) is the highest-value phase — 11 tool classes with ~39 tests.
+  The two test files are independent and can be developed in parallel.
+
+  **Phase 3** (Config & Observability) covers LLM routing, logging setup, and langfuse
+  initialization. These three test files are independent and can be developed in parallel.
+
+  **Phase 4** (Models & Validation) is the simplest phase — Pydantic model defaults.
+  It also serves as the final validation that coverage meets the 60% threshold.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | CrewAI BaseTool import causes slow test collection | Import tools at module level; test via _run() to avoid framework overhead |
+  | subprocess.run mock leaks between tests | Per-test @patch decorator ensures isolated mock scope |
+  | Settings cache pollution between tests | get_settings.cache_clear() in setUp/test start |
+  | Langfuse module-level _instrumented flag persists | Reset to False in setUp before each test |
+  | Coverage threshold not met with planned tests | ~69 tests across 6 source modules should comfortably exceed 60% |
+  | ShellCommandTool local import of subprocess | Patch at module level since Python caches the import |
+  | WebSearchTool retry/sleep logic slows tests | Mock time.sleep to no-op; mock DDGS to return immediately |

@@ -1,0 +1,302 @@
+name: unit-test-coverage
+summary: >
+  9 tasks across 4 phases. Configures coverage infrastructure, then adds test files for
+  git tools (8 classes), web tools (3 classes), LLM config, logging, langfuse, and Pydantic
+  state models. Final task validates the 60% coverage threshold.
+
+relatedFeatures: []
+technologies:
+  - Python 3.11+
+  - pytest >= 8.0.0
+  - pytest-cov >= 5.0.0
+  - unittest.mock
+  - Pydantic
+
+relatedLinks: []
+
+tasks:
+  # --- Phase 1: Coverage Infrastructure ---
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Configure pytest-cov in pyproject.toml'
+    description: >
+      Add coverage reporting and 60% fail-under threshold to the existing pytest
+      configuration in pyproject.toml. This establishes the regression gate before
+      any test files are added.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'pyproject.toml [tool.pytest.ini_options] includes addopts with --cov=sheep --cov-report=term-missing --cov-fail-under=60'
+      - 'Running `pytest` produces a coverage report in terminal output'
+      - 'Existing tests still pass'
+    tdd:
+      red:
+        - 'Run pytest and verify no coverage report is generated (current state)'
+      green:
+        - 'Add addopts line to [tool.pytest.ini_options] in pyproject.toml'
+      refactor:
+        - 'Verify addopts format is correct and no duplicate flags'
+    estimatedEffort: '15min'
+
+  # --- Phase 2: Tool Tests — Git & Web ---
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Add unit tests for GitStatusTool, GitDiffTool, GitLogTool'
+    description: >
+      Create tests/test_git_tools.py with test classes for the first 3 git tools.
+      Each tool needs happy-path, error-path (CalledProcessError), and nonexistent-path
+      tests. Mock subprocess.run at sheep.tools.git_tools.subprocess.run.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'TestGitStatusTool with tests: happy path (porcelain output), clean tree (empty stdout), nonexistent path, CalledProcessError'
+      - 'TestGitDiffTool with tests: unstaged diff, staged diff (--staged flag), file-specific diff, no changes, nonexistent path, error'
+      - 'TestGitLogTool with tests: oneline format, full format (oneline=False), custom count, no commits, nonexistent path, error'
+      - 'All tests mock subprocess.run and verify correct git command arguments'
+    tdd:
+      red:
+        - 'Write TestGitStatusTool.test_happy_path — assert tool returns porcelain output from mocked subprocess'
+        - 'Write TestGitStatusTool.test_nonexistent_path — assert "does not exist" in result'
+        - 'Write TestGitStatusTool.test_error — assert "Git error" when CalledProcessError raised'
+        - 'Write similar RED tests for GitDiffTool and GitLogTool'
+      green:
+        - 'Verify all tests pass against existing source code (no source changes needed)'
+      refactor:
+        - 'Extract common mock setup into helper or class-level setUp if shared patterns emerge'
+        - 'Ensure descriptive test names and docstrings follow conventions'
+    estimatedEffort: '1h'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add unit tests for GitCreateBranchTool, GitCheckoutTool, GitCommitTool'
+    description: >
+      Extend tests/test_git_tools.py with test classes for branch creation, checkout,
+      and commit tools. GitCreateBranchTool has fetch+checkout logic. GitCommitTool
+      has add_all flag and "nothing to commit" error handling.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'TestGitCreateBranchTool with tests: create from current branch, create from base branch, nonexistent path, error'
+      - 'TestGitCheckoutTool with tests: successful checkout, nonexistent path, error (branch not found)'
+      - 'TestGitCommitTool with tests: commit with add_all=True, commit with add_all=False, nothing to commit, nonexistent path, error'
+      - 'Verify fetch --all is called in GitCreateBranchTool (check=False)'
+    tdd:
+      red:
+        - 'Write TestGitCreateBranchTool.test_create_branch — verify fetch+checkout -b called'
+        - 'Write TestGitCommitTool.test_nothing_to_commit — verify "nothing to commit" in stderr returns clean message'
+        - 'Write remaining RED tests for all three tools'
+      green:
+        - 'Verify all tests pass against existing source code'
+      refactor:
+        - 'Verify subprocess.run call_args assertions are clear and check exact command lists'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add unit tests for GitPushTool, GitWorktreeTool'
+    description: >
+      Complete tests/test_git_tools.py with test classes for push and worktree tools.
+      GitPushTool has branch auto-detection (rev-parse). GitWorktreeTool has the
+      additional worktree-already-exists check.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'TestGitPushTool with tests: push with explicit branch, push with auto-detected branch (rev-parse), set_upstream=False, nonexistent path, error'
+      - 'TestGitWorktreeTool with tests: successful worktree creation, worktree path already exists, nonexistent repo path, error'
+      - 'Verify rev-parse --abbrev-ref HEAD is called when branch=None in push'
+    tdd:
+      red:
+        - 'Write TestGitPushTool.test_auto_detect_branch — verify rev-parse called, then push with detected branch'
+        - 'Write TestGitWorktreeTool.test_worktree_exists — verify "already exists" error returned'
+        - 'Write remaining RED tests'
+      green:
+        - 'Verify all tests pass against existing source code'
+      refactor:
+        - 'Review entire test_git_tools.py for consistency in mock patterns and assertion style'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Add unit tests for WebFetchTool, WebSearchTool, ShellCommandTool'
+    description: >
+      Create tests/test_web_tools.py with test classes for all 3 web/shell tools.
+      WebFetchTool mocks httpx.Client as context manager. WebSearchTool mocks
+      duckduckgo_search.DDGS (imported inside _run). ShellCommandTool mocks subprocess.run
+      (also imported inside _run).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'TestWebFetchTool with tests: successful fetch, content truncation (>100k chars), HTTP status error, request error, general exception'
+      - 'TestWebSearchTool with tests: successful search with results, no results, rate limit error (all retries exhausted), import error (duckduckgo not installed), general exception'
+      - 'TestShellCommandTool with tests: successful command, nonexistent working dir, timeout, command with stderr output'
+      - 'httpx.Client mocked as context manager with __enter__/__exit__'
+      - 'time.sleep mocked to no-op in WebSearchTool rate limit tests'
+    tdd:
+      red:
+        - 'Write TestWebFetchTool.test_success — mock httpx.Client, verify response.text in output'
+        - 'Write TestWebFetchTool.test_truncation — mock 200k char response, verify truncation'
+        - 'Write TestWebSearchTool.test_rate_limit — mock DDGS to raise rate limit error 3 times'
+        - 'Write TestShellCommandTool.test_timeout — mock subprocess.TimeoutExpired'
+        - 'Write remaining RED tests'
+      green:
+        - 'Verify all tests pass against existing source code'
+      refactor:
+        - 'Extract httpx mock context manager setup if repeated across tests'
+    estimatedEffort: '1h'
+
+  # --- Phase 3: Config & Observability Tests ---
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Add unit tests for create_llm, get_fast_llm, get_reasoning_llm'
+    description: >
+      Create tests/test_llm.py with tests for LLM factory functions. Mock crewai.LLM
+      constructor and get_settings to verify provider-based API key routing and
+      model/temperature parameters for each provider path.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'TestCreateLLM with tests: openai provider with API key, anthropic provider, google/gemini provider, cursor provider (with base_url), no-slash model defaults to openai, no API key configured'
+      - 'TestGetFastLLM: verify calls create_llm with fast_model and temperature=0.3'
+      - 'TestGetReasoningLLM: verify calls create_llm with reasoning_model and temperature=0.2'
+      - 'All tests mock sheep.config.llm.LLM to capture constructor kwargs'
+      - 'Settings cache cleared before each test'
+    tdd:
+      red:
+        - 'Write test_openai_provider — mock settings with openai key, verify LLM called with api_key'
+        - 'Write test_cursor_provider — verify both api_key and base_url passed'
+        - 'Write test_get_fast_llm — verify correct model and temperature delegation'
+        - 'Write remaining RED tests for each provider path'
+      green:
+        - 'Verify all tests pass against existing source code'
+      refactor:
+        - 'Extract mock settings factory if setUp becomes repetitive'
+    estimatedEffort: '45min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add unit tests for setup_logging, get_logger, AgentLogger'
+    description: >
+      Create tests/test_logging.py with tests for the logging module. Mock
+      structlog.configure for setup_logging, verify get_logger returns a BoundLogger,
+      and test all 5 AgentLogger methods by mocking Rich Console and structlog logger.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'TestSetupLogging: verify structlog.configure called with correct processors and log level'
+      - 'TestSetupLogging: verify log_level parameter overrides settings'
+      - 'TestGetLogger: verify returns object with .info, .debug, .error methods'
+      - 'TestAgentLogger: test thinking(), action(), tool_call(), result(), error() methods'
+      - 'TestAgentLogger: verify _console.print called with expected Rich markup'
+      - 'TestAgentLogger: verify _logger methods called with correct event and kwargs'
+    tdd:
+      red:
+        - 'Write test_setup_logging_default — mock get_settings and structlog.configure, verify called'
+        - 'Write test_get_logger — verify returned object has standard logging methods'
+        - 'Write test_agent_logger_thinking — mock _console and _logger, verify both called'
+        - 'Write remaining RED tests for all 5 AgentLogger methods'
+      green:
+        - 'Verify all tests pass against existing source code'
+      refactor:
+        - 'Ensure AgentLogger tests share a common setUp with mocked console and logger'
+    estimatedEffort: '45min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add unit tests for init_observability'
+    description: >
+      Create tests/test_langfuse.py with tests for all branches of init_observability.
+      Reset _instrumented flag in setUp. Mock get_settings, get_client, and
+      CrewAIInstrumentor to test guard clause, config check, auth failure, openlit
+      disabled, success, and import error paths.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'test_already_instrumented — set _instrumented=True, verify early return (no get_settings call)'
+      - 'test_not_configured — mock settings.langfuse.is_configured=False, verify returns without auth check'
+      - 'test_auth_failure — mock get_client().auth_check()=False, verify returns with warning'
+      - 'test_openlit_disabled — mock settings.langfuse.openlit_enabled=False after auth success, verify returns'
+      - 'test_success — mock all dependencies, verify CrewAIInstrumentor().instrument called and _instrumented=True'
+      - 'test_import_error — mock import of CrewAIInstrumentor to raise ImportError, verify warning logged'
+      - '_instrumented reset to False in setUp for each test'
+    tdd:
+      red:
+        - 'Write test_already_instrumented — set flag, call init, assert get_settings not called'
+        - 'Write test_not_configured — mock is_configured=False, assert returns early'
+        - 'Write test_success — mock full happy path, assert _instrumented becomes True'
+        - 'Write remaining RED tests for each branch'
+      green:
+        - 'Verify all tests pass against existing source code'
+      refactor:
+        - 'Extract common mock settings setup into helper method'
+    estimatedEffort: '45min'
+
+  # --- Phase 4: State Model Tests & Validation ---
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Add unit tests for CodeImplementationState, ChatState and validate coverage'
+    description: >
+      Create tests/test_models.py with tests for both Pydantic state models. Verify
+      default values, field types, list defaults, and that models accept partial and
+      full inputs. Then run the full test suite with coverage to validate >= 60%.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+      - task-7
+      - task-8
+    acceptanceCriteria:
+      - 'TestCodeImplementationState: default values correct (repo_path="", auto_push=True, final_status="pending", etc.)'
+      - 'TestCodeImplementationState: files_to_modify defaults to empty list'
+      - 'TestCodeImplementationState: model accepts full input with all fields populated'
+      - 'TestChatState: default values correct (question="", context_path=None, final_status="pending")'
+      - 'TestChatState: sources defaults to empty list'
+      - 'TestChatState: model accepts full input with all fields populated'
+      - 'Full test suite passes: `pytest` exits 0'
+      - 'Coverage >= 60%: `pytest --cov=sheep --cov-fail-under=60` passes'
+    tdd:
+      red:
+        - 'Write test_defaults — instantiate model with no args, assert all defaults correct'
+        - 'Write test_list_defaults — assert list fields are independent instances (not shared)'
+        - 'Write test_full_input — instantiate with all fields, verify values'
+        - 'Write similar RED tests for ChatState'
+      green:
+        - 'Verify all tests pass and coverage meets threshold'
+      refactor:
+        - 'Review all test files for consistency in style, naming, and docstrings'
+        - 'Ensure no test pollution — run tests in random order if possible'
+    estimatedEffort: '30min'
+
+totalEstimate: '6h 30min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation starts with configuring the coverage gate in pyproject.toml (Phase 1),
+  then proceeds to the highest-value test files: git tools and web tools (Phase 2, parallel).
+  Next, config and observability tests are added in parallel (Phase 3). Finally, Pydantic
+  model tests are written and the full suite is validated against the 60% coverage threshold
+  (Phase 4).
+
+  Tasks within Phase 2 (git tools) are sequenced to build the test file incrementally:
+  first 3 simpler tools, then 3 with more complex logic, then the final 2. This avoids
+  a single monolithic task while keeping the file cohesive. The web tools task runs in
+  parallel with git tools since they are independent files.
+
+  Phase 3 tasks (LLM, logging, langfuse) are all independent and can be developed in
+  any order. Phase 4 depends on all prior phases completing so it can serve as the final
+  coverage validation gate.
