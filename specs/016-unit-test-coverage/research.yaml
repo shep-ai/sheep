@@ -1,0 +1,389 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: unit-test-coverage
+summary: >
+  Technical research for adding comprehensive unit tests across the Sheep codebase.
+  Key decisions include using unittest.mock exclusively (no new dependencies), testing tools
+  via their public _run() method following existing patterns, class-based test organization,
+  and configuring pytest-cov with a 60% fail-under threshold in pyproject.toml.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+
+  - pytest >= 8.0.0 (already in dev dependencies)
+  - pytest-asyncio >= 0.24.0 (already in dev dependencies)
+  - pytest-cov >= 5.0.0 (already in dev dependencies)
+  - unittest.mock (stdlib — patch, MagicMock, patch.dict)
+  - tempfile (stdlib — TemporaryDirectory for filesystem isolation)
+  - Pydantic / pydantic-settings (BaseModel, BaseSettings under test)
+  - CrewAI BaseTool (parent class of tools under test)
+  - structlog (logging framework under test)
+  - httpx (mocked in WebFetchTool tests)
+  - duckduckgo-search (mocked in WebSearchTool tests)
+  - subprocess (mocked in git_tools and ShellCommandTool tests)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Mocking Strategy — stdlib unittest.mock vs pytest-mock vs responses'
+    chosen: 'unittest.mock (patch, MagicMock, patch.dict)'
+    rejected:
+      - 'pytest-mock — adds a dependency for marginal syntactic sugar over unittest.mock; the existing test suite already uses unittest.mock.patch and patch.dict, so introducing pytest-mock would mix two mocking styles for no clear benefit.'
+      - 'responses / respx — HTTP-specific mocking libraries; WebFetchTool uses httpx internally, but mocking at the httpx.Client level with unittest.mock is straightforward and avoids adding another dev dependency. The tool code is thin enough that mocking the client context manager is sufficient.'
+    rationale: >
+      The existing tests in test_config.py already use `from unittest.mock import patch` and
+      `patch.dict(os.environ, ...)`. Staying with unittest.mock keeps all test files consistent,
+      avoids adding new dependencies, and is sufficient for all mocking needs: subprocess.run
+      for git/shell tools, httpx.Client for web fetch, DDGS for web search, structlog.configure
+      for logging, and os.environ for settings. The stdlib mock is well-documented and familiar
+      to Python developers.
+
+  - title: 'Test Organization — class-based vs function-based tests'
+    chosen: 'Class-based grouping with descriptive docstrings'
+    rejected:
+      - 'Function-based tests (plain test_ functions) — while simpler for small test files, they provide less structure when a single file tests multiple tool classes. The existing test_tools.py uses class TestFileTools to group related tests, establishing the project convention. Function-based tests would break that pattern.'
+      - 'Nested classes (class within class) — overly complex for the scope; a flat class per tool/module is sufficient for grouping 3-5 tests per class.'
+    rationale: >
+      test_tools.py uses `class TestFileTools` with a class-level docstring and individual test
+      methods. This pattern naturally maps to the new test files: TestGitStatusTool, TestGitDiffTool,
+      etc. in test_git_tools.py; TestWebFetchTool, TestWebSearchTool, TestShellCommandTool in
+      test_web_tools.py. Class grouping also makes pytest output clearer (tests are prefixed with
+      class name) and allows setUp/tearDown if needed for cache clearing.
+
+  - title: 'Tool Testing Approach — _run() directly vs BaseTool.run()'
+    chosen: 'Call _run() directly on tool instances'
+    rejected:
+      - 'Call BaseTool.run() — this triggers CrewAI internal validation/wrapping logic, which is not under our control and may introduce flaky behavior or require additional mocking of CrewAI internals. We are testing our tool logic, not CrewAI dispatch mechanism.'
+      - 'Test via Pydantic input schemas — instantiating input models and passing them adds boilerplate without testing additional logic; _run() accepts the same parameters directly.'
+    rationale: >
+      The existing test_tools.py calls `tool._run(filepath)` directly, establishing the convention.
+      _run() is the method where all tool logic lives. Testing it directly isolates our code from
+      CrewAI framework layer, making tests faster and more deterministic. The input schemas
+      (GitStatusInput, WebFetchInput, etc.) are validated by Pydantic and do not need separate
+      testing beyond what model tests already cover.
+
+  - title: 'subprocess Mocking Scope — patch at module level vs per-test'
+    chosen: 'Per-test @patch decorator on "sheep.tools.git_tools.subprocess.run"'
+    rejected:
+      - 'Module-level autouse fixture — would mock subprocess.run for the entire test module, making it impossible to have tests that verify different subprocess behaviors (success vs CalledProcessError) without nesting mocks.'
+      - 'Patch _run_git directly — would skip testing command construction logic inside _run_git, which is part of what we want to verify indirectly (correct git arguments passed to subprocess.run).'
+    rationale: >
+      Each git tool test needs different subprocess.run behavior (return different stdout, raise
+      CalledProcessError, etc.). Per-test @patch("subprocess.run") gives each test full control
+      over the mock return_value and side_effect. The patch target is "subprocess.run" in the
+      git_tools module namespace (since it imports subprocess at the top level), so we patch
+      "sheep.tools.git_tools.subprocess.run" to intercept calls correctly.
+
+  - title: 'Coverage Configuration — CLI flag vs pyproject.toml'
+    chosen: 'Configure in pyproject.toml [tool.pytest.ini_options] addopts'
+    rejected:
+      - 'Pass --cov flags only via CLI — this requires every developer and CI to remember the exact flags. Easy to forget --cov-fail-under, leading to silent coverage regressions.'
+      - 'Separate .coveragerc file — adds another config file when pyproject.toml can hold coverage settings via [tool.coverage] or addopts in pytest config. The project already centralizes all config in pyproject.toml.'
+    rationale: >
+      pyproject.toml already has [tool.pytest.ini_options] with testpaths and asyncio_mode. Adding
+      `addopts = "--cov=sheep --cov-report=term-missing --cov-fail-under=60"` keeps all pytest
+      configuration in one place. Developers running `pytest` will automatically get coverage
+      reporting and the threshold check without needing to remember CLI flags.
+
+  - title: 'Settings Cache Handling in Tests'
+    chosen: 'Call get_settings.cache_clear() in setUp or at test start'
+    rejected:
+      - 'Use importlib.reload — heavy-handed; reloading the settings module can cause issues with module-level state and is slower than just clearing the lru_cache.'
+      - 'Ignore cache — would cause test pollution where one test env var changes leak into another test via the cached settings instance.'
+    rationale: >
+      The existing test_config.py uses `get_settings.cache_clear()` before constructing fresh
+      settings. Any test that patches environment variables to affect settings (test_llm.py,
+      test_langfuse.py) must clear the cache to get a fresh Settings instance. This is a
+      lightweight, established pattern in the codebase.
+
+  - title: 'Langfuse Module-Level State (_instrumented flag) Reset'
+    chosen: 'Reset _instrumented via module attribute assignment in setUp'
+    rejected:
+      - 'Use importlib.reload to reset module state — reloading langfuse_client.py would also re-execute module-level code (get_logger, etc.) and could cause import side effects.'
+      - 'Ignore the flag and only test first-call behavior — would miss testing the guard clause, which is an important branch.'
+    rationale: >
+      The _instrumented flag is a module-level global in langfuse_client.py. Tests can reset it
+      with `sheep.observability.langfuse_client._instrumented = False` in setUp to ensure each
+      test starts from a clean state. This is simple, direct, and avoids reload side effects.
+      The guard-clause test sets _instrumented = True before calling init_observability and
+      verifies it returns early.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should we add pytest-mock as a dev dependency for cleaner mock syntax?'
+    resolved: true
+    options:
+      - option: 'Add pytest-mock'
+        description: >
+          pytest-mock provides a mocker fixture with slightly cleaner syntax (mocker.patch
+          instead of @patch decorator). It also integrates with pytest fixture lifecycle
+          for automatic cleanup.
+        selected: false
+      - option: 'Use stdlib unittest.mock only'
+        description: >
+          The existing test suite already uses unittest.mock.patch and patch.dict. Staying
+          with stdlib avoids adding a dependency and keeps mocking style consistent across
+          all test files.
+        selected: true
+      - option: 'Use both pytest-mock and unittest.mock'
+        description: >
+          Allow either style depending on developer preference. This avoids a hard dependency
+          but creates inconsistency in test code style.
+        selected: false
+    selectionRationale: >
+      The existing tests use unittest.mock exclusively. Adding pytest-mock would introduce
+      a second mocking pattern for marginal benefit. unittest.mock is sufficient for all
+      test scenarios in this feature and is already well-established in the codebase.
+    answer: 'Use stdlib unittest.mock only'
+
+  - question: 'What is the correct patch target for subprocess.run in git_tools tests?'
+    resolved: true
+    options:
+      - option: 'Patch "subprocess.run" (global)'
+        description: >
+          Patches subprocess.run everywhere. Too broad — could affect other code that
+          uses subprocess during test collection or fixtures.
+        selected: false
+      - option: 'Patch "sheep.tools.git_tools.subprocess.run"'
+        description: >
+          Patches subprocess.run only in the git_tools module namespace. This is the
+          correct approach per Python mock documentation: patch where the thing is used,
+          not where it is defined. git_tools.py imports subprocess at the top level, so
+          the mock target is the subprocess module bound in that namespace.
+        selected: true
+      - option: 'Patch "sheep.tools.git_tools._run_git"'
+        description: >
+          Patches the helper function directly. Simpler but skips testing command
+          construction logic inside _run_git. Per the feature spec decision, we test
+          _run_git indirectly through tools, so we should mock at the subprocess level.
+        selected: false
+    selectionRationale: >
+      Python mock documentation recommends patching where the object is used. git_tools.py
+      does `import subprocess` at the top, so `subprocess.run` is accessed as
+      `sheep.tools.git_tools.subprocess.run`. This lets us verify the exact arguments
+      passed to subprocess.run (git command, cwd, flags) while keeping _run_git logic
+      in the test path.
+    answer: 'Patch "sheep.tools.git_tools.subprocess.run"'
+
+  - question: 'How should httpx.Client be mocked for WebFetchTool tests?'
+    resolved: true
+    options:
+      - option: 'Mock httpx.Client as a context manager'
+        description: >
+          WebFetchTool uses `with httpx.Client(...) as client:` — mock httpx.Client to
+          return a MagicMock that supports __enter__/__exit__ and has a .get() method
+          returning a mock response with .text and .raise_for_status(). Patch target:
+          "sheep.tools.web_tools.httpx.Client".
+        selected: true
+      - option: 'Use respx library for httpx mocking'
+        description: >
+          respx is a dedicated httpx mocking library that intercepts requests at the
+          transport level. More realistic but adds a dev dependency and is overkill for
+          testing a thin wrapper that just calls client.get().
+        selected: false
+      - option: 'Mock at the response level only'
+        description: >
+          Only mock the response object, not the client. This does not work because we
+          need to intercept the Client constructor to prevent real HTTP connections.
+        selected: false
+    selectionRationale: >
+      WebFetchTool _run method uses httpx.Client as a context manager. Mocking it with
+      unittest.mock is straightforward: patch "sheep.tools.web_tools.httpx.Client", configure
+      the mock __enter__ return value to have a .get() that returns a mock response.
+      For error tests, set side_effect on .get() to raise httpx.HTTPStatusError or
+      httpx.RequestError. No external library needed.
+    answer: 'Mock httpx.Client as a context manager via unittest.mock.patch'
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-05
+
+  ## Technology Decisions
+
+  ### 1. Mocking Strategy
+
+  **Chosen:** unittest.mock (patch, MagicMock, patch.dict)
+
+  **Rejected:**
+  - pytest-mock — marginal syntactic sugar; mixes styles with existing unittest.mock usage
+  - responses/respx — HTTP-specific libraries; overkill for thin wrappers
+
+  **Rationale:** Existing tests use unittest.mock. Consistency matters more than convenience.
+  All mocking needs (subprocess, httpx, structlog, os.environ) are well-served by stdlib.
+
+  ### 2. Test Organization
+
+  **Chosen:** Class-based grouping with descriptive docstrings
+
+  **Rejected:**
+  - Function-based — less structure for files testing multiple classes
+  - Nested classes — unnecessary complexity
+
+  **Rationale:** Follows test_tools.py convention (class TestFileTools). Maps naturally to
+  one class per tool/module under test.
+
+  ### 3. Tool Testing Approach
+
+  **Chosen:** Call _run() directly on tool instances
+
+  **Rejected:**
+  - BaseTool.run() — involves CrewAI internals
+  - Pydantic input schemas — adds boilerplate without testing new logic
+
+  **Rationale:** Follows existing test_tools.py convention. Isolates our logic from framework.
+
+  ### 4. subprocess Mocking Scope
+
+  **Chosen:** Per-test @patch decorator on "sheep.tools.git_tools.subprocess.run"
+
+  **Rejected:**
+  - Module-level autouse fixture — too broad
+  - Patching _run_git — skips command construction logic
+
+  **Rationale:** Each test needs different mock behavior. Patching at the subprocess level
+  lets us verify git command arguments.
+
+  ### 5. Coverage Configuration
+
+  **Chosen:** Configure in pyproject.toml addopts
+
+  **Rejected:**
+  - CLI flags only — easy to forget
+  - Separate .coveragerc — adds unnecessary file
+
+  **Rationale:** pyproject.toml already has [tool.pytest.ini_options]. Adding addopts keeps
+  all config in one place.
+
+  ### 6. Settings Cache Handling
+
+  **Chosen:** get_settings.cache_clear() in setUp/test start
+
+  **Rejected:**
+  - importlib.reload — heavy, causes side effects
+  - Ignore cache — causes test pollution
+
+  **Rationale:** Follows existing test_config.py pattern.
+
+  ### 7. Langfuse _instrumented Flag Reset
+
+  **Chosen:** Direct module attribute assignment in setUp
+
+  **Rejected:**
+  - importlib.reload — causes import side effects
+  - Only test first-call — misses guard clause branch
+
+  **Rationale:** Simple, direct, no side effects.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pytest >= 8.0.0 | Test runner | Use (existing) | Already in dev deps; provides fixtures, assertions, discovery |
+  | pytest-cov >= 5.0.0 | Coverage reporting | Use (existing) | Already in dev deps; needed for --cov-fail-under=60 |
+  | pytest-asyncio >= 0.24.0 | Async test support | Use (existing) | Already in dev deps; not needed for these tests but already configured |
+  | unittest.mock | Mocking/patching | Use (stdlib) | No install needed; already used in test_config.py |
+  | tempfile | Filesystem isolation | Use (stdlib) | No install needed; already used in test_tools.py |
+  | pytest-mock | Alternative mock syntax | Reject | Marginal benefit; inconsistent with existing mock usage |
+  | respx | httpx mocking | Reject | Overkill for thin wrappers; unittest.mock suffices |
+  | responses | requests mocking | Reject | Wrong library (project uses httpx, not requests) |
+  | freezegun | Time mocking | Reject | No time-dependent logic in modules under test |
+  | factory-boy | Test data factories | Reject | Pydantic models have defaults; factories add unnecessary abstraction |
+
+  ## Security Considerations
+
+  - **No API keys in tests:** All tests must mock settings to avoid requiring real API keys.
+    Use `patch.dict(os.environ, {...})` with fake keys (e.g., "sk-test-key") and never
+    commit real credentials.
+  - **No real subprocess calls:** All subprocess.run calls must be mocked to prevent
+    accidental git operations or shell commands during testing.
+  - **No real network calls:** httpx.Client and DDGS must be mocked to prevent network
+    access during testing.
+  - **Langfuse auth mocking:** init_observability sets real environment variables
+    (LANGFUSE_PUBLIC_KEY, etc.). Tests must use patch.dict to isolate env changes and
+    prevent leaking test values into the environment.
+
+  ## Performance Implications
+
+  - **Target: < 10 seconds total.** All external calls (subprocess, HTTP, search) are
+    mocked, so tests are CPU-bound only. ~69 test cases with mocking should execute
+    well under the target.
+  - **No I/O overhead:** tempfile.TemporaryDirectory (used only if filesystem tests are
+    needed) is fast and auto-cleaned.
+  - **Cache clearing cost:** get_settings.cache_clear() is O(1) and negligible.
+  - **Import cost:** CrewAI BaseTool import is the heaviest import, but it is loaded once
+    per test file at module level.
+
+  ## Architecture Notes
+
+  ### Test File Mapping
+
+  Each new test file corresponds to one source module:
+
+  | Test File | Source Module | Classes/Functions Under Test |
+  | --------- | ------------- | --------------------------- |
+  | tests/test_git_tools.py | sheep/tools/git_tools.py | GitStatusTool, GitDiffTool, GitLogTool, GitCreateBranchTool, GitCheckoutTool, GitCommitTool, GitPushTool, GitWorktreeTool |
+  | tests/test_web_tools.py | sheep/tools/web_tools.py | WebFetchTool, WebSearchTool, ShellCommandTool |
+  | tests/test_llm.py | sheep/config/llm.py | create_llm, get_fast_llm, get_reasoning_llm |
+  | tests/test_logging.py | sheep/observability/logging.py | setup_logging, get_logger, AgentLogger |
+  | tests/test_langfuse.py | sheep/observability/langfuse_client.py | init_observability |
+  | tests/test_models.py | sheep/flows/code_implementation.py, sheep/flows/chat.py | CodeImplementationState, ChatState |
+
+  ### Mock Patch Targets
+
+  Critical patch targets (patch where used, not where defined):
+
+  - `sheep.tools.git_tools.subprocess.run` — for all git tool tests
+  - `sheep.tools.web_tools.httpx.Client` — for WebFetchTool
+  - `subprocess.run` — for ShellCommandTool (imports subprocess inside _run)
+  - `duckduckgo_search.DDGS` — for WebSearchTool (imported inside _run via `from duckduckgo_search import DDGS`)
+  - `sheep.config.llm.LLM` — for create_llm tests (crewai.LLM imported as LLM)
+  - `sheep.config.llm.get_settings` — for LLM factory tests
+  - `sheep.observability.logging.structlog.configure` — for setup_logging
+  - `sheep.observability.logging.get_settings` — for setup_logging
+  - `sheep.observability.langfuse_client.get_settings` — for init_observability
+  - `sheep.observability.langfuse_client.get_client` — for init_observability
+
+  ### Estimated Test Count
+
+  | Test File | Test Classes | Tests per Class | Total |
+  | --------- | ------------ | --------------- | ----- |
+  | test_git_tools.py | 8 | 3-4 | ~28 |
+  | test_web_tools.py | 3 | 3-4 | ~11 |
+  | test_llm.py | 1-2 | 5-7 | ~8 |
+  | test_logging.py | 2-3 | 3-5 | ~9 |
+  | test_langfuse.py | 1 | 5-6 | ~6 |
+  | test_models.py | 2 | 3-4 | ~7 |
+  | **Total** | | | **~69** |
+
+  ### pyproject.toml Change
+
+  Add coverage configuration to existing pytest section:
+
+  ```toml
+  [tool.pytest.ini_options]
+  testpaths = ["tests"]
+  asyncio_mode = "auto"
+  addopts = "--cov=sheep --cov-report=term-missing --cov-fail-under=60"
+  ```
+
+  ### Key Implementation Notes
+
+  1. **ShellCommandTool imports subprocess inside _run()** — since the import is local,
+     patch `subprocess.run` at the top-level module or use `patch("subprocess.run")` which
+     will intercept the freshly imported subprocess module.
+
+  2. **WebSearchTool imports duckduckgo_search inside _run()** — the import happens at
+     call time, so mock `duckduckgo_search.DDGS` at the package level.
+
+  3. **AgentLogger uses module-level _console** — mock `sheep.observability.logging._console`
+     to capture Rich console output, or just mock the _console.print method.
+
+  4. **get_logger returns structlog.BoundLogger** — verify by checking for standard
+     logging methods (.info, .debug, .error).
