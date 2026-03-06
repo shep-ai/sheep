@@ -1,0 +1,369 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: dark-mode-toggle
+summary: >
+  Technical research for adding a persistent dark-mode toggle to the Shep web UI.
+  Key decisions: use React context with a ThemeProvider wrapping the root layout,
+  Tailwind CSS v4 class-based dark mode via the dark: modifier on <html>, and
+  localStorage for persistence. No new dependencies required.
+
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - Tailwind CSS v4
+  - shadcn/ui (Switch, Label)
+  - Storybook
+  - TypeScript
+  - localStorage Web API
+
+relatedLinks:
+  - https://tailwindcss.com/docs/dark-mode
+  - https://ui.shadcn.com/docs/components/switch
+  - https://react.dev/reference/react/createContext
+
+decisions:
+  - title: 'Theme State Management Pattern'
+    chosen: 'React context with a custom ThemeProvider and useTheme hook'
+    rejected:
+      - >-
+        Zustand or Jotai global store — adds an external dependency (violates
+        NFR-3) and is overkill for a single boolean toggle. React context is
+        sufficient for low-frequency updates like theme switching.
+      - >-
+        next-themes library — a popular solution for Next.js dark mode, but
+        adds a new npm dependency (violates NFR-3). The feature scope is small
+        enough that a hand-rolled ThemeProvider with useTheme achieves the same
+        result in under 60 lines.
+    rationale: >
+      React context is built-in, zero-cost, and the standard pattern for
+      theme state in React applications. Theme changes are infrequent (not a
+      re-render performance concern), so context is ideal. A ThemeProvider at
+      the root layout provides theme state to the entire tree, and a useTheme
+      hook gives components a clean API: { theme, toggleTheme }. This keeps
+      the implementation under 150 lines per file (NFR-4) with no new
+      dependencies (NFR-3).
+
+  - title: 'CSS Dark Mode Implementation'
+    chosen: 'Tailwind CSS v4 class-based dark mode (dark: modifier on <html>)'
+    rejected:
+      - >-
+        CSS custom properties with data-theme attribute — requires redefining
+        all color tokens as CSS variables and updating every component. Large
+        change surface and not aligned with how shadcn/ui components are
+        styled.
+      - >-
+        Tailwind media-query dark mode (prefers-color-scheme) — respects OS
+        preference automatically but does not allow manual user toggle, which
+        is the core requirement. Cannot satisfy FR-4 (toggling must apply the
+        dark class).
+    rationale: >
+      Tailwind CSS v4 supports class-based dark mode natively via the dark:
+      modifier. shadcn/ui components are designed to work with Tailwind dark:
+      variants out of the box. Toggling the "dark" class on <html> is the
+      minimal, zero-dependency approach that satisfies FR-4. In Tailwind v4,
+      class-based dark mode is configured via @custom-variant dark (&:where(.dark, .dark *))
+      in the CSS file, or it may be the default selector strategy.
+
+  - title: 'Persistence Strategy'
+    chosen: 'localStorage with synchronous read on mount'
+    rejected:
+      - >-
+        Cookie-based persistence — enables server-side rendering of the
+        correct theme (no FOUC), but adds complexity with cookie parsing in
+        Next.js middleware or server components. Overkill for this feature
+        scope.
+      - >-
+        SQLite settings via backend API — syncs across devices but requires
+        API changes, a settings migration, and network latency on load. Out
+        of scope per the spec.
+    rationale: >
+      localStorage is the conventional approach for client-side theme
+      preferences. It requires zero backend changes and provides instant
+      synchronous reads on page load. The ThemeProvider reads
+      localStorage on mount and writes on toggle. To prevent FOUC (NFR-1),
+      an inline script in the <head> of the root layout reads localStorage
+      and applies the dark class before React hydration.
+
+  - title: 'FOUC Prevention Strategy'
+    chosen: 'Inline blocking script in <head> of root layout'
+    rejected:
+      - >-
+        CSS-only approach with prefers-color-scheme fallback — does not
+        support user-toggled preferences; only follows OS setting. Cannot
+        prevent FOUC when the user preference differs from OS preference.
+      - >-
+        Server-side cookie reading in Next.js middleware — effective but
+        requires cookie-based persistence, adding complexity beyond the
+        localStorage-only approach chosen for this feature.
+    rationale: >
+      A small inline <script> in the root layout's <head> reads localStorage
+      synchronously and applies the "dark" class to <html> before the browser
+      paints. This is a well-established pattern (used by next-themes, Docusaurus,
+      etc.) and satisfies NFR-1 (theme switch within one animation frame, no
+      FOUC). The script is ~5 lines and runs before React hydration.
+
+  - title: 'Toggle Component Design'
+    chosen: 'shadcn/ui Switch with Label, composed in a ThemeToggle component'
+    rejected:
+      - >-
+        Custom toggle button with CSS transitions — requires building
+        accessible toggle behavior from scratch (aria attributes, keyboard
+        support). shadcn/ui Switch already handles all of this.
+      - >-
+        shadcn/ui DropdownMenu with light/dark/system options — more flexible
+        but over-engineered for a binary toggle. The spec explicitly calls for
+        a Switch component (FR-3), not a dropdown.
+    rationale: >
+      The spec explicitly requires a Switch and Label (FR-3). shadcn/ui
+      Switch is already available in the project and provides accessible
+      toggle behavior (keyboard navigation, ARIA attributes) out of the box.
+      Composing it with a Label in a ThemeToggle component keeps the
+      component focused and under 50 lines. The ThemeToggle calls useTheme()
+      to read and toggle the theme.
+
+  - title: 'File Organization'
+    chosen: 'ThemeProvider and useTheme in common/, ThemeToggle in features/settings/'
+    rejected:
+      - >-
+        All theme files in a dedicated theme/ directory — creates a new
+        top-level concern that fragments the component hierarchy. The
+        provider is a common utility; the toggle is a settings feature.
+      - >-
+        Everything in features/settings/ — the ThemeProvider wraps the root
+        layout and is used app-wide, so it belongs in common/ where other
+        shared components and providers live.
+    rationale: >
+      Following the spec's affected areas: ThemeProvider and useTheme are
+      shared infrastructure (used by the root layout and any component), so
+      they belong in src/presentation/web/components/common/. ThemeToggle is
+      a settings-specific UI component, so it belongs in
+      src/presentation/web/components/features/settings/. This aligns with
+      the separation between common utilities and feature-specific components.
+
+openQuestions:
+  - question: 'Should the toggle support a "system" option in addition to light/dark?'
+    resolved: true
+    options:
+      - option: 'Binary toggle only (light/dark)'
+        description: >
+          A simple Switch that toggles between light and dark. Matches the
+          spec requirement (FR-3) exactly. Users who want OS-matching can
+          simply not toggle. Simplest implementation.
+        selected: true
+      - option: 'Three-way toggle (light/dark/system)'
+        description: >
+          Adds a "system" option that follows prefers-color-scheme. Requires
+          a dropdown or segmented control instead of a Switch, changing the
+          UI from what the spec defines. Also requires a matchMedia listener
+          for real-time OS theme changes.
+        selected: false
+      - option: 'Binary toggle with system as default initial value'
+        description: >
+          Default to OS preference on first visit (no localStorage key), then
+          let the user override with the toggle. Slightly more complex
+          initialization logic but respects OS preference for new users.
+        selected: false
+    selectionRationale: >
+      The spec explicitly requires a Switch component (FR-3) which is a
+      binary control. Adding a system option would require a different UI
+      component and expand scope. The binary toggle is the minimal
+      implementation that satisfies all functional requirements. The initial
+      default can be "light" (matching current behavior) for simplicity.
+
+  - question: 'How should the ThemeProvider handle SSR/hydration mismatch?'
+    resolved: true
+    options:
+      - option: 'Inline script in <head> + suppressHydrationWarning on <html>'
+        description: >
+          Add a blocking inline script that sets the dark class before paint,
+          and use suppressHydrationWarning on the <html> element to avoid
+          React hydration warnings when the server-rendered class differs
+          from the client-applied class. This is the standard Next.js pattern.
+        selected: true
+      - option: 'Client-only rendering with useEffect'
+        description: >
+          Only apply the theme class in a useEffect after hydration. Simple
+          but causes a visible flash (FOUC) on page load when the stored
+          preference differs from the default, violating NFR-1.
+        selected: false
+      - option: 'Server component with cookie-based theme detection'
+        description: >
+          Read the theme from a cookie in a server component and render the
+          correct class server-side. Eliminates FOUC and hydration mismatch
+          but requires cookie-based persistence instead of localStorage.
+        selected: false
+    selectionRationale: >
+      The inline script approach is the established pattern used by next-themes
+      and other popular libraries. It prevents FOUC (NFR-1) while keeping
+      localStorage as the persistence layer. suppressHydrationWarning on
+      <html> is a one-line addition that cleanly handles the SSR mismatch.
+
+  - question: 'Where should the Storybook stories demonstrate theme variants?'
+    resolved: true
+    options:
+      - option: 'Decorator-based approach with className on story container'
+        description: >
+          Use a Storybook decorator that wraps each story in a div with/without
+          the "dark" class and appropriate background. Create two story entries
+          per component (Light and Dark). Simple, explicit, and does not
+          require Storybook addons.
+        selected: true
+      - option: 'Storybook dark mode addon (@storybook/addon-themes)'
+        description: >
+          Install the official themes addon to add a global toolbar toggle.
+          Provides a better browsing experience but adds a new devDependency
+          and may conflict with NFR-3 (no new npm dependencies). The addon
+          targets Storybook 8+ compatibility.
+        selected: false
+      - option: 'Manual toggle within each story using args/controls'
+        description: >
+          Expose a "dark" boolean arg in each story and toggle the class
+          based on it. Flexible but repetitive and puts the burden on each
+          story file rather than a shared decorator.
+        selected: false
+    selectionRationale: >
+      A decorator-based approach requires no new dependencies (NFR-3) and
+      follows the pattern of creating explicit story variants (Light/Dark)
+      per component. Each story file exports a Light and Dark variant,
+      making it easy to visually verify both themes in the Storybook UI.
+      The decorator can be shared via .storybook/preview configuration.
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-06
+
+  ## Technology Decisions
+
+  ### 1. Theme State Management Pattern
+
+  **Chosen:** React context with a custom ThemeProvider and useTheme hook
+
+  **Rejected:**
+  - Zustand/Jotai global store — adds an external dependency (violates NFR-3), overkill for a single boolean toggle
+  - next-themes library — adds a new npm dependency (violates NFR-3); the feature scope is small enough for a hand-rolled solution
+
+  **Rationale:** React context is built-in, zero-cost, and the standard pattern for theme state. Theme changes are infrequent, so context re-render concerns don't apply. A ThemeProvider at the root layout + useTheme hook gives a clean, minimal API.
+
+  ### 2. CSS Dark Mode Implementation
+
+  **Chosen:** Tailwind CSS v4 class-based dark mode (dark: modifier on `<html>`)
+
+  **Rejected:**
+  - CSS custom properties with data-theme attribute — requires redefining all color tokens, large change surface
+  - Tailwind media-query dark mode (prefers-color-scheme) — doesn't allow manual user toggle (core requirement)
+
+  **Rationale:** Tailwind v4 supports class-based dark mode natively. shadcn/ui components use dark: variants out of the box. Toggling the "dark" class on `<html>` is minimal and zero-dependency.
+
+  ### 3. Persistence Strategy
+
+  **Chosen:** localStorage with synchronous read on mount
+
+  **Rejected:**
+  - Cookie-based persistence — adds complexity with cookie parsing in middleware/server components
+  - SQLite settings via backend API — requires API changes and migrations, out of scope
+
+  **Rationale:** localStorage is conventional for client-side theme preferences. Zero backend changes, instant synchronous reads. Inline script in `<head>` reads localStorage before paint to prevent FOUC.
+
+  ### 4. FOUC Prevention Strategy
+
+  **Chosen:** Inline blocking script in `<head>` of root layout
+
+  **Rejected:**
+  - CSS-only prefers-color-scheme fallback — doesn't support user-toggled preferences
+  - Server-side cookie reading in middleware — requires cookie-based persistence
+
+  **Rationale:** A ~5-line inline script reads localStorage and applies the "dark" class before browser paint. Standard pattern used by next-themes, Docusaurus, etc. Satisfies NFR-1.
+
+  ### 5. Toggle Component Design
+
+  **Chosen:** shadcn/ui Switch with Label, composed in ThemeToggle
+
+  **Rejected:**
+  - Custom toggle button — requires building accessible toggle from scratch
+  - shadcn/ui DropdownMenu with light/dark/system — over-engineered for a binary toggle
+
+  **Rationale:** Spec requires Switch + Label (FR-3). shadcn/ui Switch provides accessible behavior out of the box. ThemeToggle component stays under 50 lines.
+
+  ### 6. File Organization
+
+  **Chosen:** ThemeProvider/useTheme in common/, ThemeToggle in features/settings/
+
+  **Rejected:**
+  - Dedicated theme/ directory — fragments component hierarchy
+  - Everything in features/settings/ — provider is app-wide, belongs in common/
+
+  **Rationale:** ThemeProvider is shared infrastructure (root layout + any component), so it goes in common/. ThemeToggle is settings-specific UI, so it goes in features/settings/.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | next-themes | Theme management for Next.js | Reject | Adds new dependency (violates NFR-3); feature is simple enough to implement in ~60 lines |
+  | shadcn/ui Switch | Accessible toggle component | Use (existing) | Already installed; provides keyboard nav, ARIA attributes, Tailwind dark: support |
+  | shadcn/ui Label | Accessible label component | Use (existing) | Already installed; pairs with Switch for accessible labeling |
+  | Zustand | Global state management | Reject | Overkill for single boolean; adds dependency (violates NFR-3) |
+  | @storybook/addon-themes | Storybook theme switching | Reject | Adds devDependency; decorator-based approach achieves same goal without new packages |
+
+  ## Security Considerations
+
+  - **localStorage tampering:** The stored theme value is read from localStorage. Only "light" and "dark" string values should be accepted; any other value should fall back to "light". This prevents class injection via localStorage manipulation.
+  - **Inline script safety:** The FOUC-prevention script in `<head>` must not interpolate any user-controlled values. It should read localStorage directly and compare against a hardcoded whitelist ("light", "dark").
+  - **No sensitive data:** Theme preference is non-sensitive. No PII or authentication concerns.
+  - **CSP compatibility:** The inline script needs a nonce or to be included in the CSP script-src directive if a strict Content Security Policy is in place.
+
+  ## Performance Implications
+
+  - **Zero runtime cost:** Theme toggling is a single DOM operation (classList.toggle on `<html>`). Tailwind dark: variants are compiled at build time — no runtime CSS calculation.
+  - **No FOUC:** The inline `<head>` script ensures the correct theme class is applied before first paint, avoiding layout shifts or flash of incorrect theme.
+  - **Minimal bundle impact:** ThemeProvider + useTheme + ThemeToggle add ~2-3 KB unminified. No external dependencies.
+  - **localStorage is synchronous:** Reads are ~0.1ms. No async overhead on mount.
+  - **Context re-renders:** Only components that call useTheme() re-render on theme change. The theme changes infrequently (user action only), so this is negligible.
+
+  ## Architecture Notes
+
+  ### Component Tree
+
+  ```
+  <html className={theme === 'dark' ? 'dark' : ''} suppressHydrationWarning>
+    <head>
+      <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+    </head>
+    <body>
+      <ThemeProvider>
+        <App>
+          <SettingsPanel>
+            <ThemeToggle />  {/* uses useTheme() */}
+          </SettingsPanel>
+        </App>
+      </ThemeProvider>
+    </body>
+  </html>
+  ```
+
+  ### File Structure
+
+  ```
+  src/presentation/web/
+  ├── app/
+  │   └── layout.tsx                          # Wraps children with ThemeProvider, adds inline script
+  ├── components/
+  │   ├── common/
+  │   │   ├── theme-provider.tsx              # ThemeProvider context + useTheme hook
+  │   │   └── theme-provider.test.tsx         # Unit tests for provider and hook
+  │   └── features/
+  │       └── settings/
+  │           ├── theme-toggle.tsx            # ThemeToggle component (Switch + Label)
+  │           ├── theme-toggle.test.tsx       # Unit tests for toggle
+  │           └── theme-toggle.stories.tsx    # Storybook stories (Light + Dark variants)
+  ```
+
+  ### Implementation Sequence
+
+  1. **Phase 1 — Context + Provider:** Create ThemeProvider with React context, useTheme hook, localStorage read/write, and the FOUC-prevention inline script constant.
+  2. **Phase 2 — Toggle Component:** Create ThemeToggle with shadcn/ui Switch and Label, wired to useTheme(). Add Storybook stories with Light/Dark decorator variants.
+  3. **Phase 3 — Integration:** Wrap root layout.tsx with ThemeProvider, add inline script to `<head>`, place ThemeToggle in the settings panel.
