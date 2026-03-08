@@ -1,13 +1,12 @@
 """Tests for random joke file functionality."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from sheep.utils import get_random_joke
-
 
 REPO_ROOT = Path(__file__).parent.parent
 RANDOM_JOKE_FILE = REPO_ROOT / "RANDOM_JOKE.md"
