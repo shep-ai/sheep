@@ -1,7 +1,6 @@
 """Sheep CLI - Command line interface for the agentic platform."""
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -30,7 +29,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "--version",
         "-v",
@@ -59,7 +58,7 @@ def implement(
         "-i",
         help="Description of the feature, bug, or task to implement",
     ),
-    branch: Optional[str] = typer.Option(
+    branch: str | None = typer.Option(
         None,
         "--branch",
         "-b",
@@ -150,7 +149,7 @@ def chat(
         ...,
         help="Question to ask",
     ),
-    context: Optional[Path] = typer.Option(
+    context: Path | None = typer.Option(
         None,
         "--context",
         "-c",
@@ -288,6 +287,15 @@ SHEEP_DEFAULT_MODEL=openai/gpt-4o
     console.print("1. Edit .env and add your API keys")
     console.print("2. Run: sheep config")
     console.print("3. Run: sheep implement <repo-path> -i '<issue>'")
+
+
+@app.command()
+def joke() -> None:
+    """Display a random stupid joke."""
+    from sheep.utils import get_random_joke
+
+    joke_text = get_random_joke()
+    console.print(Panel(joke_text, title="🐑 Random Joke", expand=False))
 
 
 if __name__ == "__main__":
