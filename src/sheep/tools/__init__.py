@@ -1,5 +1,12 @@
 """Custom tools for Sheep agents."""
 
+from sheep.tools.file_tools import (
+    AttachmentReadTool,
+    DirectoryTreeTool,
+    FileReadTool,
+    FileSearchTool,
+    FileWriteTool,
+)
 from sheep.tools.git_tools import (
     GitCheckoutTool,
     GitCommitTool,
@@ -10,16 +17,10 @@ from sheep.tools.git_tools import (
     GitStatusTool,
     GitWorktreeTool,
 )
-from sheep.tools.file_tools import (
-    FileReadTool,
-    FileWriteTool,
-    FileSearchTool,
-    DirectoryTreeTool,
-)
 from sheep.tools.web_tools import (
+    ShellCommandTool,
     WebFetchTool,
     WebSearchTool,
-    ShellCommandTool,
 )
 
 __all__ = [
@@ -33,10 +34,11 @@ __all__ = [
     "GitStatusTool",
     "GitWorktreeTool",
     # File tools
-    "FileReadTool",
-    "FileWriteTool",
-    "FileSearchTool",
+    "AttachmentReadTool",
     "DirectoryTreeTool",
+    "FileReadTool",
+    "FileSearchTool",
+    "FileWriteTool",
     # Web tools
     "WebFetchTool",
     "WebSearchTool",

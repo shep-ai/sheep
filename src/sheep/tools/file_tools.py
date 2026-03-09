@@ -1,6 +1,6 @@
 """File operation tools for agents."""
 
-import os
+import base64
 import subprocess
 from pathlib import Path
 
@@ -45,7 +45,7 @@ class FileReadTool(BaseTool):
             return f"Error: Path is not a file: {file_path}"
 
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
 
             if start_line is not None or end_line is not None:
@@ -261,7 +261,7 @@ class DirectoryTreeTool(BaseTool):
                 for i, entry in enumerate(entries):
                     is_last = i == len(entries) - 1 and not truncated
                     connector = "└── " if is_last else "├── "
-                    new_prefix = prefix + ("    " if is_last else "│   ")
+                    _new_prefix = prefix + ("    " if is_last else "│   ")
 
                     self._build_tree(
                         entry,
@@ -277,3 +277,88 @@ class DirectoryTreeTool(BaseTool):
 
             except PermissionError:
                 lines.append(f"{prefix}└── [permission denied]")
+
+
+_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
+
+_MIME_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+    ".svg": "image/svg+xml",
+}
+
+_MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
+class AttachmentReadInput(BaseModel):
+    """Input for reading an attachment file."""
+
+    file_path: str = Field(description="Path to the attachment file to read")
+
+
+class AttachmentReadTool(BaseTool):
+    """Read an attachment file (image or document) and return its content."""
+
+    name: str = "attachment_read"
+    description: str = (
+        "Read an attachment file such as an image or document. "
+        "For images (PNG, JPEG, GIF, WebP, BMP, SVG), returns the filename, "
+        "MIME type, file size, and base64-encoded content. "
+        "For other files, returns the text content."
+    )
+    args_schema: type[BaseModel] = AttachmentReadInput
+
+    def _run(self, file_path: str) -> str:
+        path = Path(file_path)
+
+        if not path.exists():
+            return f"Error: Attachment file does not exist: {file_path}"
+
+        if not path.is_file():
+            return f"Error: Path is not a file: {file_path}"
+
+        file_size = path.stat().st_size
+        if file_size > _MAX_ATTACHMENT_SIZE:
+            return (
+                f"Error: File too large ({file_size} bytes). "
+                f"Maximum supported size is {_MAX_ATTACHMENT_SIZE} bytes."
+            )
+
+        suffix = path.suffix.lower()
+        if suffix in _IMAGE_EXTENSIONS:
+            return self._read_image(path, file_size)
+        return self._read_text(path, file_size)
+
+    def _read_image(self, path: Path, file_size: int) -> str:
+        try:
+            with open(path, "rb") as f:
+                data = f.read()
+            b64 = base64.b64encode(data).decode("utf-8")
+            mime = _MIME_TYPES.get(path.suffix.lower(), "application/octet-stream")
+            return (
+                f"Attachment: {path.name}\n"
+                f"Type: {mime}\n"
+                f"Size: {file_size} bytes\n"
+                f"Content (base64): {b64}"
+            )
+        except Exception as e:
+            return f"Error reading image attachment: {e}"
+
+    def _read_text(self, path: Path, file_size: int) -> str:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                content = f.read()
+            if len(content) > 50000:
+                content = content[:50000] + "\n... (truncated)"
+            return (
+                f"Attachment: {path.name}\n"
+                f"Type: text ({path.suffix})\n"
+                f"Size: {file_size} bytes\n"
+                f"Content:\n{content}"
+            )
+        except Exception as e:
+            return f"Error reading text attachment: {e}"

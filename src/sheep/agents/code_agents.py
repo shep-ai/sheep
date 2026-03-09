@@ -1,9 +1,10 @@
 """Code-related agents for implementation workflows."""
 
-from crewai import Agent, LLM
+from crewai import LLM, Agent
 
-from sheep.config.llm import create_llm, get_fast_llm, get_reasoning_llm
+from sheep.config.llm import get_fast_llm, get_reasoning_llm
 from sheep.tools import (
+    AttachmentReadTool,
     DirectoryTreeTool,
     FileReadTool,
     FileSearchTool,
@@ -17,6 +18,7 @@ from sheep.tools import (
 def create_code_researcher_agent(
     llm: LLM | None = None,
     verbose: bool = False,
+    with_attachment_tool: bool = False,
 ) -> Agent:
     """
     Create an agent specialized in researching codebases.
@@ -37,6 +39,15 @@ def create_code_researcher_agent(
     if llm is None:
         llm = get_fast_llm()
 
+    tools = [
+        DirectoryTreeTool(),
+        FileReadTool(),
+        FileSearchTool(),
+        GitLogTool(),
+    ]
+    if with_attachment_tool:
+        tools.append(AttachmentReadTool())
+
     return Agent(
         role="Senior Code Researcher",
         goal=(
@@ -52,12 +63,7 @@ def create_code_researcher_agent(
             "your findings clearly, including file paths and line numbers."
         ),
         llm=llm,
-        tools=[
-            DirectoryTreeTool(),
-            FileReadTool(),
-            FileSearchTool(),
-            GitLogTool(),
-        ],
+        tools=tools,
         verbose=verbose,
         allow_delegation=False,
         max_iter=15,

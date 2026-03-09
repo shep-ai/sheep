@@ -1,7 +1,6 @@
 """Sheep CLI - Command line interface for the agentic platform."""
 
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -30,7 +29,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
+    version: bool | None = typer.Option(
         None,
         "--version",
         "-v",
@@ -59,7 +58,7 @@ def implement(
         "-i",
         help="Description of the feature, bug, or task to implement",
     ),
-    branch: Optional[str] = typer.Option(
+    branch: str | None = typer.Option(
         None,
         "--branch",
         "-b",
@@ -75,6 +74,15 @@ def implement(
         False,
         "--no-push",
         help="Don't push changes after commit",
+    ),
+    attachment: list[Path] | None = typer.Option(
+        None,
+        "--attachment",
+        "-a",
+        help="Path to an attachment file (image, document) to provide as context. Can be specified multiple times.",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
     ),
     verbose: bool = typer.Option(
         False,
@@ -96,8 +104,11 @@ def implement(
     Example:
         sheep implement /path/to/repo -i "Add user authentication"
         sheep implement . -i "Fix login bug" -b "fix/login-bug" --no-push
+        sheep implement . -i "Build this UI" -a mockup.png -a wireframe.png
     """
     from sheep.flows import run_code_implementation
+
+    attachment_paths = [str(p.resolve()) for p in attachment] if attachment else []
 
     console.print(
         Panel(
@@ -105,7 +116,8 @@ def implement(
             f"[bold]Repository:[/bold] {repo_path.resolve()}\n"
             f"[bold]Branch:[/bold] {branch or '(auto-generated)'}\n"
             f"[bold]Worktree:[/bold] {worktree}\n"
-            f"[bold]Auto-push:[/bold] {not no_push}",
+            f"[bold]Auto-push:[/bold] {not no_push}\n"
+            f"[bold]Attachments:[/bold] {len(attachment_paths)}",
             title="🐑 Sheep - Code Implementation",
             expand=False,
         )
@@ -118,6 +130,7 @@ def implement(
         use_worktree=worktree,
         auto_push=not no_push,
         verbose=verbose,
+        attachments=attachment_paths,
     )
 
     # Display results
@@ -150,7 +163,7 @@ def chat(
         ...,
         help="Question to ask",
     ),
-    context: Optional[Path] = typer.Option(
+    context: Path | None = typer.Option(
         None,
         "--context",
         "-c",

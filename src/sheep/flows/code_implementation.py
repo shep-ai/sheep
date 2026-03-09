@@ -2,7 +2,6 @@
 
 import uuid
 from pathlib import Path
-from typing import Any
 
 from crewai import Crew, Task
 from crewai.flow.flow import Flow, listen, router, start
@@ -19,7 +18,6 @@ from sheep.tools import (
     GitCommitTool,
     GitCreateBranchTool,
     GitPushTool,
-    GitStatusTool,
     GitWorktreeTool,
 )
 
@@ -35,6 +33,10 @@ class CodeImplementationState(BaseModel):
     branch_name: str | None = Field(default=None, description="Branch name to create")
     use_worktree: bool = Field(default=False, description="Use git worktree")
     auto_push: bool = Field(default=True, description="Automatically push changes")
+    attachments: list[str] = Field(
+        default_factory=list,
+        description="List of file paths to attach as context (images, documents)",
+    )
 
     # Derived state
     working_path: str | None = Field(default=None, description="Actual working directory")
@@ -146,14 +148,27 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
         self.flow_logger.action("Researching codebase")
         state = self.state
 
-        researcher = create_code_researcher_agent(verbose=self.verbose)
+        researcher = create_code_researcher_agent(
+            verbose=self.verbose,
+            with_attachment_tool=bool(state.attachments),
+        )
+
+        attachments_section = ""
+        if state.attachments:
+            paths = "\n".join(f"  - {p}" for p in state.attachments)
+            attachments_section = f"""
+            The following attachment files have been provided for additional context:
+{paths}
+
+            Use the attachment_read tool to examine each attachment before researching the codebase.
+            """
 
         research_task = Task(
             description=f"""
             Analyze the codebase at {state.working_path} to understand how to implement:
 
             {state.issue_description}
-
+            {attachments_section}
             Your research should:
             1. First, explore the project structure to understand the architecture
             2. Find similar implementations or patterns in the codebase
@@ -249,7 +264,7 @@ class CodeImplementationFlow(Flow[CodeImplementationState]):
             result = crew.kickoff()
 
             state.changes_made = str(result)
-            self.flow_logger.result(f"Implementation completed")
+            self.flow_logger.result("Implementation completed")
             return "success"
         except Exception as e:
             state.error = f"Implementation failed: {e}"
@@ -398,6 +413,7 @@ def run_code_implementation(
     verbose: bool = False,
     session_id: str | None = None,
     user_id: str | None = None,
+    attachments: list[str] | None = None,
 ) -> CodeImplementationState:
     """
     Run the code implementation flow.
@@ -439,6 +455,7 @@ def run_code_implementation(
         "branch_name": branch_name,
         "use_worktree": use_worktree,
         "auto_push": auto_push,
+        "attachments": attachments or [],
     }
 
     # Run the flow - OpenInference will automatically capture all traces
