@@ -1,21 +1,42 @@
-# Rules of Thumb for Yeast Biology
+# The Dye Chemistry Habitat: 10 Key Environments
 
-1. **Doubling Time** — Under optimal conditions, *S. cerevisiae* doubles roughly every 90 minutes; temperatures above 37 °C stall growth.
+Dye molecules don't exist in isolation — they inhabit chemical environments that
+govern their color, stability, and reactivity. Here are the ten defining habitats
+of dye chemistry.
 
-2. **Sugar Metabolism Order** — Yeast consumes glucose before fructose before maltose (catabolite repression); don't assume all sugars ferment at the same rate.
+1. **Aqueous Dye Bath** — The classic habitat: dyes dissolve or disperse in water,
+   where pH, salt concentration, and temperature control exhaustion onto fiber.
 
-3. **Oxygen Switch** — Without oxygen, yeast switches to fermentation even when glucose is abundant (Crabtree effect); aeration is required for full respiratory growth.
+2. **Fiber Surface** — Cellulose (cotton), protein (wool/silk), and synthetic
+   (polyester/nylon) substrates each present unique binding sites; the dye–fiber
+   bond type (ionic, covalent, van der Waals) determines wash-fastness.
 
-4. **pH Optimum** — Most brewing and lab strains thrive between pH 4–6; below 3 or above 7 significantly reduces viability.
+3. **Mordant Complex** — Metal ions (alum, iron, copper) form coordination complexes
+   with dye molecules and fiber simultaneously, anchoring color and shifting hue.
 
-5. **Osmotic Stress Limit** — High sugar concentrations (> ~25 % w/v) trigger osmotic stress; specialized "turbo" or wine strains are needed for very high-gravity fermentations.
+4. **Acid Dye Environment** — Low-pH baths (pH 3–5) protonate fiber amino groups,
+   enabling anionic dyes to form ionic bonds with wool and nylon.
 
-6. **Temperature Tolerance** — Ale strains ferment well at 18–22 °C; lager strains at 8–14 °C. Every 10 °C rise roughly doubles enzymatic reaction rates (Q10 rule).
+5. **Reactive Dye Alkaline Zone** — High-pH conditions (pH 10–11, often with sodium
+   carbonate) activate reactive groups (triazine, vinyl sulfone) to covalently bond
+   with cellulose hydroxyls.
 
-7. **Cell Count for Pitching** — A healthy fermentation typically requires ~1 million cells per mL per °Plato of wort; under-pitching stresses cells and produces off-flavors.
+6. **Vat Dye Redox System** — Insoluble vat dyes (indigo, anthraquinone) are
+   reduced to soluble leuco forms in alkaline–reducing baths, then re-oxidized
+   on the fiber to regenerate the pigment.
 
-8. **Ethanol Tolerance** — Most *S. cerevisiae* strains tolerate up to ~12–15 % ABV; beyond that, membrane integrity degrades and fermentation stalls.
+7. **Disperse Dye Hydrophobic Core** — Non-ionic disperse dyes partition into the
+   amorphous hydrophobic interior of polyester at high temperatures (130 °C),
+   held by van der Waals and dipole interactions.
 
-9. **Nutrient Requirements** — Nitrogen (as YAN or amino acids) is usually the first limiting nutrient; lack of zinc, magnesium, or vitamins can also cause stuck fermentations.
+8. **Photochemical Atmosphere** — UV and visible light cleave chromophore bonds;
+   lightfastness ratings (1–8 ISO) reflect how well a dye survives this
+   high-energy habitat over time.
 
-10. **Stationary Phase** — Once nutrients are depleted, yeast enter stationary phase and activate stress-response pathways; harvesting before this phase yields the most vital repitch slurry.
+9. **Wastewater Effluent** — After dyeing, residual dye enters aqueous waste streams;
+   azo dyes can biodegrade to aromatic amines, making effluent treatment a
+   critical chemical habitat to manage.
+
+10. **Digital Ink Matrix** — In inkjet and digital textile printing, dyes or pigments
+    are suspended in low-viscosity carrier fluids and must survive jetting shear,
+    then form stable colorant films on impact.
