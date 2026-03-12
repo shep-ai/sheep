@@ -10,8 +10,10 @@ userQuery: >
 summary: >
   The project has a pytest-based test infrastructure in place but significant gaps in coverage:
   agents, flows, git_tools, and web_tools have no tests at all. This feature adds the first
-  round of unit tests targeting high-value, untested modules with clear, isolated behavior.
-phase: Analysis
+  round of unit tests targeting high-value, untested modules — git_tools (9 tool classes),
+  code_agents (3 factory functions), and config/settings (expanded validation) — using mocks
+  to avoid LLM and subprocess calls. No source code changes required.
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -29,7 +31,93 @@ technologies:
 
 relatedLinks: []
 
-openQuestions: []
+openQuestions:
+  - question: 'How should git subprocess calls be isolated in git_tools tests?'
+    resolved: true
+    options:
+      - option: 'Mock subprocess.run'
+        description: >
+          Patch `subprocess.run` (or the `_run_git` helper) with `unittest.mock.patch`.
+          Fast, hermetic, no real git required. Standard approach for subprocess-heavy modules.
+          Slightly less realistic but perfectly adequate for unit tests.
+        selected: true
+      - option: 'Use a real temp git repo'
+        description: >
+          Create a temporary git repository with `git init` in a pytest tmp_path fixture
+          and run actual git commands. More realistic integration-style tests but slower,
+          requires git in PATH, and makes tests environment-dependent.
+        selected: false
+    selectionRationale: >
+      Mocking subprocess.run keeps tests fast, hermetic, and free from environment
+      dependencies. The _run_git helper is a clean seam — patching it covers all tool
+      classes uniformly. Integration tests against real repos can be added later.
+    answer: 'Mock subprocess.run'
+
+  - question: 'How should agent factory tests handle LLM instantiation?'
+    resolved: true
+    options:
+      - option: 'Pass a mock LLM argument'
+        description: >
+          Call factory functions with an explicit `llm=MagicMock()` argument to bypass
+          the default get_fast_llm()/get_reasoning_llm() calls. Clean, no patching needed,
+          and tests the factory logic directly. LLM API keys not required.
+        selected: true
+      - option: 'Patch LLM factory functions'
+        description: >
+          Use `unittest.mock.patch` on `sheep.agents.code_agents.get_fast_llm` and
+          `get_reasoning_llm`. Works but adds boilerplate; passing the argument is simpler.
+        selected: false
+    selectionRationale: >
+      All three agent factory functions already accept an optional `llm` parameter.
+      Passing a MagicMock is the path of least resistance — no patching, no env vars,
+      and it exercises the exact branching logic (if llm is None: ...).
+    answer: 'Pass a mock LLM argument'
+
+  - question: 'What minimum line coverage threshold should be enforced for new test files?'
+    resolved: true
+    options:
+      - option: '80% line coverage'
+        description: >
+          Require 80% line coverage on the newly tested modules (git_tools.py,
+          code_agents.py, settings.py). Achievable in a first round without heroic effort.
+          Leaves room for untestable boilerplate (e.g. Pydantic model definitions).
+        selected: true
+      - option: '100% line coverage'
+        description: >
+          Full coverage of every line in targeted modules. Difficult to achieve without
+          testing trivial Pydantic field declarations and CrewAI internals. Over-engineering
+          for a first-round effort.
+        selected: false
+      - option: 'No enforced threshold'
+        description: >
+          Add tests without a coverage gate. Simplest approach but provides no regression
+          safety net and makes it unclear when "enough" tests have been written.
+        selected: false
+    selectionRationale: >
+      80% is the industry-standard pragmatic threshold for first-round unit tests. It
+      ensures meaningful coverage of logic paths (error handling, happy paths, edge cases)
+      without requiring tests for every Pydantic field default or CrewAI constructor detail.
+    answer: '80% line coverage'
+
+  - question: 'Should web_tools be included in this first round of tests?'
+    resolved: true
+    options:
+      - option: 'Defer web_tools to next round'
+        description: >
+          Exclude web_tools from this feature. HTTP-touching tools (Serper, Scrape) require
+          additional mocking of requests/httpx libraries and add scope. Focus on git_tools
+          and agents first to keep the PR small and reviewable.
+        selected: true
+      - option: 'Include web_tools in this round'
+        description: >
+          Add tests for web_tools alongside git_tools. More comprehensive but increases
+          scope. Web tools have external HTTP dependencies requiring careful mocking.
+        selected: false
+    selectionRationale: >
+      The spec's stated size estimate is S. Including web_tools would likely push this to
+      M. Keeping scope tight — git_tools + code_agents + config — ensures a clean,
+      mergeable first round. Web tools can be a follow-up feature.
+    answer: 'Defer web_tools to next round'
 
 # Markdown content (the actual spec)
 content: |
@@ -40,66 +128,117 @@ content: |
   files rather than source code. Core modules — agents, flows, git_tools, web_tools — have
   zero unit test coverage, creating risk for regressions during ongoing development.
 
-  ## Codebase Analysis
+  This feature delivers the first targeted round of unit tests for the highest-value,
+  most testable modules: `git_tools.py` (9 tool classes), `code_agents.py` (3 factory
+  functions), and expanded `settings.py` coverage. All tests use mocks to avoid LLM API
+  calls, subprocess side effects, or external network requests.
 
-  ### Project Structure
+  ## Success Criteria
 
-  ```
-  src/sheep/
-  ├── agents/          # Agent factory functions (code_agents.py, general_agents.py)
-  ├── config/          # Pydantic settings and LLM factory (settings.py, llm.py)
-  ├── flows/           # CrewAI orchestration flows (code_implementation.py, chat.py)
-  ├── tools/           # Agent tool classes (git_tools.py, file_tools.py, web_tools.py)
-  ├── observability/   # Structlog + Langfuse (logging.py, langfuse_client.py)
-  └── cli.py           # Typer CLI entry point
-  tests/
-  ├── test_hello_world.py
-  ├── test_config.py
-  ├── test_tools.py    # Only covers file_tools
-  └── test_content_*.py  # 15+ markdown validation tests
-  ```
+  - [ ] `tests/test_git_tools.py` exists and covers all 9 git tool classes (GitStatusTool,
+    GitDiffTool, GitLogTool, GitCreateBranchTool, GitCheckoutTool, GitCommitTool,
+    GitPushTool, GitWorktreeTool, plus `_run_git` helper)
+  - [ ] `tests/test_agents.py` exists and covers all 3 factory functions in `code_agents.py`
+    (create_code_researcher_agent, create_code_implementer_agent, create_code_reviewer_agent)
+  - [ ] `tests/test_config.py` is extended to cover `LLMSettings.get_available_providers()`,
+    `LangfuseSettings.is_configured`, and `GitSettings` field defaults
+  - [ ] All new tests pass with `pytest` (zero failures, zero errors)
+  - [ ] `pytest --cov=src/sheep/tools/git_tools --cov=src/sheep/agents/code_agents
+    --cov=src/sheep/config/settings` reports >= 80% line coverage on each targeted module
+  - [ ] No LLM API keys, network calls, or real git subprocess calls are made during test runs
+  - [ ] All new tests pass mypy type checking and ruff linting without errors
+  - [ ] CI pipeline passes end-to-end after the PR is merged
 
-  ### Architecture Patterns
+  ## Functional Requirements
 
-  - **Tool classes**: Each tool is a CrewAI BaseTool subclass with a `_run()` method — easy
-    to unit-test in isolation by calling `_run()` directly or via mocked subprocesses.
-  - **Agent factories**: Functions returning CrewAI Agent objects; testable by asserting
-    properties (role, goal, tools list) without invoking LLMs.
-  - **Flows**: State-machine style with discrete step methods; individual steps can be tested
-    by mocking agent `.kickoff()` calls.
-  - **Config**: Pydantic BaseSettings — testable by setting env vars or passing values directly.
+  - **FR-1**: Each `_run()` method of every git tool class must be tested for at least:
+    the happy path (mocked subprocess returning success), a nonexistent `repo_path` (error
+    string returned), and a `CalledProcessError` (error string returned with stderr content).
+  - **FR-2**: `GitStatusTool._run()` must include a test for the "working tree clean"
+    path (empty stdout → specific return string).
+  - **FR-3**: `GitDiffTool._run()` must include tests for `staged=True`, `file_path` set,
+    and "no changes" path (empty stdout).
+  - **FR-4**: `GitLogTool._run()` must include a test for `oneline=False` and the empty
+    repo case ("No commits yet.").
+  - **FR-5**: `GitCreateBranchTool._run()` must verify that `fetch --all` is called first
+    (check=False) and `checkout -b` is called with the correct branch name.
+  - **FR-6**: `GitCommitTool._run()` must include a test for `add_all=False` (no `git add`
+    called) and the "nothing to commit" CalledProcessError path.
+  - **FR-7**: `GitPushTool._run()` must include tests for branch auto-detection (branch=None)
+    and `set_upstream=False`.
+  - **FR-8**: `GitWorktreeTool._run()` must include a test for the "worktree already exists"
+    path (error string returned without calling git).
+  - **FR-9**: Each agent factory test must assert: `agent.role` equals the expected string,
+    `agent.allow_delegation` is False, `agent.tools` contains the expected tool class
+    instances, and the correct LLM is used when an explicit mock LLM is passed.
+  - **FR-10**: Agent factory tests must verify default LLM selection: researcher uses
+    `get_fast_llm`, implementer and reviewer use `get_reasoning_llm` (tested by patching
+    those functions when `llm=None`).
+  - **FR-11**: `LLMSettings.get_available_providers()` must be tested for: no keys set
+    (empty list), one key set (single-element list), all four keys set (all providers).
+  - **FR-12**: `LangfuseSettings.is_configured` must be tested for: both keys set + enabled
+    (True), missing secret_key (False), enabled=False (False).
+  - **FR-13**: `GitSettings` must be tested for: default field values and env-var overrides
+    (`SHEEP_GIT_REMOTE`, `SHEEP_BRANCH_PREFIX`).
+  - **FR-14**: All subprocess mocking must target `sheep.tools.git_tools.subprocess.run`
+    (or the `_run_git` helper) — not the global subprocess module — to avoid leaking mocks.
+  - **FR-15**: Tests must not import or instantiate real LLM clients; any `get_fast_llm` /
+    `get_reasoning_llm` calls in agent tests must be patched or bypassed via the `llm=`
+    parameter.
 
-  ### Relevant Technologies
+  ## Non-Functional Requirements
 
-  | Technology | Role |
-  |------------|------|
-  | pytest | Test runner, fixtures |
-  | pytest-asyncio | Async flow step testing |
-  | pytest-cov | Coverage reporting |
-  | unittest.mock | Mocking LLM/CrewAI calls |
-  | Pydantic | Settings validation under test |
+  - **NFR-1**: The full test suite (existing + new) must complete in under 30 seconds on a
+    developer laptop; new tests must not introduce any slow tests (no real network or
+    subprocess calls).
+  - **NFR-2**: Tests must be hermetic — no environment variables, API keys, or git
+    configuration from the host environment may affect test outcomes. Use `monkeypatch`
+    or `MagicMock` to isolate env-dependent code.
+  - **NFR-3**: New test files must follow the existing naming convention (`test_*.py`),
+    use class-based grouping consistent with `test_tools.py`, and pass `ruff` and `mypy`
+    without errors.
+  - **NFR-4**: Each test function must have a one-line docstring describing the scenario
+    under test (consistent with existing test style in `test_tools.py`).
+  - **NFR-5**: No production source code may be modified as part of this feature — tests
+    are purely additive.
+  - **NFR-6**: Coverage is measured per-module. A single `pytest --cov` invocation must
+    be sufficient to verify >= 80% line coverage on all three targeted modules simultaneously.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should git subprocess calls be isolated? | Mock subprocess.run | Fast, hermetic, no git required in CI |
+  | 2 | How should agent factory tests handle LLM instantiation? | Pass mock LLM argument | Factories already accept `llm=` param; no patching needed |
+  | 3 | What minimum line coverage threshold? | 80% line coverage | Industry standard; achievable without over-engineering |
+  | 4 | Should web_tools be included in this round? | Defer to next round | Keeps scope at S; HTTP mocking adds complexity |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | tests/ | High | New test files added here |
-  | src/sheep/tools/git_tools.py | High | 17 classes, zero tests — primary target |
-  | src/sheep/agents/code_agents.py | Medium | 3 factory functions, no tests |
-  | src/sheep/config/settings.py | Medium | Config validation has only 3 tests |
-  | src/sheep/tools/file_tools.py | Low | Partially covered; gaps in edge cases |
-  | src/sheep/flows/ | Low | Complex; defer deeper tests to later rounds |
+  | tests/ | High | New test files added here (test_git_tools.py, test_agents.py) |
+  | tests/test_config.py | Medium | Extended with additional settings coverage |
+  | src/sheep/tools/git_tools.py | Read-only | Primary test target; no source changes |
+  | src/sheep/agents/code_agents.py | Read-only | 3 factory functions under test; no source changes |
+  | src/sheep/config/settings.py | Read-only | Expanded config validation coverage; no source changes |
+  | src/sheep/tools/web_tools.py | None | Explicitly deferred to a subsequent round |
+  | src/sheep/flows/ | None | Deferred; too complex for first round |
 
   ## Dependencies
 
   - Existing test infrastructure: `pyproject.toml` pytest config, `tests/` directory,
-    conftest (if any), CI workflow at `.github/workflows/ci.yml`
-  - `unittest.mock.patch` for isolating git subprocess calls in git_tools
-  - Temp directories (already used in `test_tools.py`) for file-system-touching tests
-  - No new libraries required — all testing dependencies already declared
+    CI workflow at `.github/workflows/ci.yml`
+  - `unittest.mock.patch` and `MagicMock` for isolating git subprocess calls and LLM factories
+  - `pytest.MonkeyPatch` (via `monkeypatch` fixture) for environment variable isolation in
+    settings tests
+  - Temp directories via `pytest`'s `tmp_path` fixture (if needed for path-existence checks)
+  - No new libraries required — all testing dependencies already declared in `pyproject.toml`
 
   ## Size Estimate
 
-  **S** — All tooling is in place. Tests are additive (no source changes). A focused first
-  round targeting git_tools and agent factories can be completed in a few hours. Flows and
-  observability tests are deferred to subsequent rounds.
+  **S** — All tooling is in place. Tests are purely additive (no source changes required).
+  Three new/extended test files covering git_tools (9 classes × ~3 scenarios = ~27 test
+  functions), code_agents (3 factories × ~4 assertions = ~12 test functions), and settings
+  (~8 additional test functions). Total: ~47 test functions, all straightforward mock-based
+  unit tests. Flows and web_tools are explicitly deferred.
