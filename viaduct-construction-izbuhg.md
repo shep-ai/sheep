@@ -1,0 +1,3 @@
+# Viaduct Construction Fun Facts
+
+Viaducts are elevated bridges that span valleys, rivers, and other obstacles, and some of the tallest ones in the world tower over 300 meters high—taller than the Statue of Liberty! The Millau Viaduct in France, completed in 2004, is a marvel of engineering that combines cable-stayed and box-girder designs, allowing traffic to flow smoothly while the bridge itself sways gracefully in the wind. Modern viaducts use innovative materials like self-healing concrete and seismic dampers to withstand earthquakes, weather, and the constant stress of thousands of vehicles crossing daily.
