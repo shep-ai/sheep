@@ -1,0 +1,105 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: add-unit-test-d35dcf
+number: 025
+branch: feat/025-add-unit-test-d35dcf
+oneLiner: Add initial unit tests for sheep source modules
+userQuery: >
+  add unit test, 1
+summary: >
+  The project has a pytest-based test infrastructure in place but significant gaps in coverage:
+  agents, flows, git_tools, and web_tools have no tests at all. This feature adds the first
+  round of unit tests targeting high-value, untested modules with clear, isolated behavior.
+phase: Analysis
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+
+  - pytest
+  - pytest-asyncio
+  - pytest-cov
+  - unittest.mock
+  - Pydantic
+  - Typer
+  - CrewAI
+
+relatedLinks: []
+
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The `sheep` agentic platform has a working pytest infrastructure (pytest, pytest-asyncio,
+  pytest-cov, ruff, mypy) but only ~20 test files, most of which validate markdown content
+  files rather than source code. Core modules — agents, flows, git_tools, web_tools — have
+  zero unit test coverage, creating risk for regressions during ongoing development.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  src/sheep/
+  ├── agents/          # Agent factory functions (code_agents.py, general_agents.py)
+  ├── config/          # Pydantic settings and LLM factory (settings.py, llm.py)
+  ├── flows/           # CrewAI orchestration flows (code_implementation.py, chat.py)
+  ├── tools/           # Agent tool classes (git_tools.py, file_tools.py, web_tools.py)
+  ├── observability/   # Structlog + Langfuse (logging.py, langfuse_client.py)
+  └── cli.py           # Typer CLI entry point
+  tests/
+  ├── test_hello_world.py
+  ├── test_config.py
+  ├── test_tools.py    # Only covers file_tools
+  └── test_content_*.py  # 15+ markdown validation tests
+  ```
+
+  ### Architecture Patterns
+
+  - **Tool classes**: Each tool is a CrewAI BaseTool subclass with a `_run()` method — easy
+    to unit-test in isolation by calling `_run()` directly or via mocked subprocesses.
+  - **Agent factories**: Functions returning CrewAI Agent objects; testable by asserting
+    properties (role, goal, tools list) without invoking LLMs.
+  - **Flows**: State-machine style with discrete step methods; individual steps can be tested
+    by mocking agent `.kickoff()` calls.
+  - **Config**: Pydantic BaseSettings — testable by setting env vars or passing values directly.
+
+  ### Relevant Technologies
+
+  | Technology | Role |
+  |------------|------|
+  | pytest | Test runner, fixtures |
+  | pytest-asyncio | Async flow step testing |
+  | pytest-cov | Coverage reporting |
+  | unittest.mock | Mocking LLM/CrewAI calls |
+  | Pydantic | Settings validation under test |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | tests/ | High | New test files added here |
+  | src/sheep/tools/git_tools.py | High | 17 classes, zero tests — primary target |
+  | src/sheep/agents/code_agents.py | Medium | 3 factory functions, no tests |
+  | src/sheep/config/settings.py | Medium | Config validation has only 3 tests |
+  | src/sheep/tools/file_tools.py | Low | Partially covered; gaps in edge cases |
+  | src/sheep/flows/ | Low | Complex; defer deeper tests to later rounds |
+
+  ## Dependencies
+
+  - Existing test infrastructure: `pyproject.toml` pytest config, `tests/` directory,
+    conftest (if any), CI workflow at `.github/workflows/ci.yml`
+  - `unittest.mock.patch` for isolating git subprocess calls in git_tools
+  - Temp directories (already used in `test_tools.py`) for file-system-touching tests
+  - No new libraries required — all testing dependencies already declared
+
+  ## Size Estimate
+
+  **S** — All tooling is in place. Tests are additive (no source changes). A focused first
+  round targeting git_tools and agent factories can be completed in a few hours. Flows and
+  observability tests are deferred to subsequent rounds.
