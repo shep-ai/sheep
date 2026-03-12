@@ -290,5 +290,11 @@ SHEEP_DEFAULT_MODEL=openai/gpt-4o
     console.print("3. Run: sheep implement <repo-path> -i '<issue>'")
 
 
+@app.command("hello-world")
+def hello_world() -> None:
+    """Print Hello World to the console."""
+    console.print("Hello World")
+
+
 if __name__ == "__main__":
     app()
