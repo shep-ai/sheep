@@ -1,0 +1,357 @@
+name: add-unit-test-d35dcf
+summary: >
+  Research confirms all test dependencies are already declared in pyproject.toml; no new
+  libraries are required. The _run_git helper in git_tools.py is the ideal mock seam for
+  subprocess isolation. Agent factory functions accept an optional llm= parameter, enabling
+  direct MagicMock injection without patching. Settings tests use monkeypatch for env-var
+  isolation combined with lru_cache clearing.
+
+relatedFeatures: []
+
+technologies:
+  - Python 3.11+
+  - pytest 8.0+
+  - pytest-asyncio 0.24+
+  - pytest-cov 5.0+
+  - unittest.mock (MagicMock, patch)
+  - pytest.MonkeyPatch
+  - pydantic-settings
+  - CrewAI (Agent, BaseTool, LLM)
+
+relatedLinks:
+  - https://docs.pytest.org/en/stable/how-to/monkeypatch.html
+  - https://docs.python.org/3/library/unittest.mock.html
+  - https://pytest-cov.readthedocs.io/en/latest/
+
+decisions:
+  - title: 'Subprocess Isolation Strategy for git_tools Tests'
+    chosen: 'Patch sheep.tools.git_tools.subprocess.run at the module level'
+    rejected:
+      - 'Patch the _run_git helper directly — the helper is defined in the same module and not easily importable as a separate symbol; patching subprocess.run is more explicit and matches the actual call site'
+      - 'Use a real temp git repository — slower, requires git in PATH, makes tests environment-dependent and violates NFR-2 hermetic requirement'
+    rationale: >
+      The _run_git helper in git_tools.py calls subprocess.run directly with check=True (or
+      check=False for fetch --all). Patching sheep.tools.git_tools.subprocess.run targets the
+      exact module-level reference, ensuring mocks do not leak to other modules. This is the
+      standard Python mock pattern for subprocess-heavy code. Each test can configure
+      mock_run.return_value with a CompletedProcess(stdout=..., stderr=..., returncode=0)
+      to simulate both success and failure paths. For CalledProcessError tests, setting
+      mock_run.side_effect = subprocess.CalledProcessError(1, "git", stderr="error msg")
+      covers FR-1's error path requirement cleanly.
+
+  - title: 'Agent Factory LLM Isolation Strategy'
+    chosen: 'Pass MagicMock() directly as the llm= argument to factory functions'
+    rejected:
+      - 'Patch sheep.agents.code_agents.get_fast_llm and get_reasoning_llm — adds boilerplate decorators and context managers; the llm= parameter already provides a cleaner seam'
+      - 'Set real API keys in test environment — violates NFR-2 and FR-15; introduces flakiness from external service availability'
+    rationale: >
+      All three factory functions (create_code_researcher_agent, create_code_implementer_agent,
+      create_code_reviewer_agent) already accept an optional llm: LLM | None = None parameter.
+      When llm is not None, the factories skip the get_fast_llm()/get_reasoning_llm() calls
+      entirely. Passing MagicMock() exercises the actual branching logic while keeping tests
+      hermetic. For FR-10 (testing default LLM selection), a separate test class can use
+      unittest.mock.patch on the LLM factory functions to verify they are called when llm=None
+      is the default.
+
+  - title: 'Settings Test Isolation for Environment Variables'
+    chosen: 'Use pytest monkeypatch fixture combined with get_settings.cache_clear()'
+    rejected:
+      - 'Use unittest.mock.patch.dict(os.environ) — functional but monkeypatch integrates better with pytest fixtures; provides automatic teardown and is already the pattern in test_config.py'
+      - 'Instantiate settings classes directly without env vars — cannot test the pydantic-settings env-var override behavior described in FR-13; would miss the SHEEP_GIT_REMOTE/SHEEP_BRANCH_PREFIX validation'
+    rationale: >
+      The existing test_config.py already uses get_settings.cache_clear() before each test
+      that modifies env vars (the lru_cache on get_settings() must be cleared or it returns
+      a stale cached instance). The monkeypatch fixture provides pytest-idiomatic env-var
+      manipulation with automatic teardown, ensuring NFR-2 hermetic behavior. For settings
+      classes (LLMSettings, LangfuseSettings, GitSettings), direct instantiation with keyword
+      arguments is sufficient for default-value tests; monkeypatch is only needed for tests
+      that validate the env-var to field mapping (FR-13).
+
+  - title: 'Test File Organization Pattern'
+    chosen: 'Class-based test organization matching test_tools.py conventions'
+    rejected:
+      - 'Function-based tests without class grouping — used in test_hello_world.py but test_tools.py uses classes, and class grouping provides clearer test suite structure for 27+ git tool tests across 9 classes'
+      - 'Separate test file per tool class — excessive file proliferation for closely related tools in the same module; one file per source module is the existing convention'
+    rationale: >
+      test_tools.py uses class TestFileTools with individual test methods and one-line
+      docstrings (NFR-4). For git_tools, each of the 9 tool classes maps naturally to a
+      test class (e.g., class TestGitStatusTool, class TestGitDiffTool). This mirrors the
+      source structure, makes pytest output readable, and allows shared fixtures at the class
+      level. test_agents.py will use class TestCodeAgents. test_config.py extensions follow
+      the existing module-level function pattern already in that file.
+
+  - title: 'Coverage Measurement Configuration'
+    chosen: 'Run pytest with --cov flags per module via CLI with no changes to pyproject.toml'
+    rejected:
+      - 'Add coverage configuration to pyproject.toml [tool.coverage] — overengineering for a first round; the --cov flags are sufficient for per-module measurement and do not affect the existing test suite runs'
+      - 'Use a separate .coveragerc file — adds a config file to the repository; the command-line flags are self-documenting and sufficient per NFR-6'
+    rationale: >
+      The pyproject.toml has no existing [tool.coverage] section. Adding pytest --cov flags
+      as a one-off invocation keeps the change minimal (NFR-5: no source modifications) and
+      satisfies NFR-6's requirement that a single pytest --cov invocation verifies all three
+      modules simultaneously. The --cov-report=term-missing flag can be added for visibility
+      without persisting any config file changes.
+
+openQuestions:
+  - question: 'How should the GitWorktreeTool "worktree already exists" path be triggered in tests?'
+    resolved: true
+    options:
+      - option: 'Check worktree_path existence before calling git'
+        description: >
+          The tool''s _run() method checks if the worktree_path directory already exists
+          before any subprocess call. In the test, create a real directory at tmp_path/worktree
+          using tmp_path.mkdir() — this triggers the early-return error path without any
+          subprocess mocking needed. Clean and accurate per FR-8.
+        selected: true
+      - option: 'Mock subprocess to return a worktree already exists error string'
+        description: >
+          Simulate git''s error output for an existing worktree by setting mock_run.side_effect
+          to CalledProcessError with appropriate stderr. Less accurate because the tool may
+          check path existence before calling git, making this approach test the wrong code path.
+        selected: false
+      - option: 'Skip the worktree already exists test case'
+        description: >
+          Omit this specific test path as too complex. However, FR-8 explicitly requires it,
+          making this non-compliant with the spec.
+        selected: false
+    selectionRationale: >
+      Reading the GitWorktreeTool._run() source confirms it checks if worktree.exists()
+      before calling any git command, returning an error string directly. The correct test
+      approach is to use pytest''s tmp_path fixture to create an existing directory at
+      worktree_path, which triggers the guard without needing subprocess mocking. This is
+      the most accurate test of the actual code path and uses the tmp_path fixture already
+      listed as a dependency in the spec.
+
+  - question: 'Should GitPushTool branch auto-detection be tested by mocking the subprocess branch query?'
+    resolved: true
+    options:
+      - option: 'Mock the rev-parse --abbrev-ref HEAD subprocess call separately from the push call'
+        description: >
+          When branch=None, GitPushTool calls _run_git(["rev-parse", "--abbrev-ref", "HEAD"])
+          to detect the current branch. Use mock_run.side_effect as a list of two
+          CompletedProcess values: first for rev-parse (returns "main"), second for push
+          (returns success). This accurately tests the branch auto-detection path per FR-7.
+        selected: true
+      - option: 'Always pass an explicit branch name in tests, skipping the auto-detection path'
+        description: >
+          Avoid testing the branch=None path entirely. Non-compliant with FR-7 which
+          explicitly requires testing branch auto-detection (branch=None).
+        selected: false
+      - option: 'Patch the entire GitPushTool._run method to return a canned string'
+        description: >
+          Mock the _run method itself — skips testing the actual logic entirely; defeats
+          the purpose of unit testing.
+        selected: false
+    selectionRationale: >
+      unittest.mock supports side_effect as an iterable, returning successive values on
+      consecutive calls. For the branch=None test, setting mock_run.side_effect to a list
+      of two CompletedProcess instances simulates the rev-parse call followed by the push
+      call. This is a standard mock pattern and accurately exercises the actual branching
+      logic in GitPushTool._run().
+
+  - question: 'How should agent tool instance membership be asserted in factory tests?'
+    resolved: true
+    options:
+      - option: 'Assert isinstance checks on each tool in agent.tools list'
+        description: >
+          Use isinstance(tool, ExpectedToolClass) for each tool in agent.tools to verify
+          the correct tool types are present. Matches FR-9 requirement that agent.tools
+          contains the expected tool class instances. Resilient to tool initialization
+          order changes.
+        selected: true
+      - option: 'Assert exact tool class name strings from type(t).__name__ for each tool'
+        description: >
+          Compare class name strings instead of isinstance checks. More brittle — breaks
+          on class renames — and does not verify actual inheritance hierarchy.
+        selected: false
+      - option: 'Assert exact list equality with constructed tool instances'
+        description: >
+          Construct expected tool instances and compare agent.tools == expected_list.
+          Requires BaseTool to implement __eq__; CrewAI tools use default object identity
+          comparison, making this approach always fail for distinct instances.
+        selected: false
+    selectionRationale: >
+      isinstance checks are the standard Python pattern for verifying object types and
+      work correctly with inheritance. Since CrewAI''s BaseTool does not override __eq__,
+      exact equality comparison would rely on object identity (always False for distinct
+      instances). String name comparison is fragile. isinstance is the pragmatic, accurate
+      choice that directly satisfies FR-9''s requirement.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Subprocess Isolation Strategy for git_tools Tests
+
+  **Chosen:** Patch `sheep.tools.git_tools.subprocess.run` at the module level
+
+  **Rejected:**
+  - Patch `_run_git` helper directly — not easily importable as a standalone symbol; patching subprocess.run is more explicit
+  - Use real temp git repository — slow, environment-dependent, violates NFR-2 hermetic requirement
+
+  **Rationale:** The `_run_git` helper calls `subprocess.run` directly. Patching the module-level
+  reference with `@patch("sheep.tools.git_tools.subprocess.run")` is the canonical approach.
+  `CompletedProcess(stdout="...", stderr="", returncode=0)` covers happy paths; setting
+  `side_effect = subprocess.CalledProcessError(1, "git", stderr="msg")` covers error paths (FR-1).
+
+  ### 2. Agent Factory LLM Isolation
+
+  **Chosen:** Pass `MagicMock()` directly as the `llm=` argument
+
+  **Rejected:**
+  - Patch `get_fast_llm`/`get_reasoning_llm` — adds boilerplate; the parameter already provides a clean seam
+  - Set real API keys — violates NFR-2 and FR-15
+
+  **Rationale:** All three factory functions accept `llm: LLM | None = None`. When `llm` is provided,
+  the factories skip LLM factory calls entirely. For FR-10 (default LLM selection tests), a separate
+  test uses `@patch("sheep.agents.code_agents.get_fast_llm")` / `get_reasoning_llm` to verify they
+  are called when `llm=None`.
+
+  ### 3. Settings Test Isolation
+
+  **Chosen:** `pytest monkeypatch` fixture + `get_settings.cache_clear()` before each test
+
+  **Rejected:**
+  - `unittest.mock.patch.dict(os.environ)` — functional but not the pytest-idiomatic pattern
+  - Direct instantiation without env vars — cannot test env-var to field mapping (FR-13)
+
+  **Rationale:** `test_config.py` already uses `get_settings.cache_clear()`. `monkeypatch.setenv()`
+  provides automatic teardown. For default-value tests, direct class instantiation
+  (`GitSettings()`, `LangfuseSettings()`) is sufficient without env manipulation.
+
+  ### 4. Test File Organization
+
+  **Chosen:** Class-based organization matching `test_tools.py` — one class per tool (e.g., `TestGitStatusTool`)
+
+  **Rejected:**
+  - Function-based tests — used in simpler files; class grouping is more readable for 27+ git tool tests
+  - Separate file per tool class — excessive proliferation; one file per source module matches convention
+
+  **Rationale:** `test_tools.py` uses `class TestFileTools:` with one-line docstrings per method
+  (NFR-4). Each of the 9 git tool classes maps to a test class. `TestCodeAgents` class covers all
+  three factory functions.
+
+  ### 5. Coverage Measurement
+
+  **Chosen:** CLI flags: `pytest --cov=src/sheep/tools/git_tools --cov=src/sheep/agents/code_agents --cov=src/sheep/config/settings --cov-report=term-missing`
+
+  **Rejected:**
+  - Add `[tool.coverage]` to `pyproject.toml` — overengineering; the spec requires no source/config changes
+  - Separate `.coveragerc` — adds an extra config file unnecessarily
+
+  **Rationale:** NFR-6 requires a single `pytest --cov` invocation. CLI flags are self-documenting
+  and do not require modifying `pyproject.toml`.
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pytest | Test runner and fixtures | Use (already installed) | Declared in pyproject.toml dev deps |
+  | pytest-asyncio | Async test support | Use (already installed) | asyncio_mode="auto" already configured |
+  | pytest-cov | Coverage reporting | Use (already installed) | Declared in dev deps; no new config needed |
+  | unittest.mock | MagicMock, patch | Use (stdlib) | Standard Python mock library; no install needed |
+  | pytest.MonkeyPatch | Env var manipulation | Use (pytest built-in) | Already used in test_config.py |
+  | tempfile / tmp_path | Temp directories | Use (stdlib / pytest) | For path-existence checks in GitWorktreeTool tests |
+  | requests-mock / responses | HTTP mocking | Reject (not needed) | web_tools deferred to next round per spec decision |
+  | factory_boy | Test data factories | Reject | Overkill for this scope; MagicMock is sufficient |
+  | freezegun | Time freezing | Reject | No time-dependent logic in targeted modules |
+
+  ---
+
+  ## Security Considerations
+
+  Test isolation is the primary security concern:
+
+  - **API key leakage**: All agent tests must bypass real LLM instantiation (FR-15). Passing
+    `MagicMock()` as `llm=` ensures no API keys are read from environment during tests.
+  - **Subprocess injection**: Mocked `subprocess.run` prevents any real git commands from
+    executing — no risk of test-triggered git operations on the developer's or CI system.
+  - **Env var contamination**: `monkeypatch` ensures env vars set during tests are reset after
+    each test, preventing state leakage between test runs (NFR-2).
+  - **No credentials in test code**: Test files must not contain hardcoded API keys, tokens,
+    or passwords. Any settings tests use placeholder strings (e.g., "sk-test-key").
+
+  ---
+
+  ## Performance Implications
+
+  - **Test suite speed (NFR-1)**: All tests use mocks — zero real subprocess calls, zero network
+    calls, zero LLM API calls. Expected runtime for ~47 new test functions: under 2 seconds.
+    Full suite (existing 20 files + 3 new files) should remain well under the 30-second limit.
+  - **lru_cache clearing overhead**: `get_settings.cache_clear()` is O(1) and negligible.
+    Critical to call before each test that modifies env vars.
+  - **CrewAI Agent instantiation**: Creating Agent instances in tests may invoke CrewAI
+    initialization logic. If this proves slow, tests can use `@pytest.fixture(scope="class")`
+    for shared agent instances within a test class.
+
+  ---
+
+  ## Architecture Notes
+
+  ### How Tests Fit into the Existing Structure
+
+  ```
+  tests/
+    test_git_tools.py      <- NEW: 9 test classes, ~27 test methods
+    test_agents.py         <- NEW: 1 test class (TestCodeAgents), ~12 test methods
+    test_config.py         <- EXTENDED: 8 additional test functions
+    test_tools.py          <- UNCHANGED: existing FileTools tests
+    test_hello_world.py    <- UNCHANGED
+    test_*.py              <- UNCHANGED: content validation tests
+  ```
+
+  ### Key Mock Seams Identified
+
+  1. **git_tools**: `sheep.tools.git_tools.subprocess.run` — single patch covers all 9 tool
+     classes since they all go through `_run_git()`.
+
+  2. **code_agents**: `llm=MagicMock()` parameter — no patching needed for happy-path tests.
+     `sheep.agents.code_agents.get_fast_llm` / `get_reasoning_llm` — patched only for FR-10
+     default-LLM-selection tests.
+
+  3. **settings**: Direct class instantiation for defaults; `monkeypatch.setenv()` for env-var
+     override tests; `get_settings.cache_clear()` before each test to defeat lru_cache.
+
+  ### GitWorktreeTool Special Case (FR-8)
+
+  `GitWorktreeTool._run()` checks `if worktree.exists()` before any subprocess call. The
+  "worktree already exists" test uses `tmp_path` to create a pre-existing directory:
+
+  ```python
+  worktree_dir = tmp_path / "existing-wt"
+  worktree_dir.mkdir()
+  result = tool._run(str(tmp_path), str(worktree_dir), "feat/branch")
+  assert "already exists" in result
+  ```
+
+  ### GitPushTool Branch Auto-Detection (FR-7)
+
+  When `branch=None`, `GitPushTool._run()` calls `_run_git(["rev-parse", "--abbrev-ref", "HEAD"])`
+  first. Mock `side_effect` as a list of two `CompletedProcess` values:
+
+  ```python
+  mock_run.side_effect = [
+      CompletedProcess(args=[], returncode=0, stdout="main\n", stderr=""),
+      CompletedProcess(args=[], returncode=0, stdout="", stderr=""),
+  ]
+  ```
+
+  ### GitCreateBranchTool fetch Verification (FR-5)
+
+  `GitCreateBranchTool._run()` calls `_run_git(["fetch", "--all"], check=False)` before the
+  `checkout -b` call. The test verifies `mock_run.call_args_list` contains both the fetch
+  call and the checkout call in order, and that fetch was called with `check=False`.
+
+  ### Agent Tool Assertions (FR-9)
+
+  Use `isinstance` checks rather than equality:
+
+  ```python
+  tool_types = [type(t) for t in agent.tools]
+  assert GitLogTool in tool_types
+  assert DirectoryTreeTool in tool_types
+  ```
+
+  CrewAI's `BaseTool` does not override `__eq__`, so exact equality always fails for distinct
+  instances.
