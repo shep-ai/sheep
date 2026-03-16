@@ -1,0 +1,255 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation
+number: 061
+
+summary: >
+  Implement a straightforward markdown file creation workflow that generates a markdown file
+  with an auto-generated title and 2-3 sentences of prose content. The implementation leverages
+  Sheep's existing CrewAI agent framework and tool abstractions (FileWriteTool, GitCommitTool,
+  GitPushTool) to create, version, and publish a single markdown file at the repository root.
+  Follows established pattern from 65+ existing test markdown files, requiring no new dependencies
+  or architectural changes to the platform.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Python
+  - CrewAI
+  - Claude API (via Anthropic)
+  - Markdown
+  - Git
+
+relatedLinks:
+  - https://docs.crewai.com/
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Content Generation & Markdown Composition'
+    description: >
+      Generate markdown content (title + 2-3 sentences of prose) using Claude API via the
+      CrewAI LLM framework. This phase establishes the core content generation capability
+      that produces coherent, contextually-appropriate prose about a single topic. Output
+      is validated as properly-formatted markdown (H1 heading, blank line separator, prose).
+      This phase is self-contained and testable in isolation.
+    parallel: false
+
+  - id: phase-2
+    name: 'File Creation & Validation'
+    description: >
+      Write the generated markdown content to test-9veux3.md at the repository root using
+      FileWriteTool (sheep.tools.file_tools). Validate file encoding (UTF-8), line endings
+      (Unix LF), and markdown structure (H1 heading, blank line, 2-3 sentences, trailing newline).
+      This phase ensures the physical file meets all non-functional requirements before git operations.
+    parallel: false
+
+  - id: phase-3
+    name: 'Git Integration & Publication'
+    description: >
+      Stage the markdown file using GitCommitTool with conventional commit message format
+      ("feat: Create test-9veux3.md markdown file with [topic] content"), then push to remote
+      origin on the feature branch using GitPushTool with upstream tracking. This phase handles
+      all version control operations, ensuring the file is persisted to the remote repository.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - test-9veux3.md
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The markdown file creation feature is implemented as a focused, single-purpose workflow that
+  integrates three existing Sheep platform abstractions:
+
+  1. **Content Generation**: Claude API (via CrewAI LLM factory) → generates markdown title + prose
+  2. **File Operations**: FileWriteTool (sheep.tools.file_tools) → writes to filesystem with UTF-8 encoding
+  3. **Version Control**: GitCommitTool + GitPushTool (sheep.tools.git_tools) → stages, commits, and pushes
+
+  ### Component Relationships
+
+  ```
+  Content Generation (Claude API)
+      ↓ (markdown: title + prose)
+  File Creation (FileWriteTool)
+      ↓ (test-9veux3.md written to disk)
+  Git Workflow (GitCommitTool + GitPushTool)
+      ↓ (file staged, committed, pushed)
+  Remote Repository (GitHub origin)
+  ```
+
+  ### Fit Within Sheep Platform
+
+  The feature requires **no new agent types, no new tools, and no architectural changes**.
+  It leverages existing components:
+
+  - **Agents**: Uses code_implementer_agent pattern (from src/sheep/agents/code_agents.py) which
+    already has access to FileWriteTool and can orchestrate multiple operations
+  - **LLM Framework**: Uses create_llm() factory (sheep.config.llm) configured with Anthropic's
+    Claude for reasoning-class content generation
+  - **Tools**: Uses FileWriteTool, GitCommitTool, GitPushTool already defined in sheep.tools
+  - **Patterns**: Follows established pattern from 65+ existing test files (test-*.md) and recent
+    commits (#122-#126) demonstrating this exact workflow
+
+  The implementation is a straightforward orchestration of existing platform components—no new
+  code abstractions, no new dependencies, no new configuration required.
+
+  ## Key Design Decisions
+
+  ### 1. Content Generation via Claude API (Research Finding #2)
+
+  **Decision**: Use CrewAI LLM framework to call Claude 3.5 Sonnet (reasoning_model) for
+  generating both the markdown title and 2-3 sentences of prose.
+
+  **Why**:
+  - Satisfies "about anything" requirement with variety and flexibility
+  - Claude's reasoning model optimized for coherent multi-sentence prose generation
+  - CrewAI LLM factory provides unified API for multiple providers (OpenAI, Anthropic, Google)
+  - Aligns with Sheep platform's existing LLM integration
+  - Follows recent commits (#122-#126) which demonstrate auto-generation approach
+
+  **Alternatives Considered**:
+  - Pre-defined templates or hardcoded content (rejected: lacks variety, violates spec)
+  - OpenAI GPT-4o default model (rejected: Claude reasoning model superior for prose)
+  - Pre-generated topic pool (rejected: reduces flexibility and fails "about anything" requirement)
+
+  ### 2. File Creation with FileWriteTool (Research Finding #1)
+
+  **Decision**: Use FileWriteTool (sheep.tools.file_tools lines 77-101) for all file I/O,
+  which automatically handles UTF-8 encoding and creates the file at the specified path.
+
+  **Why**:
+  - Standard abstraction in Sheep platform for file operations (used consistently across 65+ test files)
+  - Handles UTF-8 encoding automatically (NFR-2 requirement)
+  - Provides error handling, logging, and consistency with platform observability
+  - Avoids code duplication and maintains DRY principle
+
+  **Alternatives Considered**:
+  - Direct Python open()/write() (rejected: duplicates FileWriteTool functionality)
+  - GitPython file operations (rejected: designed for version control, not file I/O)
+
+  ### 3. Git Operations with Existing Tools (Research Finding #5)
+
+  **Decision**: Use GitCommitTool (git_tools.py lines 213-239) to stage and commit,
+  then GitPushTool (git_tools.py lines 255-288) to push with upstream tracking.
+
+  **Why**:
+  - Standard abstraction for version control in Sheep platform
+  - Both tools wrap git operations with error handling and logging via _run_git() helper
+  - All 65+ test files created using this same pattern
+  - Maintains consistency with platform architecture and observability
+
+  **Alternatives Considered**:
+  - Direct subprocess.run() git commands (rejected: duplicates tool functionality)
+  - GitPython library directly (rejected: existing tools already wrap it properly)
+
+  ### 4. Markdown Structure: H1 + Blank Line + Prose (Research Finding #3)
+
+  **Decision**: Generate file in format: "# [Title]\n\n[2-3 sentences of prose]\n"
+  - Line 1: H1 heading with generated title
+  - Line 2: Blank line (visual separator)
+  - Lines 3+: 2-3 sentences of coherent prose about a single topic
+  - Trailing newline (Unix convention)
+
+  **Why**:
+  - Matches established pattern in all 65+ existing test markdown files
+  - Spec explicitly selects H1 as standard markdown convention for document titles
+  - Recent commits (test-l2grww.md, test-mkh44q.md) confirm this pattern
+  - Blank line improves readability and follows markdown best practices
+
+  **Alternatives Considered**:
+  - H2 (##) or H3 (###) headings (rejected: contradicts spec and established pattern)
+  - Multiple sections or code blocks (rejected: unnecessary complexity beyond spec)
+
+  ### 5. Encoding & Line Endings: UTF-8 with Unix LF (Research Finding #4)
+
+  **Decision**: Write files with UTF-8 encoding and Unix-style LF line endings.
+  FileWriteTool automatically handles this via Python's open() mode "w" with encoding="utf-8".
+
+  **Why**:
+  - Repository standard throughout (all 65+ test files, all source code)
+  - Ensures consistency and prevents Git diff pollution from CRLF conversion
+  - Meets explicit requirements (NFR-2: UTF-8, NFR-3: Unix line endings)
+  - FileWriteTool uses encoding="utf-8" by default, defaults to LF on Unix systems
+
+  **Alternatives Considered**:
+  - UTF-16 or other encodings (rejected: inconsistent with repository standard)
+  - Windows CRLF line endings (rejected: creates unwanted git diffs, breaks CI/CD tools)
+
+  ### 6. Commit Message Format: Conventional Commits with Topic (Research Finding #6)
+
+  **Decision**: Use format "feat: Create test-9veux3.md markdown file with [topic] content"
+  where [topic] is extracted from the generated prose content.
+
+  **Why**:
+  - Recent commits (#123-#126) demonstrate consistent use of descriptive topic information
+  - Makes git log readable and documents what each test file covers
+  - Conventional Commits format ensures compatibility with semantic versioning and CI/CD
+  - Includes filename for clarity and topic for context
+
+  **Alternatives Considered**:
+  - Minimal messages like "Create test file" (rejected: lacks context and readability)
+  - Feature number format "feat(061): ..." (rejected: less descriptive)
+
+  ## Implementation Strategy
+
+  ### Phase Ordering Rationale
+
+  The three phases are strictly sequential because each depends on the previous:
+
+  1. **Content Generation First**: Must generate markdown content before any file I/O
+  2. **File Creation Second**: Must write file to disk before git operations can stage it
+  3. **Git Integration Last**: Can only commit/push after file physically exists
+
+  ### Execution Flow
+
+  ```
+  1. Content Generation
+     ├─ Prompt Claude API: "Generate a markdown title and 2-3 sentences"
+     ├─ Validate response format (H1 heading present)
+     └─ Extract topic from prose for commit message
+
+  2. File Creation & Validation
+     ├─ Call FileWriteTool with generated content
+     ├─ Verify file exists and readable
+     ├─ Validate UTF-8 encoding and LF line endings
+     ├─ Validate markdown structure (H1 heading, blank line, 2-3 sentences)
+     └─ Verify file permissions and size
+
+  3. Git Integration
+     ├─ Call GitCommitTool to stage all changes (git add -A)
+     ├─ Call GitCommitTool to commit with formatted message
+     ├─ Call GitPushTool to push with upstream tracking (git push -u origin HEAD)
+     └─ Verify remote push succeeded
+  ```
+
+  ### Why This Approach
+
+  - **Minimal scope**: Only creates one file, no directory structure changes
+  - **No new dependencies**: Uses only existing Sheep platform tools
+  - **Follows established patterns**: 65+ test files created using similar approach
+  - **Fully testable**: Each phase independently testable (content generation, file I/O, git ops)
+  - **Observable**: Integrated with platform's logging and observability system
+  - **Reversible**: File can be removed and operation retried if needed
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Claude API timeout/failure | Implement exponential backoff retry logic (max 3 attempts) with configurable timeout. Fallback strategy if API unavailable. |
+  | Generated content incoherent | Validate generated prose contains 2-3 sentences via regex. Reject responses too short or with incomplete sentences. Retry with refined prompt. |
+  | File write fails | FileWriteTool already includes error handling. Validate repo_path is writable before attempting write. |
+  | Git commit fails | Verify file was actually written and has content >0 bytes before calling GitCommitTool. Error message will clarify root cause. |
+  | Git push fails | GitPushTool includes error handling. Check git credentials and remote URL are correct. Push can be retried manually if network issue is temporary. |
+  | Encoding issues | Claude API responses should be valid UTF-8. FileWriteTool will handle encoding explicitly. Invalid UTF-8 will raise clear error message. |
+  | File already exists | Check if test-9veux3.md exists before writing. Either overwrite or skip with clear message per implementation choice. |
+  | Branch not synced | Ensure feature branch is checked out before starting. GitPushTool will push to feature branch as specified in spec. |

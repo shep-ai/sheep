@@ -1,0 +1,315 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation
+summary: >
+  This feature requires straightforward file I/O using existing CrewAI tools and established patterns from 65+ test files.
+  Technical approach involves: (1) Auto-generating markdown content via Claude API through CrewAI LLM framework,
+  (2) Writing file to repository root using FileWriteTool with UTF-8 encoding and LF line endings,
+  (3) Staging and committing with GitCommitTool using conventional commit format,
+  (4) Pushing to remote using GitPushTool with upstream tracking. No new dependencies or architectural changes required.
+
+# Relationships
+relatedFeatures:
+  - "060-test-markdown-file-12cd8b"
+
+technologies:
+  - Python
+  - CrewAI
+  - Markdown
+  - Git
+  - Claude API (Anthropic)
+
+relatedLinks:
+  - "https://docs.crewai.com/"
+  - "https://python.readthedocs.org/library/pathlib.html"
+
+# Structured technology decisions
+decisions:
+  - title: 'File Creation — Use Existing FileWriteTool from sheep.tools.file_tools'
+    chosen: 'Leverage FileWriteTool (src/sheep/tools/file_tools.py) for file I/O operations: accepts file_path and content parameters, handles UTF-8 encoding automatically, creates parent directories if needed, returns success message with character count.'
+    rejected:
+      - 'Direct Python file operations (open/write) — Would duplicate functionality already encapsulated in FileWriteTool; violates DRY principle; FileWriteTool provides error handling, logging, and consistency with other agents in the Sheep platform'
+      - 'Use GitPython file operations — GitPython is designed for version control operations, not file I/O; adds unnecessary complexity and couples file creation to git operations'
+    rationale: >
+      The Sheep platform provides FileWriteTool as the standard abstraction for file creation across agents and tasks.
+      FileWriteTool (lines 77-101 in file_tools.py) wraps Python's pathlib and open() with proper UTF-8 encoding,
+      error handling, and logging. All 65+ existing test files were created using consistent patterns that align with
+      FileWriteTool's behavior. Using this existing tool ensures consistency with platform conventions, avoids code
+      duplication, and integrates with Sheep's observability/logging system.
+
+  - title: 'Content Generation — Use Claude API via CrewAI LLM Framework'
+    chosen: 'Use CrewAI LLM abstraction (create_llm function in src/sheep/config/llm.py) to generate both title and 2-3 sentences. Leverage "anthropic/claude-3-5-sonnet-20241022" (reasoning_model) for coherent prose generation. Build prompt requesting markdown-formatted output (title as H1, followed by prose).'
+    rejected:
+      - 'Pre-defined templates or hardcoded content — Violates "about anything" requirement in spec; lacks variety and AI capability; inconsistent with recent commits (#122-#126) which demonstrate auto-generation'
+      - 'OpenAI GPT-4o model (default_model) — Anthropic Claude has superior reasoning for coherent multi-sentence prose generation; reasoning_model is optimized for complex tasks; reduces latency vs. default_model'
+    rationale: >
+      The Sheep platform's architecture provides LLM abstraction via CrewAI (pyproject.toml line 21) with support for
+      multiple providers (OpenAI, Anthropic, Google). The reasoning_model "anthropic/claude-3-5-sonnet-20241022"
+      (settings.py) is specifically configured for complex reasoning tasks. For generating coherent, contextually-appropriate
+      2-3 sentence prose, Claude's superior reasoning abilities and lower latency make it the optimal choice.
+      The create_llm() factory (llm.py) provides unified API regardless of provider, allowing flexible model selection.
+      CrewAI integration ensures consistency with other agents and tasks in the Sheep platform.
+
+  - title: 'Prose Structure — Single H1 Heading with Blank Line Separator'
+    chosen: 'Generate file content in format: "# [Title]\n\n[2-3 sentences of prose]\n" — H1 heading on first line, blank line separator, prose content, trailing newline'
+    rejected:
+      - 'H2 (##) or H3 (###) heading — Does not match established pattern; spec explicitly selects H1 as standard convention; all recent test files (test-l2grww.md, test-mkh44q.md) use H1'
+      - 'Multiple sections or code blocks — Unnecessary complexity beyond simple structure; spec requires only "title and 2-3 sentences"; adds visual noise without benefit'
+    rationale: >
+      Examination of 65+ existing test markdown files shows consistent pattern: single # (H1) heading followed by blank line,
+      then 2-3 sentences of prose. This pattern is enforced by spec requirements (FR-2, FR-3) and confirmed in recent commits
+      (#124-#126). Feature specification explicitly selects H1 as standard markdown convention for document titles (openQuestions
+      section, option selected=true). The blank line separator improves readability and follows markdown best practices.
+
+  - title: 'Encoding & Line Endings — UTF-8 with Unix LF'
+    chosen: 'Write file with UTF-8 encoding and Unix-style LF line endings (handled automatically by FileWriteTool via Python open() mode "w" with encoding="utf-8")'
+    rejected:
+      - 'UTF-16 or other character encodings — Repository standard is UTF-8 throughout (all 65+ test files, source code); would create inconsistency'
+      - 'Windows CRLF line endings — Repository uses LF consistently; CRLF creates unwanted git diffs and breaks CI/CD tools expecting Unix conventions'
+    rationale: >
+      All 65+ existing test markdown files and the entire codebase (pyproject.toml, source files) use UTF-8 with LF.
+      FileWriteTool (line 96) explicitly writes with encoding="utf-8", which defaults to LF on Unix systems.
+      NFR-2 and NFR-3 require UTF-8 and Unix line endings respectively. Maintaining this standard ensures consistency,
+      avoids Git diff pollution, and aligns with modern software repository practices.
+
+  - title: 'Git Operations — Use GitCommitTool and GitPushTool from sheep.tools.git_tools'
+    chosen: 'Use GitCommitTool (git_tools.py lines 213-239) to stage and commit the file with add_all=True (stages all changes including new file). Use GitPushTool (git_tools.py lines 255-288) to push with set_upstream=True to establish upstream tracking on feature branch.'
+    rejected:
+      - 'Direct subprocess.run() git commands — Would duplicate GitCommitTool/GitPushTool functionality; violates DRY; loses error handling and logging integration'
+      - 'GitPython library directly (GitPython is imported in pyproject.toml) — GitCommitTool/GitPushTool already wrap GitPython properly; using them maintains consistency with Sheep platform architecture'
+    rationale: >
+      Sheep platform provides GitCommitTool and GitPushTool as standard abstractions for version control operations.
+      GitCommitTool (line 220-239) handles git add, commit with message, and error handling. GitPushTool (line 262-288)
+      handles git push with upstream tracking (-u flag). Both tools leverage existing _run_git() helper (line 15-29) with
+      logging integration. All 65+ test files were created using this same pattern (observed in commit 93a01e6).
+      Using these existing tools ensures consistency, error handling, and observability.
+
+  - title: 'Commit Message Format — Conventional Commits with Topic Description'
+    chosen: 'Use format "feat: Create test-9veux3.md markdown file with [topic] content" following established pattern from recent commits. Generate [topic] based on generated prose content (e.g., "distributed systems", "clear communication").'
+    rejected:
+      - 'Minimal message "Create test file" or "Add markdown" — Lacks topic context; reduces git log readability; violates conventions seen in commits #123-#126'
+      - 'Feature number format "feat(061): Create test-9veux3.md" — Works but less descriptive; recent commits prefer explicit topic information in message body'
+    rationale: >
+      Recent commits (93a01e6 "feat: Create test-l2grww.md markdown file with distributed systems content",
+      a062c6b "feat: Create test-mkh44q.md markdown file with clear communication content", 3b43638 "feat: Create test-g0dk19.md markdown file")
+      demonstrate preference for descriptive topic information in commit messages. This makes git log more readable,
+      helps identify file content at a glance, and documents what each test file covers. Conventional Commits format
+      "feat: ..." ensures consistency with semantic versioning and CI/CD tooling.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should content generation be synchronous or handled via LLM agent task?'
+    resolved: true
+    options:
+      - option: 'Synchronous LLM call via create_llm() factory'
+        description: 'Call Claude API synchronously using create_llm() from sheep.config.llm, prompt it to generate title and prose, parse response. Simple, direct, suitable for single file creation. No complex orchestration needed.'
+        selected: true
+      - option: 'Delegate to LLM-based agent task'
+        description: 'Create dedicated CrewAI task/agent for content generation. More complex but enables reuse for batch operations. Adds complexity for single-file feature.'
+        selected: false
+      - option: 'Use pre-generated pool of topics'
+        description: 'Maintain list of pre-generated topics/prose pairs, select randomly. Faster, no API cost, but reduces variety and flexibility. Inconsistent with auto-generation approach.'
+        selected: false
+    selectionRationale: >
+      Feature requirements specify auto-generation "about anything" with no predefined topics. Synchronous LLM call
+      via create_llm() is simplest approach, maintains consistency with Sheep platform's LLM factory pattern,
+      and aligns with "fully automated implementation" principle. Single-file creation doesn't warrant complex agent
+      orchestration. Synchronous approach is straightforward for implementation and testing.
+
+  - question: 'Should file creation, commit, and push be atomic (single task) or sequential steps?'
+    resolved: true
+    options:
+      - option: 'Sequential steps with error handling at each stage'
+        description: 'Create file with FileWriteTool → commit with GitCommitTool → push with GitPushTool. Allows rollback at each stage if error occurs (e.g., commit fails, preserve file for retry). Better observability of which step failed.'
+        selected: true
+      - option: 'Combined atomic operation'
+        description: 'Wrap all three operations in single high-level tool or function. Simpler from caller perspective but harder to diagnose failures.'
+        selected: false
+      - option: 'Async parallel execution'
+        description: 'Run operations in parallel if possible. File creation and commit cannot truly parallelize (commit needs file), but could spawn push asynchronously. Adds complexity without benefit.'
+        selected: false
+    selectionRationale: >
+      Sequential execution with error handling at each stage aligns with established pattern in recent commits (#122-#126).
+      Each step is observable and testable independently. If push fails (network issue), file and commit already exist locally
+      and can be retried. If commit fails (empty working tree), error message is clear. This approach mirrors Sheep platform's
+      architecture which separates concerns into discrete tools (FileWriteTool, GitCommitTool, GitPushTool). Sequential execution
+      with explicit error handling is more robust than atomic operations for user visibility and debugging.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. File Creation — FileWriteTool from sheep.tools.file_tools
+
+  **Chosen:** Use FileWriteTool (src/sheep/tools/file_tools.py lines 77-101) for all file I/O operations.
+  FileWriteTool accepts file_path, content, and optional create_dirs parameters. It handles UTF-8 encoding automatically,
+  creates parent directories if needed, and returns a success message with character count written.
+
+  **Rejected:**
+  - Direct Python file operations (open/write) — duplicates existing functionality in FileWriteTool
+  - GitPython file operations — designed for version control, not general file I/O
+
+  **Rationale:** FileWriteTool is the standard abstraction for file operations in the Sheep platform.
+  All 65+ existing test files align with patterns compatible with FileWriteTool's behavior.
+  Using this existing tool ensures consistency with platform conventions, provides error handling and logging integration,
+  and avoids code duplication.
+
+  ### 2. Content Generation — Claude API via CrewAI LLM Framework
+
+  **Chosen:** Use create_llm() factory function (src/sheep/config/llm.py) configured to use Anthropic Claude's
+  reasoning model "anthropic/claude-3-5-sonnet-20241022". Build prompt requesting both title and 2-3 sentences
+  of prose, formatted as markdown (H1 heading + prose).
+
+  **Rejected:**
+  - Pre-defined templates or hardcoded content — violates "about anything" requirement, lacks variety
+  - OpenAI GPT-4o as default model — Claude reasoning model better suited for coherent prose generation
+
+  **Rationale:** Sheep platform's LLM abstraction via CrewAI supports multiple providers. The reasoning_model
+  (Anthropic Claude) is specifically configured for complex reasoning tasks and superior for generating coherent
+  multi-sentence prose. This approach leverages platform capabilities while maintaining flexibility.
+
+  ### 3. Prose Structure — Single H1 Heading with Blank Line Separator
+
+  **Chosen:** Generate file with format: "# [Title]\n\n[2-3 sentences of prose]\n"
+  - Line 1: H1 heading (# Title)
+  - Line 2: Blank line (separator)
+  - Lines 3+: 2-3 sentences of prose
+  - Trailing newline (standard Unix text file convention)
+
+  **Rejected:**
+  - H2 (##) or H3 (###) headings — contradicts established pattern and spec selection
+  - Multiple sections or code blocks — unnecessary complexity beyond spec requirements
+
+  **Rationale:** All 65+ existing test markdown files follow this exact pattern.
+  Feature specification explicitly selects H1 as standard markdown convention.
+  Recent commits (#124-#126) confirm this pattern. The blank line separator improves readability.
+
+  ### 4. Encoding & Line Endings — UTF-8 with Unix LF
+
+  **Chosen:** Write files with UTF-8 encoding and Unix-style LF line endings (default behavior of Python open() mode "w"
+  with encoding="utf-8" on Unix systems).
+
+  **Rejected:**
+  - UTF-16 or other encodings — repository standard is UTF-8 throughout
+  - Windows CRLF line endings — inconsistent with repository, causes git diffs
+
+  **Rationale:** All existing test files and source code use UTF-8 with LF.
+  FileWriteTool uses encoding="utf-8" automatically. NFR-2 and NFR-3 explicitly require UTF-8 and Unix line endings.
+  Maintaining this standard ensures consistency and avoids Git diff pollution.
+
+  ### 5. Git Operations — GitCommitTool and GitPushTool
+
+  **Chosen:**
+  - Use GitCommitTool (src/sheep/tools/git_tools.py lines 213-239) to stage and commit: calls git add -A, then git commit -m with provided message
+  - Use GitPushTool (git_tools.py lines 255-288) to push with set_upstream=True: executes git push -u origin branch
+
+  **Rejected:**
+  - Direct subprocess.run() git commands — duplicates tool functionality, loses error handling
+  - GitPython library directly — GitCommitTool/GitPushTool already wrap it properly with logging
+
+  **Rationale:** Sheep platform provides these tools as standard abstractions for version control.
+  Both tools wrap git operations with error handling and logging integration via _run_git() helper.
+  All 65+ test files created using same pattern. Consistency with platform architecture ensures observability.
+
+  ### 6. Commit Message Format — Conventional Commits with Topic
+
+  **Chosen:** Format: "feat: Create test-9veux3.md markdown file with [topic] content"
+  - Prefix: "feat: " (conventional commit)
+  - Body: "Create test-9veux3.md markdown file with [topic] content"
+  - [topic] extracted from generated prose content
+
+  **Rejected:**
+  - Minimal messages like "Create test file" — lacks context, reduces git log readability
+  - Feature number format "feat(061): ..." — less descriptive than explicit topic
+
+  **Rationale:** Recent commits (#123-#126) demonstrate consistent use of descriptive topic information
+  in commit messages. This makes git log readable and documents what each test file covers.
+  Conventional Commits format ensures compatibility with semantic versioning and CI/CD tools.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | FileWriteTool (sheep.tools.file_tools) | File I/O operations | Use | Standard abstraction in Sheep platform, handles UTF-8 encoding, error handling, logging |
+  | GitCommitTool (sheep.tools.git_tools) | Git staging and committing | Use | Standard abstraction for version control, wraps git with error handling and logging |
+  | GitPushTool (sheep.tools.git_tools) | Git push operations | Use | Standard abstraction for pushing to remote, handles upstream tracking |
+  | CrewAI LLM framework (create_llm factory) | LLM abstraction and model selection | Use | Provides unified API for multiple providers (OpenAI, Anthropic, Google), handles API key management |
+  | Anthropic Claude 3.5 Sonnet (reasoning_model) | Content generation | Use | Superior reasoning for coherent prose generation, optimized for complex tasks, lower latency |
+  | Python pathlib (via FileWriteTool) | File path operations | Use via tool | Handles cross-platform path operations, UTF-8 encoding |
+  | Git (via GitCommitTool/GitPushTool) | Version control operations | Use via tools | Standard VCS, already configured in repo, integrated via CrewAI tools |
+
+  ## Security Considerations
+
+  **Input Validation:**
+  - File path validation: FileWriteTool validates path exists/is writable (line 90-94)
+  - File content: Generated by Claude API, inherently safe; no user input involved
+  - Git operations: GitCommitTool/GitPushTool validate repo path exists (line 228, 270)
+
+  **API Security:**
+  - Claude API calls authenticated via ANTHROPIC_API_KEY from settings (config/settings.py)
+  - API key managed by Pydantic settings with SecretStr type (prevents logging)
+  - LLM responses constrained by prompt design (request specific markdown format)
+
+  **File System Security:**
+  - FileWriteTool creates files with default umask permissions (typically 0644 rw-r--r--)
+  - UTF-8 encoding prevents injection of malformed text that could break parsers
+  - All operations happen in authorized git repository with existing permissions
+
+  **No New Attack Vectors:**
+  - No user input accepted (filename, topic, content all generated internally)
+  - No external data sources beyond controlled Claude API
+  - No temporary files created that could leak sensitive information
+  - All operations use existing Sheep platform tools with established security practices
+
+  ## Performance Implications
+
+  **Execution Time:**
+  - Claude API call for content generation: ~1-3 seconds (network latency + inference)
+  - FileWriteTool write: <100ms (local disk I/O)
+  - GitCommitTool: ~200-500ms (local git operations)
+  - GitPushTool: ~1-5 seconds (network latency to remote)
+  - **Total estimated time: 3-10 seconds** (within NFR-5: 10 second requirement)
+
+  **Resource Usage:**
+  - Memory: Minimal (~10-50MB for single file operations)
+  - Disk: One markdown file (~300-500 bytes)
+  - Network: Two API calls (Claude generation, git push)
+  - CPU: Negligible (I/O bound, not compute bound)
+
+  **Optimization Opportunities (out of scope for this feature):**
+  - Batch content generation for multiple files would amortize Claude API overhead
+  - Reuse generated topic pool rather than generate each time (trades variety for performance)
+  - Push multiple commits in single operation (if feature expanded to batch files)
+
+  **No Performance Concerns:**
+  - Single file creation is inherently fast
+  - CrewAI LLM framework is designed for agent workflows, adds minimal overhead
+  - Git operations on single file are negligible
+  - Feature well within 10-second requirement
+
+  ## Architecture Notes
+
+  **Alignment with Sheep Platform:**
+  - Uses CrewAI tools abstraction (FileWriteTool, GitCommitTool, GitPushTool) for consistency
+  - Follows established pattern from 65+ existing test files (commits #109-#126)
+  - Integrates with platform's LLM factory (create_llm) for model flexibility
+  - Leverages platform's observability via _run_git() and tool logging
+  - No new dependencies required (all tools already in pyproject.toml)
+
+  **Feature Fits into Broader System:**
+  - Demonstrates basic FileWriteTool usage (starting point for more complex file operations)
+  - Tests GitCommitTool and GitPushTool in simple, isolated context
+  - Validates CrewAI LLM integration for content generation
+  - Serves as test case for agent automation (file creation → git workflow)
+  - No architectural changes needed; uses existing patterns
+
+  **Maintainability:**
+  - Pattern replicates 65+ existing test files; easy to understand and modify
+  - Tool-based approach reduces code coupling; easy to swap implementations later
+  - Clear separation of concerns: generation (LLM) → writing (FileWriteTool) → versioning (git tools)
+  - No custom abstractions introduced; uses platform's standard tools
+
+  ---
+
+  _Research phase complete — technical decisions documented and ready for implementation planning_
