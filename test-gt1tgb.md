@@ -1,0 +1,3 @@
+# Bioluminescence
+
+Bioluminescence is the natural phenomenon where organisms produce and emit light through chemical reactions occurring within their bodies, creating stunning displays in deep-sea environments and forests at night. The process relies on a protein called luciferin, which reacts with oxygen and enzymes to generate light without producing heat, making it an incredibly efficient energy conversion mechanism. From fireflies to deep-sea fish, countless species have evolved bioluminescence for purposes ranging from attracting mates to hunting prey and communicating with others in their dark habitats.
