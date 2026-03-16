@@ -5,6 +5,7 @@ from pathlib import Path
 
 from sheep.config.llm import get_reasoning_llm
 from sheep.observability.logging import get_logger
+from sheep.tools import GitCommitTool, GitPushTool
 
 _logger = get_logger(__name__)
 
@@ -241,3 +242,187 @@ def validate_markdown_file(filepath: str) -> bool:
     except Exception as e:
         _logger.error(f"Unexpected error during validation: {e}")
         raise IOError(f"Error validating file: {e}")
+
+
+def extract_topic_from_content(content: str) -> str:
+    """
+    Extract the topic/title from markdown content.
+
+    Extracts the H1 heading from the markdown content to use as the topic
+    in the commit message.
+
+    Args:
+        content: The markdown content string.
+
+    Returns:
+        The topic extracted from the H1 heading (without the # prefix).
+
+    Raises:
+        ValueError: If no H1 heading is found.
+    """
+    lines = content.split("\n")
+    if not lines or not lines[0].startswith("# "):
+        raise ValueError("No H1 heading found in content")
+
+    topic = lines[0].replace("# ", "").strip()
+    if not topic:
+        raise ValueError("H1 heading is empty")
+
+    return topic
+
+
+def commit_markdown_file(filepath: str, content: str, repo_path: str | None = None) -> str:
+    """
+    Stage and commit the markdown file with a conventional commit message.
+
+    Args:
+        filepath: Path to the markdown file to commit.
+        content: The markdown content (used to extract topic for commit message).
+        repo_path: Path to the git repository (defaults to current directory).
+
+    Returns:
+        The commit result message from GitCommitTool.
+
+    Raises:
+        ValueError: If content is invalid or topic cannot be extracted.
+        Exception: If git commit fails.
+    """
+    if repo_path is None:
+        repo_path = str(Path.cwd())
+
+    _logger.info(f"Committing markdown file: {filepath}")
+
+    try:
+        # Extract topic from content for commit message
+        topic = extract_topic_from_content(content)
+        _logger.debug(f"Extracted topic: {topic}")
+
+        # Get filename only (for message clarity)
+        filename = Path(filepath).name
+
+        # Format commit message: "feat: Create test-9veux3.md markdown file with [topic] content"
+        commit_message = f"feat: Create {filename} markdown file with {topic} content"
+
+        _logger.debug(f"Commit message: {commit_message}")
+
+        # Use GitCommitTool to stage and commit
+        tool = GitCommitTool()
+        result = tool._run(repo_path=repo_path, message=commit_message, add_all=True)
+
+        _logger.info(f"Markdown file committed: {filename}")
+        return result
+
+    except Exception as e:
+        _logger.error(f"Failed to commit markdown file: {e}")
+        raise
+
+
+def push_markdown_file(repo_path: str | None = None, remote: str = "origin") -> str:
+    """
+    Push the committed markdown file to remote repository.
+
+    Args:
+        repo_path: Path to the git repository (defaults to current directory).
+        remote: Remote name to push to (default: origin).
+
+    Returns:
+        The push result message from GitPushTool.
+
+    Raises:
+        Exception: If git push fails.
+    """
+    if repo_path is None:
+        repo_path = str(Path.cwd())
+
+    _logger.info(f"Pushing to remote {remote}")
+
+    try:
+        # Use GitPushTool to push with upstream tracking
+        tool = GitPushTool()
+        result = tool._run(repo_path=repo_path, remote=remote, set_upstream=True)
+
+        _logger.info(f"Successfully pushed to {remote}")
+        return result
+
+    except Exception as e:
+        _logger.error(f"Failed to push to remote: {e}")
+        raise
+
+
+def create_markdown_file(
+    filename: str, repo_path: str | None = None
+) -> dict[str, str]:
+    """
+    Orchestrate the complete workflow to create, write, commit, and push a markdown file.
+
+    This is the main entry point that combines all previous functions into a single
+    end-to-end workflow:
+    1. Generate markdown content (title + 2-3 sentences)
+    2. Write file to disk at repository root
+    3. Validate the file meets all requirements
+    4. Stage and commit with conventional message
+    5. Push to remote with upstream tracking
+
+    Args:
+        filename: Name of the markdown file to create (e.g., "test-9veux3.md").
+        repo_path: Path to the git repository (defaults to current directory).
+
+    Returns:
+        Dictionary containing:
+        - filepath: Full path to the created file
+        - content: The markdown content
+        - commit_message: The git commit message used
+        - push_result: The result from git push operation
+
+    Raises:
+        ValueError: If filename or content is invalid.
+        IOError: If file operations fail.
+        Exception: If git operations fail.
+    """
+    if repo_path is None:
+        repo_path = str(Path.cwd())
+
+    _logger.info(f"Creating markdown file: {filename}")
+
+    try:
+        # Step 1: Generate markdown content
+        _logger.info("Step 1: Generating markdown content")
+        content = generate_markdown_content()
+        _logger.debug(f"Generated {len(content)} bytes of content")
+
+        # Step 2: Write file to disk
+        _logger.info("Step 2: Writing markdown file to disk")
+        filepath = write_markdown_file(content, filename)
+        _logger.debug(f"File written to: {filepath}")
+
+        # Step 3: Validate file
+        _logger.info("Step 3: Validating markdown file")
+        validate_markdown_file(filepath)
+        _logger.info("File validation passed")
+
+        # Step 4: Commit file
+        _logger.info("Step 4: Committing markdown file")
+        commit_result = commit_markdown_file(filepath, content, repo_path)
+        _logger.debug(f"Commit result: {commit_result}")
+
+        # Extract commit message from the result for return value
+        # GitCommitTool returns "Committed: {message}\n{stdout}"
+        commit_message = f"feat: Create {filename} markdown file with {extract_topic_from_content(content)} content"
+
+        # Step 5: Push to remote
+        _logger.info("Step 5: Pushing to remote repository")
+        push_result = push_markdown_file(repo_path)
+        _logger.debug(f"Push result: {push_result}")
+
+        _logger.info(f"Successfully created and published markdown file: {filename}")
+
+        return {
+            "filepath": filepath,
+            "content": content,
+            "commit_message": commit_message,
+            "push_result": push_result,
+        }
+
+    except Exception as e:
+        _logger.error(f"Failed to create markdown file: {e}")
+        raise
