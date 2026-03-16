@@ -16,9 +16,9 @@ from pathlib import Path
 
 
 class TestMarkdownFileCreation(unittest.TestCase):
-    """Test cases for test-zo2ge0.md markdown file creation."""
+    """Test cases for test-jr3mwl.md markdown file creation."""
 
-    FILENAME = "test-zo2ge0.md"
+    FILENAME = "test-jr3mwl.md"
 
     def setUp(self):
         """Set up test fixtures."""
