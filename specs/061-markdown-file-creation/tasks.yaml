@@ -1,0 +1,273 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation
+number: 061
+
+summary: >
+  5 tasks across 3 phases: Content generation via Claude API (Task 1), file creation and
+  validation using FileWriteTool (Tasks 2-3), git workflow implementation with GitCommitTool
+  and GitPushTool (Tasks 4-5), and final execution to create test-9veux3.md (Task 6).
+  All tasks follow TDD cycles with clear test-first approach.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Python
+  - CrewAI
+  - Claude API
+  - Markdown
+  - Git
+
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Implement markdown content generation with Claude API'
+    description: >
+      Create a function that prompts Claude API via CrewAI LLM framework to generate both
+      a markdown title (H1 heading) and 2-3 sentences of coherent prose about any topic.
+      Return generated markdown as string. Validate output format before returning.
+      This task establishes the content generation capability that feeds all downstream steps.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Function returns string with valid H1 markdown heading (starts with "# ")'
+      - 'Generated prose contains at least 2 sentences and at most 3 sentences'
+      - 'Prose is coherent and contextually appropriate for the topic'
+      - 'Function handles Claude API errors with meaningful exception messages'
+      - 'Generated content is extractable (topic can be identified from prose)'
+    tdd:
+      red:
+        - 'Write test that calls generate_markdown_content() and asserts returned string contains "# " at start'
+        - 'Write test that asserts returned content contains at least 2 periods (sentence boundaries)'
+        - 'Write test that asserts returned content does NOT contain incomplete markdown syntax'
+      green:
+        - 'Create generate_markdown_content() function that calls create_llm() factory with appropriate prompt'
+        - 'Implement basic prompt: "Generate a markdown document with: 1) An H1 heading, 2) Exactly 2-3 sentences of prose about any topic. Return only the markdown content."'
+        - 'Return the LLM response as-is'
+      refactor:
+        - 'Extract prompt template to a constant'
+        - 'Add input validation (timeout, max retries)'
+        - 'Add output validation function to check H1 heading and sentence count'
+        - 'Add error handling for API failures with clear exception messages'
+    estimatedEffort: '2h'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Implement file writing using FileWriteTool with encoding validation'
+    description: >
+      Create a function that takes generated markdown content and writes it to test-9veux3.md
+      at the repository root using FileWriteTool. Ensure UTF-8 encoding and Unix LF line endings.
+      Validate file was created with correct size and permissions. Return file path on success.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'File test-9veux3.md is created at repository root (not in subdirectory)'
+      - 'File contains exactly the content passed to function'
+      - 'File is UTF-8 encoded with Unix LF line endings (no BOM, no CRLF)'
+      - 'File has trailing newline at end'
+      - 'File permissions are readable by owner and group, writable by owner (0644 or similar)'
+      - 'FileWriteTool returns success message with character count'
+    tdd:
+      red:
+        - 'Write test that calls write_markdown_file(content, "test-9veux3.md") and asserts returned file path exists'
+        - 'Write test that reads back the file and asserts content matches input exactly'
+        - 'Write test that asserts file uses UTF-8 encoding with no BOM'
+        - 'Write test that asserts file uses LF line endings, not CRLF'
+      green:
+        - 'Create write_markdown_file(content, filename) function'
+        - 'Call FileWriteTool with file_path and content parameters'
+        - 'Return the FileWriteTool response (success message)'
+      refactor:
+        - 'Add path validation (ensure path is in repo root, not subdirectories)'
+        - 'Add post-write validation function to verify file encoding, line endings, trailing newline'
+        - 'Add error handling for FileWriteTool failures'
+        - 'Add logging to track file creation details'
+    estimatedEffort: '1.5h'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Validate markdown file structure and content compliance'
+    description: >
+      Create a validation function that checks the written markdown file for compliance with
+      all non-functional requirements: valid markdown syntax, proper H1 heading, blank line
+      separator, 2-3 sentences, UTF-8 encoding, Unix line endings, and trailing newline.
+      This function serves as a quality gate before git operations.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Validation detects missing or malformed H1 heading and reports clear error'
+      - 'Validation detects missing blank line separator and reports error'
+      - 'Validation counts sentences and rejects if <2 or >3'
+      - 'Validation detects CRLF line endings and reports error'
+      - 'Validation detects missing trailing newline and reports error'
+      - 'Validation detects non-UTF-8 encoding and reports error'
+      - 'Validation returns True if file passes all checks'
+    tdd:
+      red:
+        - 'Write test with valid markdown file (H1 + blank line + 2-3 sentences) and assert validate_markdown_file() returns True'
+        - 'Write test with missing H1 heading and assert function raises ValueError with descriptive message'
+        - 'Write test with CRLF line endings and assert function raises ValueError'
+        - 'Write test with only 1 sentence and assert function rejects'
+        - 'Write test with 4 sentences and assert function rejects'
+      green:
+        - 'Create validate_markdown_file(filepath) function'
+        - 'Read file and check for H1 heading at start (regex: ^# )'
+        - 'Check for blank line after heading'
+        - 'Count sentences using simple heuristic (count periods)'
+        - 'Check encoding by attempting UTF-8 decode'
+        - 'Check line endings using binary read'
+        - 'Return True if all checks pass'
+      refactor:
+        - 'Extract sentence counting to separate function'
+        - 'Extract each validation check to separate function for clarity'
+        - 'Add comprehensive error messages with line numbers and context'
+        - 'Add logging for validation results'
+    estimatedEffort: '1.5h'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Implement git commit workflow using GitCommitTool'
+    description: >
+      Create a function that stages the markdown file and commits it with a conventional
+      commit message. Extract the topic from the generated prose and format message as
+      "feat: Create test-9veux3.md markdown file with [topic] content". Use GitCommitTool
+      to handle git add and git commit operations.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'GitCommitTool is called with proper file path and commit message'
+      - 'Commit message follows format: "feat: Create test-9veux3.md markdown file with [topic] content"'
+      - 'Topic is extracted from generated markdown content'
+      - 'File is staged (git add) before commit'
+      - 'Commit succeeds and returns success message from GitCommitTool'
+      - 'Git status shows no uncommitted changes after commit'
+    tdd:
+      red:
+        - 'Write test that calls commit_markdown_file(filepath, content) and asserts GitCommitTool was called'
+        - 'Write test that asserts commit message starts with "feat: " and includes filename'
+        - 'Write test that runs git log and asserts the new commit is present with correct message'
+      green:
+        - 'Create commit_markdown_file(filepath, content) function'
+        - 'Extract topic from content (first noun or key phrase from prose)'
+        - 'Format commit message: f"feat: Create test-9veux3.md markdown file with {topic} content"'
+        - 'Call GitCommitTool with filepath and commit message'
+        - 'Return GitCommitTool response'
+      refactor:
+        - 'Create topic_extraction function to identify key topic from prose'
+        - 'Add topic validation (reject if empty or invalid)'
+        - 'Add error handling for GitCommitTool failures'
+        - 'Add logging to track commit details (hash, message, etc.)'
+    estimatedEffort: '1.5h'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Implement git push workflow using GitPushTool with upstream tracking'
+    description: >
+      Create a function that pushes the committed markdown file to remote origin on the
+      feature branch using GitPushTool with upstream tracking enabled. Verify the push
+      succeeds and the remote has the new commit.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'GitPushTool is called with set_upstream=True to establish upstream tracking'
+      - 'Push targets origin remote on the feature branch'
+      - 'GitPushTool returns success message'
+      - 'Remote repository contains the new commit'
+      - 'Feature branch is properly tracked upstream after push'
+    tdd:
+      red:
+        - 'Write test that calls push_markdown_file() and asserts GitPushTool was called with set_upstream=True'
+        - 'Write test that verifies remote origin has the new commit using git ls-remote or similar'
+        - 'Write test that asserts feature branch is now tracking upstream'
+      green:
+        - 'Create push_markdown_file() function'
+        - 'Call GitPushTool with set_upstream=True'
+        - 'Return GitPushTool response'
+      refactor:
+        - 'Add branch name validation before push'
+        - 'Add error handling for network failures'
+        - 'Add verification step that confirms remote push succeeded'
+        - 'Add logging to track push details (branch, remote URL, etc.)'
+    estimatedEffort: '1h'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Execute full workflow and create test-9veux3.md'
+    description: >
+      Orchestrate all previous tasks into a single end-to-end workflow function that
+      creates the test-9veux3.md markdown file from scratch: generate content, write file,
+      validate structure, commit with proper message, and push to remote. Execute this
+      function for the feature branch to create the actual test file. Verify all success
+      criteria are met in the final state.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'test-9veux3.md file exists in repository root'
+      - 'File contains H1 heading and 2-3 sentences of prose'
+      - 'File is UTF-8 encoded with Unix LF line endings and trailing newline'
+      - 'File is committed with message "feat: Create test-9veux3.md markdown file with [topic] content"'
+      - 'Commit is pushed to remote origin on feature branch'
+      - 'Git log shows exactly one new commit on feature branch'
+      - 'No other files are created or modified'
+      - 'All success criteria from spec are satisfied'
+    tdd:
+      red:
+        - 'Write integration test that calls create_markdown_file("test-9veux3.md")'
+        - 'Assert file exists and contains H1 heading'
+        - 'Assert file is committed with proper message'
+        - 'Assert file is pushed to remote'
+        - 'Assert no other files were modified'
+      green:
+        - 'Create create_markdown_file(filename) orchestration function'
+        - 'Call generate_markdown_content() → get markdown'
+        - 'Call write_markdown_file(markdown, filename) → get file path'
+        - 'Call validate_markdown_file(file_path) → verify file'
+        - 'Call commit_markdown_file(file_path, markdown) → get commit'
+        - 'Call push_markdown_file() → push to remote'
+        - 'Return success status with file path and commit hash'
+      refactor:
+        - 'Extract orchestration to Flow-based pattern if appropriate (align with Sheep architecture)'
+        - 'Add comprehensive error handling and rollback strategy'
+        - 'Add detailed logging at each step for observability'
+        - 'Add final validation that all spec requirements are met'
+    estimatedEffort: '1.5h'
+
+# Total effort estimate
+totalEstimate: '9h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  Implementation proceeds through three sequential phases, each with its own set of tasks:
+
+  **Phase 1: Content Generation** — Task 1 creates the markdown content generation capability
+  using Claude API via CrewAI. This single task establishes the core ability to generate a title
+  and 2-3 sentences of coherent prose about any topic.
+
+  **Phase 2: File Creation & Validation** — Tasks 2 and 3 handle the physical file creation
+  (using FileWriteTool with UTF-8 encoding) and comprehensive validation (checking markdown
+  structure, line endings, encoding). These tasks work sequentially: write first (task 2),
+  then validate (task 3).
+
+  **Phase 3: Git Integration & Publication** — Tasks 4 and 5 orchestrate version control
+  (git commit with conventional message format, then git push with upstream tracking).
+  Task 6 serves as the integration task that chains everything together and executes the
+  full workflow end-to-end to create the actual test-9veux3.md file.
+
+  Each task includes full TDD cycles (RED/GREEN/REFACTOR) with specific test assertions
+  and minimal implementation code. Dependencies are explicitly ordered so no task depends
+  on a later task. Total estimated effort: 9 hours across all development and testing cycles.
