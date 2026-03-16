@@ -21,13 +21,19 @@ class TestExtractTopicFromContent:
 
     def test_extracts_topic_from_h1_heading(self):
         """Test that topic is correctly extracted from H1 heading."""
-        content = "# Machine Learning\n\nML is powerful. It learns from data. Models improve with practice.\n"
+        content = (
+            "# Machine Learning\n\n"
+            "ML is powerful. It learns from data. Models improve with practice.\n"
+        )
         topic = extract_topic_from_content(content)
         assert topic == "Machine Learning"
 
     def test_strips_leading_and_trailing_whitespace(self):
         """Test that extracted topic is stripped of whitespace."""
-        content = "#   Distributed Systems   \n\nSystems scale. They handle failures. Coordination is key.\n"
+        content = (
+            "#   Distributed Systems   \n\n"
+            "Systems scale. They handle failures. Coordination is key.\n"
+        )
         topic = extract_topic_from_content(content)
         assert topic == "Distributed Systems"
 
@@ -45,7 +51,10 @@ class TestExtractTopicFromContent:
 
     def test_handles_special_characters_in_topic(self):
         """Test that topics with special characters are handled correctly."""
-        content = "# C++ & Templates\n\nTemplates enable. Generic programming works. Type safety matters.\n"
+        content = (
+            "# C++ & Templates\n\n"
+            "Templates enable. Generic programming works. Type safety matters.\n"
+        )
         topic = extract_topic_from_content(content)
         assert topic == "C++ & Templates"
 
@@ -84,7 +93,11 @@ class TestCommitMarkdownFile:
         mock_git_commit.return_value = mock_tool_instance
 
         filepath = "/path/to/test.md"
-        content = "# Quantum Computing\n\nQuantum computers leverage. Superposition enables. Entanglement matters.\n"
+        content = (
+            "# Quantum Computing\n\n"
+            "Quantum computers leverage. Superposition enables. "
+            "Entanglement matters.\n"
+        )
         repo_path = "/repo"
 
         commit_markdown_file(filepath, content, repo_path)
@@ -261,7 +274,11 @@ class TestCreateMarkdownFileOrchestration:
     ):
         """Test that create_markdown_file returns all required information."""
         # Setup mocks
-        test_content = "# Artificial Intelligence\n\nAI is transforming. Technology advances rapidly. Innovation continues.\n"
+        test_content = (
+            "# Artificial Intelligence\n\n"
+            "AI is transforming. Technology advances rapidly. "
+            "Innovation continues.\n"
+        )
         mock_generate.return_value = test_content
         mock_write.return_value = "/repo/test-ai.md"
         mock_validate.return_value = True
@@ -439,7 +456,11 @@ class TestIntegrationWithRealGit:
                 with patch("sheep.content_generators.get_reasoning_llm") as mock_llm:
                     mock_llm_instance = MagicMock()
                     mock_llm_instance.call.return_value = {
-                        "content": "# Distributed Systems\n\nSystems scale across nodes. They tolerate failures. Coordination ensures consistency.\n"
+                        "content": (
+                            "# Distributed Systems\n\n"
+                            "Systems scale across nodes. They tolerate failures. "
+                            "Coordination ensures consistency.\n"
+                        )
                     }
                     mock_llm.return_value = mock_llm_instance
 

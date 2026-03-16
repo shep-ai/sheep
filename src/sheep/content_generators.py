@@ -47,7 +47,7 @@ def generate_markdown_content() -> str:
 
         # Extract the response text
         if isinstance(response, dict):
-            content = response.get("content", str(response))
+            content = str(response.get("content", str(response)))
         else:
             content = str(response)
 
@@ -407,7 +407,8 @@ def create_markdown_file(
 
         # Extract commit message from the result for return value
         # GitCommitTool returns "Committed: {message}\n{stdout}"
-        commit_message = f"feat: Create {filename} markdown file with {extract_topic_from_content(content)} content"
+        topic = extract_topic_from_content(content)
+        commit_message = f"feat: Create {filename} markdown file with {topic} content"
 
         # Step 5: Push to remote
         _logger.info("Step 5: Pushing to remote repository")
