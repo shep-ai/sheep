@@ -1,0 +1,322 @@
+name: markdown-file-creation-79e72a
+summary: >
+  Technical analysis confirms the markdown file creation feature follows
+  well-established patterns in the Sheep project. Use pathlib.Path for file I/O,
+  static prose content (no LLM), and subprocess-based git workflow matching
+  the 44+ existing test-*.md files and create_markdown.py pattern.
+
+relatedFeatures:
+  - number: 063
+    name: markdown-file-creation
+  - number: 062
+    name: markdown-file-creation
+  - number: 061
+    name: markdown-file-creation
+  - number: 060
+    name: markdown-file-creation
+  - number: 059
+    name: markdown-file-creation
+
+technologies:
+  - Python standard library (pathlib)
+  - Subprocess (git CLI integration)
+  - UTF-8 encoding
+  - Markdown (plain text format)
+  - Git (version control)
+
+relatedLinks: []
+
+decisions:
+  - title: File I/O Library Selection
+    chosen: pathlib.Path (standard library)
+    rejected:
+      - os.path module — older API, less Pythonic, requires manual encoding/line-ending handling
+      - External libraries (anyio, aiofiles) — adds unnecessary dependencies for synchronous file creation; no performance benefit for single file write
+    rationale: >
+      pathlib.Path is the modern Python standard library choice and is used throughout
+      the Sheep project (git_tools.py, file_tools.py, create_markdown.py). The .write_text()
+      method handles UTF-8 encoding by default and automatically uses LF line endings on
+      Unix systems, eliminating manual encoding concerns. No external library is needed
+      or justified for a simple synchronous file creation task.
+
+  - title: Git Integration Approach
+    chosen: subprocess + explicit commands (git add, git commit, git push)
+    rejected:
+      - GitPython library — While available in dependencies, the codebase uses subprocess
+        for all git operations (see git_tools.py). Using GitPython would add an unnecessary
+        abstraction layer and deviate from project conventions.
+      - Inline git operations — Not applicable; git workflow is external to file creation
+    rationale: >
+      The Sheep project establishes a clear pattern in git_tools.py using subprocess.run()
+      with git commands. This approach is consistent across agents and tools. Commits #122-#130
+      demonstrate the simple linear workflow: create file, stage with git add, commit, push.
+      Using subprocess allows exact control over git operations and matches all precedent files.
+
+  - title: Content Generation Method
+    chosen: Static prose (hardcoded text)
+    rejected:
+      - LLM-based generation via content_generators.py — While available, adds runtime
+        dependency and LLM API calls. The spec explicitly requires static prose matching
+        the established pattern in 44+ existing test files (commits #122-#130).
+      - Random prose generators — Unnecessary complexity for test file purpose
+    rationale: >
+      The specification explicitly selects static prose over LLM generation to match
+      the established pattern across 50+ identical test files. All existing test-*.md
+      files (visible in the repository) use static, hardcoded prose content. This ensures
+      consistency, speed, predictability, and eliminates runtime dependencies on LLM services.
+
+  - title: Text Encoding and Line Endings
+    chosen: UTF-8 with LF (Unix) line endings
+    rejected:
+      - Manual encoding handling — pathlib.write_text() handles this automatically
+      - Platform-specific line endings (CRLF on Windows) — Violates spec requirement for LF;
+        unnecessary complexity on cross-platform systems
+    rationale: >
+      pathlib.Path.write_text(content, encoding='utf-8') is the standard, idiomatic Python
+      approach that guarantees UTF-8 encoding without BOM. On Unix systems (and in CI/CD),
+      it automatically uses LF line endings, meeting the specification requirement. This
+      matches the pattern in create_markdown.py and all 44+ existing test files. No manual
+      line ending conversion is needed.
+
+  - title: Markdown Format Structure
+    chosen: H1 heading + blank line + 2-3 sentences of prose
+    rejected:
+      - Other heading levels (H2, H3) — Specification explicitly requires H1 (#) as title
+      - Multiple paragraphs — Spec requires 2-3 sentences; 44+ precedent files follow this
+      - Complex markdown features (lists, code blocks, tables) — Test files use simple prose only
+    rationale: >
+      The specification and all 44+ precedent test files establish a consistent, minimal
+      markdown structure: exactly one H1 heading followed by a blank line and 2-3 sentences
+      of substantive prose. This simple format is sufficient for test file purpose and
+      ensures consistency across the test suite. File size naturally falls within the 400-600
+      byte range specified.
+
+  - title: Script Execution Pattern
+    chosen: Standalone Python script (create_markdown.py pattern)
+    rejected:
+      - Integration into agent flow (crewai agents) — Unnecessary complexity; file creation
+        is a simple task best implemented as standalone script
+      - Creating a new Python module in src/sheep — Would add to the codebase; creates
+        a one-off file not shared with other features
+    rationale: >
+      The project establishes a proven pattern in create_markdown.py: a simple, standalone
+      script that creates the markdown file, prints success message, and exits. This approach
+      is easy to understand, maintain, and test. The script can be executed directly and
+      integrates with existing git tools for staging, committing, and pushing. This pattern
+      is used in all 50+ similar features (commits #122-#130+).
+
+openQuestions:
+  - question: Should implementation use an agent-based flow or standalone script?
+    resolved: true
+    options:
+      - option: Standalone Python script (create_markdown.py pattern)
+        description: >
+          Simple, direct approach matching all 50+ existing test files. Script creates
+          the markdown file and prints a success message. Git operations (stage, commit,
+          push) are handled separately via existing git tools or bash commands. Fast,
+          predictable, and easy to test.
+        selected: true
+      - option: Agent-based flow using CrewAI
+        description: >
+          Orchestrate file creation through one or more CrewAI agents. Agents could handle
+          markdown generation, git staging, and commit workflow. Provides flexibility but
+          adds unnecessary complexity for a simple file creation task.
+        selected: false
+      - option: Direct Python utility function in src/sheep module
+        description: >
+          Create a reusable utility function in the src/sheep package (e.g., in content_generators.py
+          or a new file_creation module). Callable from agents or scripts. Would require
+          module integration and add one-off code not shared with other features.
+        selected: false
+    selectionRationale: >
+      The standalone script pattern (create_markdown.py) is strongly recommended because:
+      1) All 50+ existing identical test files use this pattern
+      2) Simplest implementation for a stateless task
+      3) No dependencies on CrewAI or agent orchestration needed
+      4) Easy to run, test, and debug independently
+      5) Git operations already have dedicated tools (git_tools.py) for staging, committing, pushing
+      6) Matches the proven approach in commits #122-#130
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-16
+  - **Status:** Complete
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation
+
+  **Chosen:** pathlib.Path with .write_text()
+
+  **Rejected:**
+  - os.path module — older API, less Pythonic, requires manual encoding and line-ending handling
+  - External file libraries (anyio, aiofiles) — unnecessary dependencies for synchronous single-file write
+
+  **Rationale:** pathlib.Path is used throughout the Sheep project (git_tools.py, file_tools.py,
+  create_markdown.py) and is the modern Python standard library choice. The .write_text() method
+  automatically handles UTF-8 encoding (no BOM) and uses LF line endings on Unix systems,
+  eliminating manual encoding concerns. This matches all 44+ existing test-*.md files.
+
+  ### 2. Git Integration
+
+  **Chosen:** subprocess-based git commands (git add, commit, push)
+
+  **Rejected:**
+  - GitPython library — While in dependencies, the codebase standardizes on subprocess in git_tools.py,
+    ensuring consistency and avoiding unnecessary abstraction layers
+
+  **Rationale:** The Sheep project establishes a clear pattern in git_tools.py using subprocess.run()
+  for all git operations. This provides exact control, matches agent tool conventions, and aligns
+  with commits #122-#130 which demonstrate simple linear workflow: file creation → git add →
+  commit → push.
+
+  ### 3. Content Generation
+
+  **Chosen:** Static prose (hardcoded text)
+
+  **Rejected:**
+  - LLM generation via content_generators.py — Adds runtime dependency and API calls; spec explicitly
+    requires static content matching 50+ test files
+  - Dynamic/random prose — Unnecessary complexity for test file purpose
+
+  **Rationale:** Specification explicitly selects static prose over LLM generation (FR-4).
+  All 44+ existing test-*.md files use static, hardcoded prose. This ensures consistency,
+  speed, predictability, and eliminates LLM service dependencies.
+
+  ### 4. Text Encoding and Line Endings
+
+  **Chosen:** UTF-8 with LF (Unix) line endings
+
+  **Rejected:**
+  - Manual encoding/line-ending handling — pathlib handles this automatically
+  - Platform-specific line endings (CRLF on Windows) — Violates spec requirement for LF
+
+  **Rationale:** pathlib.Path.write_text(content, encoding='utf-8') is the idiomatic Python approach
+  that guarantees UTF-8 encoding without BOM and automatically uses LF line endings on Unix systems.
+  Matches create_markdown.py pattern and all existing test files. No manual conversion needed.
+
+  ### 5. Markdown Format
+
+  **Chosen:** H1 heading (`# Title`) + blank line + 2-3 sentences of prose
+
+  **Rejected:**
+  - Other heading levels (H2, H3, etc.) — Spec explicitly requires H1 as title
+  - Multiple paragraphs or complex markdown — Test files use minimal, consistent structure
+
+  **Rationale:** The specification and all 44+ precedent test files establish a consistent,
+  minimal markdown structure. This format naturally produces files in the 400-600 byte range
+  specified in the requirements.
+
+  ### 6. Implementation Pattern
+
+  **Chosen:** Standalone Python script (create_markdown.py pattern)
+
+  **Rejected:**
+  - Agent-based flow — Unnecessary complexity for simple file creation task
+  - Adding module to src/sheep — Would create one-off code not shared with other features
+
+  **Rationale:** The project proves this pattern in create_markdown.py and across 50+ similar
+  features (commits #122-#130+). Simple standalone scripts are easy to understand, maintain,
+  test, and execute. Git operations use existing tools (git_tools.py).
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Status | Decision | Reasoning |
+  | ------- | ------- | ------ | -------- | --------- |
+  | pathlib | File system operations | stdlib | **Use** | Modern Python standard; used throughout codebase; automatic UTF-8 and LF handling |
+  | subprocess | Git command execution | stdlib | **Use** | Established pattern in git_tools.py; provides exact control over git operations |
+  | CrewAI | Agent orchestration | installed | **Don't use for this task** | Adds unnecessary complexity for simple file creation; standalone script is sufficient |
+  | GitPython | Git library interface | installed | **Don't use** | Codebase standardizes on subprocess; would deviate from project conventions |
+  | content_generators.py | LLM-based prose generation | available | **Don't use** | Spec explicitly requires static prose; LLM adds runtime dependency |
+
+  ---
+
+  ## Security Considerations
+
+  1. **File Encoding & Encoding Attacks**: UTF-8 with LF line endings is standard and safe.
+     pathlib.write_text() prevents BOM injection and encoding confusion attacks by using
+     explicit encoding.
+
+  2. **Path Traversal**: File is created at repository root with hardcoded filename (test-ue5l1f.md).
+     No user input used in path construction, eliminating path traversal risk.
+
+  3. **Git Operations**: All git operations use subprocess with explicit command lists (not shell=True),
+     preventing command injection. Matching git_tools.py safety patterns.
+
+  4. **Content Security**: Static prose content is hardcoded in script; no external data sources
+     or user input parsed. No injection vectors.
+
+  5. **File Permissions**: Default file creation uses umask; standard for test files. No elevated
+     permissions needed or requested.
+
+  **Conclusion**: Feature has minimal security surface. Standard file I/O patterns combined with
+  no user input and no external data processing ensure security.
+
+  ---
+
+  ## Performance Implications
+
+  1. **File Creation**: Single pathlib.write_text() call is O(1) and takes <1ms even on slow storage.
+     File size (400-600 bytes) is negligible.
+
+  2. **Git Operations**: subprocess-based git commands are fast (<100ms each for stage, commit, push
+     on small changes). No performance concerns for linear workflow.
+
+  3. **No LLM Overhead**: Static prose eliminates network latency, LLM API calls, and content generation time.
+     Total execution time expected: 10-15 seconds (primarily git push over network).
+
+  4. **Caching/Optimization**: Not applicable. Single file creation is a one-time operation with no
+     repeated calls or caching needs.
+
+  **Conclusion**: Feature is lightweight and fast. No optimization needed. Performance is dominated
+  by network latency of git push to remote.
+
+  ---
+
+  ## Architecture Notes
+
+  1. **Integration with Sheep Codebase**:
+     - Follows create_markdown.py pattern used in 50+ test files
+     - Uses pathlib from standard library (consistent with git_tools.py, file_tools.py)
+     - Integrates with git workflow via subprocess (consistent with all git operations)
+     - No new dependencies or module changes required
+
+  2. **Consistency with Precedents**:
+     - Matches file structure and prose format of test-*.md files (commits #122-#130+)
+     - Matches create_markdown.py implementation pattern
+     - Matches git workflow pattern from git_tools.py
+
+  3. **No Breaking Changes**:
+     - Feature creates only one new markdown file
+     - No modifications to existing code or tests
+     - No new modules added to src/sheep
+     - No configuration changes required
+
+  4. **Testability**:
+     - File creation can be validated with pathlib existence check
+     - Git operations use existing git_tools.py patterns (already tested)
+     - Static prose content can be validated against specification
+
+  5. **Maintenance**:
+     - Standalone script is easy to understand and modify
+     - No agent orchestration or complex dependencies
+     - Markdown format matches all similar test files
+     - Clear git workflow matches project conventions
+
+  ---
+
+  ## Related Decisions from Spec Analysis
+
+  The feature specification (064-markdown-file-creation-79e72a) explicitly resolves the
+  "Content generation approach" question with **static prose** (FR-4), citing:
+  - 50+ precedent test files all use static content
+  - Faster execution (no LLM calls)
+  - Simpler implementation (no runtime dependencies)
+  - Sufficient for test file purpose
+
+  This research validates and expands on the specification's content decision and provides
+  additional technical rationale for all implementation choices.
