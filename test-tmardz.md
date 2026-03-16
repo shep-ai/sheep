@@ -1,0 +1,3 @@
+# Distributed Systems and Consensus Mechanisms
+
+Distributed systems enable services to scale horizontally by distributing computation and data across multiple nodes, but introduce complexity in coordinating state consistency. Consensus algorithms like Raft and Paxos solve the fundamental challenge of reaching agreement across unreliable networks and faulty nodes. Understanding these mechanisms is essential for building resilient systems that can tolerate failures while maintaining correctness and consistency guarantees.
