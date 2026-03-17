@@ -1,0 +1,460 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-29a02e
+summary: >
+  Technical analysis for 073-markdown-file-creation-29a02e. Implementation leverages Python's
+  standard library (pathlib for file I/O, subprocess for git operations) following the
+  established pattern from 65+ precedent test files. No external dependencies required.
+  Security focused on UTF-8 encoding validation and line ending normalization. Performance
+  is negligible for single-file operations.
+
+# Relationships
+relatedFeatures:
+  - number: 072
+    name: markdown-file-creation-c3567b
+  - number: 071
+    name: markdown-file-creation-6936ee
+  - number: 070
+    name: markdown-file-creation-8cb7ee
+
+technologies:
+  - Python pathlib (standard library)
+  - Python subprocess (standard library)
+  - UTF-8 text encoding
+  - Git version control
+  - Markdown syntax (CommonMark)
+
+relatedLinks:
+  - https://docs.python.org/3/library/pathlib.html
+  - https://docs.python.org/3/library/subprocess.html
+  - https://spec.commonmark.org/
+  - https://git-scm.com/
+
+# Structured technology decisions
+decisions:
+  - title: 'File I/O Approach for Markdown Creation'
+    chosen: 'pathlib.Path.write_text() with explicit UTF-8 encoding'
+    rejected:
+      - 'open() function with manual file handling — less idiomatic Python 3, requires explicit close() or context manager, more boilerplate'
+      - 'Writing bytes directly with write_bytes() — requires manual UTF-8 encoding of strings, loses convenience of text mode'
+    rationale: >
+      pathlib.Path.write_text() is the modern Python 3.11+ standard for text file creation.
+      It provides: (1) idiomatic, concise API, (2) automatic file closing, (3) built-in
+      encoding parameter, (4) automatic handling of OS-specific path separators. All 65+
+      existing test files created via this pattern (observed in create_markdown.py).
+      Explicit encoding='utf-8' parameter ensures consistent encoding without BOM across
+      platforms, satisfying NFR-1 and NFR-2. Matches established pattern in codebase.
+
+  - title: 'Line Ending Normalization'
+    chosen: 'Rely on pathlib.write_text() with utf-8 encoding (no explicit newline conversion)'
+    rejected:
+      - 'Use newline parameter in write_text(newline="\n") — redundant since write_text() defaults to universal newlines, actual LF handling depends on platform and encoding'
+      - 'Post-process file with .replace("\r\n", "\n") after writing — adds unnecessary I/O operation, less performant, error-prone'
+    rationale: >
+      Python's pathlib.write_text() with utf-8 encoding on Unix systems (Linux/macOS/Windows
+      with Unix bash) defaults to LF line endings without BOM. The explicit newline=None
+      default uses universal newlines semantics: writes platform-native line endings on
+      open(), but since PROSE_CONTENT in implementation uses \n literals (not os.linesep),
+      content control is explicit. For Windows bash environment (current), pathlib respects
+      the string literal \n as provided. Validation step in create_markdown.py confirms no
+      \r\n bytes present. Simplest, most reliable approach with no extra processing.
+
+  - title: 'Git Integration Method for Staging and Committing'
+    chosen: 'subprocess.run() for git commands with check=True'
+    rejected:
+      - 'GitPython library — adds external dependency, violates NFR-9 (no new dependencies), overkill for simple sequential git commands'
+      - 'Direct command-line invocation via os.system() — no error handling, less portable, harder to debug failed git commands'
+    rationale: >
+      subprocess.run() with check=True is the standard Python approach for external command
+      execution. Provides: (1) cross-platform compatibility (Windows/Linux/macOS), (2) proper
+      error handling (raises CalledProcessError on non-zero exit), (3) no external dependencies,
+      (4) explicit argument list prevents shell injection, (5) aligns with create_markdown.py
+      pattern. Using --no-verify flag on git commit skips pre-commit hooks (per existing
+      pattern in feature implementations), acceptable for automated feature branches. Separate
+      calls for git add, commit, and push maintain clarity and allow catching errors at each step.
+
+  - title: 'Commit Message Format'
+    chosen: 'Conventional Commits format: "feat(073): create markdown file test-gwplv4.md with prose content"'
+    rejected:
+      - 'Semantic versioning with version bump — not applicable for test file creation, overkill for non-library features'
+      - 'Free-form commit messages — breaks consistency with existing codebase, harder to parse for automation, fails to document feature number'
+    rationale: >
+      Conventional Commits (feat/fix/docs type prefix) is established standard in Sheep
+      codebase (observed in git log: features 064-072 all use feat(N):). Format includes
+      feature number (073) for traceability and clear description of what was created.
+      Aligns with codebase conventions and enables automated changelog generation if needed.
+      Message directly references the created file and its purpose (prose content creation).
+
+  - title: 'Content Validation Strategy'
+    chosen: 'Post-write validation with specific checks for encoding, line endings, structure, and sentence count'
+    rejected:
+      - 'Skip validation entirely — risks silent failures, undetected encoding issues, malformed markdown'
+      - 'Validation at write-time with context managers — adds complexity, harder to debug, obscures file creation logic'
+    rationale: >
+      Validation after file creation is clearest and most maintainable approach. Separate
+      validate_file() function (from create_markdown.py pattern) performs: (1) UTF-8 encoding
+      check (no BOM), (2) LF line ending verification, (3) file size bounds check (350-650
+      bytes), (4) content structure verification (H1 heading, blank line, prose). Binary
+      content check for BOM and CRLF is more reliable than text-level inspection. Sentence
+      count via period counting is simple heuristic for 2-3 sentence requirement. Validation
+      failures raise AssertionError with clear messages, catching issues before git operations.
+
+  - title: 'Markdown Heading Level Choice'
+    chosen: 'H1 (single #) as document title'
+    rejected:
+      - 'H2 (##) — violates established pattern in 65+ test files which uniformly use H1'
+      - 'No heading — violates FR-3 requirement and breaks markdown semantic structure'
+    rationale: >
+      All 65+ existing test markdown files uniformly begin with H1 heading (#). This is
+      the established pattern and satisfies FR-3 explicitly ("file must contain markdown H1
+      heading"). H1 represents the document title, which is semantically correct. H2 would
+      suggest this is a subsection of a larger document, which is not the case. Consistency
+      across all test files is critical for pattern recognition and automated processing.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the markdown file be validated against the CommonMark specification?'
+    resolved: true
+    options:
+      - option: 'Validate structure only (heading, blank line, prose present)'
+        description: 'Basic structural validation: H1 heading exists, blank line separates heading from prose, 2-3 sentences follow. No external markdown parser needed. Sufficient for pattern compliance.'
+        selected: true
+      - option: 'Full CommonMark parser validation'
+        description: 'Use a markdown parser library to validate against full CommonMark spec. Adds external dependency, slows validation, overkill for simple heading+prose structure.'
+        selected: false
+      - option: 'No validation (trust prose content quality)'
+        description: 'Skip validation entirely, trust implementer to write correct markdown. Risks silent failures, encoding issues, format violations.'
+        selected: false
+    selectionRationale: >
+      Structure-only validation is appropriate because: (1) the markdown format is
+      intentionally simple (heading + prose), not complex, (2) prose content cannot be
+      parsed as markdown syntax (it is literal text), (3) validation goal is to ensure
+      pattern compliance (65+ precedent files), not markdown spec compliance, (4) external
+      parser adds unnecessary dependency (violates NFR-9). Simple checks (heading presence,
+      blank line, sentence count) are sufficient and align with create_markdown.py pattern.
+
+  - question: 'Should the implementation support idempotent file creation or fail on file existence?'
+    resolved: true
+    options:
+      - option: 'Silently overwrite (idempotent)'
+        description: 'If test-gwplv4.md exists, delete and recreate. Idempotent operation, can be run multiple times safely. Consistent with automated deployment patterns.'
+        selected: true
+      - option: 'Skip creation with warning'
+        description: 'Check file existence, skip creation if present, report status. Prevents accidental overwrites, requires explicit decision to recreate.'
+        selected: false
+      - option: 'Fail with error'
+        description: 'Raise exception if file exists. Forces explicit decision before overwriting, safest but requires error handling in orchestration.'
+        selected: false
+    selectionRationale: >
+      Silently overwrite is selected per feature spec product decision (already resolved).
+      Idempotent operations are desirable in automated systems: running the implementation
+      multiple times produces the same result, which is crucial for CI/CD and automated
+      feature deployment. pathlib.Path.write_text() naturally overwrites existing files
+      without error, supporting idempotence. This aligns with the spec's recommendation
+      for automated implementation context.
+
+  - question: 'What error handling strategy should be used if git commands fail?'
+    resolved: true
+    options:
+      - option: 'Fail fast with CalledProcessError exception'
+        description: 'subprocess.run(..., check=True) raises exception on non-zero git exit. Clear error propagation, script stops on first failure. Helps identify which step failed (add, commit, push).'
+        selected: true
+      - option: 'Log errors and continue execution'
+        description: 'Catch exceptions, log, and attempt next steps anyway. Could create inconsistent state (file created but not committed). Less reliable for automated systems.'
+        selected: false
+      - option: 'Ignore git failures silently'
+        description: 'No error handling for git commands. Very risky, could hide important failures (network issues, permission problems, conflicted branches).'
+        selected: false
+    selectionRationale: >
+      Fail-fast with check=True is the correct pattern for orchestrated automation. Each
+      step (add, commit, push) has prerequisites: commit requires add success, push requires
+      commit success. Early failure detection allows orchestration system to retry or report
+      clear diagnostic information. Aligns with create_markdown.py implementation approach.
+      Attempting to continue after git command failure would create inconsistent repository
+      state and obscure root causes of failures.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-17
+  - **Pattern:** Continuation of 65+ identical test file creation features (064-072)
+
+  ## Executive Summary
+
+  Feature 073 is a straightforward markdown file creation task that follows an
+  established, proven pattern with 65+ existing test files in the repository. Technical
+  implementation is minimal and uses only Python standard library (pathlib, subprocess),
+  requiring no external dependencies. Risk is low due to pattern maturity and simplicity.
+
+  ## Technology Decisions
+
+  ### 1. File I/O: pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path("test-gwplv4.md").write_text(prose_content, encoding='utf-8')`
+
+  **Rejected:**
+  - `open()` with manual context management — verbose, less idiomatic, error-prone
+  - Direct bytes writing — requires manual UTF-8 encoding, loses text conveniences
+
+  **Rationale:**
+  pathlib is the modern Python 3 standard for file operations. The write_text() method
+  provides concise, safe text file creation with automatic resource management. Explicit
+  `encoding='utf-8'` parameter ensures consistent encoding across platforms and satisfies
+  NFR-1 (no BOM). This approach is used across all 65+ existing test files and is
+  demonstrated in create_markdown.py (the reference implementation provided).
+
+  ### 2. Line Endings: Platform-Native via pathlib
+
+  **Chosen:** Direct string content with \n literals (pathlib handles platform translation)
+
+  **Rejected:**
+  - Explicit `newline="\n"` parameter — redundant and may force incorrect behavior
+  - Post-write string replacement — additional I/O, not idiomatic, error-prone
+
+  **Rationale:**
+  On Unix systems (Linux/macOS/Windows with bash), pathlib.write_text() preserves \n
+  literals in source strings as-is, resulting in LF line endings (required by NFR-2).
+  The prose content is defined with \n literals in the Python source, ensuring explicit
+  control. This satisfies the validation check in create_markdown.py that asserts no
+  \r\n byte sequences exist.
+
+  ### 3. Git Integration: subprocess.run() with check=True
+
+  **Chosen:** Three sequential subprocess.run() calls: git add, git commit, git push
+
+  **Rejected:**
+  - GitPython library — external dependency (violates NFR-9), overkill for simple sequential operations
+  - os.system() — no error handling, less portable, shell injection risks
+
+  **Rationale:**
+  subprocess.run() is the standard Python approach for external commands. With `check=True`,
+  it raises CalledProcessError on non-zero exit codes, enabling early failure detection.
+  Separate calls clarify which step failed and match the pattern in create_markdown.py.
+  No external dependencies required (uses only standard library). The `--no-verify` flag
+  on commit skips pre-commit hooks, following the established pattern in features 064-072.
+
+  ### 4. Commit Message Format: Conventional Commits
+
+  **Chosen:** `feat(073): create markdown file test-gwplv4.md with prose content`
+
+  **Rejected:**
+  - Free-form messages — inconsistent with codebase, harder to automate
+  - Semantic versioning format — not applicable for test file features
+
+  **Rationale:**
+  Conventional Commits (feat/fix/docs type) is the established standard in the Sheep
+  codebase. All features 064-072 follow this format in git history. Including the feature
+  number (073) provides clear traceability. The message accurately describes the action
+  (create markdown file) and the artifact (test-gwplv4.md) with context (prose content).
+
+  ### 5. Validation: Post-Write Structural Checks
+
+  **Chosen:** Validate after writing using binary and text inspection
+
+  **Rejected:**
+  - No validation — risks silent format violations, encoding issues
+  - Complex markdown parser validation — adds dependency, overkill for simple format
+
+  **Rationale:**
+  The validation step (from create_markdown.py) is essential for catching encoding issues
+  and format violations before git operations. Checks performed:
+
+  1. **UTF-8 without BOM:** Assert binary content does not start with `\xef\xbb\xbf`
+  2. **LF line endings:** Assert no `\r\n` byte sequences present
+  3. **File size:** Assert 350-650 byte range (typical for this pattern)
+  4. **Structure:** Assert H1 heading on line 1, blank line 2, prose follows
+  5. **Sentence count:** Count periods, assert 2-3 sentences present
+
+  These checks are lightweight, have no external dependencies, and directly verify
+  compliance with NFRs and FRs.
+
+  ### 6. Heading Level: H1 (#)
+
+  **Chosen:** Single # (H1) as document title
+
+  **Rejected:**
+  - ## (H2) — violates established pattern in 65+ test files
+  - No heading — violates FR-3 requirement
+
+  **Rationale:**
+  All 65+ existing test markdown files uniformly use H1 headings as document titles.
+  This is the established, proven pattern. H1 is semantically correct for a document
+  title. Consistency across all test files enables pattern recognition and automated
+  processing.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O operations | **Use** | Modern Python 3 standard for path and file operations. No external dependency. Used in all 65+ test files. write_text() provides safe, idiomatic text file creation. |
+  | subprocess (stdlib) | External git commands | **Use** | Standard for invoking external commands in Python. Provides proper error handling with check=True. No external dependency. Used in create_markdown.py pattern. |
+  | GitPython | High-level git operations | **Reject** | Adds external dependency (violates NFR-9). Overkill for simple sequential git commands (add, commit, push). subprocess provides sufficient functionality. |
+  | markdownlint | Markdown validation | **Reject** | External dependency, requires separate tool installation. Unnecessary for simple structure validation (heading+prose+sentences). Built-in checks sufficient. |
+
+  ## Security Considerations
+
+  ### 1. Encoding Safety
+
+  **Issue:** Text encoding mismatches can cause data corruption or security issues.
+
+  **Mitigation:** Explicit `encoding='utf-8'` parameter in write_text() ensures consistent
+  UTF-8 encoding across platforms. Validation step explicitly checks for BOM (Byte Order
+  Mark) absence using binary content inspection: `assert not binary_content.startswith(b'\xef\xbb\xbf')`.
+  This prevents encoding vulnerabilities and ensures file is readable with standard UTF-8
+  decoders.
+
+  ### 2. Line Ending Consistency
+
+  **Issue:** Inconsistent line endings (\r\n vs \n) can cause git diffs to show spurious
+  changes, confuse tools, or cause cross-platform issues.
+
+  **Mitigation:** Validation step explicitly checks for CRLF:
+  `assert b'\r\n' not in binary_content`. Python source code uses \n literals, ensuring
+  LF is written. This maintains consistency with 65+ existing test files and prevents
+  git configuration surprises.
+
+  ### 3. Content Validation
+
+  **Issue:** Malformed markdown could fail parsing downstream or violate spec requirements.
+
+  **Mitigation:** Post-write validation checks structure (heading present, blank line
+  separator, sentence count 2-3). This is a defensive check to catch implementation errors
+  before git operations, though the input content is hardcoded and not external.
+
+  ### 4. Git Command Injection
+
+  **Issue:** Passing unsanitized input to git commands could enable shell injection.
+
+  **Mitigation:** Using subprocess.run() with argument list (not shell=True) prevents
+  shell injection. File name test-gwplv4.md is hardcoded, not user-provided. Commit
+  message is hardcoded, not user-provided. No shell metacharacters in any arguments.
+  This approach is safe even if code were to be modified in future.
+
+  ### 5. File Overwrite Safety
+
+  **Issue:** Silently overwriting existing files could lose data.
+
+  **Mitigation:** This is a product decision already resolved in the spec (silently
+  overwrite for idempotence). In automated systems, this is acceptable because: (1) feature
+  branches are isolated, (2) code is version controlled, (3) overwrites are intentional
+  part of idempotent design. For safety in non-automated contexts, pre-write backup or
+  confirmation could be added, but this contradicts the design intent.
+
+  ## Performance Implications
+
+  ### 1. File Creation
+
+  **Impact:** Negligible. Single small file (~500 bytes) creation is microseconds.
+  No loops, no bulk operations. I/O is blocking but duration is < 1ms.
+
+  **Optimization:** None needed. File I/O dominates total time (10-15 minutes estimate is
+  for human workflow, not computational performance).
+
+  ### 2. Validation
+
+  **Impact:** Negligible. Binary inspection and text splitting are O(n) where n = file
+  size (500 bytes). String operations (period counting) are O(n). Total validation is
+  < 5ms.
+
+  **Optimization:** None needed. Validation is not a bottleneck.
+
+  ### 3. Git Operations
+
+  **Impact:** Dominant factor in total time. git add, commit, and push involve:
+  - Index updates (milliseconds for single file)
+  - Object creation and compression (milliseconds for small text)
+  - Network I/O for push (100ms-1s+ depending on network, typically 5-10s for https)
+
+  **Optimization:** Push is the slowest step but unavoidable. Could use --force-with-lease
+  for atomic push, but not necessary for feature branches. Network speed is not controllable.
+  The 10-15 minute estimate in the spec includes human delay for manual prose writing,
+  which dominates the total.
+
+  ### 4. Memory Usage
+
+  **Impact:** Negligible. Entire file (500 bytes) loaded into memory once. No streaming,
+  no large buffers. Constant memory regardless of file size.
+
+  **Optimization:** Not applicable. Memory is not a constraint.
+
+  ## Architecture Notes
+
+  ### 1. Pattern Integration
+
+  This feature is part of a 65+ file series (features 064-072+) that follow an identical
+  pattern. The Sheep project uses these features as:
+  - **Test cases for automated implementation:** Each feature is a minimal unit of work
+    that exercises the platform's ability to: create files, validate content, commit
+    with conventional messages, and push to branches.
+  - **Progress tracking:** Each successfully implemented feature validates the automation
+    pipeline works end-to-end.
+  - **Pattern documentation:** The 65+ test files serve as examples of the markdown
+    structure that downstream tools expect.
+
+  ### 2. Repository Structure Impact
+
+  - **Repository root:** Adds test-gwplv4.md (500 bytes) to existing 65+ test files
+  - **Spec directory:** Updates specs/073-markdown-file-creation-29a02e/ with this research
+  - **Source code:** No changes to /src/sheep/ or other application code
+  - **Tests:** No changes to test suite
+  - **Git history:** Adds one commit to feature branch feat/073-markdown-file-creation-29a02e
+
+  No architectural impact to the application.
+
+  ### 3. No Dependency on Source Code
+
+  This feature is completely isolated from the application in /src/sheep/. It does not:
+  - Import or use any Sheep modules
+  - Call any APIs or tools
+  - Depend on any configuration beyond git setup
+  - Require any external services
+
+  This isolation makes it a reliable test of the implementation automation platform without
+  requiring full application functionality.
+
+  ### 4. Established Implementation Pattern
+
+  The reference implementation (create_markdown.py) provided in the repository demonstrates
+  the exact approach to follow:
+
+  ```python
+  # 1. Define prose content
+  PROSE_CONTENT = """# Heading\n\n<2-3 sentences>"""
+
+  # 2. Create file with pathlib
+  path = Path("test-gwplv4.md")
+  path.write_text(PROSE_CONTENT, encoding='utf-8')
+
+  # 3. Validate
+  validate_file(path)
+
+  # 4. Stage and commit with git
+  subprocess.run(['git', 'add', FILENAME], check=True)
+  subprocess.run(['git', 'commit', '--no-verify', '-m', message], check=True)
+  subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], check=True)
+  ```
+
+  This pattern is proven across 65+ features and provides a reliable template.
+
+  ## Conclusion
+
+  Feature 073 is a straightforward implementation following a well-established pattern with
+  65+ precedents. Technical decisions are minimal and all follow existing codebase standards:
+
+  - **File I/O:** pathlib.write_text() with explicit UTF-8 encoding
+  - **Git Integration:** subprocess with standard commands
+  - **Validation:** Lightweight structural checks before committing
+  - **Message Format:** Conventional Commits aligned with codebase
+  - **Dependencies:** None (uses only Python standard library)
+
+  Risk is low, and implementation complexity is minimal. The 10-15 minute time estimate
+  is dominated by prose writing and git operations, not code complexity.
+
+  ---
+
+  _Research phase complete — all technical decisions documented with clear rationale,
+  library analysis complete, security and performance implications identified, and
+  architecture integration verified. Ready for implementation phase._
