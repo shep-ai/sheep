@@ -1,7 +1,7 @@
 """
 Test suite for markdown file creation feature.
 
-Tests verify that test-g6uftw.md file:
+Tests verify that test-lo887i.md file:
 - Exists and is readable
 - Contains correct markdown structure (heading + prose)
 - Uses proper encoding (UTF-8) and line endings (LF)
@@ -16,9 +16,9 @@ from pathlib import Path
 
 
 class TestMarkdownFileCreation(unittest.TestCase):
-    """Test cases for test-g6uftw.md markdown file creation."""
+    """Test cases for test-lo887i.md markdown file creation."""
 
-    FILENAME = "test-g6uftw.md"
+    FILENAME = "test-lo887i.md"
 
     def setUp(self):
         """Set up test fixtures."""
