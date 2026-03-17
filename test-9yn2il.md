@@ -1,3 +1,3 @@
-# Quantum Computing
+# Machine Learning
 
-Quantum computers use quantum bits to process information exponentially faster than classical computers. This technology promises to revolutionize cryptography, drug discovery, and optimization problems. Current challenges include maintaining quantum coherence and error correction.
+Machine learning is a subset of artificial intelligence. It enables computers to learn from data without explicit programming. This technology powers many modern applications.
