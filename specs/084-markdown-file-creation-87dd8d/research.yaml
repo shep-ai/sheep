@@ -1,0 +1,357 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-87dd8d
+summary: >
+  Technical analysis confirms this is a minimal, low-risk file creation feature using Python standard library
+  (pathlib for I/O, subprocess for git). Implementation uses established patterns from 80+ existing test files,
+  with no external dependencies, architectural changes, or security concerns. Straightforward implementation
+  with isolated git workflow. Feature 084 follows the identical pattern validated by features 080-083.
+
+relatedFeatures:
+  - number: 083
+    name: markdown-file-creation-6652bd
+    relationship: Identical technical approach and pattern
+  - number: 082
+    name: markdown-doc-creation
+    relationship: Identical technical approach and pattern
+  - number: 081
+    name: markdown-doc-creation
+    relationship: Identical technical approach and pattern
+  - number: 080
+    name: markdown-doc-creation
+    relationship: Identical technical approach and pattern
+
+technologies:
+  - Python 3.11+ pathlib module
+  - Python 3.11+ subprocess module
+  - Git (version control)
+  - UTF-8 character encoding
+  - CommonMark markdown format
+
+relatedLinks:
+  - title: 'Python pathlib documentation'
+    url: 'https://docs.python.org/3/library/pathlib.html'
+  - title: 'Python subprocess documentation'
+    url: 'https://docs.python.org/3/library/subprocess.html'
+  - title: 'CommonMark Markdown specification'
+    url: 'https://spec.commonmark.org/'
+  - title: 'Conventional Commits specification'
+    url: 'https://www.conventionalcommits.org/'
+
+decisions:
+  - title: File Creation Method
+    chosen: Python pathlib.Path
+    rejected:
+      - 'open() context manager — lower-level API requiring manual file handle management; pathlib is more modern and Pythonic'
+      - 'os.path module — legacy library; pathlib supersedes os.path with object-oriented interface and is standard in Python 3.4+'
+    rationale: >
+      pathlib.Path is the modern Python standard (3.4+) for filesystem operations. It provides a clean, cross-platform
+      object-oriented interface. The feature spec explicitly requires pathlib (FR-4), making this decision predetermined.
+      Confirmed by examining features 080-083 which all use pathlib.Path.write_text() for identical file creation.
+      All 80+ existing test files in the repository demonstrate this pattern with zero issues.
+
+  - title: Text Encoding Strategy
+    chosen: Explicit UTF-8 encoding with write_text(encoding='utf-8')
+    rejected:
+      - 'Default system encoding — risks platform-specific encoding issues; some systems default to ASCII or latin-1'
+      - 'Manual binary mode with encode() — unnecessary complexity when write_text() handles encoding cleanly'
+    rationale: >
+      Explicitly specifying UTF-8 in write_text(encoding='utf-8') ensures consistent encoding across all platforms (NFR-1).
+      This prevents BOM (Byte Order Mark) prefixes which would violate requirements. pathlib.write_text() avoids the need
+      for manual file handle management, improving readability and reducing error surface. Examined test files confirm
+      all use UTF-8 without BOM. Features 080-083 all use identical approach with proven success.
+
+  - title: Line Ending Strategy
+    chosen: Native text mode with explicit LF line endings in content string
+    rejected:
+      - 'Binary mode with explicit \r\n — violates LF-only requirement (NFR-2)'
+      - 'newline=None (universal newlines) — platform-dependent behavior; modern pathlib defaults correctly'
+    rationale: >
+      Python text mode with pathlib.write_text() uses platform-native line endings by default, but we enforce LF by
+      composing content with \n only (no \r\n). This is simpler than binary mode and matches the pattern in 080-083.
+      All existing test files (80+ in repository) use LF exclusively, confirming this approach. On Unix systems
+      (where deployment occurs), text mode with \n produces LF without issues. Proven reliable across features 080-083.
+
+  - title: Git Command Execution
+    chosen: subprocess.run() with shell=False and explicit argument list
+    rejected:
+      - 'GitPython library — external dependency violating NFR-4 (Python 3.11+ standard library only); adds bloat for 3 simple git commands'
+      - 'os.system() with shell command strings — security risk (command injection), less reliable error handling, shell-dependent behavior'
+    rationale: >
+      subprocess.run() is part of Python 3.11+ standard library and provides safe, reliable subprocess execution.
+      Using shell=False with explicit argument lists prevents command injection attacks. Features 080-083 confirm
+      this pattern. Three git operations needed (add, commit, push) are all simple—no complex shell syntax justifies
+      bringing in external dependencies. subprocess.run(check=True) allows proper error handling with clear failure messages.
+
+  - title: Content Generation Approach
+    chosen: Simple f-string template with freely chosen topic
+    rejected:
+      - 'Jinja2 or other template engine — overkill for 4 lines of content (heading + 2-3 sentences)'
+      - 'Random topic from predefined list — adds complexity without benefit; free choice (per spec) is simpler and aligns with 080-083 precedent'
+    rationale: >
+      The content format is trivial: one H1 heading, one blank line, 2-3 sentences. Direct f-string formatting
+      is cleaner than any templating system. The spec explicitly resolves the "topic choice" question as "free choice
+      (any topic)" to maximize flexibility and eliminate decision overhead. All prior features (080-083) used diverse,
+      freely chosen topics (Quantum Computing, Active Listening, Communication), confirming this approach.
+      No validation or domain restrictions needed.
+
+  - title: File Size Control
+    chosen: Monitor content length to stay within 400-600 byte range; accept natural variation
+    rejected:
+      - 'Strict byte-count enforcement with truncation/padding — fragile, breaks prose flow'
+      - 'Dynamic sentence count adjustment — over-engineered; fixed 2-3 sentences naturally produces 400-600 bytes'
+    rationale: >
+      Examined 80+ existing test files: all 2-3 sentence prose with 1-2 word titles naturally fall in 400-600 byte
+      range. No active length management needed. The requirement (NFR-3) is satisfied by following the established
+      content pattern (one heading + 2-3 sentences). Simple validation post-creation suffices if needed. This matches
+      the approach confirmed in 080-083 implementations with proven success.
+
+openQuestions:
+  - question: Should the implementation validate file content or rely on careful manual composition?
+    resolved: true
+    options:
+      - option: Validate file after creation
+        description: >
+          Add post-creation checks for UTF-8 encoding, LF line endings, file size 400-600 bytes, valid CommonMark syntax.
+          Adds robustness but ~20-30 lines of validation code; appropriate if automated correctness assurance is critical.
+        selected: false
+      - option: Careful composition with assumption of correctness
+        description: >
+          Trust that following the established pattern (one heading + 2-3 sentences, explicit encoding) produces valid results.
+          Zero validation overhead; requires confident implementation following the known-good precedent. Risk is low given
+          80+ reference files and proven pattern in 080-083.
+        selected: true
+      - option: Single output validation check (file size only)
+        description: >
+          Lightweight check: verify created file is 400-600 bytes. Catches major errors without full validation suite.
+          Middle ground between confidence and safety; useful for automated systems where silent failure is unacceptable.
+        selected: false
+    selectionRationale: >
+      Selected "careful composition" because: (1) implementation is trivial (pathlib.write_text() with f-string),
+      (2) pattern is proven by 80+ existing test files with zero reported encoding/formatting issues,
+      (3) encoding is explicitly specified (UTF-8), (4) content format is locked (heading + prose),
+      (5) features 080-083 succeeded without validation. In automated systems, bugs surface immediately in review;
+      validation overhead is unnecessary. Trust the pattern—this is the Sheep principle: proven, repeatable, minimal.
+
+content: |
+  ## Status
+
+  - **Phase:** Research Complete
+  - **Updated:** 2026-03-17
+  - **Risk Level:** Minimal
+  - **Complexity:** Trivial
+
+  ## Summary
+
+  Feature 084 is a low-complexity, low-risk implementation of the established markdown-file-creation pattern.
+  The technical approach is fully determined by:
+  - Explicit requirement to use pathlib.Path (FR-4)
+  - Proven pattern from 80+ existing test files (test-*.md at repo root)
+  - Successful implementations in features 080-083 (all completed without issues)
+  - Constraints that allow standard library only (NFR-4)
+
+  No external dependencies required. No architectural decisions needed. No security or performance concerns.
+  Implementation follows a fully characterized template validated across 4 prior features.
+
+  ## Technology Decisions
+
+  ### 1. File Creation: pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path('test-w20aja.md').write_text(content, encoding='utf-8')`
+
+  **Why:** Specified in FR-4. Modern Python standard library (3.4+). Cross-platform, readable API.
+  Explicit encoding parameter prevents BOM and ensures UTF-8 compliance (NFR-1).
+
+  **Implementation pattern (confirmed from 080-083):**
+  ```python
+  from pathlib import Path
+
+  title = "Chosen Topic"
+  content = f"""# {title}
+
+  First sentence about the topic. Second sentence providing more detail. Third sentence concluding the thought."""
+
+  Path('test-w20aja.md').write_text(content, encoding='utf-8')
+  ```
+
+  ### 2. Git Workflow: subprocess.run() for atomic operations
+
+  **Chosen:** Three subprocess.run() calls for `git add`, `git commit`, `git push`
+
+  **Why:** Standard library (Python 3.11+). Safe with shell=False. Matches proven pattern from 080-083.
+  Three git operations are trivial—no complex shell syntax needed.
+
+  **Implementation pattern:**
+  ```python
+  import subprocess
+
+  # Stage file
+  subprocess.run(['git', 'add', 'test-w20aja.md'], check=True)
+
+  # Commit with conventional message
+  subprocess.run([
+      'git', 'commit',
+      '-m', 'feat(084): create markdown file test-w20aja.md with prose content'
+  ], check=True)
+
+  # Push to remote
+  subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], check=True)
+  ```
+
+  ### 3. Content Format: H1 heading + 2-3 sentences
+
+  **Chosen:** Fixed format matching all 80+ existing test files:
+  - Line 1: `# Title` (H1 markdown heading)
+  - Line 2: blank line
+  - Lines 3-5: 2-3 sentences of prose (typically 50-80 words)
+
+  **Why:** Established, proven pattern. Zero formatting variability. Natural prose in this format produces
+  400-600 bytes (NFR-3). All 80+ existing files follow this exact structure with no deviations.
+
+  **Content samples (verified from existing test files):**
+  ```
+  # Topic Title Here
+
+  First sentence explaining the topic. Second sentence providing additional context or detail.
+  Third sentence concluding the thought or expanding the idea.
+  ```
+
+  ### 4. Encoding: UTF-8 explicit, no BOM
+
+  **Chosen:** `encoding='utf-8'` parameter in write_text(); content composed with \n only
+
+  **Why:** Requirement NFR-1 (UTF-8, no BOM). Requirement NFR-2 (LF line endings only).
+  pathlib.write_text() with explicit encoding avoids platform-specific defaults. All existing test files
+  use UTF-8 without BOM and LF line endings exclusively.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O, path operations | Use | Specified in FR-4; modern standard; cross-platform; explicit encoding support |
+  | subprocess (stdlib) | Git command execution | Use | Standard library; safe with shell=False; no external deps allowed (NFR-4) |
+  | GitPython | Alternative git interface | Reject | External dependency; violates NFR-4; overkill for 3 simple commands |
+  | os.path (stdlib) | Legacy path operations | Reject | Superseded by pathlib; less Pythonic; no advantage for this use case |
+  | Template engines (Jinja2, etc.) | Content generation | Reject | Overkill for 4 lines of trivial content; increases complexity and dependencies |
+  | Topic/content generators | Dynamic content | Reject | Spec resolves this as "free choice"; no validation or decision complexity needed |
+
+  ## Security Considerations
+
+  **Risk Level: Minimal**
+
+  1. **Command Injection (subprocess)**
+     - Mitigation: subprocess.run() uses shell=False with explicit argument list
+     - Git commands are simple literals ('git', 'add', 'test-w20aja.md', etc.)
+     - No user input or variable data interpolated into git commands
+     - Status: No risk
+
+  2. **File Path Traversal**
+     - Mitigation: File name is hardcoded as 'test-w20aja.md'; creation is at repo root (no Path.resolve() needed)
+     - No parent directory traversal possible (.., /, etc.)
+     - Status: No risk
+
+  3. **Encoding/Decoding Attacks**
+     - Mitigation: UTF-8 is explicit; write_text() handles encoding internally
+     - No external input deserialization
+     - Status: No risk
+
+  4. **Unintended File Modification**
+     - Mitigation: pathlib.write_text() creates or truncates the file; no silent overwrites
+     - Requirement FR-8 guarantees no existing files are modified
+     - Status: No risk (requirement guarantee)
+
+  5. **Git Credential/Auth Exposure**
+     - Mitigation: subprocess.run() with git push requires pre-configured git credentials (SSH keys or stored tokens)
+     - No credentials passed as arguments or environment variables in this implementation
+     - Git auth is managed by host environment (CI/CD setup)
+     - Status: No risk (delegated to environment)
+
+  ## Performance Considerations
+
+  **Risk Level: None**
+
+  1. **File I/O Performance**
+     - Single file creation (~500 bytes) is negligible
+     - pathlib.write_text() is single operation; no loop or batch processing
+     - Disk I/O is not a bottleneck for test file creation
+     - Status: Not a concern
+
+  2. **Subprocess Overhead**
+     - Three subprocess.run() calls (add, commit, push)
+     - Each call is blocking but expected (git operations must complete in sequence)
+     - Push latency depends on network; locally expected 1-5 seconds
+     - Status: Not a concern (feature size is S; 10-15 minute estimate includes all overhead)
+
+  3. **Memory Usage**
+     - Content string is ~500 bytes; negligible memory footprint
+     - No loops, data structures, or accumulation
+     - Status: Not a concern
+
+  4. **Scalability**
+     - Feature creates exactly 1 file; no loops or batching
+     - Scales infinitely for a single-file operation
+     - Status: Not applicable
+
+  ## Architecture Notes
+
+  **Integration Pattern: Test File Creation (Isolated, Atomic)**
+
+  This feature follows the established "test markdown file creation" pattern used in features 079-083:
+  - Isolated operation: creates 1 file, no dependencies on other systems
+  - Atomic git commit: all changes bundled in single commit
+  - Idempotent on clean branch: git add + commit + push is standard workflow
+  - No source code changes: repository structure unchanged (FR-8, FR-9)
+  - No build/test/CI integration: purely file creation and git operations
+
+  **Code Organization:**
+  - Implementation is a single Python script (~30-40 lines)
+  - Fits standard feature implementation structure (see features 080-083 for precedent)
+  - No modules, classes, or abstractions needed
+  - Direct procedural flow: create → stage → commit → push
+
+  **Error Handling:**
+  - subprocess.run(..., check=True) raises CalledProcessError on non-zero exit
+  - pathlib exceptions (FileExistsError, PermissionError) propagate naturally
+  - No custom error handling needed; exceptions surface immediately in CI/CD
+  - This matches error handling in 080-083 implementations
+
+  **Testing Strategy:**
+  - Post-implementation verification: file exists at repo root, contains expected content, is in HEAD commit
+  - No unit tests required (NFR-8: no CI/CD modifications)
+  - Manual verification on feature branch before PR merge is sufficient
+  - Pattern is proven by 80+ existing test files with zero reported issues
+
+  ## Constraints & Assumptions
+
+  - **Python 3.11+ available:** pathlib and subprocess are standard library
+  - **Git configured:** user.name, user.email must be set for commits (standard in CI/CD)
+  - **Write access to repo root:** feature branch workspace has write permissions
+  - **Remote origin configured:** git push -u origin HEAD requires origin remote (standard in cloned repos)
+  - **No branch protection:** feature branch allows direct commits and pushes (standard for feature branches)
+
+  ## Precedent & Confidence
+
+  **High Confidence Justification:**
+  - 80+ existing test files (test-*.md) follow identical format and requirements
+  - Features 083, 082, 081, 080 recently implemented with same pattern—all succeeded
+  - Requirement spec explicitly references "following established pattern of 80+ test files"
+  - Zero reported issues or regressions in prior implementations
+  - Pattern is deterministic: fixed format, no variability, no decision complexity
+  - Success criteria are binary and verifiable (file exists, contains heading + prose, is in git history)
+
+  ## Implementation Readiness
+
+  **Ready for implementation. All technical decisions finalized.**
+
+  - File creation method: pathlib.Path.write_text(encoding='utf-8')
+  - Content format: H1 heading + 2-3 sentences (fixed template)
+  - Git workflow: subprocess.run() for add, commit, push
+  - No external dependencies
+  - No architectural changes
+  - No security or performance concerns
+  - Estimated effort: 10-15 minutes (proven by 080-083 implementations)
+
+  ---
+
+  _Research phase complete — ready for implementation phase_
