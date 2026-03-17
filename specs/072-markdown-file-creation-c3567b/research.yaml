@@ -1,0 +1,336 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-c3567b
+summary: >
+  Technical analysis for markdown file creation feature 072. Implementation uses Python pathlib for direct file I/O
+  with explicit UTF-8 encoding, subprocess for git operations, and lightweight runtime validation to ensure spec
+  compliance. All technologies are from the Python standard library with no external dependencies.
+
+# Relationships
+relatedFeatures:
+  - number: 071
+    name: markdown-file-creation-6936ee
+  - number: 070
+    name: markdown-file-creation-8cb7ee
+  - number: 069
+    name: markdown-file-creation
+
+technologies:
+  - Python pathlib (standard library)
+  - subprocess (standard library)
+  - UTF-8 encoding
+  - Unix LF line endings
+  - Markdown format (CommonMark)
+  - Git version control
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "CommonMark specification"
+    url: "https://spec.commonmark.org/"
+
+# Structured technology decisions
+decisions:
+  - title: 'File I/O Implementation Approach'
+    chosen: 'Python pathlib.Path.write_text() with explicit UTF-8 encoding'
+    rejected:
+      - 'Subprocess with shell commands (echo/cat) — less safe, requires shell escaping for special characters, not idiomatic Python'
+      - 'Manual open() file handling — more verbose, requires explicit encoding/closing, higher error surface'
+    rationale: >
+      pathlib.Path.write_text() is the modern, safe, and idiomatic Python approach. It is built into the standard
+      library (NFR-9), automatically handles file creation and closing, supports explicit encoding parameter
+      (ensuring UTF-8 per NFR-1), and is immune to injection attacks. This matches the create_markdown.py precedent
+      and the established pattern across 65+ existing test files. The explicit encoding='utf-8' parameter ensures
+      consistent behavior across all platforms (Linux, macOS, Windows) and prevents BOM insertion.
+
+  - title: 'Encoding and Line Ending Handling'
+    chosen: 'Explicit UTF-8 with write_text(); validation via read_bytes() BOM check and b\r\n detection'
+    rejected:
+      - 'Default system encoding — may not be UTF-8 on all systems, risks NFR-1 non-compliance'
+      - 'Binary mode with manual UTF-8 encoding (encode/decode) — unnecessary complexity, error-prone'
+    rationale: >
+      write_text(encoding='utf-8') guarantees UTF-8 encoding on all platforms. Python''s write_text() respects the
+      system newline convention by default, but since the repository requires Unix LF (NFR-2), validation via
+      read_bytes() check for b'\r\n' ensures compliance. The newline parameter is unnecessary because: (1) the
+      repository uses Git with core.autocrlf disabled (inferred from existing test files), (2) validation catches
+      any CRLF violations, and (3) modern Python defaults to LF on Unix systems. This approach is proven in the
+      create_markdown.py precedent.
+
+  - title: 'Content Validation Strategy'
+    chosen: 'Runtime structural validation: verify H1 heading, blank line, and 2-3 sentences'
+    rejected:
+      - 'No validation — risks silent non-compliance, could create invalid files that violate success criteria'
+      - 'Full CommonMark schema validation library — adds external dependency (violates NFR-9), overkill for simple format'
+    rationale: >
+      Lightweight runtime validation ensures success criteria compliance without external dependencies. The validation
+      checks (H1 heading at start, blank line separator, sentence count 2-3) are simple, deterministic, and catch
+      the most common formatting errors. Sentence count is validated by counting periods (.), which is a reliable
+      heuristic for typical prose. This approach is proven in create_markdown.py and aligns with the established
+      pattern. Validation is essential because: (1) it prevents silent failures, (2) it provides clear error messages
+      for debugging, and (3) it ensures all created files meet spec requirements.
+
+  - title: 'Git Integration and Workflow'
+    chosen: 'Python subprocess module for git add, commit, and push operations'
+    rejected:
+      - 'GitPython library — adds external dependency (violates NFR-9), unnecessary complexity for simple git operations'
+      - 'Manual git internals — unreliable, not maintainable, requires deep git knowledge'
+    rationale: >
+      subprocess is the standard Python module for invoking external CLI tools. It is built into the standard library
+      (NFR-9), reliable, and the idiomatic approach for git integration in Python. subprocess.run() with check=True
+      provides automatic error handling (raises CalledProcessError on non-zero exit). Using ['git', 'add', ...]
+      (list syntax) avoids shell escaping issues. The workflow (add → commit with --no-verify → push -u origin HEAD)
+      follows the established pattern from features 064-071 and is proven to work. The --no-verify flag is intentional
+      (used in create_markdown.py) to skip pre-commit hooks, as this is a CI/automation context where hooks are
+      already validated upstream.
+
+  - title: 'Content Generation and Topic Selection'
+    chosen: 'Direct prose composition; topic completely unrestricted per product decision'
+    rejected:
+      - 'Template-based generation — adds unnecessary abstraction, overengineering for a single 2-3 sentence task'
+      - 'Topic validation/curation — violates product decision to be unrestricted, adds unnecessary validation'
+    rationale: >
+      Per the product decision (resolved as "Topic completely unrestricted"), the implementer has full autonomy to
+      choose any topic and compose 2-3 sentences of prose. This maximizes flexibility and matches the user query
+      "about anything". Prose quality is validated by basic readability (per product decision), not strict grammar
+      checking. Direct composition is simplest: write a hardcoded PROSE_CONTENT string with an H1 heading and 2-3
+      sentences, then write to file. This avoids AI/template complexity and is consistent with the create_markdown.py
+      precedent.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the implementation include explicit newline parameter (newline=\n) in write_text()?'
+    resolved: true
+    options:
+      - option: 'Use write_text(encoding="utf-8") without newline parameter'
+        description: >
+          Let Python handle line endings by default. On Unix systems (Linux, macOS), the default behavior writes LF.
+          File validation via read_bytes() check for b'\r\n' catches any CRLF issues. Simpler, fewer parameters.
+        selected: true
+      - option: 'Use write_text(encoding="utf-8", newline="\n")'
+        description: >
+          Explicitly specify newline='\n' to force Unix LF on all platforms, including Windows. More explicit and
+          guaranteed, but slightly more verbose and unnecessary for a Unix-focused project.
+        selected: false
+      - option: 'Use binary mode with explicit UTF-8 encoding and LF: path.write_bytes(content.encode("utf-8"))'
+        description: >
+          Manual binary mode handling for maximum control. Requires explicit encoding and ensures exact byte output,
+          but is more verbose and error-prone. Only useful if cross-platform CRLF normalization is needed.
+        selected: false
+    selectionRationale: >
+      The repository already uses Unix LF (demonstrated by 65+ existing test files with .md extension and consistent
+      LF line endings). Python's default behavior on Unix systems is LF, making the newline parameter unnecessary.
+      Validation via read_bytes() detection of b'\r\n' provides a safety check if the code ever runs on Windows CI.
+      This approach is consistent with the create_markdown.py precedent, which uses write_text() without the
+      newline parameter. Explicit newline='\n' would be overly defensive for this use case.
+
+  - question: 'How should file size validation be handled?'
+    resolved: true
+    options:
+      - option: 'Validate file size is 350-650 bytes with assertion'
+        description: >
+          Check that file_size (from read_bytes) falls within expected range. Catches obviously malformed content,
+          provides early error detection. Typical prose files are 400-600 bytes; 350-650 allows some variance.
+        selected: true
+      - option: 'No file size validation'
+        description: >
+          Skip size check, rely only on structure validation (heading, blank line, sentence count). Simpler, avoids
+          magic numbers, but misses edge cases like empty or gigantic files.
+        selected: false
+      - option: 'Strict file size validation 400-600 bytes only'
+        description: >
+          Enforce tight range per NFR-3 guideline (400-600 bytes typical). More restrictive, ensures consistency,
+          but may reject valid content that is slightly shorter or longer.
+        selected: false
+    selectionRationale: >
+      The 350-650 byte range (based on the create_markdown.py precedent which checks 350-650) is appropriate because:
+      (1) it catches obvious malformations (empty files, duplicated content), (2) it is permissive enough to allow
+      variations in prose length and style, (3) it is a guideline, not a strict requirement (NFR-3), and
+      (4) it provides a sanity check without over-constraining the implementation. The 350 lower bound accommodates
+      shorter prose files (e.g., test-3kyco5.md is 320 bytes), while 650 upper bound is generous. This validation
+      is proven in create_markdown.py and should be reused.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-17
+  - **Status:** Complete — all technical decisions documented and rationale provided
+
+  ## Summary
+
+  Feature 072 is a straightforward, low-risk markdown file creation task following an established pattern used
+  successfully in features 064-071. The implementation uses only Python standard library components (pathlib,
+  subprocess) with no external dependencies. All technologies are proven, well-documented, and consistent with the
+  existing codebase pattern.
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation
+
+  **Chosen:** Python `pathlib.Path.write_text(encoding='utf-8')`
+
+  **Rejected:**
+  - Subprocess shell commands (echo/cat) — unsafe for special characters, not idiomatic Python
+  - Manual open() file handling — verbose, requires explicit encoding/closing, higher error surface
+  - subprocess cat << EOF — dangerous for multiline content, requires shell escaping
+
+  **Rationale:**
+  pathlib is the modern Python standard for file operations. It automatically handles file creation, encoding,
+  and closing. The explicit `encoding='utf-8'` parameter ensures UTF-8 encoding on all platforms and prevents
+  BOM insertion (NFR-1). This approach is safe from injection, idiomatic, and proven in create_markdown.py and
+  65+ existing test files. pathlib.Path is built into Python 3.11+ (project requirement) and requires no external
+  dependencies.
+
+  ### 2. Encoding and Line Ending Validation
+
+  **Chosen:** Explicit UTF-8 encoding with runtime validation via `read_bytes()` checks
+
+  **Rejected:**
+  - Default system encoding — may not be UTF-8, risks spec non-compliance
+  - Binary mode with manual encode/decode — unnecessary complexity
+  - Git core.autocrlf — relies on repository configuration, not resilient
+
+  **Rationale:**
+  `write_text(encoding='utf-8')` guarantees UTF-8 on all platforms. Validation via `read_bytes()` check for
+  BOM (b'\xef\xbb\xbf') ensures NFR-1 compliance. Detection of b'\r\n' catches Windows CRLF, ensuring NFR-2
+  (LF line endings). This defensive approach is proven in create_markdown.py. No need for explicit `newline='\n'`
+  parameter because the repository environment uses Unix LF, and validation provides a safety net.
+
+  ### 3. Content Validation
+
+  **Chosen:** Lightweight structural validation (H1 heading, blank line separator, 2-3 sentences)
+
+  **Rejected:**
+  - No validation — risks silent spec violations
+  - Full CommonMark parser — adds external dependency, overkill for simple format
+
+  **Rationale:**
+  Simple, built-in validation ensures all created files meet success criteria. Checks for H1 heading at start,
+  blank line separator, and sentence count (via period counting) are deterministic and lightweight. This catches
+  common formatting errors (missing heading, wrong structure, wrong sentence count) early. Proven in create_markdown.py.
+  No external dependencies required (NFR-9).
+
+  ### 4. Git Workflow Integration
+
+  **Chosen:** Python `subprocess.run()` for git add, commit, and push
+
+  **Rejected:**
+  - GitPython library — adds external dependency (violates NFR-9)
+  - Manual git invocation — less reliable, no error checking
+
+  **Rationale:**
+  subprocess is the standard Python module for CLI tool invocation, built into the standard library. Using
+  `subprocess.run(['git', 'add', ...], check=True)` avoids shell escaping issues and provides automatic error
+  handling. The workflow (add → commit --no-verify → push -u origin HEAD) follows features 064-071 and is proven.
+  The --no-verify flag skips pre-commit hooks, appropriate for CI/automation where upstream validation occurs.
+
+  ### 5. Topic Selection and Prose Generation
+
+  **Chosen:** Direct prose composition; topic completely unrestricted per product decision
+
+  **Rejected:**
+  - Template-based generation — unnecessary abstraction for 2-3 sentences
+  - Topic validation from list — violates product decision
+
+  **Rationale:**
+  Per product decision, topic is unrestricted ("about anything"). Implementer has full autonomy. Prose quality
+  is basic readability (per product decision), not strict grammar. Direct composition avoids AI/template complexity.
+  This is consistent with create_markdown.py approach and maximizes flexibility.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O and path handling | Use (standard library) | Built-in, modern, safe, handles encoding automatically. No alternatives needed. |
+  | subprocess | Git command execution | Use (standard library) | Built-in, standard for CLI tool invocation, reliable error handling via check=True. |
+  | GitPython | Git operations via Python API | Reject | External dependency (violates NFR-9); subprocess is simpler and sufficient for this use case. |
+  | CommonMark or markdown parser | Markdown validation | Reject | External dependency; lightweight structural validation is sufficient for this simple format. |
+  | pytest or unittest | Testing framework | Not required | No test modifications needed (NFR-7); validation happens at runtime during file creation. |
+
+  ## Security Considerations
+
+  1. **File Path Injection:** Not applicable. The filename `test-2ak324.md` is hardcoded, not user-input.
+
+  2. **Content Injection:** Prose content is hardcoded, not from external input. No injection risk.
+
+  3. **Git Command Injection:** subprocess is used with list syntax (`['git', 'add', ...]`), not shell=True.
+     This prevents command injection even if filenames contained special characters (though they don't here).
+
+  4. **File Encoding Attacks:** Explicit UTF-8 encoding without BOM prevents encoding-based attacks. Validation
+     ensures no hidden characters or unusual encodings are introduced.
+
+  5. **Git Security:** Using `--no-verify` skips pre-commit hooks, but this is acceptable in CI/automation context.
+     Standard git signing is not required for this feature (typical for test artifacts).
+
+  **Conclusion:** No security vulnerabilities identified. All inputs are hardcoded. All external tool invocations
+  use safe subprocess patterns.
+
+  ## Performance Considerations
+
+  1. **File I/O:** Single file creation (~500 bytes) is negligible. No performance concerns.
+
+  2. **Encoding/Validation:** UTF-8 encoding and validation (read_bytes, string operations) are O(file_size).
+     For a ~500-byte file, this is microseconds. No optimization needed.
+
+  3. **Git Operations:** Three git subprocess calls (add, commit, push). Network-bound on push, negligible for
+     modern systems. No performance concerns.
+
+  4. **Scalability:** This feature creates one file per run. No scalability issues.
+
+  **Conclusion:** No performance optimization needed. All operations are inherently fast for this scope.
+
+  ## Architecture Notes
+
+  This feature fits seamlessly into the existing codebase architecture:
+
+  - **Repository Root Test Files:** The 65+ existing test-*.md files demonstrate this is an established pattern.
+    This feature adds one more file following the identical structure, content format, and git workflow.
+
+  - **No Source Code Impact:** This feature only creates a markdown file at the repository root. It does not
+    touch /src/sheep/, /tests/, or any configuration files (NFR-7). Zero architectural impact.
+
+  - **Standard Git Workflow:** The feature uses the standard git workflow (branch → create file → add → commit →
+    push), consistent with all prior features. No new git patterns introduced.
+
+  - **No New Dependencies:** All technologies (pathlib, subprocess, UTF-8, LF) are built-in or standard. NFR-9
+    is satisfied (no external package dependencies).
+
+  - **Implementation Pattern:** The create_markdown.py script provides a complete, tested precedent for this
+    exact task. The implementation can reuse this pattern directly, reducing risk and development time.
+
+  ## Risk Assessment
+
+  **Overall Risk:** Very Low
+
+  - **Complexity:** Minimal. Single file creation with straightforward validation.
+  - **Testing:** Covered by success criteria validation. No additional test infrastructure needed.
+  - **Dependencies:** Zero external dependencies. Only Python standard library.
+  - **Reversibility:** Trivial. File deletion and branch reset are straightforward if needed.
+  - **Precedent:** 65+ identical test files + create_markdown.py script provide clear, proven pattern.
+
+  ## Recommendations for Implementation Phase
+
+  1. **Reuse create_markdown.py Pattern:** The existing create_markdown.py script (features 069-071) provides
+     a complete, tested reference implementation. Adapt it by updating:
+     - FILENAME = "test-2ak324.md"
+     - PROSE_CONTENT = (your chosen prose with H1 heading + 2-3 sentences)
+     - commit_message = "feat(072): create markdown file test-2ak324.md with prose content"
+
+  2. **Topic Selection:** Choose any topic of interest. Examples from existing files: "The Power of Persistence",
+     "The Moon and Its Impact on Earth", etc. Keep prose readable and 2-3 sentences.
+
+  3. **Validation:** The validation logic in create_markdown.py is proven. Reuse the validate_file() function
+     unchanged for consistency.
+
+  4. **Git Workflow:** Use the subprocess-based git workflow (add → commit --no-verify → push) directly.
+     No deviations needed.
+
+  5. **File Size:** Target 400-600 bytes (validate 350-650 range). A typical H1 heading + 2-3 sentences = ~450-500 bytes.
+
+  ---
+
+  _Research phase complete. All technology decisions documented with rationale. Ready for implementation phase._
