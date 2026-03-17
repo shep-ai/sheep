@@ -1,0 +1,3 @@
+# The Value of Curiosity
+
+Curiosity is the driving force behind discovery and innovation across every field of human endeavor, from science and technology to art and philosophy, compelling us to venture beyond the boundaries of what we already know. This fundamental trait pushes us to ask challenging questions, explore unexpected connections, and seek deeper understanding of complex phenomena. Without curiosity, progress stagnates, knowledge plateaus, and society loses the capacity to adapt and innovate.
