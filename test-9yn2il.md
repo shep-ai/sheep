@@ -1,3 +1,3 @@
-# Neural Networks
+# Quantum Computing
 
-Neural networks are computational models inspired by biological neurons. They consist of interconnected nodes that process information through layers. These networks excel at pattern recognition and complex data analysis.
+Quantum computers use quantum bits to process information exponentially faster than classical computers. This technology promises to revolutionize cryptography, drug discovery, and optimization problems. Current challenges include maintaining quantum coherence and error correction.
