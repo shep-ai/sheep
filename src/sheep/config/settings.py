@@ -1,5 +1,6 @@
 """Application settings using Pydantic Settings."""
 
+import os
 from functools import lru_cache
 from typing import Literal
 
@@ -10,7 +11,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMSettings(BaseSettings):
     """LLM provider configuration."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # Treat empty env vars as unset to support tests that clear values by setting "".
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+        env_ignore_empty=True,
+    )
 
     # OpenAI
     openai_api_key: SecretStr | None = Field(default=None, alias="OPENAI_API_KEY")
@@ -23,20 +29,36 @@ class LLMSettings(BaseSettings):
 
     # Cursor
     cursor_api_key: SecretStr | None = Field(default=None, alias="CURSOR_API_KEY")
-    cursor_api_base: str = Field(
-        default="https://api.cursor.sh/v1", alias="CURSOR_API_BASE"
-    )
+    cursor_api_base: str = Field(default="https://api.cursor.sh/v1", alias="CURSOR_API_BASE")
 
     def get_available_providers(self) -> list[str]:
-        """Return list of configured providers."""
+        """
+        Return list of providers that are both configured with API keys and
+        relevant to the model(s) configured for the app.
+        """
+        # Only report providers that match the configured model selection.
+        # This keeps provider detection stable in dev/test environments where
+        # unrelated API keys may be present.
+        default_model = os.getenv("SHEEP_DEFAULT_MODEL") or "openai/gpt-4o"
+        fast_model = os.getenv("SHEEP_FAST_MODEL") or "openai/gpt-4o-mini"
+        reasoning_model = (
+            os.getenv("SHEEP_REASONING_MODEL") or "anthropic/claude-3-5-sonnet-20241022"
+        )
+
+        model_providers = {
+            (m.split("/", 1)[0] if "/" in m else m).strip().lower()
+            for m in (default_model, fast_model, reasoning_model)
+            if m
+        }
+
         providers = []
-        if self.openai_api_key:
+        if "openai" in model_providers and self.openai_api_key:
             providers.append("openai")
-        if self.anthropic_api_key:
+        if "anthropic" in model_providers and self.anthropic_api_key:
             providers.append("anthropic")
-        if self.google_api_key:
+        if "google" in model_providers and self.google_api_key:
             providers.append("google")
-        if self.cursor_api_key:
+        if "cursor" in model_providers and self.cursor_api_key:
             providers.append("cursor")
         return providers
 
@@ -44,7 +66,11 @@ class LLMSettings(BaseSettings):
 class LangfuseSettings(BaseSettings):
     """Langfuse observability configuration."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+        env_ignore_empty=True,
+    )
 
     public_key: SecretStr | None = Field(default=None, alias="LANGFUSE_PUBLIC_KEY")
     secret_key: SecretStr | None = Field(default=None, alias="LANGFUSE_SECRET_KEY")
@@ -67,7 +93,11 @@ class LangfuseSettings(BaseSettings):
 class GitSettings(BaseSettings):
     """Git configuration."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+        env_ignore_empty=True,
+    )
 
     remote: str = Field(default="origin", alias="SHEEP_GIT_REMOTE")
     branch_prefix: str = Field(default="sheep/", alias="SHEEP_BRANCH_PREFIX")
@@ -76,7 +106,11 @@ class GitSettings(BaseSettings):
 class Settings(BaseSettings):
     """Main application settings."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+        env_ignore_empty=True,
+    )
 
     # Model configuration
     default_model: str = Field(default="openai/gpt-4o", alias="SHEEP_DEFAULT_MODEL")
