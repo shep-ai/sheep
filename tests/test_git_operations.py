@@ -83,11 +83,11 @@ class TestCommitMarkdownFile:
         call_args = mock_tool_instance._run.call_args
         assert call_args.kwargs["repo_path"] == repo_path
         assert call_args.kwargs["add_all"] is True
-        assert "feat: Create test.md" in call_args.kwargs["message"]
+        assert "feat(083): create markdown file test.md with prose content" == call_args.kwargs["message"]
 
     @patch("sheep.content_generators.GitCommitTool")
-    def test_commit_message_includes_topic(self, mock_git_commit):
-        """Test that commit message includes the topic extracted from content."""
+    def test_commit_message_uses_prose_content_format(self, mock_git_commit):
+        """Test that commit message uses 'with prose content' instead of topic name."""
         mock_tool_instance = MagicMock()
         mock_tool_instance._run.return_value = "Committed"
         mock_git_commit.return_value = mock_tool_instance
@@ -102,11 +102,12 @@ class TestCommitMarkdownFile:
 
         commit_markdown_file(filepath, content, repo_path)
 
-        # Verify commit message contains topic
+        # Verify commit message uses generic 'prose content' format
         call_args = mock_tool_instance._run.call_args
         message = call_args.kwargs["message"]
-        assert "Quantum Computing" in message
-        assert "feat: Create test.md" in message
+        assert "Quantum Computing" not in message
+        assert "with prose content" in message
+        assert "feat(083): create markdown file test.md with prose content" == message
 
     @patch("sheep.content_generators.GitCommitTool")
     def test_uses_current_directory_as_default_repo_path(self, mock_git_commit):
@@ -127,7 +128,7 @@ class TestCommitMarkdownFile:
     @patch("sheep.content_generators.GitCommitTool")
     def test_returns_commit_result(self, mock_git_commit):
         """Test that the commit result is returned."""
-        expected_result = "Committed: feat: Create test.md markdown file with Test content\n..."
+        expected_result = "Committed: feat(083): create markdown file test.md with prose content\n..."
         mock_tool_instance = MagicMock()
         mock_tool_instance._run.return_value = expected_result
         mock_git_commit.return_value = mock_tool_instance
@@ -291,8 +292,8 @@ class TestCreateMarkdownFileOrchestration:
         # Verify all required keys are present
         assert result["filepath"] == "/repo/test-ai.md"
         assert result["content"] == test_content
-        assert "feat: Create test-ai.md" in result["commit_message"]
-        assert "Artificial Intelligence" in result["commit_message"]
+        assert result["commit_message"] == "feat(083): create markdown file test-ai.md with prose content"
+        assert "Artificial Intelligence" not in result["commit_message"]
         assert result["push_result"] == "Pushed"
 
     @patch("sheep.content_generators.push_markdown_file")

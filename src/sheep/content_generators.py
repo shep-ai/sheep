@@ -124,8 +124,8 @@ def write_markdown_file(content: str, filename: str) -> str:
     _logger.info(f"Writing markdown file to {file_path}")
 
     try:
-        # Write file with UTF-8 encoding (handles LF line endings on Unix)
-        with open(file_path, "w", encoding="utf-8") as f:
+        # Write file with UTF-8 encoding and explicit LF line endings (newline='' prevents conversion)
+        with open(file_path, "w", encoding="utf-8", newline="") as f:
             f.write(content)
 
         # Verify file was created
@@ -300,8 +300,8 @@ def commit_markdown_file(filepath: str, content: str, repo_path: str | None = No
         # Get filename only (for message clarity)
         filename = Path(filepath).name
 
-        # Format commit message: "feat: Create test-9veux3.md markdown file with [topic] content"
-        commit_message = f"feat: Create {filename} markdown file with {topic} content"
+        # Format commit message per spec FR-7: "feat(083): create markdown file test-szyfny.md with prose content"
+        commit_message = f"feat(083): create markdown file {filename} with prose content"
 
         _logger.debug(f"Commit message: {commit_message}")
 
@@ -407,8 +407,7 @@ def create_markdown_file(
 
         # Extract commit message from the result for return value
         # GitCommitTool returns "Committed: {message}\n{stdout}"
-        topic = extract_topic_from_content(content)
-        commit_message = f"feat: Create {filename} markdown file with {topic} content"
+        commit_message = f"feat(083): create markdown file {filename} with prose content"
 
         # Step 5: Push to remote
         _logger.info("Step 5: Pushing to remote repository")
