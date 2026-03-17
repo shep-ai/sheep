@@ -1,0 +1,287 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-71e3ba
+summary: >
+  Feature 070 creates a single markdown file (test-9yn2il.md) with H1 heading and 2-3
+  sentences of prose. Pure orchestration of existing content_generators.py infrastructure
+  with no new code or dependencies. Leverages Claude API via CrewAI for content generation,
+  pathlib for safe file I/O, structlog for structured logging, and existing GitCommitTool/GitPushTool
+  for version control integration.
+
+# Relationships
+relatedFeatures:
+  - number: 066
+    name: markdown-file-creation
+  - number: 067
+    name: markdown-file-creation
+  - number: 068
+    name: markdown-test-file
+  - number: 069
+    name: markdown-file-creation-6a2eda
+
+technologies:
+  - Python 3.11+
+  - Claude API
+  - CrewAI
+  - pathlib
+  - structlog
+  - Git
+
+relatedLinks:
+  - url: https://docs.anthropic.com/en/api/messages
+    title: Anthropic Claude API Documentation
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: Environment Verification & Setup
+    description: Verify prerequisites are in place (API keys, git configuration, module imports)
+    parallel: false
+
+  - id: phase-2
+    name: Content Generation Execution
+    description: Execute the markdown file creation workflow using existing orchestration function
+    parallel: false
+
+  - id: phase-3
+    name: Verification & Validation
+    description: Verify file creation, content structure, and git operations completed successfully
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  Feature 070 is pure orchestration of existing, well-tested infrastructure from content_generators.py:
+
+  ```
+  create_markdown_file("test-9yn2il.md")
+  ├── generate_markdown_content()      [Claude API via CrewAI, temp=0.2]
+  ├── write_markdown_file()             [pathlib + UTF-8, Unix LF]
+  ├── validate_markdown_file()          [Structure + format checks]
+  ├── commit_markdown_file()            [GitCommitTool wrapper]
+  └── push_markdown_file()              [GitPushTool wrapper]
+  ```
+
+  All components are production-ready with comprehensive error handling and structured logging.
+  Implementation requires no code changes — only calling the existing function with the specified filename.
+
+  ### Technology Stack
+
+  **LLM Content Generation:**
+  - Model: Claude 3.5 Sonnet via get_reasoning_llm() (temperature=0.2)
+  - Framework: CrewAI for provider abstraction
+  - API: Anthropic Claude API (ANTHROPIC_API_KEY environment variable)
+
+  **File Operations:**
+  - pathlib.Path for cross-platform path handling
+  - UTF-8 encoding with explicit Unix LF line endings
+  - Validation checks for path traversal, file size, encoding
+
+  **Validation:**
+  - H1 heading format check (must be present, properly formatted)
+  - Sentence count validation via period counting (exactly 2-3 sentences)
+  - Markdown format validation (blank line separator, trailing newline)
+  - UTF-8 encoding verification (no BOM, proper characters)
+
+  **Git Integration:**
+  - GitCommitTool for staging and committing changes
+  - GitPushTool for pushing to remote with upstream tracking
+  - Conventional commit message format: "feat: Create {filename} with {topic} content"
+  - Topic extracted from H1 heading for semantic git history
+
+  **Observability:**
+  - structlog for structured event logging
+  - INFO level for user-facing milestones (generation, file write, validation, commit, push)
+  - DEBUG level for detailed diagnostics
+  - All operations logged for observability and debugging
+
+  ## Key Design Decisions
+
+  ### 1. Orchestration-First Approach
+
+  **Decision:** Call existing `create_markdown_file()` function rather than reimplementing steps.
+
+  **Rationale:**
+  - The function already exists and is proven across features 066-069
+  - Comprehensive error handling and logging already implemented
+  - Reduces risk of inconsistency with established patterns
+  - Faster implementation (pure execution, no coding required)
+  - Leverages existing investment in infrastructure
+
+  ### 2. LLM Model Selection
+
+  **Decision:** Use `get_reasoning_llm()` (Claude 3.5 Sonnet, temperature=0.2)
+
+  **Alternatives Considered:**
+  - Fast model (GPT-4o mini) — Would sacrifice output quality for speed not needed
+  - Default model (GPT-4o) — Unnecessary capacity; reasoning model sufficient
+
+  **Rationale:**
+  - Low temperature (0.2) ensures deterministic, well-formed output
+  - Reasoning model excels at following structured instructions (H1 + prose format)
+  - Already configured in project settings and used throughout codebase
+  - Existing MARKDOWN_GENERATION_PROMPT optimized for this model
+  - Proven effective in features 066-069
+
+  ### 3. Validation Strategy
+
+  **Decision:** Multi-stage validation with period-based sentence counting
+
+  **Components:**
+  - H1 heading format validation (prefix check for "# ")
+  - Blank line separator between heading and prose
+  - Period counting for sentence validation (exactly 2-3 periods)
+  - UTF-8 encoding verification (no BOM)
+  - Unix LF line endings (no CRLF)
+  - Trailing newline enforcement
+
+  **Rationale:**
+  - Period counting directly validates spec requirement ("2-3 sentences")
+  - No external dependencies needed (no NLP libraries)
+  - Proven approach in existing content_generators.py
+  - Covers all functional requirements (FR-5: valid markdown)
+  - Simple, deterministic, reliable
+
+  ### 4. File I/O Safety
+
+  **Decision:** pathlib.Path with UTF-8 encoding and explicit Unix LF validation
+
+  **Safety Measures:**
+  - Path traversal check (rejects "/" and "\\" in filename)
+  - Hidden file check (rejects "." prefix)
+  - File size validation (prevents huge writes)
+  - Content validation before write (structure checks first)
+  - UTF-8 encoding with no BOM written
+
+  **Rationale:**
+  - pathlib is Python standard library best practice
+  - Cross-platform (handles Windows/Unix differences automatically)
+  - Rich API for validation (exists(), is_file(), stat())
+  - Already used throughout content_generators.py
+  - Proven safe across existing features
+
+  ### 5. Git Integration Workflow
+
+  **Decision:** Complete end-to-end workflow: generate → write → validate → commit → push
+
+  **Rationale:**
+  - Feature spec explicitly requires push (FR-7)
+  - Established pattern in features 066-069
+  - GitCommitTool and GitPushTool proven in codebase
+  - Demonstrates platform integration from generation to remote repository
+  - No manual steps required (full automation)
+
+  ### 6. Error Handling Philosophy
+
+  **Decision:** Fail fast with detailed structured logging; no automatic retry
+
+  **Rationale:**
+  - Most failures (auth, rate limits, API changes) are non-transient
+  - Retry logic adds complexity without solving fundamental issues
+  - Structured logging provides full diagnostic context
+  - User calling create_markdown_file() has control to retry
+  - Explicit errors force immediate attention to root causes
+
+  ### 7. Commit Message Format
+
+  **Decision:** "feat: Create {filename} markdown file with {topic} content"
+
+  **Components:**
+  - Conventional commit format ("feat:" prefix)
+  - Filename included for direct file reference
+  - Topic extracted from H1 heading for semantic context
+  - Follows established pattern from features 066-069
+
+  **Rationale:**
+  - Follows conventional commit specification
+  - Git log provides semantic context without content inspection
+  - Topics vary per generation (distinguish multiple files)
+  - Improves developer experience: `git log --oneline` shows file-specific info
+
+  ## Implementation Strategy
+
+  **Phase 1: Environment Verification**
+  - Verify ANTHROPIC_API_KEY environment variable is set
+  - Verify git is configured (user.name, user.email)
+  - Verify current branch matches feature branch
+  - Verify pathlib and structlog modules are available
+  - All checks via unit tests (no side effects)
+
+  **Phase 2: Content Generation Execution**
+  - Call `create_markdown_file("test-9yn2il.md")`
+  - Function orchestrates:
+    - LLM content generation (Claude API)
+    - File write with safety validation
+    - Markdown format validation
+    - Git commit with conventional message
+    - Git push with upstream tracking
+  - Structured logging captures all operations
+
+  **Phase 3: Verification & Validation**
+  - Verify test-9yn2il.md exists in repository root
+  - Verify file structure (H1 + blank line + prose)
+  - Verify content is grammatically correct (via LLM inspection)
+  - Verify git operations (commit created, push successful)
+  - Verify file is valid markdown (via validate_markdown_file)
+
+  **Why This Ordering:**
+  1. Phase 1 first: ensures environment is ready before execution
+  2. Phase 2 next: orchestration function executes when prerequisites met
+  3. Phase 3 last: comprehensive validation confirms success
+  This prevents failures during execution and provides clear signal of success/failure.
+
+  ## Risk Mitigation
+
+  | Risk | Likelihood | Impact | Mitigation |
+  | ---- | ---------- | ------ | ---------- |
+  | API key not set or invalid | Medium | High | Phase 1 validates API key before execution; clear error message if missing |
+  | Git not configured | Low | High | Phase 1 validates git config; user must configure before running |
+  | LLM generates wrong format | Low | Medium | Existing MARKDOWN_GENERATION_PROMPT + low temperature (0.2) ensures format; validation catches deviations |
+  | File I/O fails (permission, disk) | Very Low | High | pathlib validation checks writability; error logged before exception raised |
+  | Git push fails (network, auth) | Low | Medium | Structured logging captures git error; user can retry manually |
+  | Content validation fails | Low | Medium | LLM prompt designed to succeed; if fails, clear error with content details logged |
+  | Filename collision (file exists) | Very Low | Medium | write_markdown_file checks for existing file; returns error instead of overwriting |
+  | Encoding issues (UTF-8 failure) | Very Low | Low | Python 3.11+ pathlib handles UTF-8 reliably; validation checks for BOM and CRLF |
+
+  ## Files to Create
+
+  None — this feature uses only existing infrastructure.
+
+  ## Files to Modify
+
+  None — this feature requires no code changes.
+
+  ## Implementation Readiness
+
+  **Implementation approach is straightforward:**
+
+  1. Create simple test to verify environment prerequisites
+  2. Test calling create_markdown_file() with the target filename
+  3. Test that resulting file matches specification requirements
+  4. Test that git operations completed successfully
+
+  **All infrastructure exists:**
+  - create_markdown_file() function handles orchestration
+  - Error handling and logging already implemented
+  - Validation functions already in place
+  - Git tools already available
+
+  **Zero risk:**
+  - No code to write (pure orchestration)
+  - No new dependencies (uses existing infrastructure)
+  - Proven pattern from features 066-069
+  - Comprehensive existing error handling
+
+  ---
+
+  _Planning complete — ready for implementation phase._
