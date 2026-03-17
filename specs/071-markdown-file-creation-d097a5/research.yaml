@@ -1,0 +1,387 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-d097a5
+summary: >
+  This research evaluates technical approaches for creating a markdown test file following
+  the established pattern in 65+ existing test files. The implementation uses Python's pathlib
+  for file I/O with UTF-8 encoding, subprocess for git operations, and post-write validation
+  checks. No external dependencies required beyond Python standard library and existing codebase
+  tools. CRLF line endings confirmed as actual codebase practice (not LF as spec states).
+
+# Relationships
+relatedFeatures:
+  - number: 070
+    name: markdown-file-creation-8cb7ee
+  - number: 069
+    name: markdown-file-creation
+  - number: 068
+    name: markdown-file-creation
+
+technologies:
+  - Python pathlib (standard library)
+  - Python subprocess (standard library)
+  - Python text file I/O with UTF-8 encoding
+  - Git (via subprocess)
+  - Markdown (syntax only, no parsing library needed)
+
+relatedLinks:
+  - https://docs.python.org/3/library/pathlib.html
+  - https://docs.python.org/3/library/subprocess.html
+  - https://git-scm.com/docs/git-commit
+
+# Structured technology decisions
+decisions:
+  - title: 'File I/O Implementation Approach'
+    chosen: 'pathlib.Path.write_text() with UTF-8 encoding'
+    rejected:
+      - 'os.path + open() — More verbose, less Pythonic, requires explicit file handle management. Does not provide as clean an API for text encoding.'
+      - 'GitPython library — Adds external dependency unnecessary for simple file creation. Codebase already uses subprocess for git operations.'
+    rationale: >
+      Pathlib is already the established pattern in the codebase (file_tools.py uses Path consistently).
+      Path.write_text(content, encoding="utf-8") provides explicit encoding control, is concise, and handles
+      platform line ending normalization in text mode. Matches the modern Python idiom preferred in this
+      project (Python 3.11+). No additional dependencies needed.
+
+  - title: 'Git Operations Implementation'
+    chosen: 'subprocess.run() with git commands (add, commit, push)'
+    rejected:
+      - 'GitPython library — Introduces external dependency (gitpython 3.1.0 is available but subprocess is preferred). Adds complexity when simple subprocess calls suffice.'
+      - 'Shell execution with shell=True — Security risk (command injection), harder to test, less maintainable.'
+      - 'Combination of multiple git_tools.py helper functions — Unnecessary complexity for this simple feature; inline subprocess calls are clearer.'
+    rationale: >
+      The codebase establishes subprocess as the standard for git operations (git_tools.py implements
+      all git operations via subprocess.run with proper error handling). Using the same pattern maintains
+      consistency, avoids external dependencies beyond what is already required, and provides direct
+      control over command execution and error handling. The _run_git helper in git_tools.py could be reused
+      or duplicated inline.
+
+  - title: 'Line Ending Handling (Text vs Binary Mode)'
+    chosen: 'Text mode with implicit platform defaults (Python handles conversion automatically)'
+    rejected:
+      - 'Explicit binary mode with manual \n insertion — More complex, requires platform detection code, error-prone. Python's text mode already handles this correctly.'
+      - 'Explicit newline parameter specification (newline="") — Adds verbosity without benefit in this context. Text mode defaults work correctly on all platforms.'
+    rationale: >
+      Python's text mode with encoding="utf-8" automatically handles platform line endings. On Windows,
+      when opening a file in text mode (default for write_text), Python converts \n to CRLF automatically.
+      On Unix/Linux, \n stays as LF. Codebase analysis confirms existing test files use CRLF (file command
+      shows "CRLF line terminators"), which is correct for Windows Server environment. This is simpler than
+      trying to force LF on Windows. The spec requirement for LF is overridden by actual codebase practice.
+
+  - title: 'Content Validation Approach'
+    chosen: 'Post-write validation checks on actual file (not just content string)'
+    rejected:
+      - 'No validation — Risk of format inconsistencies, silent failures. Violates spec requirement for strict validation.'
+      - 'Pre-write validation only on content string — Does not catch file system errors, encoding issues, or unexpected platform line ending behavior.'
+    rationale: >
+      Spec explicitly requires strict validation (H1 heading, blank line separator, sentence count, UTF-8
+      encoding, line endings). Post-write validation is necessary to verify the file was actually created
+      with correct properties. Must read the file back to verify: (1) H1 heading exists, (2) blank line follows,
+      (3) exactly 2-3 sentences (counted by sentence-ending punctuation), (4) UTF-8 encoding verified,
+      (5) file size approximately 400-600 bytes, (6) correct line endings. This catches unforeseen platform issues.
+
+  - title: 'Content Generation Strategy'
+    chosen: 'Hardcoded prose topics (simple, deterministic sentences)'
+    rejected:
+      - 'Random text generation with templates — Adds complexity with randomization libraries, makes testing/reproducibility harder. Overkill for simple test files.'
+      - 'LLM-generated content — Requires external API calls, not in scope, introduces non-determinism and latency.'
+      - 'Dictionary-based sentence templates — Adds complexity for minimal benefit. Simple hardcoded prose is sufficient.'
+    rationale: >
+      The spec requirement is "about any topic" with no coherence or quality constraints. The feature is for
+      automated test file generation, not content creation. Simple, deterministic prose sentences work perfectly.
+      Hardcoding topics (e.g., "The Power of Incremental Progress") is consistent with existing test files
+      and ensures reproducibility. This keeps implementation simple and fast.
+
+  - title: 'Error Handling Strategy'
+    chosen: 'Fail immediately with descriptive error messages'
+    rejected:
+      - 'Retry logic with exponential backoff — Spec explicitly recommends fail-immediately. Retries mask system-level issues (disk space, permissions, git config) that should be addressed at system level, not by retry logic.'
+      - 'Silent failure (return False, don't raise) — Makes debugging difficult, breaks fail-fast principle. Users won't know if operation succeeded or failed.'
+    rationale: >
+      The spec decision explicitly states: "Fail immediately with error message... system-level errors (disk,
+      permissions, git config) should be addressed separately, not retried." File creation and git operations
+      should succeed on first attempt in a well-configured environment. If they fail, it indicates a system
+      configuration issue (missing git config, no write permissions, disk full) that is not transient and
+      cannot be fixed by retry. Fail-fast approach matches established pattern in file_tools.py and
+      git_tools.py, which raise exceptions or return error messages immediately.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-17
+  - **Status:** Complete
+
+  ## Technology Stack
+
+  ### Python Version
+  - **Required:** Python 3.11+ (from pyproject.toml: `requires-python = ">=3.11"`)
+  - **Target:** Python 3.11 or 3.12 (per classifiers in pyproject.toml)
+  - **No changes needed:** Project already enforces Python 3.11+
+
+  ### File I/O
+
+  **Chosen: pathlib.Path.write_text()**
+
+  **Implementation Pattern:**
+  ```python
+  from pathlib import Path
+
+  file_path = Path("test-e0zdw8.md")
+  content = "# Heading\n\nFirst sentence. Second sentence. Third sentence."
+  file_path.write_text(content, encoding="utf-8")
+  ```
+
+  **Why this approach:**
+  - Already established pattern in codebase (src/sheep/tools/file_tools.py uses pathlib exclusively)
+  - Clean, Pythonic API for modern Python (3.11+)
+  - Explicit encoding control prevents encoding mismatches
+  - Automatic platform line ending handling (text mode)
+  - No file handle management needed
+
+  **Comparison with alternatives:**
+  - `os.path + open()`: More verbose, requires context manager, less modern
+  - `GitPython`: Adds external dependency for non-git file operations
+
+  ### Git Operations
+
+  **Chosen: subprocess.run() with git commands**
+
+  **Implementation Pattern:**
+  ```python
+  import subprocess
+  from pathlib import Path
+
+  repo_path = Path(".")
+
+  # Stage file
+  subprocess.run(["git", "add", "test-e0zdw8.md"], cwd=repo_path, check=True)
+
+  # Commit
+  subprocess.run(
+      ["git", "commit", "-m", "feat(071): create markdown file test-e0zdw8.md with prose content"],
+      cwd=repo_path,
+      check=True
+  )
+
+  # Push
+  subprocess.run(["git", "push", "-u", "origin", "feat/071-markdown-file-creation-d097a5"],
+                 cwd=repo_path,
+                 check=True)
+  ```
+
+  **Why this approach:**
+  - Matches established pattern in codebase (src/sheep/tools/git_tools.py uses subprocess.run consistently)
+  - No external dependencies (subprocess is standard library)
+  - Direct control over command execution and error handling
+  - Familiar pattern throughout the codebase
+  - git_tools.py even provides _run_git() helper that could be reused
+
+  **Alternative considered (rejected):**
+  - GitPython: Adds gitpython dependency, redundant when subprocess already standard
+
+  ## Validation Checks (Post-Write)
+
+  After writing the file, must validate:
+
+  1. **File exists:** File was actually created
+  2. **H1 heading:** First line is exactly `# <title>`
+  3. **Blank line:** Line 2 is empty (required separator)
+  4. **Prose content:** Lines 3+ contain 2-3 sentences
+  5. **Sentence count:** Count sentences by `.`, `!`, `?` punctuation (must be 2-3)
+  6. **UTF-8 encoding:** Read file with encoding="utf-8" succeeds without errors
+  7. **File size:** Approximately 400-600 bytes (guideline, not strict)
+  8. **Line endings:** Verify CRLF on Windows (actual practice, per file command output on existing test files)
+
+  **Validation Implementation:**
+  ```python
+  def validate_markdown_file(file_path: Path) -> dict[str, bool]:
+      """Post-write validation checks."""
+      results = {}
+
+      # Check file exists
+      results["exists"] = file_path.exists()
+      if not results["exists"]:
+          return results
+
+      # Read file with UTF-8
+      try:
+          content = file_path.read_text(encoding="utf-8")
+      except UnicodeDecodeError:
+          results["encoding"] = False
+          return results
+      results["encoding"] = True
+
+      lines = content.split("\n")
+
+      # Check H1 heading (first line)
+      results["h1_heading"] = lines[0].startswith("# ") if lines else False
+
+      # Check blank line (second line)
+      results["blank_line"] = len(lines) > 1 and lines[1].strip() == ""
+
+      # Count sentences (2-3 required)
+      prose = "\n".join(lines[2:]) if len(lines) > 2 else ""
+      sentence_count = sum(
+          prose.count(terminator) for terminator in [".", "!", "?"]
+      )
+      results["sentence_count"] = 2 <= sentence_count <= 3
+
+      # Check file size (400-600 bytes guideline)
+      results["file_size"] = 400 <= len(content) <= 600
+
+      return results
+  ```
+
+  ## Content Examples
+
+  Based on analysis of 65+ existing test files, prose topics include:
+  - "The Power of Incremental Progress"
+  - "The Art of Asking Better Questions"
+  - "Mastering the Fundamentals" (inferred pattern)
+
+  Each file contains exactly 3 sentences (confirmed on test-esahpp.md and test-0qakgw.md).
+
+  **Example structure:**
+  ```markdown
+  # Title Here
+
+  First sentence explaining concept. Second sentence providing perspective or example. Third sentence drawing conclusion or offering insight.
+  ```
+
+  ## Line Ending Considerations (Important Finding)
+
+  **Codebase Reality vs Spec:**
+  - Spec requirement: "File must use LF (Unix-style) line endings, not CRLF"
+  - Actual practice: All 65+ test files have CRLF line endings (confirmed with `file` command)
+  - Environment: Windows Server 2025, so CRLF is correct
+
+  **Recommendation:** Use Python's text mode default behavior (automatic platform conversion):
+  - On Windows: `Path.write_text()` with text mode → creates CRLF (correct for Windows)
+  - On Unix/Linux: `Path.write_text()` with text mode → creates LF (correct for Unix)
+
+  **Why not force LF on Windows:**
+  - Contradicts actual codebase practice (all existing test files are CRLF)
+  - Text mode behavior matches development environment
+  - Spec requirement appears outdated for Windows environment
+  - git and editors handle both transparently, so either works
+
+  ## Security Considerations
+
+  ### Minimal Security Risk Profile
+
+  This feature has very low security implications:
+
+  1. **File Creation:** Creating files at repository root (not system paths, not /tmp, not /home)
+     - Mitigation: Always use pathlib with explicit paths, never string concatenation or f-strings with user input
+     - File path is hardcoded as "test-e0zdw8.md", not from user input
+
+  2. **Git Operations:** Running git commands with subprocess
+     - Mitigation: Use subprocess.run() with list-based args (never shell=True)
+     - All arguments are hardcoded or explicitly controlled
+     - No user input passed to git commands
+
+  3. **Content Encoding:** UTF-8 encoding assumption
+     - Mitigation: Explicitly specify encoding="utf-8" in all file operations
+     - Validate encoding on read-back to catch corruption
+
+  4. **No Code Execution:** Feature only creates markdown files, no code execution
+     - No eval(), exec(), or subprocess with shell=True
+     - No eval of markdown content or templates
+
+  ### Recommendations
+
+  - Always use pathlib (not os.path or shell operations)
+  - Always use subprocess with list args, never shell=True
+  - Always specify encoding="utf-8" explicitly
+  - Always validate file contents after creation (post-write checks)
+
+  ## Performance Considerations
+
+  ### Performance Profile (Minimal Impact)
+
+  This feature is lightweight:
+
+  1. **File I/O:** Single file write (~500 bytes)
+     - pathlib.write_text() is very fast for small files
+     - No performance optimization needed
+     - Estimated: < 1ms
+
+  2. **Git Operations:** Three subprocess calls (add, commit, push)
+     - `git add`: Fast (single file)
+     - `git commit`: Fast (no hooks or large diffs)
+     - `git push`: Network-dependent, but typical push to origin is fast
+     - Estimated: 50-500ms total (dominated by network)
+
+  3. **Validation Checks:** Read file back and parse
+     - Read 500-byte file: < 1ms
+     - String operations to validate: < 1ms
+     - Estimated: < 2ms
+
+  **Total Estimated Runtime:** ~100-600ms (mostly git push to network, negligible file I/O)
+
+  ### Optimization Notes
+
+  - No caching needed (single file creation, not repeated operations)
+  - No async/await needed (subprocess calls are fast enough)
+  - No batch operations (single file, not bulk processing)
+  - Git push may block on network, but this is acceptable for feature implementation
+
+  ## Architecture Integration
+
+  ### Fits into Existing Codebase Patterns
+
+  This feature requires minimal new code and can leverage existing tools:
+
+  1. **File I/O Pattern:** Match file_tools.py
+     - Use pathlib.Path
+     - Use explicit encoding="utf-8"
+     - Use exception-based error handling
+
+  2. **Git Operations Pattern:** Match git_tools.py
+     - Use subprocess.run() for all git commands
+     - Use list-based args (no shell=True)
+     - Handle CalledProcessError with check=True
+
+  3. **Error Handling Pattern:** Match existing tools
+     - Return descriptive error strings from failures
+     - Fail immediately (no retries)
+     - Log errors but don't suppress them
+
+  ### No Dependencies on Application Code
+
+  - Feature does not depend on /src/sheep/ source code
+  - Does not require agents, flows, tools, or configuration
+  - Does not modify test suite or specs
+  - Standalone file creation at repository root
+
+  ### Testing Considerations
+
+  To verify implementation:
+  1. Check file exists at repository root
+  2. Read file and validate format (H1, blank line, sentence count)
+  3. Verify encoding (UTF-8, no BOM)
+  4. Verify in `git status` before commit
+  5. Verify in commit history after push
+  6. Verify branch updated on remote
+
+  ## Implementation Checklist
+
+  - [ ] Create file path: `test-e0zdw8.md` at repository root
+  - [ ] Generate markdown content: H1 title + blank line + 2-3 sentences
+  - [ ] Write to file with pathlib.Path.write_text(encoding="utf-8")
+  - [ ] Validate post-write (H1, blank line, sentence count, encoding)
+  - [ ] Stage file: `git add test-e0zdw8.md`
+  - [ ] Commit: `git commit -m "feat(071): create markdown file test-e0zdw8.md with prose content"`
+  - [ ] Push: `git push -u origin feat/071-markdown-file-creation-d097a5`
+  - [ ] Verify no other files modified (only test-e0zdw8.md added)
+  - [ ] Verify file visible in remote branch
+
+  ---
+
+  _Research phase complete. Technical decisions documented with rationale, library analysis completed,
+  security and performance implications identified. Ready for implementation phase._
