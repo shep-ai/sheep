@@ -1,0 +1,3 @@
+# The Art of Active Listening
+
+Active listening is a fundamental skill that transforms how we communicate and build relationships with others. Rather than waiting for our turn to speak, true listening requires genuine curiosity and full presence with what another person is sharing. When we master this skill, we unlock deeper understanding, stronger connections, and more meaningful conversations in both personal and professional contexts.
