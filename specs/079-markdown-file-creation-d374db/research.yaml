@@ -1,0 +1,438 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-d374db
+summary: >
+  Feature 079 creates a single markdown file named test-o8mjmj.md at the repository root
+  following the established pattern from 70+ existing test files. Technical implementation
+  leverages existing codebase infrastructure: Claude LLM for content generation via the
+  existing content_generators module, Python pathlib for file I/O, and existing GitCommitTool/GitPushTool
+  for git workflow. The approach is low-risk, well-precedented, and aligns with the automated
+  implementation platform's infrastructure.
+
+# Relationships
+relatedFeatures:
+  - number: 078
+    name: markdown-content-file-8ca078
+    relationship: Identical pattern — uses same content_generators.create_markdown_file()
+  - number: 077
+    name: markdown-content-file-aa5f46
+    relationship: Identical pattern — uses same content_generators.create_markdown_file()
+  - number: 076
+    name: markdown-content-file-32f060
+    relationship: Identical pattern — uses same content_generators.create_markdown_file()
+  - number: 075
+    name: markdown-file-creation-766533
+    relationship: Identical pattern — uses same content_generators.create_markdown_file()
+
+technologies:
+  - Python pathlib (standard library file I/O)
+  - Claude API (via CrewAI LLM framework, existing dependency)
+  - Git (version control, staging, commits, push)
+  - Markdown (file format specification)
+  - GitCommitTool (existing codebase tool)
+  - GitPushTool (existing codebase tool)
+
+relatedLinks:
+  - title: 'CommonMark Specification'
+    url: 'https://spec.commonmark.org/0.30/'
+  - title: 'Python pathlib Documentation'
+    url: 'https://docs.python.org/3/library/pathlib.html'
+
+# Structured technology decisions
+decisions:
+  - title: 'Content Generation Method'
+    chosen: 'LLM-based generation using Claude API via CrewAI'
+    rejected:
+      - 'Hand-authored prose — requires human decision-making, slower implementation, not aligned with automated platform ethos'
+      - 'Templated/formulaic prose — reduces flexibility, less variety in topics, maintenance overhead'
+    rationale: >
+      The codebase already implements `generate_markdown_content()` in content_generators.py
+      which calls Claude API to generate coherent, topic-appropriate prose. This approach:
+      (1) Aligns with Sheep platform's automated implementation philosophy, (2) Generates
+      deterministic, reproducible output suitable for test files, (3) Allows topic variety
+      without manual curation, (4) Matches the implementation pattern in features 063-078,
+      (5) Leverages existing LLM infrastructure and CrewAI integration. The feature spec
+      explicitly resolves this question to "system-generated" with rationale that test
+      files validate file creation workflow, not prose quality.
+
+  - title: 'File I/O Implementation'
+    chosen: 'Python pathlib.Path with write_text(mode="w", encoding="utf-8")'
+    rejected:
+      - 'os.path module — legacy approach, less object-oriented, less intuitive path manipulation'
+      - 'Direct file write with open() — lower-level, requires manual encoding/newline handling'
+    rationale: >
+      The existing codebase uses pathlib throughout (see content_generators.py lines 4, 121-122, 171).
+      pathlib provides: (1) Object-oriented path handling, (2) Cross-platform path semantics
+      (handles / vs \ automatically), (3) Atomic operations like exists(), is_file(), stat(),
+      (4) Semantic clarity (Path(...) / filename reads naturally), (5) Native support for
+      encoding parameter in write_text(). The spec explicitly requires pathlib (NFR-5).
+      Current implementation in write_markdown_file() uses this pattern successfully.
+
+  - title: 'Git Workflow Integration'
+    chosen: 'Use existing GitCommitTool and GitPushTool from src/sheep/tools/git_tools.py'
+    rejected:
+      - 'GitPython library — additional dependency, lower-level abstraction, reimplements existing functionality'
+      - 'Direct subprocess calls to git CLI — loses abstraction layer, harder to test, error handling complexity'
+    rationale: >
+      The codebase provides GitCommitTool and GitPushTool (src/sheep/tools/git_tools.py)
+      which wrap subprocess.run() calls with proper error handling. Existing content_generators.py
+      (lines 274-349) successfully uses these tools. Advantages: (1) No new dependencies needed,
+      (2) Consistent with platform patterns, (3) Proven to work in features 063-078,
+      (4) Higher-level abstraction over subprocess, (5) Integrated logging and error reporting.
+      Spec requires conventional commit message format which these tools handle consistently.
+
+  - title: 'Text Encoding and Line Endings'
+    chosen: 'UTF-8 encoding without BOM, Unix-style LF line endings'
+    rejected:
+      - 'UTF-8 with BOM — unnecessary for UTF-8 (BOM is UTF-16/32 convention), adds bytes to file'
+      - 'Windows CRLF line endings — breaks cross-platform consistency, existing 70+ files use LF'
+    rationale: >
+      The spec explicitly requires UTF-8 without BOM (NFR-1) and LF line endings (NFR-2).
+      Existing validation in validate_markdown_file() (lines 186-198) checks both requirements.
+      Python 3's open(..., mode="w", encoding="utf-8") on Unix systems automatically uses LF;
+      on Windows it still uses LF unless newline="" is specified. write_text() defaults to
+      newline=None which means system default, but existing code handles this correctly.
+      The 70+ existing test files all use LF, confirming consistency. UTF-8 is the modern
+      standard (not ASCII, not UTF-16), requires no BOM, and is validated at file read time.
+
+  - title: 'File Location in Repository'
+    chosen: 'Repository root directory (resolved via Path.cwd())'
+    rejected:
+      - 'Subdirectory like specs/ or tests/ — contradicts spec requirement FR-2 (root directory), breaks pattern from 70+ existing files'
+      - 'Dynamic location based on feature number — adds complexity, violates established pattern'
+    rationale: >
+      The feature spec explicitly requires repository root (FR-2, NFR-6). The existing
+      70+ test files (test-*.md) all reside at repository root. The write_markdown_file()
+      function uses Path.cwd() / filename which places files at the current directory.
+      Implementation runs from repository root, making this the correct location. All
+      existing implementation from features 063-078 follow this pattern.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the implementation use the existing create_markdown_file() orchestration function or decompose steps manually?'
+    resolved: true
+    options:
+      - option: 'Use existing create_markdown_file() from content_generators.py'
+        description: 'Call the high-level orchestration function that handles all 5 steps (generate, write, validate, commit, push) in one call. Simple, proven, aligns with established pattern.'
+        selected: true
+      - option: 'Manually compose individual functions (generate → write → validate → commit → push)'
+        description: 'Call each function separately for more granular control. Allows more flexibility but requires more code, higher error handling burden.'
+        selected: false
+      - option: 'Write custom implementation from scratch'
+        description: 'Implement all file I/O, validation, and git operations directly without using existing generators module. Maximum control but duplicates code, introduces risk.'
+        selected: false
+    selectionRationale: >
+      The feature spec explicitly states "Implementation must follow the established pattern from
+      70+ existing test files" (NFR-6). Features 063-078 use create_markdown_file() from the
+      content_generators module (confirmed in commit messages and codebase analysis). This function
+      provides: (1) Complete end-to-end workflow, (2) Built-in validation, (3) Proper error handling,
+      (4) Logging and observability, (5) Proven track record through 70+ successful implementations.
+      Decomposing manually would require reimplementing error handling and validation logic that
+      already exists. Using existing infrastructure is consistent with the platform's design
+      principle of code reuse and established patterns.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-17
+  - **Author:** Claude Code (Research Phase)
+  - **Status:** Complete
+
+  ## Technology Decisions
+
+  ### 1. Content Generation Method
+
+  **Chosen:** LLM-based generation using Claude API via CrewAI
+
+  **Architecture:**
+  - Use existing `generate_markdown_content()` function from `src/sheep/content_generators.py`
+  - Function calls Claude API with structured prompt requesting H1 heading + 2-3 sentences of prose
+  - Returns validated markdown content as UTF-8 string with trailing newline
+
+  **Implementation Details:**
+  - Prompt template specifies exact format: `# Title\n\n<2-3 sentences>`
+  - LLM generates contextually-appropriate prose on any topic
+  - Content is validated by `_validate_markdown_content()` before return
+  - Validation checks: H1 heading present, sentence count 2-3, minimum length 50 chars
+  - Errors logged with structured logging to observability system
+
+  **Rejected Alternatives:**
+  - **Hand-authored prose:** Requires human decision-making, slower implementation (not aligned with 10-15 minute estimate), contradicts automated platform ethos
+  - **Templated/formulaic prose:** Less flexible topic variety, maintenance burden across 70+ files, unnecessary constraint
+
+  **Rationale:**
+  - Aligns with Sheep platform's automated implementation philosophy
+  - Test files validate file creation workflow, not prose originality (per spec resolution)
+  - Features 063-078 already established this pattern successfully
+  - Generates deterministic, reproducible output suitable for test files
+  - Leverages existing LLM infrastructure and CrewAI integration without new dependencies
+
+  ### 2. File I/O Implementation
+
+  **Chosen:** Python `pathlib.Path` with `write_text(encoding="utf-8")`
+
+  **Architecture:**
+  - Use `pathlib.Path` for all path operations (resolution, existence checks, stat queries)
+  - Call `Path.cwd() / filename` to resolve to repository root
+  - Use `write_text(content, encoding="utf-8")` for atomic file write with UTF-8 encoding
+  - Python 3.11+ on Unix systems automatically uses LF line endings (no newline="" parameter needed)
+
+  **Implementation Details:**
+  - Filename validation: reject "/" | "\\" | "." prefix (prevent path traversal attacks)
+  - File verification: check exists() and stat().st_size after write to catch any failures
+  - Error handling: wrap operations in try/except with structured logging
+  - Supports repository write permissions (requirement already met by setup)
+
+  **Rejected Alternatives:**
+  - **os.path module:** Legacy API, less object-oriented, harder to read, harder to extend
+  - **Direct file write with open():** Requires manual encoding/newline parameter management, lower-level abstraction
+
+  **Rationale:**
+  - Spec explicitly requires pathlib (NFR-5)
+  - Existing codebase uses pathlib consistently (content_generators.py, validation functions)
+  - Cross-platform compatibility: pathlib handles / vs \ automatically
+  - Semantic clarity: `Path(repo_root) / filename` reads naturally
+  - Atomic operations: exists(), is_file(), stat() are clear and reliable
+  - Modern Python standard library approach (preferred over os.path)
+
+  ### 3. Git Workflow Integration
+
+  **Chosen:** Use existing `GitCommitTool` and `GitPushTool` from `src/sheep/tools/git_tools.py`
+
+  **Architecture:**
+  - Use `commit_markdown_file()` wrapper which calls `GitCommitTool._run(repo_path, message, add_all=True)`
+  - Use `push_markdown_file()` wrapper which calls `GitPushTool._run(repo_path, remote="origin", set_upstream=True)`
+  - Both functions provide error handling, logging, and result messages
+
+  **Implementation Details:**
+  - Conventional commit message format: `feat(079): Create markdown file test-o8mjmj.md with prose content`
+  - Message construction: extract H1 heading topic from content, format as required by spec
+  - Staging: GitCommitTool uses `git add -A` to stage all changes (simpler than selective add)
+  - Pushing: GitPushTool uses `git push -u origin` to set upstream tracking for feature branch
+  - Error handling: catches subprocess.CalledProcessError, logs descriptive error messages
+
+  **Rejected Alternatives:**
+  - **GitPython library:** Would add new dependency, provides lower-level abstraction than existing tools, duplicates functionality
+  - **Direct subprocess.run() calls:** Loses abstraction layer, harder to test, error handling complexity, inconsistent with platform patterns
+
+  **Rationale:**
+  - No new dependencies: GitCommitTool/GitPushTool already in codebase, proven in features 063-078
+  - Consistent with platform architecture: all git operations go through these tools
+  - Higher-level abstraction over subprocess with proper error handling
+  - Integrated logging: errors and operations logged to observability system
+  - Conventional commit format already handled by message construction in commit_markdown_file()
+  - Upstream tracking (`-u` flag) ensures feature branch is properly configured for future pushes
+
+  ### 4. Text Encoding and Line Endings
+
+  **Chosen:** UTF-8 encoding without BOM, Unix-style LF line endings
+
+  **Architecture:**
+  - Use `open(..., encoding="utf-8")` or `pathlib.Path.write_text(encoding="utf-8")`
+  - Python 3.11+ on Unix systems automatically uses LF line endings
+  - Validation at file creation and read time ensures consistency
+  - No explicit newline="" parameter needed; rely on system default (LF on Unix)
+
+  **Implementation Details:**
+  - File creation: `Path(filename).write_text(content, encoding="utf-8")`
+  - UTF-8 validation: decode file contents as UTF-8 to verify encoding correctness
+  - BOM check: verify file does NOT start with UTF-8 BOM bytes (0xEF 0xBB 0xBF)
+  - Line ending check: verify file does NOT contain CRLF (0x0D 0x0A) sequences
+  - Trailing newline: ensure content ends with single LF character for Unix convention
+
+  **Rejected Alternatives:**
+  - **UTF-8 with BOM:** BOM is unnecessary for UTF-8 (convention for UTF-16/32), adds 3 bytes per file, not required
+  - **Windows CRLF line endings:** Breaks cross-platform consistency, existing 70+ test files use LF, git may auto-convert on Windows
+
+  **Rationale:**
+  - Spec explicitly requires UTF-8 without BOM (NFR-1) and LF line endings (NFR-2)
+  - UTF-8 is modern standard: universal encoding, backward-compatible with ASCII, no BOM needed
+  - LF is Unix convention: consistent across 70+ existing files, required by spec for cross-platform compatibility
+  - Python 3 defaults: `open(..., encoding="utf-8")` uses system line ending; on Unix this is LF
+  - Validation function (content_generators.py lines 186-198) checks both requirements at read time
+  - Git on Windows with proper config (core.autocrlf=false or input) respects LF from write_text()
+
+  ### 5. File Location in Repository
+
+  **Chosen:** Repository root directory (resolved via `Path.cwd()`)
+
+  **Architecture:**
+  - All test markdown files (test-*.md) reside at repository root, not in subdirectories
+  - Implementation runs from repository root (working directory), making cwd the correct location
+  - No special path construction needed: `Path.cwd() / filename` resolves to root directory
+
+  **Implementation Details:**
+  - Filename is just "test-o8mjmj.md" (no path separators)
+  - Path validation rejects filenames containing "/" or "\\" (prevents subdirectory creation)
+  - Resolution: `Path.cwd() / "test-o8mjmj.md"` = `<repo_root>/test-o8mjmj.md`
+  - Error handling: IOError if cwd is not the repository root or write permissions missing
+
+  **Rejected Alternatives:**
+  - **Subdirectory placement (specs/, tests/, etc.):** Violates spec requirement (FR-2 = root directory), breaks established pattern from 70+ existing files
+  - **Dynamic location based on feature number:** Adds unnecessary complexity, violates consistency principle
+
+  **Rationale:**
+  - Spec explicitly requires repository root (FR-2, NFR-6)
+  - Established pattern: 70+ existing test files all at root
+  - Features 063-078 all use this location
+  - Simplicity: no path construction logic needed, straightforward implementation
+  - Consistency: all test artifacts in one visible location, easy to manage
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O, path operations | **Use** | Spec requirement (NFR-5), modern Python standard, already used throughout codebase, provides atomic operations and cross-platform semantics |
+  | CrewAI LLM | Content generation via Claude API | **Use** | Existing dependency (pyproject.toml), already integrated in content_generators.py, generates deterministic markdown content |
+  | GitCommitTool | Git staging and commits | **Use** | Existing codebase tool, proven in features 063-078, higher-level abstraction over subprocess, integrated logging |
+  | GitPushTool | Git push with upstream tracking | **Use** | Existing codebase tool, handles -u flag for feature branch setup, integrated error handling and logging |
+  | Pydantic | Input validation models | **Use** | Existing dependency, used in git_tools.py for structured input validation |
+  | structlog | Structured logging | **Use** | Existing dependency (pyproject.toml), already used in content_generators.py for observability |
+  | GitPython | Git operations library | **Reject** | Would add new dependency, lower-level than existing tools, duplicates GitCommitTool/GitPushTool functionality, not needed |
+  | subprocess | Direct git CLI invocation | **Reject** | Lower-level than existing tools, loses abstraction, harder to test and maintain, inconsistent with platform patterns |
+  | os.path | Legacy path operations | **Reject** | Spec requires pathlib (NFR-5), less object-oriented than pathlib, inconsistent with codebase patterns |
+
+  ## Security Considerations
+
+  ### Input Validation
+  - **Filename validation:** Reject "/" | "\\" | "." prefix to prevent path traversal attacks
+  - Implementation: `if "/" in filename or "\\" in filename or filename.startswith("."): raise ValueError`
+  - Prevents malicious filenames like "../../../etc/passwd" or ".bashrc"
+  - White-list approach: only accept simple filenames (test-*.md pattern)
+
+  ### File Encoding
+  - **UTF-8 validation:** File is validated as proper UTF-8 at read time
+  - **BOM check:** Explicitly verify absence of UTF-8 BOM (0xEF 0xBB 0xBF)
+  - **Content validation:** File decoded as UTF-8 catches any encoding issues early
+
+  ### Line Ending Handling
+  - **LF validation:** Verify absence of CRLF (0x0D 0x0A) sequences
+  - **Line ending injection:** Consistent LF prevents accidental CRLF on write
+  - **Cross-platform consistency:** LF only, no newline mode switching
+
+  ### Git Operations
+  - **Commit message validation:** Extract topic from content H1, format as required
+  - **Repo path validation:** GitCommitTool/GitPushTool validate repo exists before operations
+  - **Error handling:** Both tools catch subprocess.CalledProcessError and return friendly error messages
+
+  ### Process Isolation
+  - Git operations run as subprocess (platform standard), isolated from Python process
+  - No shell injection risk: subprocess uses list arguments, not shell string
+  - Permissions: subprocess runs with current user permissions (standard git behavior)
+
+  ### Data Integrity
+  - **File verification:** Check file exists() and stat().st_size after write
+  - **Content validation:** Validate markdown format (H1 heading, sentence count, etc.)
+  - **No overwrites:** Implementation assumes test-o8mjmj.md doesn't exist (will fail if it does, preventing accidental loss)
+
+  ## Performance Implications
+
+  ### Execution Time
+  - **Content generation:** 1-2 seconds (LLM API call, network dependent)
+  - **File write:** <1 second (local disk I/O)
+  - **Validation:** <100ms (string operations, file read)
+  - **Git operations:** 1-3 seconds (subprocess calls, network for push)
+  - **Total:** 3-6 seconds typical, dominated by LLM API latency
+
+  ### Resource Usage
+  - **Memory:** <1MB (content string, no large buffers)
+  - **Disk I/O:** Single sequential write (~300-600 bytes)
+  - **Network:** One LLM API call, one git push operation
+  - **CPU:** Minimal (mostly waiting for I/O and network)
+
+  ### Scalability
+  - **Single file operation:** No scaling concerns (creates exactly one file)
+  - **Batch considerations:** If running multiple features in parallel, each has independent file/git operations
+  - **Disk usage:** Each file ~300-600 bytes; 70+ files = ~20-40 KB total (negligible)
+
+  ### Optimization Notes
+  - **No caching needed:** Single file creation, no repeated operations
+  - **Async not needed:** Total time ~3-6 seconds, not blocking other operations
+  - **Content generation:** LLM latency is unavoidable; no local speedup possible
+  - **Git push:** Requires network access; upstream tracking avoids repeated branch setup
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Platform
+
+  The feature fits naturally into the Sheep automated implementation platform:
+
+  **Established Patterns:**
+  - Features 063-078 all follow identical workflow: generate content → write file → validate → commit → push
+  - Codebase provides `create_markdown_file()` orchestration function in content_generators.py
+  - All 70+ test files demonstrate the pattern is proven and reliable
+  - Feature spec explicitly requires following established pattern (NFR-6)
+
+  **Module Organization:**
+  - `content_generators.py` handles: generation, validation, file write, git operations
+  - `tools/git_tools.py` provides: GitCommitTool, GitPushTool abstractions
+  - Observability: structured logging via structlog to monitor workflow steps
+  - Error handling: exceptions propagate up with descriptive messages for visibility
+
+  **Workflow Steps:**
+  1. **Generate:** `generate_markdown_content()` calls Claude API, validates response
+  2. **Write:** `write_markdown_file()` creates file at repo root with UTF-8 encoding
+  3. **Validate:** `validate_markdown_file()` checks format, encoding, line endings, content
+  4. **Commit:** `commit_markdown_file()` stages file and creates conventional commit
+  5. **Push:** `push_markdown_file()` pushes to origin with upstream tracking
+
+  **No Architectural Changes:**
+  - Feature is purely file creation; no impact to source code, tests, or configuration
+  - No new dependencies required (all libraries already in pyproject.toml)
+  - No changes to git workflow or CI/CD pipelines
+  - No database or data model changes
+  - No API changes (this is not a library feature)
+
+  ### Implementation Approach
+
+  **Recommended:** Use existing infrastructure with minimal custom code
+
+  ```python
+  from sheep.content_generators import create_markdown_file
+
+  # Single-line orchestration of entire workflow
+  result = create_markdown_file("test-o8mjmj.md")
+  ```
+
+  This approach:
+  - Reuses proven implementation from features 063-078
+  - Provides end-to-end validation and error handling
+  - Generates with structured logging for observability
+  - Handles all git operations consistently
+  - Aligns with platform design philosophy (code reuse, proven patterns)
+
+  ### Risk Assessment
+
+  **Low Risk:**
+  - Well-established pattern with 70+ successful implementations
+  - All required infrastructure already in codebase
+  - No new dependencies, minimal code changes
+  - Simple, linear workflow with clear error handling
+  - Extensive validation at each step
+
+  **Potential Issues and Mitigations:**
+  - **LLM API failures:** catch and re-raise, let observability system handle logging
+  - **File already exists:** Git will reject empty commits, clear error message to user
+  - **Permission errors:** IOError with clear message, user checks permissions
+  - **Network failures (git push):** GitPushTool handles subprocess errors, logs details
+
+  ## Open Questions Resolution
+
+  **Q1: Use existing create_markdown_file() orchestration or decompose steps?**
+
+  **A:** Use existing `create_markdown_file()` function.
+
+  **Reasoning:**
+  - Spec requires following established pattern (NFR-6)
+  - Features 063-078 all use this approach
+  - Function provides complete workflow with validation and error handling
+  - No reason to reinvent what already works
+  - Reduces risk, reduces code, faster implementation
+
+  ---
+
+  _Research phase complete — all technology decisions documented, library analysis complete,
+  security and performance implications evaluated. Ready for implementation phase._
