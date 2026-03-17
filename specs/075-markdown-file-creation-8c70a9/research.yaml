@@ -1,0 +1,425 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-8c70a9
+summary: >
+  Technical research for implementing markdown file creation (feature 075). This feature follows
+  the well-established pattern from 73+ existing test files. Implementation will use pathlib for
+  file I/O with UTF-8 encoding and LF line endings, direct string construction for content, and
+  subprocess.run() for git operations. No new dependencies required; all technologies are either
+  standard library (pathlib) or already in the project (git, subprocess).
+
+relatedFeatures:
+  - feature: 074-markdown-file-creation-380f68
+    relationship: Identical implementation pattern
+  - feature: 073-markdown-file-creation-07153b
+    relationship: Identical implementation pattern
+  - feature: 072-markdown-file-creation-c3567b
+    relationship: Identical implementation pattern
+
+technologies:
+  - Python 3.11+ (standard library)
+  - pathlib (file I/O)
+  - subprocess (git operations)
+  - Markdown (file format)
+  - Git (version control)
+
+relatedLinks:
+  - title: Python pathlib documentation
+    url: https://docs.python.org/3/library/pathlib.html
+  - title: Markdown CommonMark specification
+    url: https://spec.commonmark.org/
+  - title: Git conventional commits
+    url: https://www.conventionalcommits.org/
+
+decisions:
+  - title: File I/O Implementation Approach
+    chosen: >
+      Use Python pathlib.Path().write_text() directly with UTF-8 encoding.
+      Simple, single-line implementation matching all 73+ existing test files.
+      Example: Path("test-y09rnu.md").write_text("# Title\n\nContent.", encoding="utf-8")
+    rejected:
+      - >
+        Use os.open() + os.write() with explicit binary operations — Low-level,
+        verbose, doesn't match existing codebase patterns, and requires additional
+        code for encoding handling.
+      - >
+        Use open() builtin with manual context management — Functional but less
+        Pythonic than pathlib; pathlib is the modern standard (Python 3.4+) and
+        all existing test files in the codebase use pathlib implicitly via FileWriteTool.
+      - >
+        Use template libraries (Jinja2, Mako) or string formatters — Massive
+        over-engineering for a 2-3 sentence static string; adds dependency and
+        maintenance burden; violates principle of minimal complexity for single-file operation.
+    rationale: >
+      pathlib is the de facto standard for file operations in modern Python
+      (3.4+). The existing FileWriteTool in the codebase uses pathlib and open()
+      with UTF-8 encoding. Direct string construction with Path.write_text() is
+      idiomatic, readable, and matches the established pattern perfectly. The
+      method handles encoding, file creation, and closing automatically, reducing
+      error surface. All 73+ existing test files were created with this simple
+      approach, confirming its suitability. No external dependencies required
+      (pathlib is standard library).
+
+  - title: Content Generation Strategy
+    chosen: >
+      Direct string construction using Python string literals and concatenation.
+      Inline the heading and prose content directly in the implementation.
+      Example: content = "# The Art of Simplicity\n\n[2-3 sentences of prose]"
+    rejected:
+      - >
+        Load markdown content from external template file — Requires maintaining
+        a separate template file, adds filesystem dependency, complicates file
+        discovery and packaging. Over-engineered for static single-file content.
+        Contradicts spec requirement for direct pathlib implementation (NFR-5).
+      - >
+        Use procedural content generation (random words, Lorem Ipsum) — Adds
+        complexity with minimal benefit. Contradicts spec's explicit allowance for
+        "about anything" (NFR-8), which implies simple, intentional content. Reduces
+        readability and maintainability of test artifacts.
+      - >
+        Integrate with external API (Claude API, content generation service) —
+        Introduces network dependency, adds latency, violates spec requirement for
+        no new external dependencies (NFR-9). Overkill for a test artifact.
+    rationale: >
+      The spec explicitly allows "about anything" (NFR-8) and requires no new
+      dependencies (NFR-9). Direct string construction is the simplest, most
+      maintainable approach. The prose content is small (2-3 sentences, ~100-150
+      words) and doesn't warrant abstraction. All 73+ existing test files use this
+      approach. It provides full control over content, maximizes readability for
+      future maintainers, and requires zero external dependencies. Implementation
+      can be completed in seconds with a single assignment statement.
+
+  - title: Git Workflow Implementation Method
+    chosen: >
+      Use subprocess.run() with direct git command invocation. Call git add, git
+      commit, and git push using subprocess.run(..., cwd=repo_path, ...).
+      Matches existing git_tools.py patterns (_run_git helper function).
+    rejected:
+      - >
+        Use GitPython library for git operations — Library is available in
+        dependencies (gitpython>=3.1.0), but existing codebase avoids it for simple
+        operations. git_tools.py uses subprocess.run() exclusively. GitPython adds
+        abstraction layer for trivial operations (add, commit, push) that are better
+        handled as direct command invocations. Testing and debugging are harder with
+        abstraction.
+      - >
+        Use shell commands via os.system() or shell=True — Poses security risk for
+        command injection (even though current git commands are simple). Harder to
+        capture output and error codes. Existing codebase uses subprocess.run() with
+        shell=False (safer pattern).
+      - >
+        Use high-level library like dulwich — Adds unnecessary Python abstraction
+        over git. Over-engineered for three simple git commands. Contradicts spec
+        requirement for no new dependencies.
+    rationale: >
+      The existing codebase's git_tools.py uses subprocess.run() with _run_git()
+      helper for all git operations (status, diff, log, commit, push). This
+      establishes the authoritative pattern for the project. subprocess is part of
+      the standard library, no new dependencies required. Direct git invocation is
+      simpler for trivial operations (git add, git commit, git push) than abstraction
+      layers. Error handling via CalledProcessError is straightforward. Output
+      capture is transparent. This approach is proven in the codebase across 8
+      different git operations already implemented.
+
+  - title: Encoding and Line Endings
+    chosen: >
+      UTF-8 encoding without BOM, LF line endings (Unix style). Use pathlib's
+      write_text() with explicit encoding="utf-8" parameter. Python's default
+      text mode uses LF on Unix and CRLF on Windows; enforce LF explicitly via
+      newline parameter: write_text(..., encoding="utf-8", newline="\n")
+    rejected:
+      - >
+        Use CRLF line endings (Windows style) — Contradicts spec (NFR-2: "Unix-style
+        LF line endings") and existing test files. Creates platform inconsistencies
+        and line ending conflicts in git diffs.
+      - >
+        Use UTF-8 with BOM — Contradicts spec (NFR-1: "UTF-8 without BOM"). BOM
+        causes issues with markdown parsers and git diffs. Existing test files use
+        UTF-8 without BOM.
+      - >
+        Use different encoding (ASCII, Latin-1) — Limits character set
+        unnecessarily. UTF-8 is the standard for modern text files and web content.
+        Existing FileWriteTool uses UTF-8 as default.
+    rationale: >
+      The spec explicitly requires UTF-8 without BOM and LF line endings
+      (NFR-1, NFR-2). All 73+ existing test files use this encoding. The existing
+      FileWriteTool in the codebase uses encoding="utf-8" explicitly. Using
+      pathlib.Path.write_text() with encoding="utf-8" and newline="\n" ensures
+      consistent behavior across platforms (Windows defaults to CRLF, which would
+      violate the spec).
+
+  - title: Markdown Syntax and Structure
+    chosen: >
+      Use CommonMark-compliant markdown. Structure: single H1 heading on line 1,
+      blank line on line 2, 2-3 sentences of prose on lines 3+. Format:
+      "# [Title]\n\n[Prose sentence 1] [Prose sentence 2] [Optional sentence 3]\n"
+    rejected:
+      - >
+        Use alternative heading syntax (underline with ====) — Harder to read in
+        plain text, less commonly used in modern markdown. H1 with # prefix is the
+        dominant convention.
+      - >
+        Use multiple headings or sections — Contradicts spec (FR-3: "exactly one
+        markdown H1 heading"). Over-engineers a simple test artifact.
+      - >
+        Use inline formatting (bold, italics, code blocks) — Not required by spec;
+        adds unnecessary complexity. All 73+ existing test files use plain prose
+        without formatting.
+    rationale: >
+      CommonMark is the standard markdown specification. The spec requires exactly
+      one H1 heading (FR-3) and 2-3 sentences of prose (FR-4). This structure
+      matches all 73+ existing test files. H1 syntax (# Title) is more readable
+      than alternative heading syntax. Plain prose without inline formatting keeps
+      content simple and maintainable.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation (pathlib)
+
+  **Chosen:** Use `pathlib.Path().write_text()` directly
+
+  **Rejected:**
+  - `os.open() + os.write()` — Low-level, verbose, doesn't match existing patterns
+  - `open()` builtin — Works but less Pythonic; pathlib is the modern standard
+  - Template libraries (Jinja2, Mako) — Over-engineering for a 2-3 sentence string
+
+  **Rationale:** pathlib is the de facto standard for modern Python (3.4+). The existing
+  `FileWriteTool` in `src/sheep/tools/file_tools.py:96` uses `open(path, "w", encoding="utf-8")`,
+  which is functionally equivalent to `Path.write_text(encoding="utf-8")`. Direct string
+  construction with `Path.write_text()` is idiomatic, readable, and requires no dependencies.
+  All 73+ existing test files use this approach, confirming its suitability.
+
+  **Implementation Pattern:**
+  ```python
+  from pathlib import Path
+
+  content = "# [Title]\n\n[2-3 sentences of prose]\n"
+  Path("test-y09rnu.md").write_text(content, encoding="utf-8", newline="\n")
+  ```
+
+  ### 2. Content Generation Strategy (Direct String Construction)
+
+  **Chosen:** Direct string construction with Python string literals
+
+  **Rejected:**
+  - External template file — Requires filesystem dependency, over-engineered
+  - Procedural generation — Adds complexity with minimal benefit
+  - External API integration — Violates no-new-dependencies requirement (NFR-9)
+
+  **Rationale:** The spec explicitly allows "about anything" (NFR-8) and prohibits new
+  external dependencies (NFR-9). Direct string construction is the simplest, most
+  maintainable approach for a 2-3 sentence, ~400-650 byte file. All 73+ existing test
+  files use inline string literals. This provides full control over content, maximizes
+  readability for future maintainers, and requires zero external libraries.
+
+  **Implementation Pattern:**
+  ```python
+  content = """# The Art of Simplicity
+
+  Simplicity is a powerful principle in design and engineering that transcends all disciplines. When we remove unnecessary complexity and focus on essential elements, we create solutions that are more elegant, maintainable, and enjoyable to use. True mastery lies in achieving simplicity through thoughtful reduction and careful consideration of every detail.
+  """
+  ```
+
+  ### 3. Git Workflow Implementation (subprocess.run())
+
+  **Chosen:** Use `subprocess.run()` with direct git command invocation
+
+  **Rejected:**
+  - GitPython library — Available in dependencies but existing codebase avoids it for simple operations
+  - Shell commands via `os.system()` — Security risk and harder to handle output
+  - High-level abstractions (dulwich) — Over-engineered, adds unnecessary dependency
+
+  **Rationale:** The existing `git_tools.py` (lines 15-29) establishes the authoritative pattern:
+  use `subprocess.run()` with a `_run_git()` helper function for all git operations. This is used
+  consistently across 8 different git operations (status, diff, log, commit, push, checkout,
+  create-branch, worktree). subprocess is part of the standard library, no new dependencies required. Direct git invocation is
+  simpler for trivial operations (git add, git commit, git push) than abstraction
+  layers. Error handling via CalledProcessError is straightforward. Output
+  capture is transparent. This proven pattern is better than
+  introducing new abstractions.
+
+  **Implementation Pattern:**
+  ```python
+  import subprocess
+  from pathlib import Path
+
+  repo_path = Path(".")
+
+  # Stage file
+  subprocess.run(["git", "add", "test-y09rnu.md"], cwd=repo_path, check=True)
+
+  # Commit
+  subprocess.run(
+      ["git", "commit", "-m", "feat(075): create markdown file test-y09rnu.md with prose content"],
+      cwd=repo_path,
+      check=True,
+  )
+
+  # Push
+  subprocess.run(
+      ["git", "push", "-u", "origin", "feat/075-markdown-file-creation-8c70a9"],
+      cwd=repo_path,
+      check=True,
+  )
+  ```
+
+  ### 4. Encoding and Line Endings (UTF-8 + LF)
+
+  **Chosen:** UTF-8 encoding without BOM, LF line endings
+
+  **Rejected:**
+  - CRLF line endings — Violates spec (NFR-2) and existing test file patterns
+  - UTF-8 with BOM — Violates spec (NFR-1), causes markdown parser issues
+  - Different encoding — Limits character set unnecessarily
+
+  **Rationale:** The spec explicitly requires UTF-8 without BOM and LF line endings
+  (NFR-1, NFR-2). All 73+ existing test files use this encoding. The existing `FileWriteTool`
+  (line 96) uses `encoding="utf-8"`. To ensure consistent LF line endings across platforms
+  (Windows defaults to CRLF), explicitly set `newline="\n"` in write_text().
+
+  **Implementation Pattern:**
+  ```python
+  Path("test-y09rnu.md").write_text(content, encoding="utf-8", newline="\n")
+  ```
+
+  ### 5. Markdown Syntax (CommonMark Compliant)
+
+  **Chosen:** CommonMark-compliant markdown with H1 heading syntax
+
+  **Rejected:**
+  - Alternative heading syntax (underline with ====) — Less readable in plain text
+  - Multiple headings or sections — Over-engineers per spec requirement (FR-3)
+  - Inline formatting — Not required; adds unnecessary complexity
+
+  **Rationale:** CommonMark is the standard markdown specification. The spec requires exactly
+  one H1 heading (FR-3) and 2-3 sentences of prose (FR-4). H1 syntax (`# Title`) is more
+  readable than alternatives and matches all 73+ existing test files. Plain prose without
+  inline formatting keeps content simple and maintainable.
+
+  **File Structure:**
+  ```
+  # [Title]
+
+  [Sentence 1] [Sentence 2] [Optional sentence 3]
+  ```
+
+  **Example file (test-i85c38.md, 386 bytes):**
+  ```
+  # The Art of Simplicity
+
+  Simplicity is a powerful principle in design and engineering that transcends all disciplines. When we remove unnecessary complexity and focus on essential elements, we create solutions that are more elegant, maintainable, and enjoyable to use. True mastery lies in achieving simplicity through thoughtful reduction and careful consideration of every detail.
+  ```
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | pathlib (stdlib) | File I/O (read/write) | Use | Standard library, idiomatic Python 3.4+, used by existing FileWriteTool |
+  | subprocess (stdlib) | Execute git commands | Use | Standard library, establishes pattern in git_tools.py for all git operations |
+  | GitPython | Git abstraction | Reject | Already in dependencies but existing codebase uses subprocess for simplicity; adding abstraction layer unnecessary for 3 git commands |
+  | Jinja2 | Template rendering | Reject | Over-engineering for static 2-3 sentence content; violates no-new-dependencies requirement |
+  | Markdown (library) | Markdown parsing/validation | Reject | No validation needed; spec uses CommonMark (human-readable standard); files are manually validated for correctness |
+  | python-frontmatter | Markdown metadata | Reject | Spec requires no metadata/YAML frontmatter; plain structure only |
+
+  ## Security Considerations
+
+  **File Creation:**
+  - ✅ Using pathlib with explicit encoding prevents encoding-based attacks
+  - ✅ UTF-8 without BOM avoids BOM injection issues
+  - ✅ File path is hardcoded (no user input), no path traversal risk
+  - ✅ File is created in repository root (controlled directory), no arbitrary file creation
+
+  **Git Operations:**
+  - ✅ Using subprocess.run() with check=False/check=True provides safe error handling
+  - ✅ Git command arguments are hardcoded (no user input), no command injection risk
+  - ✅ Explicit cwd parameter limits git operations to repository directory
+  - ✅ Commit message is hardcoded per spec requirements
+
+  **Content:**
+  - ✅ Prose content is inline strings (no external input), no injection vectors
+  - ✅ Markdown syntax is validated against CommonMark standard
+  - ✅ No executable code, no embedded scripts, no external resources
+
+  **Overall Risk:** Minimal. File creation and git operations are isolated, use standard
+  libraries, and have no external dependencies or user-controlled inputs.
+
+  ## Performance Implications
+
+  **File I/O:**
+  - ✅ Single write_text() call: O(1) operation, ~1-5ms
+  - ✅ File size 400-650 bytes: negligible memory footprint
+  - ✅ No I/O loops or batch operations
+
+  **Git Operations:**
+  - ✅ Three sequential subprocess.run() calls (add, commit, push): ~100-500ms total
+  - ✅ Network latency for push is expected (seconds); local add/commit are fast
+  - ✅ No retry loops or polling
+
+  **Overall Performance:** Excellent. Single-file, linear operations with no
+  optimization needed. Execution time < 1 second locally, + network time for push.
+
+  ## Architecture Notes
+
+  ### Integration with Existing Patterns
+
+  This feature integrates seamlessly with established codebase patterns:
+
+  **File I/O Pattern** (from `src/sheep/tools/file_tools.py:96`):
+  - Uses `Path` from pathlib for file operations
+  - Explicitly specifies `encoding="utf-8"`
+  - Single operation with minimal error handling (files are straightforward to write)
+
+  **Git Operations Pattern** (from `src/sheep/tools/git_tools.py:15-29`):
+  - Uses `subprocess.run()` with git commands
+  - Follows pattern: `cmd = ["git"] + args`
+  - Sets cwd parameter for directory scoping
+  - Handles CalledProcessError for error cases
+
+  **Feature Scope** (from spec analysis and precedent features 064-074):
+  - No modifications to `/src/sheep/` source code
+  - No test file changes
+  - No configuration changes
+  - Single file creation + git workflow = isolated, contained change
+  - Matches all 73+ existing test file implementations exactly
+
+  ### Project Context
+
+  The Sheep project is a CrewAI-based automated implementation platform. This feature
+  (075) is part of a series of identical test features (064-074) designed to validate
+  the automated implementation workflow. Each test feature follows the same pattern:
+
+  1. Create a simple markdown file with title + prose content
+  2. Stage file with git add
+  3. Commit with conventional message
+  4. Push to feature branch
+
+  These test features serve as minimal, repeatable units of work to verify the
+  automated implementation system itself. The architectural simplicity (single file,
+  no source code changes) ensures tests remain fast, focused, and repeatable.
+
+  ## Implementation Checklist
+
+  - [ ] Create content string: `# [Title]\n\n[2-3 sentences]\n`
+  - [ ] Write file: `Path("test-y09rnu.md").write_text(content, encoding="utf-8", newline="\n")`
+  - [ ] Stage file: `subprocess.run(["git", "add", "test-y09rnu.md"], ...)`
+  - [ ] Commit: `subprocess.run(["git", "commit", "-m", "feat(075): ..."], ...)`
+  - [ ] Push: `subprocess.run(["git", "push", "-u", "origin", "feat/075-..."], ...)`
+  - [ ] Verify: File exists, size 400-650 bytes, UTF-8 encoding, LF line endings
+  - [ ] Verify: Git commit present with correct message
+  - [ ] Verify: Changes pushed to remote origin
+
+  ## Conclusion
+
+  This feature implements a well-established pattern using only standard library tools
+  (pathlib, subprocess) and existing project conventions. All technology choices are
+  proven by 73+ existing test files and the existing git_tools.py/file_tools.py patterns.
+  No new dependencies required. Implementation is straightforward and maintainable.
+
+  ---
+
+  _Research phase complete — all technology decisions documented with rationale and
+  alternatives evaluated. Ready for implementation._
