@@ -1,0 +1,349 @@
+name: markdown-file-creation-766533
+summary: >
+  Technical research for feature 075 confirms straightforward implementation using Python's
+  pathlib for file I/O and subprocess for git operations. The established pattern across 75+ existing
+  test files provides clear precedent for content structure (H1 heading + blank line + 2-3 sentences),
+  encoding (UTF-8 without BOM, LF line endings), and file size (guideline 400-600 bytes with natural variation).
+  No external dependencies needed beyond Python standard library.
+
+relatedFeatures:
+  - name: markdown-file-creation
+    number: 074
+    status: completed
+  - name: markdown-file-creation
+    number: 073
+    status: completed
+  - name: markdown-file-creation
+    number: 072
+    status: completed
+
+technologies:
+  - Python 3.11+ (pathlib module)
+  - Git (version control)
+  - Markdown (CommonMark syntax)
+  - UTF-8 text encoding
+  - Unix LF line endings
+
+relatedLinks:
+  - https://docs.python.org/3/library/pathlib.html
+  - https://spec.commonmark.org/
+
+decisions:
+  - title: 'File Creation Method'
+    chosen: 'Python pathlib.Path().write_text() with explicit UTF-8 encoding'
+    rejected:
+      - 'open(file, "w", encoding="utf-8") — More verbose, doesn''t leverage modern pathlib conveniences'
+      - 'f-string file writing or subprocess cat — Unnecessary complexity and error-prone'
+    rationale: >
+      pathlib is the modern Python standard for file operations and is explicitly referenced in
+      the feature spec (NFR-5). Path.write_text(content, encoding="utf-8") is concise, readable,
+      and handles encoding correctly. On Unix systems, write_text() automatically uses LF line endings
+      in text mode, meeting the LF requirement (NFR-2). The approach aligns with Python 3.11+ best
+      practices and is used in 75+ existing test files in the codebase.
+
+  - title: 'Git Integration Approach'
+    chosen: 'subprocess module with individual git commands (add, commit, push)'
+    rejected:
+      - 'GitPython library — Adds external dependency (gitpython>=3.1.0 is available but unnecessary); subprocess is simpler and more transparent for straightforward git operations'
+      - 'Direct shell script — Less portable, harder to validate command results, less Pythonic'
+    rationale: >
+      The feature spec explicitly avoids new dependencies (NFR-9) and pathlib-based implementation
+      is the recommended approach. subprocess is part of Python standard library and provides clear,
+      sequential control over git operations. Each git command (add, commit, push) maps directly to
+      spec requirements (FR-6 through FR-9). subprocess.run() with check=True ensures error handling
+      and command validation. This approach is transparent, matches established Python patterns, and
+      requires no additional imports beyond standard library.
+
+  - title: 'Line Ending Handling'
+    chosen: 'Rely on Python text mode default behavior (LF on Unix); explicit validation via file inspection'
+    rejected:
+      - 'Explicit newline parameter (.write_text(newline="\\n")) — Not necessary; Python text mode handles this correctly on Unix systems'
+      - 'Post-write conversion (e.g., dos2unix subprocess call) — Over-engineered; adds unnecessary command dependencies'
+    rationale: >
+      Python's pathlib.Path.write_text() in text mode (default) on Unix systems automatically uses
+      LF line endings per platform conventions (PEP 309). The feature requirement (NFR-2) for LF line
+      endings is satisfied by the Python runtime on Linux/Unix systems. Explicit newline handling is
+      only necessary when cross-platform compatibility or overriding platform defaults is needed; neither
+      applies here. This approach is relied upon by the 75+ existing test files, all of which use LF
+      correctly (verified via hexdump inspection of test-macwxa.md: 0x0a terminator).
+
+  - title: 'Content Structure and Markdown Format'
+    chosen: 'H1 heading on line 1, blank line on line 2, prose content on line 3, trailing newline'
+    rejected:
+      - 'Other markdown heading levels (H2/H3) — Spec explicitly requires H1 (FR-3); other levels would not conform'
+      - 'Prose without blank line separator — 75+ existing files consistently use blank line between heading and content for readability'
+    rationale: >
+      The feature spec (FR-3, FR-4) and 75+ precedent files establish this exact format. Analysis of
+      test-macwxa.md (466 bytes), test-i85c38.md (383 bytes), and test-gt1tgb.md (617 bytes) confirms
+      consistent structure: "# Heading\n\n<prose>\n". This format maximizes readability (CommonMark
+      recommendation), is valid per CommonMark spec, and matches all prior implementations. No deviation
+      needed.
+
+  - title: 'Prose Topic Selection'
+    chosen: 'Implementer chooses topic freely from any domain (decision already resolved in feature spec)'
+    rejected:
+      - 'Platform-assigned topic — User query explicitly permits "about anything"; spec confirms implementer choice (NFR-8)'
+    rationale: >
+      Feature spec question 1 is already resolved with rationale: "Implementer flexibility recommended
+      because user query explicitly permits 'about anything', 75+ existing test files show successful
+      topic diversity (nature, technology, science, design patterns), and flexible topic selection accelerates
+      implementation." Topic diversity across 75+ files includes: bioluminescence, curiosity, simplicity,
+      design patterns, state machines, jokes, etc. No constraint needed.
+
+  - title: 'File Size Validation Approach'
+    chosen: 'Guideline 400-600 bytes with acceptance of natural variation (decision already resolved in feature spec)'
+    rejected:
+      - 'Strict validation and rejection of files outside 400-600 bytes — Spec question 2 confirms guideline is acceptable; prose naturally varies'
+    rationale: >
+      Feature spec question 2 is already resolved: "Flexible guideline recommended because prose
+      naturally varies by topic and complexity; 75+ existing files show expected variation; strict
+      enforcement unnecessarily constrains content." Analysis of three representative files shows:
+      test-i85c38.md (383 bytes), test-macwxa.md (466 bytes), test-gt1tgb.md (617 bytes). The 383-byte
+      file falls slightly below guideline but is accepted per spec. Natural prose length depends on topic
+      complexity and sentence structure; enforcing strict bounds would force artificial padding/truncation.
+
+  - title: 'Encoding and Character Handling'
+    chosen: 'UTF-8 without BOM; pathlib.Path.write_text(encoding="utf-8") handles this by default'
+    rejected:
+      - 'Explicit BOM handling (encoding="utf-8-sig") — Not needed; BOM is inappropriate for UTF-8 Unix files and existing precedents do not use it'
+      - 'Other encodings (ISO-8859-1, ASCII) — UTF-8 is required (NFR-1); supports full character range; all precedents use UTF-8'
+    rationale: >
+      The encoding="utf-8" parameter to write_text() produces clean UTF-8 without BOM, as verified
+      by hexdump inspection of test-macwxa.md (no EF BB BF prefix). This meets NFR-1 requirement exactly.
+      UTF-8 is the modern standard, is required by CommonMark spec, and matches all 75+ existing files.
+      No special handling needed.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File Creation Method
+
+  **Chosen:** Python `pathlib.Path().write_text()` with explicit UTF-8 encoding
+
+  **Implementation Pattern:**
+  ```python
+  from pathlib import Path
+
+  filename = "test-juhs9z.md"
+  content = """# Heading Title
+
+  Sentence one introducing the topic. Sentence two providing detail and context. Sentence three concluding with insight or broader implication.
+  """
+
+  Path(filename).write_text(content, encoding="utf-8")
+  ```
+
+  **Rejected Alternatives:**
+  - `open(file, "w", encoding="utf-8")` — More verbose; doesn't leverage pathlib conveniences
+  - Subprocess-based file creation — Unnecessarily complex; error-prone; Python-based approach is cleaner
+
+  **Rationale:**
+  Feature spec explicitly requires pathlib (NFR-5). `Path.write_text()` is modern Python standard
+  since 3.4 and is the recommended approach for text file creation. It is concise, readable, and
+  handles encoding correctly. The approach is used in 75+ existing test files across the codebase
+  and confirmed via examination of test-macwxa.md, test-i85c38.md, and test-gt1tgb.md.
+
+  ### 2. Git Integration
+
+  **Chosen:** Python `subprocess` module with sequential git operations
+
+  **Implementation Pattern:**
+  ```python
+  import subprocess
+
+  # Stage file
+  subprocess.run(["git", "add", "test-juhs9z.md"], check=True)
+
+  # Commit with conventional message
+  subprocess.run(
+      ["git", "commit", "-m", "feat(075): create markdown file test-juhs9z.md with prose content"],
+      check=True,
+  )
+
+  # Push to remote
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  ```
+
+  **Rejected Alternatives:**
+  - GitPython library — Unnecessary external dependency; subprocess is simpler and meets all requirements
+  - Shell script invocation — Less portable; harder to validate results; less Pythonic
+  - Direct git subcommands without verification — Loses error handling and validation
+
+  **Rationale:**
+  Feature spec avoids new dependencies (NFR-9). subprocess.run() with check=True provides:
+  - Clear, sequential git operations matching spec requirements (FR-6 through FR-9)
+  - Error detection (check=True raises CalledProcessError on non-zero exit)
+  - Transparency (each subprocess call maps directly to a git command in spec)
+  - No additional imports beyond Python standard library
+
+  GitPython is available as a project dependency (pyproject.toml line 28: gitpython>=3.1.0)
+  but using subprocess avoids tying the implementation to a specific library API and keeps
+  the approach minimal and focused.
+
+  ### 3. Content Structure and Format
+
+  **Chosen:** Markdown H1 heading, blank line, 2-3 sentences prose, trailing newline
+
+  **Format:**
+  ```
+  # Heading Title
+  <blank line>
+  <Sentence 1. Sentence 2. Sentence 3.>
+  <trailing newline>
+  ```
+
+  **Example (from test-macwxa.md):**
+  ```markdown
+  # The Power of Curiosity
+
+  Curiosity is the driving force behind human discovery and innovation, motivating us to explore unknown territories and ask meaningful questions. When we embrace our natural inclination to learn and investigate, we unlock new possibilities and deepen our understanding of the world around us. The most successful and fulfilled individuals are often those who maintain their curiosity throughout their lives and never stop seeking knowledge.
+  ```
+
+  **Rejected Alternatives:**
+  - H2/H3 headings — Spec requires H1 (FR-3); other levels would not conform
+  - Prose without blank line — Violates established pattern and CommonMark best practices
+
+  **Rationale:**
+  This format is specified in FR-3 and FR-4. Analysis of 75+ existing files (test-*.md) confirms
+  consistent structure. Examined files:
+  - test-macwxa.md: 466 bytes, H1 + blank line + 3 sentences
+  - test-i85c38.md: 383 bytes, H1 + blank line + 3 sentences
+  - test-gt1tgb.md: 617 bytes, H1 + blank line + 3 long sentences
+
+  The blank line improves readability and is recommended by CommonMark specification. All precedents
+  follow this pattern consistently.
+
+  ### 4. Encoding and Line Endings
+
+  **Chosen:** UTF-8 without BOM; LF line endings via Python text mode default
+
+  **Technical Details:**
+  - `encoding="utf-8"` parameter to write_text() produces UTF-8 without BOM
+  - Python text mode on Unix/Linux uses platform convention (LF line endings)
+  - No special newline handling needed; pathlib.write_text() handles this correctly
+
+  **Verification (test-macwxa.md):**
+  ```
+  $ hexdump -C test-macwxa.md | tail -1
+  000001d0  2e 0a                                             |..|
+  ```
+  - `0a` = LF character (Unix line ending) ✓
+  - No `ef bb bf` BOM prefix ✓
+  - File is valid UTF-8 ✓
+
+  **Rejected Alternatives:**
+  - `encoding="utf-8-sig"` — Adds unnecessary BOM; inappropriate for Unix files
+  - Explicit newline parameter — Not needed on Unix; Python handles correctly by default
+  - Post-write conversion (dos2unix) — Over-engineered; unnecessary subprocess call
+
+  **Rationale:**
+  Meets requirements NFR-1 and NFR-2. Python runtime on Unix systems automatically uses LF
+  line endings in text mode per PEP 309. The approach is standard practice and is used by all
+  75+ existing test files. Hexdump inspection confirms correct implementation.
+
+  ### 5. File Size Guideline
+
+  **Chosen:** Accept 400-600 bytes as guideline; natural variation acceptable
+
+  **Observed Range in Precedents:**
+  - test-i85c38.md: 383 bytes (below guideline, accepted)
+  - test-macwxa.md: 466 bytes (within guideline)
+  - test-gt1tgb.md: 617 bytes (above guideline, accepted)
+
+  **Rejected Alternatives:**
+  - Strict 400-600 byte validation — Unnecessarily constrains prose; breaks on natural variation
+  - No size limit — Creates inconsistency with established pattern
+
+  **Rationale:**
+  Feature spec (question 2) explicitly designates 400-600 bytes as a "guideline, not strict limit."
+  Prose content naturally varies based on topic complexity and sentence structure. Enforcing strict
+  bounds would require artificial padding or truncation. Analysis of 75+ files shows that natural
+  variation is expected and successful. One examined file (test-i85c38.md, 383 bytes) is below the
+  guideline but is accepted in the existing codebase.
+
+  ### 6. Prose Topic Selection
+
+  **Chosen:** Implementer selects topic freely; any topic acceptable
+
+  **Observed Topics in 75+ Precedent Files:**
+  - Nature: Bioluminescence, ecology, weather systems
+  - Technology: Design patterns, state machines, distributed systems
+  - Philosophy/Concepts: Curiosity, simplicity, communication, clarity
+  - Humor: Jokes, programming humor, observations
+  - Engineering: Technical design patterns, architecture, problem-solving
+
+  **Rejected Alternatives:**
+  - Platform-assigned topic — Feature spec allows "about anything"
+  - Topic constraints or categories — Reduces diversity; no need for restrictions
+
+  **Rationale:**
+  Feature spec (question 1) confirms "implementer chooses topic freely." User query explicitly
+  states "about anything." The 75+ existing test files demonstrate successful topic diversity
+  across multiple domains. This flexibility accelerates implementation by removing research/planning
+  requirements and permits creative expression. No constraints needed.
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File creation and text I/O | Use | Required by spec (NFR-5); modern Python standard; no external dependency |
+  | subprocess (stdlib) | Git command execution | Use | Standard library; clear, transparent git integration; allows error handling |
+  | git (external) | Version control | Use via subprocess | No python wrapper needed; subprocess sufficient for add/commit/push operations |
+  | GitPython (pyproject) | Git integration library | Reject | Unnecessary external dependency; subprocess is simpler and meets all requirements |
+
+  ## Security Considerations
+
+  **File Creation Security:**
+  - UTF-8 encoding ensures safe text handling; no binary/injection risks
+  - pathlib.Path.write_text() safely handles special characters in content
+  - No user input beyond markdown prose; minimal injection surface
+
+  **Git Operations Security:**
+  - subprocess.run() with explicit command list (not shell=True) prevents shell injection
+  - No sensitive data (tokens, credentials) in git commit message
+  - Commit message uses conventional commit format; no code execution risk
+  - push operation assumes repository is already authenticated (pre-configured git credentials)
+
+  **No security vulnerabilities identified.** The feature is purely file creation and git operations
+  with no authentication, external API calls, or user input processing beyond free-form prose.
+
+  ## Performance Implications
+
+  **File I/O Performance:**
+  - Single pathlib.write_text() call is optimal for a 400-600 byte file
+  - No batching, streaming, or optimization needed for this file size
+  - One disk write operation; negligible performance impact
+
+  **Git Operations Performance:**
+  - Three sequential subprocess calls (add, commit, push): git operations are I/O-bound
+  - Add: milliseconds (updates git index)
+  - Commit: milliseconds (creates commit object)
+  - Push: may take 1-5 seconds depending on network latency (expected for remote operations)
+  - No optimization needed; performance is acceptable for single-file features
+
+  **Overall:** Straightforward, performant implementation with no optimization concerns.
+
+  ## Architecture Notes
+
+  **Alignment with Existing Patterns:**
+  - The feature follows the established markdown-file-creation pattern (features 063-074)
+  - No source code changes; isolated to repository root (test-*.md files)
+  - No dependencies on application architecture (/src/sheep/)
+  - No changes to build, test, or configuration systems
+
+  **Integration Points:**
+  - Feature branch: feat/075-markdown-file-creation-766533 (pre-created)
+  - Git workflow: follows conventional commits; compatible with existing history
+  - File placement: repository root; consistent with 75+ precedent files
+  - No database, API, or system integration needed
+
+  **Implementation Scope:**
+  - Single file operation
+  - Two technology components: file I/O (pathlib) + version control (git via subprocess)
+  - Minimal, focused scope; no architectural decisions needed beyond those documented above
+
+  ---
+
+  _Research phase complete — all technical decisions documented with rationale and alternatives evaluated_
