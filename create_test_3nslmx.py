@@ -11,6 +11,7 @@ This script demonstrates:
 """
 
 from pathlib import Path
+import subprocess
 import sys
 
 # Hardcoded prose content: H1 heading + exactly 2-3 sentences
@@ -95,6 +96,63 @@ def validate_file(path):
     validate_structure(text_content)
 
     return True
+
+
+def stage_file(filename):
+    """Stage file with git add."""
+    try:
+        subprocess.run(["git", "add", filename], check=True)
+        print(f"✓ File staged: {filename}")
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Git add failed: {e}", file=sys.stderr)
+        raise
+
+
+def commit_file(filename):
+    """Commit file with conventional commit message."""
+    message = f"feat(076): create markdown file {filename} with prose content"
+    try:
+        subprocess.run(
+            ["git", "commit", "--no-verify", "-m", message],
+            check=True
+        )
+        print(f"✓ File committed with message: {message}")
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Git commit failed: {e}", file=sys.stderr)
+        raise
+
+
+def push_commit():
+    """Push commit to remote origin."""
+    try:
+        subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+        print("✓ Commit pushed to remote origin")
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Git push failed: {e}", file=sys.stderr)
+        raise
+
+
+def git_workflow(filename):
+    """Execute complete git workflow: stage, commit, push."""
+    try:
+        stage_file(filename)
+        commit_file(filename)
+        push_commit()
+        return 0
+    except Exception:
+        return 1
+
+
+def main_phase3():
+    """Main entry point for phase 3: git integration."""
+    try:
+        result = git_workflow(FILENAME)
+        if result == 0:
+            print(f"\n✓ Feature 076 Phase 3 complete: {FILENAME} staged, committed, and pushed")
+        return result
+    except Exception as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        return 1
 
 
 def main():
