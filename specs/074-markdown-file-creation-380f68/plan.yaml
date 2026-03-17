@@ -1,0 +1,203 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-380f68
+summary: >
+  A straightforward single-file creation feature using Python pathlib for file I/O
+  and subprocess for git integration. The implementation follows established patterns
+  from 65+ existing test files and recent features (064-073), with integrated format
+  validation to ensure compliance with encoding, line endings, and size requirements.
+  Two phases: file creation with validation, then git integration (stage, commit, push).
+
+# Relationships
+relatedFeatures:
+  - number: 073
+    name: markdown-file-creation-07153b
+    relationship: Identical implementation pattern
+  - number: 072
+    name: markdown-file-creation-c3567b
+    relationship: Identical implementation pattern
+  - number: 071
+    name: markdown-file-creation-6936ee
+    relationship: Identical implementation pattern
+
+technologies:
+  - Python 3.11+ (standard library)
+  - pathlib (file I/O)
+  - subprocess (git operations)
+  - Git (version control)
+  - Markdown (file format)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: File Creation & Format Validation
+    description: >
+      Create the markdown file with H1 heading and 2-3 sentences of prose content.
+      Implement integrated validation to ensure UTF-8 encoding without BOM, Unix LF
+      line endings, proper markdown structure, and file size within expected range.
+      This phase establishes the file artifact that serves as the test output for
+      the markdown file creation feature.
+    parallel: false
+
+  - id: phase-2
+    name: Git Integration & Remote Push
+    description: >
+      Stage the created file in git using `git add`, commit with the conventional
+      commit message, and push to the remote origin. This phase completes the full
+      feature by ensuring the file is under version control and pushed to the
+      feature branch for integration testing.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - test-macwxa.md
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature follows a simple, linear implementation pattern established by 65+ existing
+  test files and recent feature implementations (064-073):
+
+  **Single Python Script Approach**
+  - A standalone Python script (e.g., `create_markdown.py`) handles file creation and validation
+  - No external dependencies beyond Python 3.11+ standard library
+  - No dependency on application source code (/src/sheep/)
+  - Pure file I/O and git CLI operations
+
+  **Implementation Flow**
+  1. Define markdown content: H1 heading + 2-3 sentences of unrestricted topic prose
+  2. Write to file using `pathlib.Path.write_text()` with explicit UTF-8 encoding
+  3. Validate the written file (encoding, line endings, markdown structure, file size)
+  4. Stage with `git add`
+  5. Commit with conventional commit message: `feat(074): create markdown file test-macwxa.md with prose content`
+  6. Push to remote origin
+
+  **Fit with Existing Codebase**
+  - Follows pathlib pattern from file_tools.py (lines 96-97)
+  - Follows subprocess pattern from git_tools.py (lines 15-29)
+  - Follows structure from create_markdown.py examples in features 064-073
+  - No modifications to application code, tests, or configuration
+  - Additive change: one new test artifact file in repository root
+
+  ## Key Design Decisions
+
+  ### 1. File Creation with pathlib.Path.write_text()
+  **Decision:** Use `Path(filename).write_text(content, encoding='utf-8')` for file I/O.
+
+  **Rationale:** Modern Python standard (PEP 519), idiomatic, already used in file_tools.py,
+  all 65+ existing test files follow this approach. Explicit UTF-8 encoding ensures
+  portability and prevents BOM inclusion. Single clean operation; no abstraction needed.
+
+  **Alternatives Rejected:**
+  - `open()` context manager: More verbose; pathlib is more modern and idiomatic
+  - `subprocess.run(['touch'])`: Overengineered; requires shell invocation
+  - `os.open()`: Low-level API; pathlib abstracts this cleanly
+
+  ### 2. Git Operations with subprocess.run()
+  **Decision:** Use `subprocess.run(['git', arg1, arg2], check=True)` with list-based arguments.
+
+  **Rationale:** Established pattern in git_tools.py; safe against command injection;
+  clear, portable, no unnecessary abstraction. List arguments prevent shell parsing.
+  GitPython is available in dependencies but deliberately unused in git_tools.py,
+  indicating subprocess is the project's preferred approach.
+
+  **Alternatives Rejected:**
+  - GitPython library: Adds unnecessary abstraction; existing codebase uses subprocess
+  - `os.system()` with shell strings: Command injection security risk
+  - Shell script execution: Violates Python implementation requirement
+
+  ### 3. Prose Content - Hardcoded Unrestricted Topic
+  **Decision:** Manually written prose (2-3 sentences) with any topic chosen by implementer.
+
+  **Rationale:** Simplest approach; all 65+ existing test files use hardcoded content;
+  no external dependencies or network calls; deterministic and reproducible; maximizes
+  implementer autonomy per user request "about anything" (product decision #3).
+
+  **Alternatives Rejected:**
+  - LLM-based generation: Adds external dependency; overkill for test files
+  - Random topic + templates: Over-engineering for simple one-off task
+  - External data source: Adds API/network dependency; test files are static
+
+  ### 4. Line Ending Handling - Python Default LF on Unix
+  **Decision:** Rely on Python's default LF line endings on Unix systems; no explicit newline parameter.
+
+  **Rationale:** Project runs on Linux where Python naturally produces LF. All existing
+  test files use LF. No extra parameter needed; follows principle of least surprise:
+  on Unix systems, use Unix conventions naturally.
+
+  ### 5. BOM Prevention - UTF-8 Standard Codec
+  **Decision:** Use `encoding='utf-8'` (not 'utf-8-sig') to prevent BOM inclusion.
+
+  **Rationale:** Python's utf-8 codec does not emit BOM by default (unlike utf-8-sig).
+  This satisfies NFR-1 "UTF-8 without BOM" automatically. Validation can assert
+  file doesn't start with BOM bytes: `assert not data.startswith(b'\xef\xbb\xbf')`.
+
+  ### 6. Format Validation - Integrated, Not Separate
+  **Decision:** Include validation as integral part of implementation (not separate script).
+
+  **Rationale:** Validation is low-cost (~50 lines) relative to file creation (~5 lines);
+  ensures compliance with all NFRs (encoding, line endings, size); early error detection
+  prevents bad commits. Established pattern in create_markdown.py examples.
+
+  ## Implementation Strategy
+
+  **Two-Phase Approach**
+
+  **Phase 1: File Creation & Validation**
+  - Create markdown content (heading + prose)
+  - Write to file with pathlib.write_text()
+  - Validate: UTF-8 without BOM, LF line endings, markdown structure, file size
+  - If validation fails, stop and report error (prevents bad commits)
+
+  **Phase 2: Git Integration**
+  - Stage file with `git add test-macwxa.md`
+  - Commit with conventional message
+  - Push to remote origin (fail-fast if any step fails)
+
+  **Phase Ordering Rationale**
+  - Phase 1 must come first: establishes the file artifact
+  - Phase 2 comes second: commits only after file is validated
+  - This ordering ensures file is correct before git operations begin
+  - Fail-fast approach: validation catches errors early, prevents commits of malformed files
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | File encoding errors (BOM inclusion, wrong encoding) | Explicit UTF-8 encoding in write_text(); validation asserts no BOM; use standard 'utf-8' codec not 'utf-8-sig' |
+  | Incorrect line endings (CRLF on Windows) | Project runs on Linux; Python defaults to LF on Unix; validation checks file has only LF, no CRLF |
+  | Markdown format errors (missing heading, wrong structure) | Validation parses content structure: heading on first line, blank line, then prose |
+  | File size out of range | Validation checks file is 350-650 bytes (tolerance around 400-600 guideline) |
+  | Git operations fail (auth issues, network) | Use subprocess.run() with check=True for fail-fast; handle exceptions in outer try/catch |
+  | Command injection in git operations | Use list-based arguments to subprocess (no shell=True); filename is hardcoded, not user input |
+  | Prose content violates quality standard | Flexible readability standard per product decision #1; validation checks for non-empty content, basic structure |
+
+  ## Files to Create
+
+  - `test-macwxa.md` — The markdown test artifact file in repository root
+
+  ## Files to Modify
+
+  None. Feature is pure file creation; no modifications to existing files or source code.
+
+  ## Success Criteria for Planning
+
+  - [ ] Implementation approach is well-defined (file creation + validation + git)
+  - [ ] All design decisions have clear rationale referencing research and existing patterns
+  - [ ] Phase ordering is logical and justified
+  - [ ] Risk mitigation strategies are concrete and achievable
+  - [ ] Task breakdown will be ordered by dependency with TDD cycles defined
+
+  ---
+
+  _Planning phase complete — architecture and strategy defined, design decisions documented,
+  phases and risk mitigation identified. Ready for task breakdown._
