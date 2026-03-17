@@ -1,3 +1,3 @@
-# Machine Learning
+# Neural Networks
 
-Machine learning is a subset of artificial intelligence. It enables computers to learn from data without explicit programming. This technology powers many modern applications.
+Neural networks are computational models inspired by biological neurons. They consist of interconnected nodes that process information through layers. These networks excel at pattern recognition and complex data analysis.
