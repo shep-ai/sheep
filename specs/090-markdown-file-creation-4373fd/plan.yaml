@@ -1,0 +1,246 @@
+name: markdown-file-creation-4373fd
+summary: >
+  Implement feature 090 by creating a single markdown test file (test-9ur3n4.md)
+  at repository root with LLM-generated prose content. Reuses the proven
+  create_markdown_file() orchestration function from content_generators.py,
+  which has been validated across 89+ prior features. The implementation
+  is straightforward with one critical technical consideration: ensuring
+  Unix LF line endings on Windows environment via newline="" parameter.
+
+relatedFeatures:
+  - number: 089
+    name: markdown-file-creation-ed2730
+    relationship: Identical pattern — same content_generators function and git workflow
+  - number: 088
+    name: markdown-file-creation-8d62fc
+    relationship: Identical pattern — same content_generators function and git workflow
+  - number: 069
+    name: markdown-file-creation
+    relationship: Original pattern creator — established the complete workflow
+
+technologies:
+  - name: Python 3.11+
+    purpose: Runtime for file I/O and LLM integration
+  - name: pathlib (Python stdlib)
+    purpose: Cross-platform file path handling with newline="" for LF line ending enforcement
+  - name: CrewAI LLM Framework
+    purpose: Abstract multi-provider LLM access (OpenAI, Anthropic, Google)
+  - name: Anthropic Claude API
+    purpose: Generate markdown prose content via reasoning_model
+  - name: Git CLI
+    purpose: Stage, commit, push operations via subprocess
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: https://docs.python.org/3/library/pathlib.html
+  - title: "CrewAI LLM Configuration"
+    url: https://docs.crewai.com/concepts/llm
+  - title: "Conventional Commits Specification"
+    url: https://www.conventionalcommits.org/
+
+phases:
+  - id: phase-1
+    name: "Setup & Dependency Verification"
+    description: >
+      Verify that the create_markdown_file() orchestration function is accessible,
+      all dependencies are installed (CrewAI, Anthropic SDK, pathlib), and that
+      the established pattern from features 069-089 can be reused without modification.
+      This phase is quick but essential for confirming the approach is viable.
+    parallel: false
+
+  - id: phase-2
+    name: "File Creation with Content Validation"
+    description: >
+      Call create_markdown_file("test-9ur3n4.md") to orchestrate the complete workflow:
+      (1) LLM generates markdown content (H1 heading + 2-3 sentences);
+      (2) File is written to repository root with UTF-8 encoding and LF line endings;
+      (3) Content is validated against all NFRs (encoding, line endings, format, size).
+      This phase produces the actual markdown file and ensures it meets all requirements.
+    parallel: false
+
+  - id: phase-3
+    name: "Git Integration & Push Verification"
+    description: >
+      Verify that git operations completed successfully within create_markdown_file():
+      (1) File was staged with git add;
+      (2) Commit was created with correct conventional message;
+      (3) Commit was pushed to feature branch feat/090-markdown-file-creation-4373fd.
+      This phase confirms the feature is ready for review and merge.
+    parallel: false
+
+filesToCreate:
+  - path: test-9ur3n4.md
+    description: "Markdown test file at repository root with H1 heading and 2-3 sentences of prose content"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature follows the established pattern used across features 069-089 without architectural changes.
+  The Sheep codebase already contains a mature, production-tested implementation in `src/sheep/content_generators.py`
+  with the `create_markdown_file()` orchestration function that handles all workflow steps:
+
+  1. **Content Generation**: Uses CrewAI's LLM abstraction (get_reasoning_llm()) to invoke Claude API
+     - Prompt: MARKDOWN_GENERATION_PROMPT template (lines 13-24 of content_generators.py)
+     - Output: H1 heading + blank line + 2-3 sentences of prose
+     - Topic: LLM-selected (flexible, any generic/universal topic)
+
+  2. **File Creation**: Uses pathlib.Path with text-mode write and explicit newline="" parameter
+     - Path: `Path("test-9ur3n4.md").write_text(content, encoding="utf-8", newline="")`
+     - Critical detail: newline="" prevents Windows CRLF conversion, ensuring Unix LF only
+     - This is the only special handling needed for the Windows Server 2025 environment
+
+  3. **Validation**: Comprehensive checks via validate_markdown_file() (lines 150-244)
+     - Checks: UTF-8 without BOM, LF-only line endings, H1 format, blank line separator,
+       sentence count (2-3), trailing newline, file size (320-600 bytes)
+     - All 10+ checks must pass before proceeding to git operations
+
+  4. **Git Integration**: Uses GitCommitTool and GitPushTool from sheep.tools.git_tools
+     - Stage: `git add test-9ur3n4.md`
+     - Commit: Conventional message: `feat(090): create markdown file test-9ur3n4.md with prose content`
+     - Push: To pre-created feature branch `feat/090-markdown-file-creation-4373fd`
+
+  The feature branch `feat/090-markdown-file-creation-4373fd` is pre-created and ready for the commit.
+
+  ## Key Design Decisions
+
+  ### 1. Reuse Proven create_markdown_file() Function (Not Reimplementation)
+
+  **Decision:** Call `create_markdown_file("test-9ur3n4.md")` directly from content_generators.py.
+
+  **Why:** This function is production-tested across 89+ features (069-089) and handles all workflow
+  steps with proper error handling, logging, and validation. Reimplementing individual steps
+  would introduce unnecessary risk and diverge from established codebase patterns.
+
+  **Alternative Considered:** Implement steps individually (generate → write → validate → commit → push).
+  Rejected because it's more verbose, repeats tested code, and offers no material benefit.
+
+  ### 2. Claude API for Content Generation (via CrewAI reasoning_model)
+
+  **Decision:** Use Anthropic Claude API as configured in Sheep's reasoning_model setting.
+
+  **Why:** The spec resolves this design decision with "AI-generated with LLM" as the recommended
+  approach. Claude is already configured and proven across all prior features. CrewAI's
+  get_reasoning_llm() abstracts away provider details and handles retries/errors automatically.
+
+  **Alternative Considered:** Direct OpenAI API (GPT-4o), manual hardcoded prose, external content APIs.
+  Rejected: These diverge from established pattern or contradict Sheep's LLM-driven automation goals.
+
+  ### 3. Windows CRLF → Unix LF Line Ending Enforcement
+
+  **Decision:** Use `newline=""` parameter in file write operation to prevent automatic line ending conversion.
+
+  **Why:** Environment is Windows Server 2025. Python's text mode defaults to CRLF on Windows.
+  Spec requirement NFR-2 mandates Unix LF only. The validate_markdown_file() function
+  explicitly rejects CRLF files (line 196-198: "File uses CRLF line endings (should use LF)").
+  The standard Python technique is `newline=""` which prevents conversion while preserving
+  UTF-8 text mode handling. This is already implemented correctly in write_markdown_file().
+
+  **Alternative Considered:** Binary mode with manual bytes, git core.safecrlf config, accepting
+  CRLF and converting on push. Rejected: These are either non-idiomatic, repo-level (not per-file),
+  or violate the spec requirement.
+
+  ### 4. Flexible LLM-Selected Topic (Not Predefined List)
+
+  **Decision:** Allow LLM to choose the topic freely via prompt instruction.
+
+  **Why:** Spec FR-5 allows "any generic/universal topic" with no constraints. The prompt
+  (line 14 of content_generators.py) says "with a title about any topic you choose".
+  LLM reliably generates appropriate, diverse topics. Observed examples: "The Value of
+  Learning from Experience", "The Art of Deep Work". No filtering needed.
+
+  **Alternative Considered:** Predefined topic list with random selection, user input, topic
+  validation/filtering. Rejected: These add unnecessary constraints or require external input,
+  contradicting Sheep's fully automated design.
+
+  ### 5. Standalone Script Implementation (Not Flow/Agent/CLI)
+
+  **Decision:** Create a simple Python script that imports and calls create_markdown_file().
+
+  **Why:** Feature is straightforward sequential workflow (not requiring agent reasoning or
+  complex orchestration). A ~5-line script is clearest, fastest, and maintainable. Reuses
+  existing function without reinvention.
+
+  **Alternative Considered:** Full CrewAI flow with agents, CLI command extension.
+  Rejected: These overengineer for a simple task and add unnecessary infrastructure.
+
+  ## Implementation Strategy
+
+  The implementation follows three sequential phases:
+
+  **Phase 1 (Setup):** Verify dependencies and accessibility. This is quick validation:
+  - Import create_markdown_file from sheep.content_generators
+  - Confirm CrewAI and Anthropic SDK are installed (from pyproject.toml)
+  - Confirm .env has ANTHROPIC_API_KEY configured
+  - Confirm feature branch exists and is checked out
+
+  **Phase 2 (Implementation):** Execute the core workflow:
+  - Call create_markdown_file("test-9ur3n4.md")
+  - Function returns dict with: filepath, content, commit_message, push_result
+  - Log results for verification
+  - All validation is internal to the function; no additional checks needed
+
+  **Phase 3 (Verification):** Confirm success criteria are met:
+  - Verify test-9ur3n4.md exists at repository root
+  - Verify file content matches expected structure (H1 + blank + 2-3 sentences)
+  - Verify git commit and push succeeded (check git log, remote branch)
+  - Verify all NFRs (file size, encoding, line endings)
+
+  No refactoring or iteration needed; the established pattern handles all edge cases.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | LLM API failure (rate limit, quota, network) | CrewAI includes built-in retry logic. If exhausted, create_markdown_file() exception handling (line 427-429) catches and logs with context. Manual retry possible. |
+  | Windows CRLF line ending conversion | Use newline="" parameter in file write (standard Python approach). validate_markdown_file() checks for and rejects CRLF (lines 196-198), catching any misconfiguration. |
+  | File already exists at test-9ur3n4.md | write_markdown_file() will overwrite silently (standard file write behavior). Not a risk; feature is idempotent. |
+  | Git push fails (branch doesn't exist, auth issues) | Feature branch feat/090-markdown-file-creation-4373fd is pre-created and verified. GitPushTool includes error handling and logging (lines 255-288 of git_tools.py). |
+  | Sentence count validation edge cases | validate_markdown_file() counts periods as sentence delimiters (lines 227-231). For simple prose (2-3 sentences), this is reliable. LLM naturally structures content correctly. |
+  | File size outside 320-600 byte range | Unlikely with 2-3 sentence prose. If occurs, validate_markdown_file() (line 238) rejects with clear error. Can adjust prompt or content if needed. |
+
+  ## Files Created and Modified
+
+  **New Files:**
+  - test-9ur3n4.md (repository root)
+
+  **Modified Files:**
+  - None. Feature creates no code changes to source or config.
+
+  **Supporting Files (No Changes):**
+  - src/sheep/content_generators.py (called, not modified)
+  - sheep/tools/git_tools.py (called, not modified)
+  - .env (read for API keys, not modified)
+
+  ## Integration with Existing Architecture
+
+  The implementation integrates seamlessly with Sheep's existing architecture:
+
+  1. **Reuses content_generators.py module**: Part of core src/sheep/ and proven across 89+ features.
+  2. **Uses standard LLM access pattern**: CrewAI's get_reasoning_llm() from config/llm.py.
+  3. **Follows established git workflow**: GitCommitTool/GitPushTool from sheep.tools.git_tools.
+  4. **Compatible with observability**: Uses sheep.observability.logging for structured logging
+     and Langfuse integration.
+  5. **Respects configuration**: Reads API keys and model settings from .env and settings.
+
+  No architectural changes, refactoring, or new patterns introduced. This feature is a
+  straightforward execution of an existing, mature, well-tested implementation.
+
+  ## Success Criteria Summary
+
+  All success criteria from the spec:
+  - [ ] File test-9ur3n4.md exists at repository root
+  - [ ] File contains H1 heading with markdown syntax (#)
+  - [ ] File contains exactly 2-3 sentences of prose following heading
+  - [ ] UTF-8 encoding without BOM, Unix LF line endings only
+  - [ ] File size 320-600 bytes
+  - [ ] File staged in git (git add)
+  - [ ] Conventional commit created: `feat(090): create markdown file test-9ur3n4.md with prose content`
+  - [ ] Commit pushed to feat/090-markdown-file-creation-4373fd
+  - [ ] Feature branch ready for review
+
+  All criteria are validated by create_markdown_file() and its internal validation functions.
+  Implementation is complete when the function returns successfully and git push completes.
