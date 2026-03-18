@@ -1,0 +1,278 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-4a695c
+summary: >
+  Technical research for markdown file creation (feature 092). Validates established pattern
+  from 91+ prior implementations using pathlib for file creation, subprocess for git operations,
+  and manual prose content generation. No external dependencies required beyond Python 3.11+
+  standard library. Confirms UTF-8 encoding, LF line endings, and file size constraints (320-600 bytes).
+
+# Relationships
+relatedFeatures:
+  - number: 091
+    name: markdown-file-creation-8cb702
+  - number: 090
+    name: markdown-file-creation-302a53
+  - number: 089
+    name: markdown-file-creation-ed2730
+  - number: 069
+    name: markdown-file-creation
+
+technologies:
+  - Python 3.11+ (pathlib standard library module)
+  - Git 2.30+ (for version control, staging, commits, push)
+  - Markdown (file format with H1 heading + prose)
+  - UTF-8 encoding (without BOM)
+  - Unix LF line endings
+
+relatedLinks:
+  - title: 'Python pathlib documentation'
+    url: 'https://docs.python.org/3/library/pathlib.html'
+  - title: 'Conventional Commits specification'
+    url: 'https://www.conventionalcommits.org/'
+  - title: 'Markdown specification (CommonMark)'
+    url: 'https://spec.commonmark.org/'
+
+# Structured technology decisions
+decisions:
+  - title: 'File Creation Method'
+    chosen: 'Python pathlib.Path.write_text()'
+    rejected:
+      - 'os.open() / os.write() — Lower-level, more verbose, less idiomatic Python'
+      - 'open() builtin with context manager — Requires manual encoding/newline specification'
+      - 'Subprocess calls (touch, echo) — External process overhead, platform inconsistency'
+    rationale: >
+      Specification explicitly mandates pathlib (FR-4): "Path(\"test-zyz8v7.md\").write_text(content)".
+      pathlib provides cross-platform file I/O with clear, Pythonic semantics. The write_text()
+      method handles encoding/newline parameters elegantly. This approach is idiomatic in Python 3.11+
+      and matches the established pattern across 91+ prior test files.
+
+  - title: 'Git Operations'
+    chosen: 'Subprocess calls with git command-line interface'
+    rejected:
+      - 'GitPython library (gitpython) — Adds external dependency not specified in requirements; codebase uses subprocess pattern'
+      - 'Direct repository manipulation (dulwich, pygit2) — Unnecessary complexity, breaks established pattern'
+      - 'Shell script wrapper — Reduces portability, harder to test and verify'
+    rationale: >
+      Specification requires standard git workflow (FR-5, FR-6, FR-7): staging with "git add",
+      committing with conventional message, pushing to feature branch. subprocess.run() with git
+      commands matches the established pattern from features 069-091 and maintains simplicity.
+      No external dependencies required; subprocess is Python standard library.
+
+  - title: 'Prose Content Generation'
+    chosen: 'Manual creation with universal/generic topic'
+    rejected:
+      - 'Random text generation or lorem ipsum — Produces low-quality, incoherent prose'
+      - 'AI/LLM-based generation — Adds unnecessary complexity and external dependencies'
+      - 'Template-based generation with variable substitution — Over-engineered for simple task'
+    rationale: >
+      Specification explicitly permits flexible topic selection (NFR-9) with generic/universal
+      topics preferred. Manual generation ensures high-quality, grammatically correct prose.
+      Established pattern from 91+ prior files shows simple, well-written prose about universal
+      topics (e.g., "The Value of Deep Work", "The Power of Continuous Learning") is effective.
+      Manual approach is fast (~2 minutes), deterministic, and requires no external dependencies.
+
+  - title: 'Encoding and Line Endings'
+    chosen: 'UTF-8 without BOM; LF line endings via pathlib newline handling'
+    rejected:
+      - 'CRLF line endings — Violates NFR-4 (Unix-style line endings required)'
+      - 'UTF-16 or Latin-1 encoding — Violates NFR-3 (UTF-8 required); incompatible with markdown tooling'
+      - 'Post-processing with sed/dos2unix — Adds complexity; pathlib handles this natively'
+    rationale: >
+      Specification requires UTF-8 without BOM and Unix LF line endings (NFR-3, NFR-4).
+      pathlib.Path.write_text() with no explicit encoding parameter defaults to UTF-8.
+      The newline parameter must be explicitly set: newline='\n' or use binary mode write.
+      Confirmed across all 91+ prior test files. No post-processing required.
+
+  - title: 'File Size Target'
+    chosen: 'Generate prose to fall within 320-600 byte range'
+    rejected:
+      - 'Strict 320-byte minimum — Risk of truncating content to meet lower bound'
+      - 'Unconstrained size — May exceed observed pattern from prior implementations'
+      - 'Compression or minification — Reduces readability, violates prose quality requirement'
+    rationale: >
+      Specification defines NFR-5: file size should fall within 320-600 bytes, based on observed
+      range from 91+ prior test files. This constraint ensures consistency with established pattern.
+      A typical 3-sentence prose paragraph (~120-150 words) with H1 heading and newlines naturally
+      falls in this range: heading (~20-30 bytes) + blank line (1 byte) + prose (~280-550 bytes)
+      + final newline (1 byte) = ~300-580 bytes. No artificial size manipulation required.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should we use pathlib.Path.write_text() with explicit newline parameter for cross-platform consistency?'
+    resolved: true
+    options:
+      - option: 'Use write_text(content, encoding="utf-8") with default newline behavior'
+        description: >
+          Relies on pathlib default newline handling. On Unix systems, text mode preserves \n.
+          On Windows, text mode converts \n to CRLF. This could cause line-ending inconsistency
+          on Windows developers' machines, though the CI environment (Linux) would be correct.
+        selected: false
+      - option: 'Use write_text(content, encoding="utf-8", newline="\n")'
+        description: >
+          Explicitly specifies LF line endings, overriding platform defaults. Ensures consistent
+          behavior across all platforms (Windows, macOS, Linux). Matches established pattern from
+          prior test files. Additional parameter is minimal overhead.
+        selected: true
+      - option: 'Use Path.write_bytes() with manual encoding to binary data'
+        description: >
+          Gives maximum control: Path.write_bytes(content.encode("utf-8")).
+          Requires manual encoding management. More verbose than write_text(). Achieves same result
+          as option 2 with more ceremony.
+        selected: false
+    selectionRationale: >
+      Option 2 is selected. Explicit newline="\n" parameter ensures LF line endings across all
+      platforms, matching the established pattern from 91+ prior test files. The specification
+      mandates Unix-style line endings (NFR-4). While write_bytes() (option 3) works, write_text()
+      with explicit newline is more idiomatic and readable.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-18
+  - **Status:** Research complete; all decisions finalized
+
+  ## Overview
+
+  Feature 092 is a well-established, low-complexity task: create a single markdown file
+  (`test-zyz8v7.md`) at the repository root following a pattern demonstrated across 91+ prior
+  implementations (features 069-091). Technical analysis confirms straightforward implementation
+  using Python 3.11+ standard library (pathlib), standard git operations, and manual prose content.
+  No external dependencies required beyond Python 3.11+ and Git 2.30+.
+
+  ## Technology Decisions
+
+  ### 1. File Creation Method: pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path("test-zyz8v7.md").write_text(content, encoding="utf-8", newline="\n")`
+
+  **Rejected:**
+  - `os.open() / os.write()` — Lower-level APIs, more verbose, less idiomatic Python 3.11+
+  - `open()` builtin with context manager — Requires more boilerplate for encoding/newline handling
+  - Subprocess calls (echo, touch) — External process overhead, platform inconsistency risks
+
+  **Rationale:** The specification explicitly requires pathlib (FR-4). pathlib provides clean,
+  cross-platform file I/O with Pythonic semantics. write_text() handles encoding and newline
+  parameters elegantly. The explicit newline="\n" parameter ensures Unix-style LF line endings
+  across all platforms (Windows, macOS, Linux), matching established pattern from 91+ prior files.
+
+  ### 2. Git Operations: subprocess with git CLI
+
+  **Chosen:** subprocess.run() calls with git command-line interface
+
+  **Rejected:**
+  - GitPython library (gitpython) — Adds external dependency not in requirements; codebase uses subprocess pattern
+  - Direct repository manipulation (dulwich, pygit2) — Unnecessary complexity, breaks established convention
+  - Shell script wrapper — Reduces testability and portability
+
+  **Rationale:** Specification requires standard git workflow (FR-5, FR-6, FR-7): `git add`,
+  conventional commit message, `git push`. subprocess.run() with git commands is idiomatic,
+  requires no external dependencies (subprocess is standard library), and matches the pattern
+  from features 069-091. Clean separation of concerns: use git CLI for what it does best.
+
+  ### 3. Prose Content: Manual Generation with Universal Topic
+
+  **Chosen:** Hand-craft 2-3 sentences about a universal/generic topic with high quality
+
+  **Rejected:**
+  - Random text generation / lorem ipsum — Low quality, incoherent, doesn't meet prose quality requirement
+  - AI/LLM-based generation — Adds complexity, external API dependency, slower execution
+  - Template-based variable substitution — Over-engineered for a simple, one-time task
+
+  **Rationale:** The specification explicitly permits flexible topic selection with generic topics
+  preferred (NFR-9). Prior implementations (test-nl1k6h.md: "The Value of Deep Work",
+  test-rhubmf.md: "The Power of Continuous Learning") show simple, well-written prose about
+  universal topics works well. Manual generation (~2-3 minutes) ensures high quality, grammatical
+  correctness, and coherence. Matches established pattern across all 91+ prior files. No
+  external dependencies or complex generation logic needed.
+
+  ### 4. Encoding and Line Endings
+
+  **Chosen:** UTF-8 encoding without BOM; Unix-style LF line endings via pathlib with explicit newline parameter
+
+  **Rejected:**
+  - CRLF line endings — Violates specification requirement for Unix-style line endings (NFR-4)
+  - UTF-16 or Latin-1 — Violates UTF-8 encoding requirement (NFR-3); breaks markdown tooling
+  - Post-processing with sed/dos2unix — Adds complexity; pathlib natively handles this
+
+  **Rationale:** Specification mandates UTF-8 without BOM and Unix LF line endings (NFR-3, NFR-4).
+  pathlib.Path.write_text() defaults to UTF-8; explicit newline="\n" parameter ensures LF across
+  all platforms. Confirmed across all 91+ prior test files — no surprises. No post-processing
+  required; pathlib handles this cleanly.
+
+  ### 5. File Size Target
+
+  **Chosen:** Generate prose to naturally fit within 320-600 byte range
+
+  **Rejected:**
+  - Artificially constrain to strict 320-byte minimum — Risks truncating content
+  - Unconstrained size — May deviate from established pattern
+  - Compression/minification — Reduces readability and violates prose quality requirement
+
+  **Rationale:** Specification requires file size between 320-600 bytes (NFR-5), based on observed
+  pattern from 91+ prior test files. This ensures consistency. A typical 3-sentence prose paragraph
+  (~120-150 words) with H1 heading and newlines naturally fits: heading (~20-30 bytes) + blank
+  line (1 byte) + prose (~280-550 bytes) + final newline (1 byte) = ~300-580 bytes. No artificial
+  manipulation required; natural prose content will fit the range.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | Python pathlib | Cross-platform file I/O | **Use** | Explicit requirement (FR-4); standard library in Python 3.11+; idiomatic |
+  | Python subprocess | Git command execution | **Use** | Standard library; matches established pattern; no external dependencies |
+  | GitPython (gitpython) | Git repository manipulation | **Reject** | Not in requirements; adds external dependency; subprocess pattern is simpler |
+  | Python random/lorem | Prose generation | **Reject** | Low quality; violates prose coherence requirement; manual is faster |
+  | External APIs (LLM/NLP) | Content generation | **Reject** | Unnecessary complexity; adds latency and external dependencies; manual is simpler |
+
+  ## Security Considerations
+
+  **File I/O Security:** pathlib.Path.write_text() is safe for file creation. The filename
+  (`test-zyz8v7.md`) is hardcoded in the specification, not user-input or variable. No path
+  traversal risk. File is created at repository root with standard permissions.
+
+  **Git Operations:** subprocess.run() calls use hardcoded git commands; no user input interpolated.
+  Conventional commit message is hardcoded in specification format. No command injection risk.
+
+  **Content Security:** Prose content is manually written, reviewed for coherence and quality.
+  No executable code, embedded scripts, or security vulnerabilities. Simple markdown format.
+
+  **Encoding Safety:** UTF-8 without BOM is the standard for markdown and web content. No
+  BOM that could confuse parsers. LF line endings prevent CRLF-based security issues (e.g.,
+  line ending injection attacks in some contexts, though not applicable here).
+
+  ## Performance Implications
+
+  **File I/O:** pathlib.Path.write_text() is a single, synchronous operation. Creating a
+  ~300-600 byte file is negligible in performance cost (microseconds).
+
+  **Git Operations:** subprocess.run() calls for git add/commit/push involve spawning git
+  subprocesses. Typical overhead: ~50-200ms per operation (git add < 10ms, commit ~10-50ms,
+  push ~100-200ms depending on network). Total: ~200-400ms for the entire workflow. Acceptable
+  for a feature development task.
+
+  **No Performance Optimization Required:** The task is inherently small (~10-15 minutes total).
+  No bottlenecks, concurrency, or optimization needed.
+
+  ## Architecture Notes
+
+  **Fit with Existing Codebase:** This feature is purely an artifact of the automated
+  implementation system (test markdown files in repository root). It does not integrate with
+  or modify the Sheep application code (/src/sheep/). No architectural impact.
+
+  **Established Pattern:** Features 069-091 demonstrate identical implementation across 91+ test
+  files. The pattern is proven, simple, and well-understood. No architectural innovations
+  or novel patterns introduced here.
+
+  **No Application Dependencies:** The feature uses only Python 3.11+ standard library (pathlib,
+  subprocess) and Git. No interaction with CrewAI, LLMs, database, or other application
+  infrastructure.
+
+  ## Conclusion
+
+  Technical research confirms straightforward implementation with no blockers or novel decisions.
+  The 91+ prior implementations of this pattern validate the approach. Implementation is ready
+  to proceed to the next phase (implementation/code-writing).
