@@ -1,0 +1,3 @@
+# The Value of Deep Work
+
+Deep work—focused, undistracted effort on cognitively demanding tasks—has become increasingly rare and valuable in a world of constant digital interruptions. The ability to concentrate intensely on a single problem or creative endeavor separates those who produce meaningful results from those who remain perpetually scattered across shallow tasks. Cultivating this skill requires intentional practice, environmental design to minimize distractions, and a commitment to single-tasking even when the pull of notifications feels overwhelming.
