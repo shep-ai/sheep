@@ -66,7 +66,7 @@ def validate_prose_sentences(file_path: Path) -> None:
         raise ValidationError(msg)
 
 
-def validate_file_size(file_path: Path, min_bytes: int = 350, max_bytes: int = 650) -> None:
+def validate_file_size(file_path: Path, min_bytes: int = 320, max_bytes: int = 600) -> None:
     """Validate file size is within expected range."""
     binary_content = file_path.read_bytes()
     file_size = len(binary_content)
@@ -94,4 +94,4 @@ def validate_file(file_path: Path) -> None:
 
 
 if __name__ == '__main__':
-    validate_file(Path('test-3nslmx.md'))
+    validate_file(Path('test-nl1k6h.md'))
