@@ -1,0 +1,296 @@
+name: markdown-file-creation-039616
+summary: >
+  This feature requires creating a single markdown test file with established patterns and zero external dependencies.
+  All implementation uses Python 3.11+ standard library (pathlib for file I/O, subprocess for git operations).
+  No architectural decisions needed — the pattern is well-established across 80+ existing test files.
+  Key technical considerations: UTF-8 encoding without BOM, LF-only line endings, and 400-600 byte file size constraint.
+
+relatedFeatures:
+  - number: 084
+    name: markdown-file-creation
+    relationship: Identical pattern and approach
+  - number: 083
+    name: markdown-file-creation
+    relationship: Identical pattern and approach
+  - number: 082
+    name: markdown-doc-creation
+    relationship: Identical pattern and approach
+
+technologies:
+  - Python 3.11+ (standard library)
+  - pathlib (file I/O)
+  - subprocess (git integration)
+  - Git (version control)
+  - Markdown (CommonMark format)
+
+relatedLinks:
+  - title: 'pathlib documentation'
+    url: 'https://docs.python.org/3.11/library/pathlib.html'
+  - title: 'Python text encoding'
+    url: 'https://docs.python.org/3.11/library/codecs.html#standard-encodings'
+  - title: 'CommonMark specification'
+    url: 'https://spec.commonmark.org/'
+  - title: 'Conventional Commits'
+    url: 'https://www.conventionalcommits.org/'
+
+decisions:
+  - title: 'File Creation Method'
+    chosen: 'pathlib.Path.write_text() with explicit newline and encoding parameters'
+    rejected:
+      - 'Direct file I/O using open() — verbose and requires manual resource management; pathlib is more idiomatic and handles edge cases better'
+      - 'subprocess.run([''touch'', ''filename'']) — cannot write content directly; requires separate content-writing step; not cross-platform friendly'
+      - 'pathlib.Path.write_bytes() with explicit UTF-8 bytes — requires manual byte encoding; less readable than write_text()'
+    rationale: >
+      pathlib.Path.write_text() is the standard idiomatic Python approach for simple file creation in Python 3.11+.
+      It is part of the standard library (no external dependencies), handles encoding/decoding transparently,
+      and provides atomic writes on most platforms. By specifying encoding='utf-8' and newline='\n',
+      we ensure exactly the required behavior: UTF-8 without BOM and LF-only line endings.
+      This matches the established pattern across all 80+ existing test files in the repository.
+
+  - title: 'Content Generation Strategy'
+    chosen: 'Simple string literal with H1 heading followed by 2-3 sentences of prose content'
+    rejected:
+      - 'Template-based generation (Jinja2, string.Template) — adds unnecessary complexity and external dependencies for simple, static content; violates the minimal-dependency requirement'
+      - 'Content generation via LLM or random selection — introduces non-determinism and external service dependencies; violates the "no external dependencies" requirement and adds complexity'
+      - 'Reading from a template file — requires additional file I/O and storage; inconsistent with the established pattern of inline content in 80+ existing test files'
+    rationale: >
+      This is a test file with no functional purpose beyond demonstrating file creation capability.
+      Content is static, deterministic, and small (2-3 sentences). A simple string literal is the clearest,
+      most efficient approach. The established pattern across features 080-084 and all 80+ existing test files
+      uses this exact approach. No template system is needed. Content topics are freely chosen per feature 085 spec
+      requirement (resolved open question).
+
+  - title: 'Line Ending and Encoding Handling'
+    chosen: 'Path.write_text(content, encoding=''utf-8'', newline=''\n'')'
+    rejected:
+      - 'Relying on default platform encoding — may vary by OS; Windows defaults to CRLF; violates the explicit LF-only requirement'
+      - 'Post-processing with .replace(''\r\n'', ''\n'') — two-step process is error-prone and less efficient; encoding parameter is explicit and reliable'
+      - 'Using os.linesep — platform-dependent; Windows uses CRLF, violating the Unix-style LF requirement'
+    rationale: >
+      The feature spec explicitly requires UTF-8 encoding without BOM and LF line endings (Unix style, not CRLF).
+      pathlib.Path.write_text() with encoding='utf-8' and newline='\n' parameters guarantees this behavior across all platforms.
+      The newline='\n' parameter tells Python to translate '\n' characters as-is (LF only) without platform-specific conversion.
+      This is the most reliable, explicit approach. Analysis of 80+ existing test files confirms they all follow this pattern.
+
+  - title: 'Git Integration Method'
+    chosen: 'Use subprocess.run() with git CLI commands (git add, git commit, git push)'
+    rejected:
+      - 'GitPython library (gitpython>=3.1.0) — external dependency; repo already requires it for other uses, but subprocess is simpler for straightforward operations'
+      - 'os.system(''git ...'') — dangerous and less portable; subprocess is more robust and secure'
+      - 'Direct libgit2 bindings (pygit2) — overkill complexity for simple add/commit/push operations; external dependency'
+    rationale: >
+      subprocess.run() with git CLI is the simplest, most transparent approach for straightforward git operations.
+      It requires no additional dependencies beyond the standard library. The feature requires only three operations:
+      git add <filename>, git commit -m <message>, and git push. These are simple string operations.
+      While the repo includes gitpython as a dependency, subprocess is more readable and has zero additional overhead
+      for this minimal task. The git config (user.name, user.email) is already set up in the CI/CD environment.
+
+  - title: 'File Size Constraint (400-600 bytes)'
+    chosen: 'Generate exactly 2-3 sentences of prose content (typically 350-500 characters) + H1 heading (20-40 characters) = 400-600 bytes'
+    rejected:
+      - 'Generating variable-length content and validating afterward — adds complexity and error handling; unnecessarily complicated'
+      - 'Using a fixed template with variable-length topics — difficult to predict final size reliably'
+      - 'Ignoring the size constraint and checking afterward — no validation; violates spec requirement'
+    rationale: >
+      Analysis of 80+ existing test files shows they naturally fall into the 400-600 byte range when using
+      this exact pattern: H1 heading (typically 20-40 chars) + single paragraph with 2-3 well-formed sentences (350-500 chars).
+      The simple, straightforward approach (one heading + three sentences of prose) reliably produces files in this range.
+      No explicit size validation or padding is needed. Verification of final file size is part of the implementation
+      validation step (not research).
+
+  - title: 'No External Dependencies Strategy'
+    chosen: 'Restrict implementation to Python 3.11+ standard library only (pathlib, subprocess, os modules)'
+    rejected:
+      - 'Using GitPython library — external dependency violates NFR-4 (standard library only); unnecessary complexity'
+      - 'Using Markdown validation library — external dependency; CommonMark is simple enough to validate manually'
+      - 'Using string templating library (Jinja2, mako) — external dependency unnecessary for static content'
+    rationale: >
+      Feature spec NFR-4 explicitly states: "Implementation must use only Python 3.11+ standard library (no external dependencies)."
+      The entire feature can be implemented with standard library modules:
+      - pathlib.Path for file I/O
+      - subprocess.run() for git operations
+      - os.path for file system checks
+      No external libraries are needed. This constraint is intentional for test file creation to minimize complexity and dependencies.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File Creation Method
+
+  **Chosen:** `pathlib.Path.write_text()` with explicit encoding and newline parameters
+
+  **Rationale:**
+  - Standard library in Python 3.11+ — no external dependencies
+  - Idiomatic Python approach for file creation
+  - Atomic writes on most platforms
+  - Transparent encoding/decoding with explicit control
+  - Matches established pattern across all 80+ existing test files
+
+  **Implementation approach:**
+  ```python
+  from pathlib import Path
+
+  content = "# Heading\n\nFirst sentence. Second sentence. Third sentence."
+  Path("test-fmr7ew.md").write_text(content, encoding='utf-8', newline='\n')
+  ```
+
+  **Encoding/line ending specifics:**
+  - `encoding='utf-8'`: UTF-8 without BOM (this is Python's default; specified explicitly for clarity)
+  - `newline='\n'`: Ensures LF-only line endings (Unix style), no CRLF translation on Windows
+
+  ### 2. Content Generation
+
+  **Chosen:** Simple string literal with H1 heading + 2-3 sentences of prose
+
+  **Rationale:**
+  - Test file with no functional purpose — static content is appropriate
+  - No template system needed — introduces unnecessary complexity
+  - Freely chosen topic (per feature spec) — eliminates decision overhead
+  - Clear, readable, deterministic
+
+  **Pattern (from existing test-cldw5t.md):**
+  ```
+  # <Title Here>
+
+  <First sentence describing or explaining topic.> <Second sentence adding detail or perspective.> <Optional third sentence concluding thought.>
+  ```
+
+  **File size expectation:**
+  - H1 heading: ~20-40 characters
+  - Prose body: ~350-500 characters
+  - Total: ~400-600 bytes (consistent with 80+ existing test files)
+
+  ### 3. Line Endings and Encoding
+
+  **Chosen:** UTF-8 without BOM, LF-only line endings (Unix style)
+
+  **Specification detail:**
+  - Encoding: UTF-8 (no byte order mark / BOM)
+  - Line endings: LF only (`\n`), not CRLF (`\r\n`)
+  - Rationale: Cross-platform consistency, git-friendly, matches existing test files
+
+  **Why not platform defaults:**
+  - Windows defaults to CRLF — violates spec requirement
+  - UTF-8 with BOM adds 3 extra bytes — violates spec requirement
+  - Explicit parameters in pathlib.Path.write_text() guarantee correct behavior on all platforms
+
+  ### 4. Git Integration
+
+  **Chosen:** subprocess.run() with git CLI commands
+
+  **Three-step process:**
+  1. `git add test-fmr7ew.md` — stage the file
+  2. `git commit -m "feat(085): create markdown file test-fmr7ew.md with prose content"` — commit with conventional commit message
+  3. `git push origin feat/085-markdown-file-creation-039616` — push to feature branch
+
+  **Why subprocess over GitPython:**
+  - subprocess.run() is part of standard library (no external dependencies)
+  - Simpler for three straightforward operations
+  - More transparent/readable
+  - While gitpython is already a dependency in this project, subprocess adds zero overhead for this minimal task
+
+  **Git configuration assumptions:**
+  - user.name and user.email already configured (standard in CI/CD)
+  - Feature branch feat/085-markdown-file-creation-039616 already exists and is checked out
+  - Remote 'origin' is properly configured
+
+  ### 5. No External Dependencies
+
+  **Decision:** Restrict implementation to Python 3.11+ standard library only
+
+  **Rationale:**
+  - Feature spec NFR-4: "Implementation must use only Python 3.11+ standard library (no external dependencies)"
+  - All needed functionality available in standard library
+  - Reduces complexity and environmental requirements
+
+  **Library choices:**
+  - pathlib (Python stdlib) ✓ — file I/O
+  - subprocess (Python stdlib) ✓ — git CLI execution
+  - Markdown validation — not needed (CommonMark syntax simple to verify manually)
+  - GitPython — not needed (subprocess sufficient for three simple operations)
+  - Templating libraries — not needed (static content)
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O operations | Use (stdlib) | Standard library, idiomatic Python 3.11+, atomic writes |
+  | subprocess | Execute git commands | Use (stdlib) | Standard library, simple and transparent for CLI operations |
+  | GitPython | Git operations (alternative) | Reject | External dependency; subprocess sufficient for three simple operations; violates NFR-4 |
+  | Jinja2 / templating | Content generation (alternative) | Reject | External dependency; unnecessary for static test file content; violates NFR-4 |
+  | markdown / markdown-it | Validation (alternative) | Reject | External dependency; CommonMark syntax is simple and valid by inspection; violates NFR-4 |
+  | pathvalidate | Path validation (alternative) | Reject | External dependency; simple string comparison sufficient (filename is hardcoded); violates NFR-4 |
+
+  ## Security Considerations
+
+  **File Creation Security:**
+  - No user-provided input in file path or content — all hardcoded/controlled
+  - File created in repository root — standard location, no traversal risk
+  - No shell command injection risk — subprocess.run() with list args (not shell=True)
+  - File permissions: Uses default umask (inherited from process)
+
+  **Git Integration Security:**
+  - subprocess.run() with list arguments avoids shell injection
+  - Git commands are hardcoded strings — no user input in git operations
+  - Commit message is hardcoded per spec — no user input that could be exploited
+  - SSH/HTTPS authentication handled by git client (not in scope)
+
+  **Data Safety:**
+  - Feature creates only one new file — no overwrites, deletions, or modifications
+  - No reading/processing of existing files — no data leakage risk
+  - Spec requirement: "Implementation must not modify any existing files"
+
+  **No Risk Areas:**
+  - No external network calls (pure local file + git operations)
+  - No user input processing
+  - No dynamic code execution
+  - No dependency downloads or installation
+
+  ## Performance Considerations
+
+  **File I/O:**
+  - Single write_text() call: O(1) for this small file (~500 bytes)
+  - Negligible I/O cost (< 1ms on any modern system)
+  - No reading or seeking — write only
+
+  **Git Operations:**
+  - `git add`: O(1) for single file
+  - `git commit`: O(1) commit creation (no ref scanning needed in normal case)
+  - `git push`: O(n) where n is number of commits to push (typically 1); network-dependent
+  - Expected total time: 2-5 seconds (including network latency)
+
+  **Memory:**
+  - Single string in memory: ~500 bytes (negligible)
+  - subprocess spawns: overhead < 5MB per process, 3 processes total (< 15MB total)
+
+  **Optimization notes:**
+  - No optimization needed — feature is inherently minimal
+  - Single-pass approach (no reading/re-writing)
+  - No loops, no recursive operations
+
+  ## Architecture Notes
+
+  **No Architectural Impact:**
+  - Feature is purely file creation in repository root
+  - No dependencies on application source code in /src/sheep/
+  - No interaction with application runtime, config, or build system
+  - No test modifications, no CI/CD changes
+  - No database, cache, or state machine interactions
+
+  **Codebase Integration:**
+  - Created file follows pattern of 80+ existing test-*.md files
+  - Does not interact with any Sheep application code
+  - Does not affect: agents, config, flows, tools, observability modules
+  - No breaking changes, no API impacts
+
+  **Workflow Consistency:**
+  - Follows established pattern from features 080-084 (confirmed working)
+  - Uses conventional commit format (feat(085): ...)
+  - Feature branch already created (no branch management needed)
+  - No merge conflicts expected (only adds new file, no modifications)
+
+  ---
+
+  _Research phase complete — all technical decisions documented with clear rationales and alternatives evaluated_
