@@ -1,0 +1,404 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-7312a8
+summary: >
+  Technical research for markdown file creation feature 098. Feature is a straightforward, single-file creation
+  following an established pattern from 97+ prior test files (features 069-097). Core technical decisions involve
+  file I/O (pathlib), git workflow (subprocess), prose generation (manual), and validation (post-creation checks).
+  No complex architectural decisions required; pattern is proven and consistent across prior features.
+
+# Relationships
+relatedFeatures:
+  - number: 097
+    name: markdown-file-creation-f2b293
+    relationship: Identical pattern and requirements
+  - number: 069
+    name: markdown-file-creation
+    relationship: Original pattern — established best practices
+
+technologies:
+  - Python pathlib (file I/O operations)
+  - Git (version control and commits)
+  - Python subprocess (git CLI integration)
+  - Markdown syntax (content format)
+  - UTF-8 encoding (file encoding)
+
+relatedLinks:
+  - title: 'Python pathlib documentation'
+    url: 'https://docs.python.org/3.11/library/pathlib.html'
+  - title: 'Conventional Commits specification'
+    url: 'https://www.conventionalcommits.org/'
+  - title: 'Markdown specification'
+    url: 'https://spec.commonmark.org/'
+
+# Structured technology decisions
+decisions:
+  - title: 'File Creation Method'
+    chosen: 'pathlib.Path.write_text() with explicit UTF-8 encoding'
+    rejected:
+      - 'open()/write() directly — more verbose, requires explicit file handle management and encoding specification'
+      - 'shutil module — designed for copying/moving files, not needed for simple text file creation'
+    rationale: >
+      FR-4 explicitly specifies pathlib as the required method. pathlib.Path.write_text() provides a clean,
+      platform-independent API that automatically handles file creation, closing, and encoding. The existing
+      create_markdown.py demonstrates successful use of this approach. Using write_text(content, encoding='utf-8')
+      ensures UTF-8 encoding without BOM (Python's utf-8 codec does not add BOM) and automatic handling of line
+      endings. This aligns with all prior features (069-097).
+
+  - title: 'Git Operations Implementation'
+    chosen: 'Direct subprocess.run() calls to git CLI'
+    rejected:
+      - 'GitPython library (gitpython) — although available as a dependency, adds unnecessary abstraction layer; subprocess is more direct, transparent, and already proven in create_markdown.py'
+      - 'CrewAI tools (GitCommitTool, GitPushTool) — these are themselves wrappers around subprocess; using them adds indirection and reduces clarity of what is actually happening'
+    rationale: >
+      The existing create_markdown.py script demonstrates direct subprocess.run() calls for git operations (add, commit, push).
+      This approach is transparent, requires no additional abstractions, and is consistent with the established pattern.
+      While GitPython is available as a project dependency, it is not used in prior test file implementations. Direct subprocess
+      calls are simpler, more explicit, and directly map to the required git commands. Error handling via check=True and
+      CalledProcessError is straightforward and sufficient for this use case.
+
+  - title: 'Prose Content Generation'
+    chosen: 'Manual prose composition with flexible topic selection'
+    rejected:
+      - 'LLM-based generation — adds external API calls, latency, cost, and unnecessary complexity for a simple test file'
+      - 'Template-based content with placeholders — reduces flexibility and variety; still requires topic selection'
+      - 'Reuse content from prior test files — violates uniqueness expectation and reduces variety'
+    rationale: >
+      The feature spec (product decision) resolved that prose content should be implementation-directed with flexible
+      topic selection (NFR-9). This approach is proven successful across 97+ prior features. Manual prose composition takes
+      5-10 minutes per feature (already demonstrated in features 069-097) and ensures originality. Content generation
+      requirements are minimal: grammatically correct, coherent, 2-3 sentences, ~320-600 bytes. No machine learning or
+      external services needed.
+
+  - title: 'Topic Selection Strategy'
+    chosen: 'Implementation selects appropriate generic/universal topic per NFR-9'
+    rejected:
+      - 'Product-specified topics — creates dependency on product phase; already resolved in spec that this is implementation-directed'
+      - 'Random topic selection — could produce inappropriate or nonsensical topics; manual selection ensures quality'
+    rationale: >
+      The spec's open question resolution explicitly states implementation-directed topic selection per NFR-9 (preference
+      for generic/universal topics). Analysis of prior test files shows diverse topics: "The Power of Persistence", "Black Holes
+      Exhibition Guide", "Acoustic Engineering Symptom Checker" — demonstrating intentional flexibility. Examples of appropriate
+      topics include philosophical concepts, natural phenomena, historical facts, or universal human experiences. Topic selection
+      is quick (< 5 minutes) and implementation maintains full creative control within quality guidelines.
+
+  - title: 'Encoding and Line Ending Handling'
+    chosen: 'pathlib.write_text(encoding="utf-8") produces UTF-8 without BOM and LF line endings'
+    rejected:
+      - 'Manual byte-level encoding — unnecessary complexity; pathlib handles this automatically'
+      - 'No explicit encoding specification — would use system default (might be UTF-8-sig on some systems, or even other encodings)'
+      - 'Explicit CRLF handling — contrary to NFR-4 requirement for LF-only line endings'
+    rationale: >
+      pathlib.Path.write_text(content, encoding='utf-8') automatically produces UTF-8 encoded files without BOM
+      (Python's 'utf-8' codec does not add BOM; use 'utf-8-sig' if BOM is desired). Line endings are handled correctly:
+      since the prose content string uses Python's native newlines (\n), write_text() produces LF line endings on all
+      platforms (Unix, macOS, Windows). The validation in create_markdown.py confirms this approach works as expected.
+      Success criteria require "File uses UTF-8 encoding without BOM" and "File uses Unix-style line endings (LF: \n only,
+      not CRLF: \r\n)"; pathlib with encoding='utf-8' meets both requirements automatically.
+
+  - title: 'Validation Strategy'
+    chosen: 'Post-creation validation checks using Path methods and subprocess'
+    rejected:
+      - 'Markdown parser library (e.g., markdown, mistune) — unnecessary for simple structural validation; success criteria require only basic format checks'
+      - 'External validation tool — adds dependency and complexity'
+      - 'No validation — risks missing issues (file size, line endings, BOM) until later testing'
+    rationale: >
+      Create_markdown.py demonstrates sufficient validation using simple methods: read_bytes() for binary checks (BOM, CRLF),
+      read_text() for string content, Path.stat() for file size, and string operations for structure validation. Validation
+      checks: (1) file exists; (2) H1 heading format (starts with "# "); (3) blank line separator; (4) sentence count (period count);
+      (5) UTF-8 encoding (no BOM); (6) LF line endings only; (7) file size in range. These checks are quick, simple, and sufficient
+      to verify success criteria without external dependencies.
+
+  - title: 'Script Execution Model'
+    chosen: 'Standalone Python script executed directly (no agent framework, no LLM)'
+    rejected:
+      - 'CrewAI agent-based implementation — adds framework overhead for a simple, deterministic task; overkill for single-file creation'
+      - 'LLM-driven implementation — unnecessary complexity, latency, and cost for straightforward file I/O'
+    rationale: >
+      The feature spec and prior implementations (create_markdown.py) demonstrate that this task is simple enough to be
+      implemented as a standalone script. No decision-making, reasoning, or multi-step reasoning required. The script follows
+      a linear sequence: (1) compose prose content, (2) write file, (3) validate, (4) git add/commit/push. This is deterministic
+      and requires no LLM assistance. The agentic Sheep platform is designed for complex, multi-phase features; feature 098 is
+      intentionally minimal to test basic file operations and git workflow.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should validation be performed before or after git operations (add/commit/push)?'
+    resolved: true
+    options:
+      - option: 'Validate before git operations (fail-fast approach)'
+        description: >
+          Validate file immediately after creation; only proceed to git add/commit/push if validation passes. If validation
+          fails, file remains at repository root but uncommitted. Ensures commit is only created if file meets all success
+          criteria. Recommended for quality assurance.
+        selected: true
+      - option: 'Validate after git operations'
+        description: >
+          Stage and commit file first, then validate. If validation fails, file is already committed (mistake is baked in).
+          Requires cleanup commits to fix. Not recommended.
+        selected: false
+      - option: 'Skip validation entirely'
+        description: >
+          Write file and immediately commit without any checks. Risks committing files that don't meet success criteria.
+          Can lead to failed feature validation and blocked pull requests.
+        selected: false
+    selectionRationale: >
+      Fail-fast validation before git operations is the best approach. It ensures that every commit is guaranteed to
+      contain a valid file. If validation fails, the file remains uncommitted at the repository root (clean state).
+      The script can retry or report the failure clearly. This aligns with create_markdown.py which validates before
+      commit. This approach is also consistent with quality assurance practices (validate before shipping).
+
+  - title: 'Markdown Content Structure'
+    resolved: true
+    options:
+      - option: 'Strict 2-3 sentence requirement with blank line separator'
+        description: >
+          H1 heading on line 1, blank line on line 2, exactly 2-3 sentences of prose starting on line 3. No additional
+          blank lines or formatting elements. Deterministic structure verified by line and sentence counts. This is the
+          established pattern across features 069-097.
+        selected: true
+      - option: 'Flexible structure with optional blank lines'
+        description: >
+          Allow variable spacing, multiple paragraphs, or additional formatting. Reduces constraints on content generation.
+          Harder to validate automatically and deviates from established pattern.
+        selected: false
+      - option: 'Minimal structure (heading + prose, no blank line requirement)'
+        description: >
+          Only require H1 heading and prose content, no strict blank line separation. Simplest structure, but deviates from
+          established pattern and makes validation less reliable.
+        selected: false
+    selectionRationale: >
+      The established pattern from features 069-097 uses strict structure: H1 heading, blank line, 2-3 sentences. Success
+      criteria explicitly require "exactly 2-3 sentences of prose content after the heading (separated by blank line)".
+      This structure is easy to validate, consistent with prior features, and ensures deterministic, testable output.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-18
+  - **Conclusion:** Feature 098 is straightforward file creation with no architectural complexity. All technical decisions align
+    with established patterns from features 069-097. Ready for implementation phase.
+
+  ## Summary of Technical Research
+
+  Feature 098 is a simple, repeatable test file creation task following an established pattern demonstrated 97+ times
+  (features 069-097). The feature requires:
+
+  1. Create a markdown file (`test-nh2svx.md`) at repository root
+  2. File must contain: H1 heading + blank line + 2-3 sentences of prose
+  3. File size 320-600 bytes (hard constraint)
+  4. UTF-8 encoding without BOM, LF line endings only
+  5. Standard git workflow: add, commit with conventional message, push to feature branch
+
+  All technical decisions are straightforward and proven across prior features. No complex architectural decisions,
+  no external dependencies beyond what already exists (pathlib, subprocess, git), and no ambiguity about implementation.
+
+  ## Technology Decisions
+
+  ### 1. File Creation Method
+
+  **Chosen:** `pathlib.Path.write_text()` with explicit `encoding='utf-8'`
+
+  **Rejected:**
+  - open()/write() directly — more verbose, requires explicit file handle management
+  - shutil module — designed for copying/moving files, not text file creation
+
+  **Rationale:** FR-4 explicitly specifies pathlib. pathlib.write_text() provides platform-independent API, handles
+  file creation/closing automatically, and supports encoding specification. Proven in create_markdown.py and all prior
+  features. Using `encoding='utf-8'` ensures UTF-8 without BOM (Python's utf-8 codec does not add BOM).
+
+  ### 2. Git Operations Implementation
+
+  **Chosen:** Direct `subprocess.run()` calls to git CLI
+
+  **Rejected:**
+  - GitPython library — available as dependency but adds unnecessary abstraction
+  - CrewAI tools (GitCommitTool, etc.) — wrapper around subprocess, adds indirection
+
+  **Rationale:** Direct subprocess is transparent, simple, and proven in create_markdown.py. Aligns with established
+  pattern. Error handling via `check=True` and catching `CalledProcessError` is sufficient. No need for abstraction
+  layers. Recommended pattern: `subprocess.run(['git', 'add', filename], check=True)`.
+
+  ### 3. Content Generation Approach
+
+  **Chosen:** Manual prose composition with flexible topic selection
+
+  **Rejected:**
+  - LLM-based generation — unnecessary for test files, adds latency/cost/complexity
+  - Template-based content — reduces flexibility and variety
+  - Reuse from prior files — violates uniqueness expectation
+
+  **Rationale:** Spec resolves that prose is implementation-directed (NFR-9). Features 069-097 demonstrate success
+  with manual composition (5-10 minutes per feature). Content requirements are minimal: grammatically correct,
+  coherent, 2-3 sentences, ~320-600 bytes. No complex logic needed.
+
+  ### 4. Topic Selection
+
+  **Chosen:** Implementation selects appropriate generic/universal topic per NFR-9 guidelines
+
+  **Rejected:**
+  - Product-specified topics — already resolved as implementation-directed in spec
+  - Random selection — risks inappropriate topics
+
+  **Rationale:** Feature spec resolves topic selection as implementation-directed. Prior test files use diverse topics
+  (examples: "The Power of Persistence", "Black Holes Exhibition Guide", "Acoustic Engineering Symptom Checker"),
+  showing intentional flexibility and variety. Examples of appropriate topics: philosophical concepts, natural phenomena,
+  historical facts, or universal human experiences. Selection is quick (< 5 minutes).
+
+  ### 5. Encoding and Line Ending Handling
+
+  **Chosen:** pathlib.write_text(encoding="utf-8") produces UTF-8 without BOM and LF line endings
+
+  **Rejected:**
+  - Manual byte-level encoding — unnecessary, pathlib handles automatically
+  - No explicit encoding — system default is unreliable
+  - Explicit CRLF handling — violates NFR-4 (LF required)
+
+  **Rationale:** pathlib.write_text(content, encoding='utf-8') automatically produces UTF-8 without BOM (Python's
+  utf-8 codec does not add BOM). Line endings handled correctly: Python strings use \n; write_text() produces LF
+  on all platforms. No need for explicit newline handling. Success criteria explicitly require UTF-8 without BOM
+  (testable: `file` command) and LF line endings (testable: check for \r\n absence).
+
+  ### 6. Validation Strategy
+
+  **Chosen:** Post-creation validation using Path methods and string operations
+
+  **Rejected:**
+  - Markdown parser library — unnecessary for simple structural checks
+  - External validation tool — adds dependency
+  - No validation — risks undetected issues
+
+  **Rationale:** Simple validation is sufficient and proven in create_markdown.py. Checks required: (1) file exists;
+  (2) H1 heading (line 1 starts with "# "); (3) blank line (line 2 is ""); (4) sentence count (count periods);
+  (5) UTF-8 without BOM (read_bytes(), check no \xef\xbb\xbf); (6) LF line endings (check no \r\n); (7) file size
+  (320-600 bytes). All checks are quick, simple, and sufficient to verify success criteria.
+
+  ### 7. Script Structure and Execution
+
+  **Chosen:** Standalone Python script with sequential execution (no agent framework)
+
+  **Rejected:**
+  - CrewAI agent-based implementation — framework overhead for simple, deterministic task
+  - LLM-driven implementation — unnecessary complexity and cost
+
+  **Rationale:** Feature 098 is intentionally simple: linear sequence of steps (compose content, write file, validate,
+  git add/commit/push). No decision-making or reasoning required. Standalone script is appropriate. The Sheep agentic
+  platform is designed for complex multi-phase features; feature 098 tests basic file operations and git workflow.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O operations | Use (required) | FR-4 specifies pathlib; part of Python stdlib; handles encoding automatically |
+  | subprocess (stdlib) | Execute git CLI commands | Use (required) | Direct git integration; transparent; proven in prior features |
+  | git CLI (external) | Version control operations | Use (assumed available) | Standard tool available in all development environments; required by project |
+  | GitPython (gitpython) | Python git bindings | Reject | Available as dependency but adds unnecessary abstraction layer; subprocess is simpler and proven |
+  | Markdown parser libs | Content validation | Reject | Not needed for simple structural checks; adds dependency; overkill for this feature |
+  | CrewAI framework | Agent orchestration | Reject (not needed) | Feature is too simple for agent framework; standalone script is appropriate |
+
+  ## Security Considerations
+
+  **File I/O Security:**
+  - Using pathlib.write_text() with explicit encoding specification is safe and standard practice
+  - File created at repository root with standard permissions (no privilege escalation needed)
+  - No user input validation required (filename is hardcoded as `test-nh2svx.md`)
+  - No potential for path traversal attacks (no variable path components)
+
+  **Git Operations Security:**
+  - Subprocess.run() with `check=True` properly handles error cases
+  - No shell=True (avoids shell injection); git arguments passed as list
+  - Commit message is hardcoded and safe; no user input injected
+  - Git operations run with current user permissions (standard for development)
+
+  **Content Security:**
+  - Prose content is static, hardcoded string; no untrusted input sources
+  - UTF-8 encoding and line ending handling prevent encoding-based attacks
+  - Markdown syntax is simple; no malicious content risk
+
+  **No security vulnerabilities identified.** Feature is purely additive (creates new file), no modifications to
+  existing code, no external service calls, no sensitive data handling.
+
+  ## Performance Considerations
+
+  **File I/O Performance:**
+  - Single file creation operation (~320-600 bytes) is negligible in performance impact
+  - pathlib.write_text() is optimized for small files
+  - No batch operations needed; no I/O optimization required
+
+  **Git Operations Performance:**
+  - Git add, commit, push are standard operations; no performance concerns for single file
+  - No large files or heavy git operations; typical git workflow for test environments
+  - Subprocess calls are direct and have no unnecessary overhead
+
+  **Validation Performance:**
+  - Post-creation validation is quick (read file, check properties, count sentences)
+  - No loops or complex algorithms; O(n) where n is file size (~400 bytes)
+  - Negligible performance impact
+
+  **Overall Performance Impact:** None. Feature has no measurable performance implications. Expected execution
+  time is 10-15 minutes (as per size estimate S), with minimal CPU/disk I/O overhead.
+
+  ## Architecture Notes
+
+  **How This Fits Into Sheep Project:**
+
+  The Sheep project is a CrewAI-based agentic platform for automated code implementation with phases:
+  research → implementation → review. Features are self-contained test cases demonstrating the platform's capability.
+
+  Feature 098 is a minimal test case — intentionally simple to validate basic capabilities:
+  - File creation (I/O operations)
+  - Git workflow (version control integration)
+  - Conventional commits (code standards)
+  - Prose generation (content quality)
+
+  The feature does NOT depend on or affect:
+  - Application source code (/src/sheep/)
+  - Configuration or build system
+  - Test suite or CI/CD pipeline
+  - Other features (purely additive)
+
+  **Implementation Approach:**
+
+  Feature 098 will be implemented as a standalone Python script (create_test_nh2svx.md.py or similar) following
+  the pattern established in create_markdown.py. The script will:
+  1. Define prose content (H1 heading + 2-3 sentences)
+  2. Create file using pathlib.write_text()
+  3. Validate file properties
+  4. Stage with git add
+  5. Commit with conventional message: "feat(098): create markdown file test-nh2svx.md with prose content"
+  6. Push to feature branch
+
+  This follows the established pattern from features 069-097 without deviation. No architectural complexity,
+  no new dependencies, no framework integration needed.
+
+  ## Implementation Checklist
+
+  Based on technical research, implementation must ensure:
+
+  - [ ] File `test-nh2svx.md` created at repository root using pathlib.write_text(encoding='utf-8')
+  - [ ] Content: H1 heading (# Title) + blank line + 2-3 sentences of prose
+  - [ ] Prose topic is generic/universal (implementation-directed per NFR-9)
+  - [ ] File size is exactly 320-600 bytes (hard constraint per NFR-5)
+  - [ ] File encoding is UTF-8 without BOM (verify with read_bytes, no \xef\xbb\xbf)
+  - [ ] Line endings are LF only (\n), not CRLF (\r\n)
+  - [ ] Markdown syntax is valid (H1 heading format, proper structure)
+  - [ ] Prose is grammatically correct and coherent
+  - [ ] Validation checks pass before git operations (fail-fast approach)
+  - [ ] Git add: `git add test-nh2svx.md`
+  - [ ] Git commit: `git commit -m "feat(098): create markdown file test-nh2svx.md with prose content"`
+  - [ ] Git push: `git push -u origin HEAD` (or `git push` if tracking is set)
+  - [ ] Repository shows clean working tree after push
+
+  ## Conclusion
+
+  Feature 098 is straightforward and requires no complex technical decisions. All technical choices align with
+  established patterns from features 069-097. The feature demonstrates basic Sheep platform capabilities (file I/O,
+  git workflow, conventional commits) through a minimal, testable example. Research complete; ready for implementation.
+
+  ---
+
+  **Research phase complete** — Technical decisions finalized with rationale, library analysis completed, security and
+  performance considered, architecture documented. No unresolved technical questions remain. Ready for implementation phase.
