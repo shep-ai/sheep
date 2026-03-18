@@ -1,9 +1,9 @@
 """Application settings using Pydantic Settings."""
 
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -96,6 +96,22 @@ class Settings(BaseSettings):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     langfuse: LangfuseSettings = Field(default_factory=LangfuseSettings)
     git: GitSettings = Field(default_factory=GitSettings)
+
+    @field_validator("default_model", "fast_model", "reasoning_model", "log_level", mode="before")
+    @classmethod
+    def handle_empty_strings(cls, v: Any, info: ValidationInfo) -> str:
+        """Handle empty strings by using field defaults."""
+        if isinstance(v, str) and not v:
+            # Return the default for the field
+            defaults = {
+                "default_model": "openai/gpt-4o",
+                "fast_model": "openai/gpt-4o-mini",
+                "reasoning_model": "anthropic/claude-3-5-sonnet-20241022",
+                "log_level": "INFO",
+            }
+            field_name = info.field_name or ""
+            return defaults.get(field_name, v) or v
+        return str(v)
 
 
 @lru_cache
