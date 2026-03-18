@@ -275,22 +275,22 @@ class TestTask3FileValidation:
 
         # NFR-1: UTF-8 without BOM
         has_bom = binary_content.startswith(b"\xef\xbb\xbf")
-        print(f"✓ NFR-1 UTF-8 without BOM: {'PASS' if not has_bom else 'FAIL'}")
+        print(f"[OK] NFR-1 UTF-8 without BOM: {'PASS' if not has_bom else 'FAIL'}")
 
         # NFR-2: Unix LF line endings
         has_crlf = b"\r\n" in binary_content
-        print(f"✓ NFR-2 Unix LF line endings: {'PASS' if not has_crlf else 'FAIL'}")
+        print(f"[OK] NFR-2 Unix LF line endings: {'PASS' if not has_crlf else 'FAIL'}")
 
         # NFR-3: File size 320-600 bytes
         size_valid = 320 <= file_size <= 600
-        print(f"✓ NFR-3 File size ({file_size} bytes): {'PASS' if size_valid else 'FAIL'}")
+        print(f"[OK] NFR-3 File size ({file_size} bytes): {'PASS' if size_valid else 'FAIL'}")
 
         # FR-2 & FR-3: H1 heading and blank line
         lines = content.split("\n")
         has_h1 = len(lines) > 0 and lines[0].startswith("# ")
         has_blank = len(lines) > 1 and lines[1] == ""
-        print(f"✓ FR-2 H1 heading: {'PASS' if has_h1 else 'FAIL'}")
-        print(f"✓ FR-3 Blank line separator: {'PASS' if has_blank else 'FAIL'}")
+        print(f"[OK] FR-2 H1 heading: {'PASS' if has_h1 else 'FAIL'}")
+        print(f"[OK] FR-3 Blank line separator: {'PASS' if has_blank else 'FAIL'}")
 
         # FR-3 & FR-4: Prose content
         prose_lines = lines[2:] if len(lines) > 2 else []
@@ -300,12 +300,12 @@ class TestTask3FileValidation:
         has_prose = len(prose_content) > 0
         sentence_count = prose_content.count(".")
         sentences_valid = 2 <= sentence_count <= 3
-        print(f"✓ FR-4 Prose content exists: {'PASS' if has_prose else 'FAIL'}")
-        print(f"✓ FR-4 2-3 sentences ({sentence_count} found): {'PASS' if sentences_valid else 'FAIL'}")
+        print(f"[OK] FR-4 Prose content exists: {'PASS' if has_prose else 'FAIL'}")
+        print(f"[OK] FR-4 2-3 sentences ({sentence_count} found): {'PASS' if sentences_valid else 'FAIL'}")
 
         # NFR-2: Trailing newline
         has_trailing_newline = content.endswith("\n")
-        print(f"✓ NFR-2 Trailing newline: {'PASS' if has_trailing_newline else 'FAIL'}")
+        print(f"[OK] NFR-2 Trailing newline: {'PASS' if has_trailing_newline else 'FAIL'}")
 
         print("\n" + "=" * 60)
         print("File Content (first 500 chars):")
