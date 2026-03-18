@@ -1,5 +1,6 @@
 """Tests for feature 089 markdown file creation (test-mprgt7.md)."""
 
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -401,5 +402,285 @@ class TestIntegration:
                 # Run main - should fail
                 result = create_test_mprgt7.main()
                 assert result == 1
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestPerformGitOperations:
+    """Tests for git integration (add, commit, push)."""
+
+    def test_git_add_called_with_correct_arguments(self):
+        """Test that git add is called with correct filename."""
+        with patch('subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+
+            try:
+                create_test_mprgt7.perform_git_operations()
+            except RuntimeError:
+                # We expect failure on commit, but we're testing git add call
+                pass
+
+            # Verify git add was called
+            calls = mock_run.call_args_list
+            assert any(
+                call[0][0] == ["git", "add", create_test_mprgt7.FILENAME]
+                for call in calls
+            ), f"git add call not found in {calls}"
+
+    def test_git_commit_called_with_correct_message(self):
+        """Test that git commit is called with conventional commit message."""
+        with patch('subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+
+            try:
+                create_test_mprgt7.perform_git_operations()
+            except RuntimeError:
+                # We expect failure on push, but we're testing commit call
+                pass
+
+            # Verify git commit was called with correct message
+            calls = mock_run.call_args_list
+            commit_message = f"feat(089): create markdown file {create_test_mprgt7.FILENAME} with prose content"
+            assert any(
+                call[0][0][:2] == ["git", "commit"] and
+                call[0][0][3] == commit_message
+                for call in calls
+            ), f"git commit with correct message not found in {calls}"
+
+    def test_git_push_called_with_feature_branch(self):
+        """Test that git push is called with correct feature branch."""
+        with patch('subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+
+            create_test_mprgt7.perform_git_operations()
+
+            # Verify git push was called
+            calls = mock_run.call_args_list
+            branch = "feat/089-markdown-file-creation-7c4201"
+            assert any(
+                call[0][0] == ["git", "push", "origin", branch]
+                for call in calls
+            ), f"git push call not found in {calls}"
+
+    def test_uses_subprocess_argument_list_not_shell(self):
+        """Test that subprocess is called with argument list (not shell=True)."""
+        with patch('subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+
+            create_test_mprgt7.perform_git_operations()
+
+            # Verify that shell=True was never used
+            for call in mock_run.call_args_list:
+                assert call[1].get('shell') is not True, "Should not use shell=True"
+
+    def test_git_add_failure_raises_error(self):
+        """Test that git add failure raises RuntimeError with descriptive message."""
+        with patch('subprocess.run') as mock_run:
+            # Simulate git add failure
+            mock_run.side_effect = [
+                subprocess.CalledProcessError(1, "git add", stderr="Permission denied"),
+            ]
+
+            with pytest.raises(RuntimeError, match="git add"):
+                create_test_mprgt7.perform_git_operations()
+
+    def test_git_commit_failure_raises_error(self):
+        """Test that git commit failure raises RuntimeError with descriptive message."""
+        with patch('subprocess.run') as mock_run:
+            # Simulate git add success, commit failure
+            mock_run.side_effect = [
+                MagicMock(returncode=0),  # git add succeeds
+                subprocess.CalledProcessError(1, "git commit", stderr="Nothing staged for commit"),
+            ]
+
+            with pytest.raises(RuntimeError, match="git commit"):
+                create_test_mprgt7.perform_git_operations()
+
+    def test_git_push_failure_raises_error(self):
+        """Test that git push failure raises RuntimeError with descriptive message."""
+        with patch('subprocess.run') as mock_run:
+            # Simulate git add and commit success, push failure
+            mock_run.side_effect = [
+                MagicMock(returncode=0),  # git add succeeds
+                MagicMock(returncode=0),  # git commit succeeds
+                subprocess.CalledProcessError(1, "git push", stderr="Connection timeout"),
+            ]
+
+            with pytest.raises(RuntimeError, match="git push"):
+                create_test_mprgt7.perform_git_operations()
+
+    def test_all_git_operations_succeed(self):
+        """Test successful execution of all git operations."""
+        with patch('subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+
+            # Should not raise
+            create_test_mprgt7.perform_git_operations()
+
+            # Verify all three operations were called
+            assert mock_run.call_count == 3
+
+
+class TestMainFunctionIntegration:
+    """Tests for main() function orchestrating all components."""
+
+    def test_main_calls_all_steps_in_order(self):
+        """Test that main() calls all steps in correct sequence."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                with patch('subprocess.run') as mock_run:
+                    mock_run.return_value = MagicMock(returncode=0)
+
+                    result = create_test_mprgt7.main()
+
+                    # Should succeed
+                    assert result == 0
+
+                    # File should be created
+                    assert Path(create_test_mprgt7.FILENAME).exists()
+
+                    # Git operations should have been called
+                    assert mock_run.call_count == 3
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_exits_with_1_on_prose_validation_failure(self):
+        """Test that main() exits with code 1 if prose validation fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                # Mock prose validation to fail
+                with patch.object(create_test_mprgt7, 'validate_prose_before_write') as mock_validate:
+                    mock_validate.side_effect = ValueError("Invalid prose")
+
+                    result = create_test_mprgt7.main()
+
+                    # Should fail
+                    assert result == 1
+
+                    # File should not be created
+                    assert not Path(create_test_mprgt7.FILENAME).exists()
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_exits_with_1_on_file_creation_failure(self):
+        """Test that main() exits with code 1 if file creation fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                # Create file first to trigger FileExistsError
+                Path(create_test_mprgt7.FILENAME).write_text("existing")
+
+                result = create_test_mprgt7.main()
+
+                # Should fail
+                assert result == 1
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_exits_with_1_on_git_failure(self):
+        """Test that main() exits with code 1 if git operations fail."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                with patch('subprocess.run') as mock_run:
+                    # Simulate git add failure
+                    mock_run.side_effect = subprocess.CalledProcessError(1, "git add")
+
+                    result = create_test_mprgt7.main()
+
+                    # Should fail
+                    assert result == 1
+
+                    # File should exist (created before git operations fail)
+                    assert Path(create_test_mprgt7.FILENAME).exists()
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_prints_errors_to_stderr(self):
+        """Test that main() prints errors to stderr."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                # Create file first to trigger error
+                Path(create_test_mprgt7.FILENAME).write_text("existing")
+
+                with patch('sys.stderr') as mock_stderr:
+                    result = create_test_mprgt7.main()
+
+                    # Should have written to stderr
+                    assert mock_stderr.write.called
+                    assert result == 1
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_prints_success_message_to_stdout(self):
+        """Test that main() prints success message when complete."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                with patch('subprocess.run') as mock_run:
+                    mock_run.return_value = MagicMock(returncode=0)
+
+                    with patch('builtins.print') as mock_print:
+                        result = create_test_mprgt7.main()
+
+                        # Should succeed
+                        assert result == 0
+
+                        # Should have printed success message
+                        success_messages = [
+                            str(call)
+                            for call in mock_print.call_args_list
+                            if 'complete' in str(call).lower()
+                        ]
+                        assert len(success_messages) > 0, "No success message printed"
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_succeeds_with_valid_setup(self):
+        """Test that main() succeeds when all conditions are met."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                with patch('subprocess.run') as mock_run:
+                    mock_run.return_value = MagicMock(returncode=0)
+
+                    result = create_test_mprgt7.main()
+
+                    # Should succeed
+                    assert result == 0
+
+                    # File should exist and be valid
+                    assert Path(create_test_mprgt7.FILENAME).exists()
+                    content = Path(create_test_mprgt7.FILENAME).read_text()
+                    # Check file starts with correct heading and has content
+                    assert content.startswith("# Script Validation Process")
+                    # Check for key prose elements
+                    assert "automated content generation" in content
+                    # Check that git operations were called
+                    assert mock_run.call_count == 3
             finally:
                 os.chdir(original_cwd)

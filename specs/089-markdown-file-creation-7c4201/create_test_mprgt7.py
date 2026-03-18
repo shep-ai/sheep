@@ -149,6 +149,47 @@ def validate_file(path):
     return True
 
 
+def perform_git_operations():
+    """Stage file, commit, and push to remote using git CLI via subprocess."""
+    # Git add
+    try:
+        subprocess.run(
+            ["git", "add", FILENAME],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(f"[OK] git add {FILENAME}")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"git add {FILENAME} failed: {e.stderr.strip() if e.stderr else e}")
+
+    # Git commit with conventional commit message
+    commit_message = f"feat(089): create markdown file {FILENAME} with prose content"
+    try:
+        subprocess.run(
+            ["git", "commit", "-m", commit_message],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(f"[OK] git commit -m '{commit_message}'")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"git commit failed: {e.stderr.strip() if e.stderr else e}")
+
+    # Git push to feature branch
+    branch = "feat/089-markdown-file-creation-7c4201"
+    try:
+        subprocess.run(
+            ["git", "push", "origin", branch],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(f"[OK] git push origin {branch}")
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"git push origin {branch} failed: {e.stderr.strip() if e.stderr else e}")
+
+
 def main():
     """Main entry point: validate prose, create file, validate file, and push to git."""
     try:
@@ -161,11 +202,14 @@ def main():
         # Phase 3: Validate created file
         validate_file(path)
 
-        print(f"\n[OK] Feature 089 Phase 1 complete: {FILENAME} created and validated")
+        # Phase 4: Git integration
+        perform_git_operations()
+
+        print(f"\n[OK] Feature 089 complete: {FILENAME} created, validated, and pushed to git")
         return 0
 
     except Exception as e:
-        sys.stderr.write(f"[ERROR] Error: {e}\n")
+        sys.stderr.write(f"[ERROR] {e}\n")
         return 1
 
 
