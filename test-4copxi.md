@@ -1,0 +1,3 @@
+# The Art of Problem Solving
+
+Every complex problem can be broken down into smaller, manageable pieces that become easier to understand and address. By developing systematic thinking and maintaining curiosity about the root causes of challenges, we build problem-solving skills that serve us across all domains of life. The most effective problem solvers are those who embrace iteration, learn from failures, and continuously refine their approach.
