@@ -1,0 +1,478 @@
+name: markdown-file-creation-7c4201
+summary: >
+  Feature 089 implements an established pattern for markdown file creation with strict validation.
+  Technical approach uses Python stdlib (pathlib, subprocess, re) for file I/O, git operations, and
+  sentence validation. All product decisions are pre-resolved; implementation focuses on fail-fast
+  validation, explicit error handling, and matching the pattern from 88 prior implementations.
+
+relatedFeatures:
+  - number: 088
+    name: markdown-file-creation-8d62fc
+    relationship: Identical pattern — validates implementation consistency
+  - number: 087
+    name: markdown-file-creation-1e052c
+    relationship: Identical pattern — validates implementation consistency
+  - number: 069
+    name: markdown-file-creation
+    relationship: Original pattern — established all constraints and validation rules
+
+technologies:
+  - Python 3.11+
+  - pathlib (Path for cross-platform file I/O)
+  - subprocess (git CLI operations with argument lists)
+  - re (regex for sentence boundary detection)
+  - sys (exit codes and error reporting)
+
+relatedLinks:
+  - title: 'Python pathlib documentation'
+    url: 'https://docs.python.org/3/library/pathlib.html'
+  - title: 'Python subprocess documentation'
+    url: 'https://docs.python.org/3/library/subprocess.html'
+  - title: 'Python re module documentation'
+    url: 'https://docs.python.org/3/library/re.html'
+  - title: 'Conventional Commits specification'
+    url: 'https://www.conventionalcommits.org/'
+
+decisions:
+  - title: 'File I/O Implementation Strategy'
+    chosen: 'pathlib.Path with explicit UTF-8 encoding, no BOM, newline handling'
+    rejected:
+      - 'open() builtin — less cross-platform, requires manual path joining, no Path object benefits'
+      - 'os.path — legacy approach, less readable, no modern Path abstractions'
+    rationale: >
+      pathlib.Path is the modern Python standard for file I/O, providing cross-platform path
+      handling, readable chaining, and explicit encoding/newline control. Using `Path(...).write_text(content, encoding='utf-8', newline='\n')`
+      ensures UTF-8 without BOM and explicit LF line endings. This matches the pattern from
+      features 069-088 and is the recommended approach in Python 3.11+.
+
+  - title: 'Git Operations Implementation'
+    chosen: 'subprocess.run() with argument list (no shell=True), explicit error handling'
+    rejected:
+      - 'GitPython library — adds external dependency, violates constraint of stdlib-only'
+      - 'os.system() or shell=True — vulnerable to command injection, less structured error handling'
+      - 'git.Repo via GitPython — requires package installation, incompatible with NFR-5'
+    rationale: >
+      The spec requires stdlib-only implementation. subprocess.run() with an argument list is safe
+      (no injection vulnerability), provides explicit exit code handling, and is the standard pattern
+      for executing external CLIs. The constraint in NFR-9 explicitly mandates subprocess for git CLI
+      operations, not API bindings. Using subprocess.run() with capture_output=True allows safe error
+      reporting without exposing raw git output.
+
+  - title: 'Sentence Count Validation Algorithm'
+    chosen: 'Regex-based sentence boundary detection: split on [.!?]+ with strip/filter empty'
+    rejected:
+      - 'Simple word count heuristic — no accuracy, easy to game, misses spec requirement'
+      - 'NLTK or spacy — external dependencies, violates stdlib-only constraint'
+      - 'No validation — simplest but fails to enforce spec''s 2-3 sentence requirement'
+    rationale: >
+      Regex pattern `[.!?]+` reliably detects sentence boundaries (period, exclamation, question mark)
+      in the prose. Combined with `.strip()` and filtering empty strings, this counts actual sentences
+      without external NLP libraries. Edge cases (ellipsis, abbreviations) are acceptable given the
+      hardcoded prose is controlled. This approach is stdlib-only (re module) and enforces the
+      specification requirement directly.
+
+  - title: 'Validation Timing and Error Strategy'
+    chosen: 'Pre-write strict validation with fail-fast on first error; structured error messages'
+    rejected:
+      - 'Post-write validation — risks creating broken files; requires cleanup on failure'
+      - 'Lenient validation with warnings — hides errors, may pass broken files'
+      - 'Silent validation — no operator visibility into what failed or why'
+    rationale: >
+      Pre-write validation catches errors before any file I/O, preventing partial writes or git
+      state issues. Strict enforcement (fail on first error) is the safest default for file
+      operations. Structured error messages (e.g., "sentence count is 2 but spec requires 3") help
+      operators debug issues immediately. This matches the fail-fast approach specified in the
+      product decisions (FR-10: validate before git operations).
+
+  - title: 'File Conflict Handling'
+    chosen: 'Check if file exists before write; fail with descriptive error if present'
+    rejected:
+      - 'Overwrite silently — risks data loss, irreversible'
+      - 'Skip with warning — may hide issues, idempotent but unsafe'
+    rationale: >
+      The spec explicitly resolves this in product question 3: failing with error is the safest
+      default. pathlib.Path.exists() check before write_text() prevents accidental overwrites.
+      Clear error message (e.g., "test-mprgt7.md already exists; delete it first") makes the
+      operator''s action obvious and required.
+
+  - title: 'Line Ending Normalization'
+    chosen: 'Write with newline='\''\n'\'' parameter to pathlib.write_text(); validate before commit'
+    rejected:
+      - 'Write with default newline (platform-specific CRLF on Windows) — violates spec requirement'
+      - 'Write then post-process with .replace() — adds extra I/O, error-prone'
+    rationale: >
+      pathlib.Path.write_text(..., newline='\n') handles line ending encoding at write time
+      (universal newline mode = LF only). This is cleaner, single-pass, and matches spec NFR-2.
+      Validation after write confirms the file has LF only (no CRLF/CR). This avoids platform
+      inconsistency on Windows where default is CRLF.
+
+  - title: 'Encoding Validation Strategy'
+    chosen: 'Write with encoding='\''utf-8'\''; verify no BOM; read back as UTF-8 to validate'
+    rejected:
+      - 'Trust pathlib — assumes correct encoding, no validation'
+      - 'chardet detection — external library, overkill for known UTF-8'
+    rationale: >
+      pathlib.Path.write_text(encoding='utf-8') explicitly uses UTF-8 without BOM (Python standard).
+      Reading back the file with .read_bytes() and checking for BOM prefix (b'\xef\xbb\xbf') and
+      decoding as UTF-8 confirms the spec requirement (NFR-1). This is defensive and catches encoding
+      errors before git operations.
+
+  - title: 'File Size Validation Bounds'
+    chosen: 'Validate file size is 350-650 bytes (inclusive) using len(Path.read_bytes())'
+    rejected:
+      - 'No size validation — loses a key constraint enforcement mechanism'
+      - 'Warn if size is off — doesn''t enforce spec requirement'
+    rationale: >
+      The spec (NFR-3) explicitly requires 350-650 bytes. This constraint ensures consistent,
+      reasonable-length prose (not too short, not excessively long). Using len(content_bytes)
+      is straightforward and catches prose that is too short or too long before commit. Hardcoded
+      prose should hit this range by design, but validation catches errors in prose generation.
+
+  - title: 'Script Structure and Entry Point'
+    chosen: 'Single standalone Python script; main() with sequential validation, file creation, git operations'
+    rejected:
+      - 'Class-based OOP wrapper — overkill for single-use script, adds complexity'
+      - 'Module imported into larger system — unclear where prose lives, harder to validate independently'
+      - 'Multiple scripts — breaks single responsibility, coordination issues'
+    rationale: >
+      Features 069-088 used single standalone scripts (based on spec references). This approach is
+      simple, self-contained, easy to test, and matches the established pattern. A main() function
+      with clear sequential steps (validate prose → create file → validate file → git add → git commit
+      → git push) is readable and maintainable.
+
+openQuestions:
+  - question: 'Should the prose content be a module-level constant or embedded string literal?'
+    resolved: true
+    options:
+      - option: 'Module-level constant (PROSE = "...")'
+        description: 'Defines prose as PROSE = "..." at module top. Easier to validate, review, and extract for testing. Slightly more verbose.'
+        selected: true
+      - option: 'Inline string literal in main()'
+        description: 'Embeds prose directly in write_text() call. More compact but harder to validate separately. Mixes content with logic.'
+        selected: false
+      - option: 'External file or environment variable'
+        description: 'Load prose from file or env var. Maximum flexibility but adds I/O, harder to validate determinism. Violates stdlib-only constraint.'
+        selected: false
+    selectionRationale: >
+      Module-level constant is the best choice. It separates data (prose) from logic (validation,
+      file operations), making the prose easy to review and validate independently. It''s the
+      pattern used in features 069-088, is deterministic, and requires no external I/O. This enables
+      a simple `python script.py` invocation with no configuration needed.
+
+  - question: 'Should error messages be printed to stdout or stderr?'
+    resolved: true
+    options:
+      - option: 'stderr via sys.stderr.write() and sys.exit(1)'
+        description: 'Errors go to stderr (standard practice), normal output to stdout. Enables shell redirection/piping. Clear separation of streams.'
+        selected: true
+      - option: 'stdout with print()'
+        description: 'Simple, all output to stdout. Less structured, harder to filter errors in scripts. Mixes success/error output.'
+        selected: false
+      - option: 'Logging module (logging.error())'
+        description: 'More sophisticated, configurable log levels. Overkill for simple script, adds stdlib module, harder to test.'
+        selected: false
+    selectionRationale: >
+      stderr is the Unix convention for error messages; stdout is for normal output. This separation
+      allows scripts to pipe success output while capturing errors separately. Using sys.stderr.write()
+      is stdlib-only, simple, and matches the fail-fast approach. Features 069-088 likely follow this
+      pattern for consistency.
+
+  - question: 'How should git operation errors (add/commit/push failures) be distinguished and reported?'
+    resolved: true
+    options:
+      - option: 'Distinct error messages per operation with descriptive context'
+        description: 'Each git operation has a specific error handler: "git add failed: <reason>", "git commit failed: <reason>", etc. Operator knows exactly which step failed.'
+        selected: true
+      - option: 'Generic error message for any git failure'
+        description: 'Single error message "git operation failed: <details>". Simpler to code but less diagnostic information.'
+        selected: false
+      - option: 'Print raw git output and exit'
+        description: 'Dump git stderr directly. Verbose but unstructured; operator must parse git errors themselves.'
+        selected: false
+    selectionRationale: >
+      Distinct error messages per operation provide immediate visibility into which git step failed.
+      This is critical for debugging (git add failure is different from push failure). Using
+      subprocess.run(capture_output=True) to capture stderr, then wrapping with context (e.g.,
+      "git add test-mprgt7.md failed: permission denied") helps operators act quickly. This matches
+      the spec requirement (NFR-12: descriptive messages for git debugging).
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O with pathlib.Path
+
+  **Chosen:** pathlib.Path with explicit encoding and newline handling
+
+  **Implementation:**
+  ```python
+  from pathlib import Path
+
+  file_path = Path('test-mprgt7.md')
+  file_path.write_text(content, encoding='utf-8', newline='\n')
+  ```
+
+  **Rejected alternatives:**
+  - `open()` builtin — requires manual path construction, less readable
+  - `os.path` — legacy, less intuitive Path abstractions
+
+  **Rationale:** pathlib.Path is the modern Python 3 standard, provides explicit control over encoding
+  (no BOM) and newline handling (LF only), and is cross-platform. The `newline='\n'` parameter ensures
+  only LF line endings are written, satisfying NFR-2. This matches features 069-088 pattern.
+
+  ### 2. Git Operations via subprocess
+
+  **Chosen:** subprocess.run() with argument list (no shell=True)
+
+  **Implementation:**
+  ```python
+  import subprocess
+
+  subprocess.run(['git', 'add', 'test-mprgt7.md'], check=True, capture_output=True)
+  subprocess.run(['git', 'commit', '-m', 'feat(089): ...'], check=True, capture_output=True)
+  subprocess.run(['git', 'push', 'origin', 'feat/089-...'], check=True, capture_output=True)
+  ```
+
+  **Rejected alternatives:**
+  - GitPython — external dependency, violates stdlib-only constraint (NFR-5)
+  - os.system() — vulnerable to command injection, poor error handling
+  - shell=True — command injection risk, irreversible failure modes
+
+  **Rationale:** subprocess with argument lists is safe (prevents injection), provides explicit error
+  codes via `check=True`, and allows safe error capture. The spec explicitly mandates subprocess
+  CLI for git (NFR-9). Using `capture_output=True` lets us provide structured error messages.
+
+  ### 3. Sentence Validation with Regex
+
+  **Chosen:** Regex-based sentence boundary detection using [.!?]+ pattern
+
+  **Implementation:**
+  ```python
+  import re
+
+  sentences = re.split(r'[.!?]+', prose)
+  sentences = [s.strip() for s in sentences if s.strip()]
+  if not (2 <= len(sentences) <= 3):
+      raise ValueError(f"Prose must have 2-3 sentences, found {len(sentences)}")
+  ```
+
+  **Rejected alternatives:**
+  - Simple word count — no accuracy, easy to circumvent
+  - NLTK/spacy — external dependencies, violates stdlib-only constraint
+  - No validation — fails to enforce spec requirement
+
+  **Rationale:** Regex pattern `[.!?]+` reliably detects sentence boundaries in controlled prose.
+  Combined with strip() and filter, it counts actual sentences. Edge cases (ellipsis, abbreviations)
+  are acceptable given hardcoded prose. This enforces spec requirement (FR-4) with stdlib only.
+
+  ### 4. Pre-Write Validation Strategy
+
+  **Chosen:** Validate all constraints before file creation; fail immediately on first error
+
+  **Validation checklist:**
+  1. Prose length (hardcoded, assumed valid)
+  2. Sentence count (2-3 via regex)
+  3. File size estimate (before write)
+  4. No BOM, UTF-8 encodable
+  5. File does not already exist (check before write)
+
+  **Rejected alternatives:**
+  - Post-write validation — risks partial file creation, git state inconsistency
+  - Lenient validation — hides errors, may pass broken files to commit
+
+  **Rationale:** Pre-write validation catches errors before any I/O, preventing failed git operations
+  and partial file creation. Fail-fast is the safest approach for file operations and matches the spec
+  requirement (FR-10: validate before git). Structured error messages help operators debug immediately.
+
+  ### 5. File Conflict Handling
+
+  **Chosen:** Check file existence before write; fail with clear error message if present
+
+  **Implementation:**
+  ```python
+  if file_path.exists():
+      raise FileExistsError(f"File {file_path} already exists. Delete it first and retry.")
+  ```
+
+  **Rejected alternatives:**
+  - Overwrite silently — risks data loss, irreversible
+  - Skip with warning — idempotent but hides errors
+
+  **Rationale:** The spec resolves this (product question 3): fail with error is the safest default.
+  This prevents accidental overwrites and makes operator action explicit. Clear error message guides
+  next steps.
+
+  ### 6. Line Ending Normalization
+
+  **Chosen:** Write with `newline='\n'` parameter; validate no CRLF/CR present
+
+  **Validation:**
+  ```python
+  raw_content = file_path.read_bytes()
+  if b'\r' in raw_content:
+      raise ValueError("File contains CR/CRLF line endings; must be LF only (Unix-style)")
+  ```
+
+  **Rejected alternatives:**
+  - Write with platform default (CRLF on Windows) — violates NFR-2
+  - Post-process with .replace() — extra I/O, error-prone
+
+  **Rationale:** pathlib's `newline='\n'` ensures LF-only encoding at write time. Validation
+  afterward confirms compliance with NFR-2 (LF exclusively). This avoids platform inconsistency.
+
+  ### 7. Encoding Validation
+
+  **Chosen:** Write UTF-8 without BOM; validate no BOM prefix and decode succeeds
+
+  **Validation:**
+  ```python
+  raw_content = file_path.read_bytes()
+  if raw_content.startswith(b'\xef\xbb\xbf'):
+      raise ValueError("File has UTF-8 BOM; must be UTF-8 without BOM")
+  raw_content.decode('utf-8')  # Verify valid UTF-8
+  ```
+
+  **Rejected alternatives:**
+  - Trust pathlib — no validation, errors caught later
+  - chardet — external library, overkill for known UTF-8
+
+  **Rationale:** pathlib.Path.write_text(encoding='utf-8') uses UTF-8 without BOM (Python standard).
+  Validation confirms the requirement (NFR-1) is met before commit. This is defensive programming.
+
+  ### 8. File Size Validation
+
+  **Chosen:** Validate file is 350-650 bytes (inclusive) after write
+
+  **Implementation:**
+  ```python
+  file_size = len(file_path.read_bytes())
+  if not (350 <= file_size <= 650):
+      raise ValueError(f"File size {file_size} bytes; spec requires 350-650")
+  ```
+
+  **Rejected alternatives:**
+  - No size validation — loses constraint enforcement
+  - Warn if off — doesn't enforce requirement
+
+  **Rationale:** The spec (NFR-3) explicitly requires this range. Size validation ensures consistent,
+  reasonable prose length. Hardcoded prose should meet this by design, but validation catches errors
+  before commit.
+
+  ### 9. Script Structure
+
+  **Chosen:** Single standalone Python script with main() function, sequential execution
+
+  **Structure:**
+  ```python
+  PROSE = "..."  # Module-level constant
+
+  def main():
+      # Validate prose
+      # Create file
+      # Validate file
+      # Git add/commit/push
+      # Success
+
+  if __name__ == '__main__':
+      main()
+  ```
+
+  **Rejected alternatives:**
+  - Class-based OOP — overkill, adds complexity
+  - Module import into larger system — unclear scope, harder to test
+  - Multiple scripts — coordination issues
+
+  **Rationale:** Single standalone script is simple, self-contained, easy to test, and matches the
+  pattern from features 069-088. Sequential main() is readable and maintainable.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O, path handling | **Use** | Stdlib, modern, cross-platform, explicit encoding/newline control |
+  | subprocess | Git CLI operations | **Use** | Stdlib, safe (list args), explicit error codes, spec-mandated |
+  | re | Sentence boundary detection | **Use** | Stdlib, sufficient for regex splitting, no external deps |
+  | sys | Exit codes, error output | **Use** | Stdlib, simple stderr/exit, standard Unix pattern |
+  | GitPython | Git API binding | **Reject** | External dependency, violates NFR-5 stdlib-only constraint |
+  | os | File/path operations | **Reject** | Legacy; pathlib is modern replacement |
+  | sh | Shell command wrapper | **Reject** | External dependency, overkill, less explicit than subprocess |
+  | NLTK / spacy | NLP sentence detection | **Reject** | External dependencies, overkill for controlled prose, violates NFR-5 |
+
+  ## Security Considerations
+
+  ### Command Injection Prevention
+  **Risk:** Using shell=True or string interpolation in subprocess calls could allow command injection.
+  **Mitigation:** subprocess.run() is called with argument list (not shell=True). Example:
+  ```python
+  subprocess.run(['git', 'commit', '-m', 'feat(089): ...'], check=True)
+  # NOT: subprocess.run(f'git commit -m "feat(089): ..."', shell=True)
+  ```
+  This prevents any special shell characters in the message from being interpreted as commands.
+
+  ### File Path Manipulation
+  **Risk:** If file path were user-controlled, could allow directory traversal (e.g., ../../../etc/passwd).
+  **Mitigation:** File path is hardcoded to 'test-mprgt7.md' with no user input. Resolved at spec level.
+
+  ### File Encoding Attacks
+  **Risk:** Non-UTF-8 or BOM-encoded files could cause issues in downstream processing.
+  **Mitigation:** Explicit UTF-8 encoding at write time, BOM validation, and UTF-8 decode test
+  before commit. Ensures file is valid per spec.
+
+  ### Git Credential Exposure
+  **Risk:** Git operations might expose credentials in error messages.
+  **Mitigation:** Using subprocess.run(capture_output=True) and wrapping errors with context
+  prevents raw git stderr (which might contain auth tokens) from leaking to stdout. Error messages
+  are structured and controlled.
+
+  ## Performance Considerations
+
+  ### File I/O
+  - Single write operation (pathlib.write_text) — O(1) relative to file size
+  - Validation requires 2-3 reads (raw bytes for BOM/CRLF check, UTF-8 decode) — negligible for ~500 byte file
+  - No caching needed; one-time operation
+
+  ### Regex Sentence Detection
+  - re.split([.!?]+, prose) is O(n) where n = prose length (~400 bytes)
+  - Negligible for input size; regex engine is optimized in CPython
+
+  ### Git Operations
+  - Each subprocess.run() call is ~100-500ms depending on git configuration and network (for push)
+  - Three sequential calls (add, commit, push) expected to complete in <2 seconds
+  - No optimization possible without changing git operations
+
+  ### Overall Performance
+  - Total expected runtime: <3 seconds (dominated by git push latency)
+  - No bottlenecks for a single-shot script
+  - No caching, threading, or optimization needed
+
+  ## Architecture Notes
+
+  ### Relationship to Existing Codebase
+  This feature is isolated and self-contained:
+  - No modifications to existing source code (src/) — only creates a new test file
+  - No changes to tests, docs, or configuration
+  - Follows established pattern from features 069-088 (89 implementations prove viability)
+  - Git operations use CLI, not API, matching existing workflows
+
+  ### Integration Points
+  - **Git repository state:** Assumes feature branch already exists (feat/089-markdown-file-creation-7c4201)
+  - **User identity:** Assumes git user.name and user.email are configured
+  - **Working directory:** Script assumes current directory is repository root
+  - **Permissions:** No elevated privileges required; assumes write access to repo root
+
+  ### Fail-Safe Behavior
+  - **File creation failure:** Early validation catches errors before any I/O
+  - **Git operation failure:** Each operation checked with check=True; script exits immediately
+  - **Partial failure:** If commit fails after add succeeds, staged file remains; operator can retry or reset
+  - **Already exists:** File existence check before write prevents accidental overwrites
+
+  ### Testing Strategy (Implementation Notes)
+  Testing should cover:
+  1. Prose validation (sentence count, size bounds)
+  2. File creation (encoding, newlines, content)
+  3. Git operations (with mocked subprocess calls)
+  4. Error handling (file exists, git failures, encoding issues)
+  5. File validation after creation (round-trip checks)
+
+  ---
+
+  _Research phase complete — ready for implementation_
