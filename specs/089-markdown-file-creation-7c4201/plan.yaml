@@ -1,0 +1,281 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-7c4201
+summary: >
+  Feature 089 implements a standalone Python script that creates a markdown file (test-mprgt7.md)
+  with strict validation and git integration. The implementation follows the established pattern
+  from 88 prior implementations (features 069-088), using pathlib for file I/O, subprocess for
+  git CLI operations, and regex for sentence validation. All product decisions are pre-resolved;
+  the implementation focuses on fail-fast validation, explicit error handling, and deterministic
+  output.
+
+# Relationships
+relatedFeatures:
+  - number: 088
+    name: markdown-file-creation-8d62fc
+    relationship: Identical pattern — validates implementation consistency
+  - number: 087
+    name: markdown-file-creation-1e052c
+    relationship: Identical pattern — validates implementation consistency
+  - number: 069
+    name: markdown-file-creation
+    relationship: Original pattern — established all constraints and validation rules
+
+technologies:
+  - Python 3.11+
+  - pathlib (Path for file I/O with explicit encoding/newline control)
+  - subprocess (git CLI with argument lists, no shell=True)
+  - re (regex for sentence boundary detection via [.!?]+ pattern)
+  - sys (exit codes and stderr for error reporting)
+
+relatedLinks:
+  - title: Python pathlib documentation
+    url: https://docs.python.org/3/library/pathlib.html
+  - title: Python subprocess documentation
+    url: https://docs.python.org/3/library/subprocess.html
+  - title: Conventional Commits specification
+    url: https://www.conventionalcommits.org/
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: Script Foundation & Prose Setup
+    description: >
+      Create the main Python script with hardcoded prose constant and basic structure.
+      Validate that prose meets fundamental requirements (sentence count, size bounds, encodability).
+      This phase establishes the entry point and ensures prose is correct before attempting file I/O.
+    parallel: false
+
+  - id: phase-2
+    name: File Creation & Validation
+    description: >
+      Implement file creation with pathlib.Path using UTF-8 encoding and LF line endings.
+      Implement comprehensive file validation: encoding (no BOM), line ending check (LF only),
+      size bounds (350-650 bytes), and structure validation (H1 heading, blank line, prose count).
+      This phase ensures the created file meets all spec requirements before git operations.
+    parallel: false
+
+  - id: phase-3
+    name: Git Integration & Error Handling
+    description: >
+      Implement git operations (add, commit, push) using subprocess with explicit error handling.
+      Add distinct error messages per operation to aid debugging. Implement pre-write file existence
+      check to prevent accidental overwrites. This phase integrates git and handles all error scenarios.
+    parallel: false
+
+  - id: phase-4
+    name: Testing & Validation
+    description: >
+      End-to-end testing of the complete script: execute, verify output file, confirm git state.
+      Validate all spec requirements are met. Test error scenarios (file exists, git failures).
+      This phase confirms the implementation is correct and production-ready.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - specs/089-markdown-file-creation-7c4201/create_test_mprgt7.py
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  Feature 089 is a **self-contained, single-file implementation**: a standalone Python script
+  (`create_test_mprgt7.py`) that follows the proven pattern from 88 prior markdown file creation
+  features in the Sheep project.
+
+  The script architecture is simple and linear:
+  1. Define hardcoded prose constant (controlled, deterministic, no external I/O)
+  2. Validate prose before any file operations (fail-fast, early error detection)
+  3. Create file with pathlib.Path (UTF-8, no BOM, LF line endings)
+  4. Validate created file meets all spec constraints (encoding, structure, size)
+  5. Perform git operations sequentially (add, commit, push) with explicit error handling
+  6. Exit with clear error messages on any failure
+
+  ### No Integration with Source Code
+  This feature does **not** modify or integrate with `src/` directories, tests, or configuration.
+  It is an isolated script that:
+  - Creates a new test artifact (test-mprgt7.md)
+  - Uses only Python standard library (pathlib, subprocess, re, sys)
+  - Operates on git via CLI (not API)
+  - Follows the established pattern from features 069-088
+
+  ### Relationship to Existing Implementations
+  Features 087, 088 created identical test files using identical patterns. This feature replicates
+  that proven approach. Git history shows consistent structure:
+  - Hardcoded prose in script (not template or external file)
+  - Strict validation before any I/O
+  - Subprocess-based git operations
+  - Conventional commit format: `feat(089): create markdown file test-mprgt7.md with prose content`
+
+  ## Key Design Decisions
+
+  ### 1. File I/O with pathlib.Path
+  **Chosen:** `pathlib.Path.write_text(content, encoding='utf-8', newline='\n')`
+
+  **Why:** The `newline='\n'` parameter ensures LF-only line endings at write time (critical for NFR-2).
+  The `encoding='utf-8'` parameter uses UTF-8 without BOM (Python standard). pathlib is the modern
+  Python 3 standard, cross-platform, and matches the pattern from prior implementations.
+
+  **Rejected alternatives:** `open()` builtin requires manual path joining and less readable encoding control;
+  `os.path` is legacy and less intuitive.
+
+  ### 2. Git Operations via subprocess
+  **Chosen:** `subprocess.run(['git', 'add', ...], check=True, capture_output=True)` with argument lists
+
+  **Why:** Argument lists prevent command injection (no shell=True). The `check=True` flag raises on
+  non-zero exit codes. The `capture_output=True` flag allows structured error messages without exposing
+  raw git stderr. The spec explicitly mandates subprocess CLI (NFR-9), not API bindings.
+
+  **Rejected alternatives:** GitPython adds external dependency (violates NFR-5); `shell=True` is
+  vulnerable to command injection; `os.system()` has poor error handling.
+
+  ### 3. Sentence Validation with Regex
+  **Chosen:** `re.split(r'[.!?]+', prose)` followed by `strip()` and filter empty strings
+
+  **Why:** Regex pattern `[.!?]+` reliably detects sentence boundaries in controlled prose. Combined with
+  filter, it counts actual sentences. Edge cases (ellipsis, abbreviations) are acceptable given prose
+  is hardcoded. This enforces spec requirement (FR-4) with stdlib only (no NLTK/spacy).
+
+  **Rejected alternatives:** Simple word count heuristic lacks accuracy; NLTK/spacy add external
+  dependencies; no validation fails to enforce spec requirement.
+
+  ### 4. Pre-Write Strict Validation
+  **Chosen:** Validate all constraints before file creation; fail immediately on first error
+
+  **Validation checklist:**
+  - Prose sentence count: exactly 2-3 sentences (via regex)
+  - Prose encodability: no characters that break UTF-8
+  - Prose size estimate: will meet 350-650 byte requirement
+  - File does not already exist: check before write
+  - All checks passed: only then write file
+
+  **Why:** Pre-write validation catches errors before any I/O, preventing partial file creation,
+  failed git operations, or git state inconsistency. Fail-fast is the safest approach and matches
+  spec requirement FR-10 (validate before git operations). Structured error messages help operators
+  debug immediately.
+
+  ### 5. File Existence Check
+  **Chosen:** Check `Path.exists()` before write; fail with clear error message if present
+
+  **Why:** The spec resolves this in product question 3: failing with error is the safest default.
+  This prevents accidental overwrites and makes operator action explicit. Clear error message
+  (e.g., "test-mprgt7.md already exists; delete it first") guides next steps.
+
+  ### 6. Comprehensive File Validation After Write
+  **Chosen:** After file creation, validate:
+  - UTF-8 without BOM: `raw.startswith(b'\xef\xbb\xbf')` check + decode('utf-8') test
+  - LF-only line endings: `b'\r' not in raw_content` check
+  - File size: `len(raw_bytes)` between 350-650 bytes
+  - Structure: H1 heading first line, blank second line, 2-3 sentence prose
+
+  **Why:** Defensive validation confirms file meets spec before git operations. Checks encoding
+  (NFR-1), line endings (NFR-2), size (NFR-3), and structure (FR-2 through FR-4). Early detection
+  prevents broken files from being committed.
+
+  ### 7. Distinct Git Error Messages
+  **Chosen:** Each git operation (add, commit, push) has a specific error handler with context
+
+  **Examples:**
+  ```
+  git add test-mprgt7.md failed: [error details from stderr]
+  git commit failed: [error details from stderr]
+  git push origin feat/089-... failed: [error details from stderr]
+  ```
+
+  **Why:** Each git step failure is different (add: file not staged; commit: invalid signature; push:
+  network/permission). Distinct messages help operators identify and fix the actual problem immediately.
+  This matches spec requirement NFR-12 (descriptive messages for debugging).
+
+  ### 8. Hardcoded Prose Constant
+  **Chosen:** Module-level constant `PROSE = "..."` defined at script top
+
+  **Why:** Separates data (prose) from logic (validation, file creation). Makes prose easy to review,
+  validate, and extract independently. Deterministic (no external I/O, template substitution, or LLM).
+  This pattern is used in all prior implementations (069-088) and matches the spec recommendation.
+
+  ### 9. Error Output to stderr
+  **Chosen:** Errors to stderr via `sys.stderr.write(...)`; normal output to stdout; exit with code 1
+
+  **Why:** stderr is the Unix convention for error messages. Separating streams allows shell redirection
+  and piping. Using `sys.stderr.write()` is stdlib-only and simple. Script can be composed in shell
+  pipelines without mixing errors and success output.
+
+  ### 10. Sequential Single-Pass Execution
+  **Chosen:** Single standalone script with `main()` function; sequential steps (no parallelism)
+
+  **Structure:**
+  ```python
+  PROSE = "..."  # Hardcoded prose constant
+
+  def main():
+      # Step 1: Validate prose
+      # Step 2: Check file doesn't exist
+      # Step 3: Create file
+      # Step 4: Validate created file
+      # Step 5: Git add
+      # Step 6: Git commit
+      # Step 7: Git push
+      # Success: exit 0
+
+  if __name__ == '__main__':
+      main()
+  ```
+
+  **Why:** Simple, self-contained, easy to test, matches pattern from features 069-088. Sequential
+  execution is straightforward for single-shot operations. No class-based OOP (overkill), no module
+  imports into larger systems (unclear scope).
+
+  ## Implementation Strategy
+
+  ### Phase Ordering Rationale
+  1. **Phase 1 (Script Foundation):** Prose must be correct before any file I/O. Validating prose first
+     ensures we don't create broken files. This is the cheapest validation (no I/O cost).
+
+  2. **Phase 2 (File Creation & Validation):** Once prose is validated, create the file with strict
+     encoding/newline control. Validate the created file immediately (before git) to detect any I/O
+     errors. This ensures the artifact is correct before version control operations.
+
+  3. **Phase 3 (Git Integration):** Only after the file is correct and validated, perform git operations.
+     Clear error messages aid debugging if git fails. File existence check prevents accidental overwrites.
+
+  4. **Phase 4 (Testing):** End-to-end testing confirms all pieces work together. Validates the final
+     output meets spec and git state is correct.
+
+  ### What Comes First and Why
+  - **Prose validation first:** Cheapest error detection; prevents wasting I/O on broken content
+  - **Pre-write file existence check:** Prevents accidental data loss
+  - **File creation second:** Once all prose and file checks pass
+  - **Post-write file validation:** Defensive; catches encoding/structure errors before commit
+  - **Git operations last:** Only when we're confident the file is correct
+  - **Fail immediately on any error:** Clear error visibility; operator can retry/fix
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Existing file collision | Pre-write file existence check; fail with clear error message |
+  | Invalid UTF-8 or BOM | Validate encoding at write time and post-write; decode test confirms UTF-8 |
+  | CRLF line endings on Windows | pathlib.write_text(..., newline='\n') ensures LF-only at write time; post-write validation confirms |
+  | Sentence count not 2-3 | Programmatic regex validation before write; catches prose generation errors early |
+  | File size out of bounds | Size validation after write; catches prose that's too short/long before commit |
+  | Git add/commit/push failures | subprocess.run(..., check=True) raises on non-zero; distinct error messages per operation |
+  | Partial failure | Each operation explicitly checked; if git commit fails after add, file remains staged and operator can retry |
+  | Command injection via git message | subprocess argument list (not shell=True) prevents shell metacharacters in commit message |
+  | Credential exposure in errors | subprocess.run(..., capture_output=True) captures stderr; structured error messages prevent raw git output |
+  | Prose generation errors | Hardcoded prose is deterministic; no LLM/template variability; mistakes caught in review/testing |
+
+  ## Testing Notes
+
+  The implementation will be tested by:
+  1. Running the script in isolation and verifying output file (structure, encoding, size)
+  2. Confirming git state (commit message, branch, remote tracking)
+  3. Testing error scenarios (file exists, invalid prose, git failures)
+  4. Validating prose meets spec (2-3 sentences, unique content)
+
+  No modifications to existing test suites are required; this feature is self-contained.
