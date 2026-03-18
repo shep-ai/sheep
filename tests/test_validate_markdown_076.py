@@ -199,7 +199,7 @@ class TestValidateProSentences:
 
 
 class TestValidateFileSize:
-    """Tests for task-6: Validate file size (300-650 bytes)."""
+    """Tests for task-6: Validate file size (320-600 bytes)."""
 
     def test_validate_file_size_passes_for_valid_size(self):
         """Test that validate_file_size passes for file within range."""
@@ -226,40 +226,37 @@ class TestValidateFileSize:
                 validate_file_size(test_file)
 
     def test_validate_file_size_rejects_too_large(self):
-        """Test that validate_file_size rejects file larger than 650 bytes."""
+        """Test that validate_file_size rejects file larger than 600 bytes."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            # Create content larger than 650 bytes
-            large_content = "# Heading\n\n" + ("x" * 700)
+            # Create content larger than 600 bytes
+            large_content = "# Heading\n\n" + ("x" * 620)
             test_file.write_text(large_content, encoding='utf-8')
             with pytest.raises(ValidationError, match="outside acceptable range"):
                 validate_file_size(test_file)
 
-    def test_validate_file_size_boundary_at_350_bytes(self):
-        """Test that validate_file_size accepts file at 350 byte boundary."""
+    def test_validate_file_size_boundary_at_320_bytes(self):
+        """Test that validate_file_size accepts file at 320 byte boundary."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            # Create content with 3 sentences that's around 350-400 bytes
+            # Create content with 3 sentences that's around 320-350 bytes
             content = ("# Interesting Topic\n\n"
-                      "Every moment of genuine discovery carries with it a sense of wonder and awakening that "
-                      "transforms how we see the world and challenges our existing assumptions. "
-                      "When we embrace curiosity and allow ourselves to explore new ideas without fear of failure, "
-                      "we unlock creative possibilities and deepen our understanding of ourselves and others around us. "
-                      "This feeling of discovery reminds us that growth happens not through passive acceptance, "
-                      "but through active engagement with the unfamiliar and unknown.")
+                      "Every moment of genuine discovery carries with it a profound sense of wonder and awakening that transforms how we see the world. "
+                      "When we embrace curiosity and allow ourselves to explore new ideas without fear of failure, we unlock creative possibilities. "
+                      "This feeling of discovery reminds us that growth happens through active engagement with the unknown.")
             test_file.write_text(content, encoding='utf-8')
-            # Verify it's at least 350 bytes
+            # Verify it's at least 320 bytes
             file_size = len(test_file.read_bytes())
-            assert file_size >= 350, f"File size {file_size} is less than 350"
+            assert file_size >= 320, f"File size {file_size} is less than 320"
             # Should not raise
             validate_file_size(test_file)
 
-    def test_validate_file_size_boundary_at_650_bytes(self):
-        """Test that validate_file_size accepts file at 650 byte boundary."""
+    def test_validate_file_size_boundary_at_600_bytes(self):
+        """Test that validate_file_size accepts file at 600 byte boundary."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            # Create content approximately 650 bytes
-            content = "# Heading\n\n" + ("x" * 630)
+            # Create content approximately 600 bytes
+            content = "# Heading\n\n" + ("x" * 580)
             test_file.write_text(content, encoding='utf-8')
             # Should not raise
             validate_file_size(test_file)
