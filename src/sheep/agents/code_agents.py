@@ -1,8 +1,8 @@
 """Code-related agents for implementation workflows."""
 
-from crewai import Agent, LLM
+from crewai import LLM, Agent
 
-from sheep.config.llm import create_llm, get_fast_llm, get_reasoning_llm
+from sheep.config.llm import get_fast_llm, get_reasoning_llm
 from sheep.tools import (
     DirectoryTreeTool,
     FileReadTool,

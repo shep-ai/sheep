@@ -2,7 +2,6 @@
 
 import base64
 import os
-from typing import Any
 
 from langfuse import get_client
 

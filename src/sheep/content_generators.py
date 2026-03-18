@@ -1,6 +1,5 @@
 """Content generation utilities for creating markdown and other content."""
 
-import re
 from pathlib import Path
 
 from sheep.config.llm import get_reasoning_llm
@@ -130,12 +129,12 @@ def write_markdown_file(content: str, filename: str) -> str:
 
         # Verify file was created
         if not file_path.exists():
-            raise IOError(f"File was not created: {file_path}")
+            raise OSError(f"File was not created: {file_path}")
 
         # Verify file has content
         file_size = file_path.stat().st_size
         if file_size == 0:
-            raise IOError(f"File was created but is empty: {file_path}")
+            raise OSError(f"File was created but is empty: {file_path}")
 
         _logger.info(
             f"Successfully wrote markdown file: {file_path} ({file_size} bytes)"
@@ -171,10 +170,10 @@ def validate_markdown_file(filepath: str) -> bool:
     path = Path(filepath)
 
     if not path.exists():
-        raise IOError(f"File does not exist: {filepath}")
+        raise OSError(f"File does not exist: {filepath}")
 
     if not path.is_file():
-        raise IOError(f"Path is not a file: {filepath}")
+        raise OSError(f"Path is not a file: {filepath}")
 
     _logger.info(f"Validating markdown file: {filepath}")
 
@@ -191,7 +190,7 @@ def validate_markdown_file(filepath: str) -> bool:
         try:
             text_content = binary_content.decode("utf-8")
         except UnicodeDecodeError as e:
-            raise ValueError(f"File is not valid UTF-8: {e}")
+            raise ValueError(f"File is not valid UTF-8: {e}") from e
 
         # Check for CRLF line endings (should use LF instead)
         if b"\r\n" in binary_content:
@@ -237,11 +236,11 @@ def validate_markdown_file(filepath: str) -> bool:
         _logger.info(f"Markdown file validation passed: {filepath}")
         return True
 
-    except (IOError, ValueError):
+    except (OSError, ValueError):
         raise
     except Exception as e:
         _logger.error(f"Unexpected error during validation: {e}")
-        raise IOError(f"Error validating file: {e}")
+        raise OSError(f"Error validating file: {e}") from e
 
 
 def extract_topic_from_content(content: str) -> str:
