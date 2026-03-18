@@ -10,7 +10,7 @@ summary: >
   with 88+ similar test files in the Sheep project. Implementation requires standard Python file I/O
   (pathlib.Path), file validation (UTF-8 encoding, LF line endings, structure), git staging, conventional
   commit format, and push to the feature branch.
-phase: Analysis
+phase: Requirements
 sizeEstimate: S
 
 relatedFeatures:
@@ -32,7 +32,81 @@ technologies:
 
 relatedLinks: []
 
-openQuestions: []
+openQuestions:
+  - question: 'Should prose content be hardcoded in the implementation script or template-based?'
+    resolved: true
+    options:
+      - option: 'Hardcoded prose'
+        description: 'Prose content is written directly in the implementation script as a string constant. Simplest approach, deterministic, matches all previous implementations (features 069-088). Downside: requires script modification for each feature.'
+        selected: true
+      - option: 'Template-based'
+        description: 'Uses a template string with placeholders filled in at runtime. More flexible for future scaling, but adds complexity. Requires template definition and variable substitution.'
+        selected: false
+      - option: 'LLM-generated'
+        description: 'Generates prose at runtime using an LLM API. Maximum flexibility but adds external dependency, non-determinism, and latency. Not viable given project constraints.'
+        selected: false
+    selectionRationale: 'Hardcoded prose is recommended because it matches the established pattern from all 88 prior implementations, eliminates external dependencies, ensures deterministic output, and is simplest to implement and test.'
+    answer: 'Hardcoded prose'
+
+  - question: 'Should file validation be strict (enforce all constraints) or lenient (warn on violations)?'
+    resolved: true
+    options:
+      - option: 'Strict validation'
+        description: 'Enforce all constraints (UTF-8 no-BOM, LF line endings, 350-650 bytes, 2-3 sentences). Fails if any constraint is violated. Maintains consistency with established pattern.'
+        selected: true
+      - option: 'Lenient with warnings'
+        description: 'Check constraints but warn rather than fail. Logs warnings to stderr but allows execution to continue. More forgiving but may mask errors.'
+        selected: false
+      - option: 'Minimal validation'
+        description: 'Only check that the file was created and exists. Skip encoding/size/sentence validation. Fastest but catches fewer errors.'
+        selected: false
+    selectionRationale: 'Strict validation is recommended because it maintains consistency with the established pattern, catches formatting errors early, and ensures all generated files meet the same quality bar.'
+    answer: 'Strict validation'
+
+  - question: 'What should happen if test-mprgt7.md already exists in the repository root?'
+    resolved: true
+    options:
+      - option: 'Fail with error'
+        description: 'Exit with a clear error message if the file already exists. Prevents accidental overwrites. Requires manual cleanup if collision occurs.'
+        selected: true
+      - option: 'Overwrite silently'
+        description: 'Replace the existing file without prompting. Fastest approach but risks losing existing content. Not recommended.'
+        selected: false
+      - option: 'Skip with warning'
+        description: 'Log a warning and skip file creation if it exists. Idempotent behavior but may hide issues.'
+        selected: false
+    selectionRationale: 'Failing with error is recommended as the safest default. It prevents accidental data loss, makes errors visible to the operator, and matches typical CLI safety practices.'
+    answer: 'Fail with error'
+
+  - question: 'Should sentence count validation be done programmatically by parsing prose structure?'
+    resolved: true
+    options:
+      - option: 'Validate programmatically'
+        description: 'Count sentences by detecting sentence boundaries (periods, exclamation marks, question marks). Catches formatting errors. May have edge cases with abbreviations or special punctuation.'
+        selected: true
+      - option: 'Warn if count seems wrong'
+        description: 'Simple heuristic (rough line/word count) with warnings if it seems off. Less strict but easier to implement.'
+        selected: false
+      - option: 'No validation'
+        description: 'Skip sentence count validation entirely. Trust the hardcoded prose is correct. Simplest but no safety check.'
+        selected: false
+    selectionRationale: 'Programmatic validation is recommended because it enforces the 2-3 sentence requirement from the spec, catches formatting errors, and is feasible with standard library tools (regex).'
+    answer: 'Validate programmatically'
+
+  - question: 'If git operations (add/commit/push) fail, should the script fail immediately or retry?'
+    resolved: true
+    options:
+      - option: 'Fail immediately'
+        description: 'Exit with error message on first git operation failure. Clear error reporting, operator can investigate. Requires manual retry.'
+        selected: true
+      - option: 'Retry with backoff'
+        description: 'Retry failed git operations up to 3 times with exponential backoff. More resilient to transient failures but adds complexity and latency.'
+        selected: false
+      - option: 'Continue and warn'
+        description: 'Log failure as warning but continue execution. Leaves git operations incomplete, likely to fail validation.'
+        selected: false
+    selectionRationale: 'Fail immediately is recommended because it provides clear error visibility, matches typical CLI behavior, and git failures are usually not transient (network, permissions, branch state). Operator can manually retry if needed.'
+    answer: 'Fail immediately'
 
 content: |
   ## Problem Statement
@@ -42,55 +116,57 @@ content: |
   in the Sheep project where each feature creates a test markdown file to validate the automated code
   implementation platform's ability to handle repetitive, well-defined tasks.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] File test-mprgt7.md is created at repository root (same level as README.md, pyproject.toml)
+  - [ ] File has UTF-8 encoding with no BOM (Byte Order Mark)
+  - [ ] File uses LF line endings (\n), not CRLF or CR
+  - [ ] First line is a markdown H1 heading (line starts with `# ` followed by title text)
+  - [ ] Second line is empty/blank (no characters, just line break)
+  - [ ] Lines 3 through end contain exactly 2-3 complete sentences of prose content
+  - [ ] File total size is between 350-650 bytes (inclusive)
+  - [ ] File is staged for commit using `git add test-mprgt7.md`
+  - [ ] Commit exists with message: `feat(089): create markdown file test-mprgt7.md with prose content`
+  - [ ] Commit is on the feature branch: feat/089-markdown-file-creation-7c4201
+  - [ ] Commit is pushed to origin/feat/089-markdown-file-creation-7c4201 (remote tracking updated)
 
-  **Sheep** is an agentic platform for automated code implementation using CrewAI. The project organization:
+  ## Functional Requirements
 
-  ```
-  .
-  ├── src/sheep/               # Main package
-  │   ├── agents/              # CrewAI agent definitions
-  │   ├── config/              # Configuration and LLM factory
-  │   ├── flows/               # Flow orchestration
-  │   ├── tools/               # Agent tools (git, file operations)
-  │   └── cli.py               # CLI entry point
-  ├── tests/                   # Test suite
-  ├── specs/                   # Feature specifications (089 total)
-  ├── *.md files              # Documentation and generated test files
-  ├── *.py scripts             # Implementation scripts for features
-  └── pyproject.toml           # Project metadata and dependencies
-  ```
+  - **FR-1**: Create a file named test-mprgt7.md at the repository root using Python pathlib.Path
+  - **FR-2**: File must contain an H1 markdown heading (format: `# <title>`) as the first line
+  - **FR-3**: File must have a blank line immediately following the heading (line 2)
+  - **FR-4**: File must contain 2-3 complete sentences of prose content on lines 3 and beyond
+  - **FR-5**: Write file content using UTF-8 encoding without BOM
+  - **FR-6**: Ensure file uses LF line endings throughout (Unix-style, no CRLF)
+  - **FR-7**: Stage the created file for commit using `git add test-mprgt7.md`
+  - **FR-8**: Create a commit with conventional commit message: `feat(089): create markdown file test-mprgt7.md with prose content`
+  - **FR-9**: Push the commit to origin on the feature branch (feat/089-markdown-file-creation-7c4201)
+  - **FR-10**: Validate file meets all requirements before git operations (early failure detection)
 
-  The repository root contains:
-  - 88+ generated markdown files (test-*.md pattern) from previous features 069-088
-  - Implementation scripts that follow a consistent pattern
-  - Python 3.11+ with minimal dependencies (CrewAI, pydantic, git integration)
+  ## Non-Functional Requirements
 
-  ### Architecture Patterns
+  - **NFR-1**: File encoding validation: UTF-8, no BOM, must not contain invalid characters
+  - **NFR-2**: Line ending validation: all lines must use LF (\n) exclusively, no CRLF or CR
+  - **NFR-3**: File size validation: total file size must be between 350-650 bytes (inclusive)
+  - **NFR-4**: Implementation must use only Python 3.11+ standard library (pathlib, subprocess, sys, re, etc.)
+  - **NFR-5**: No new external dependencies; must work with existing project dependencies
+  - **NFR-6**: Code style and patterns must match features 069-088 implementations
+  - **NFR-7**: Git commit message must follow conventional commits format: `feat(089): <description>`
+  - **NFR-8**: All file I/O and git operations must be synchronous, single-threaded execution
+  - **NFR-9**: Script must use subprocess.run() or subprocess.check_call() for git operations (CLI, not API)
+  - **NFR-10**: Prose content must be unique from previous test files (no exact duplicates from test-*.md files)
+  - **NFR-11**: Implementation must detect and handle file encoding/format errors clearly
+  - **NFR-12**: Git operation errors must be reported with descriptive messages to help debugging
 
-  This project follows a **feature-driven workflow**:
+  ## Product Questions & AI Recommendations
 
-  1. **Spec Definition**: Each feature has a spec.yaml file defining requirements
-  2. **Analysis Phase**: Research repository structure and similar implementations
-  3. **Implementation Phase**: Execute the feature with validation
-  4. **Commit & Push**: Standard git workflow with conventional commits
-
-  The **markdown file creation pattern** (features 069-089):
-  - Creates a file at repository root using Python pathlib.Path
-  - File structure: H1 heading (title) + blank line + 2-3 sentences (prose)
-  - Validation: UTF-8 encoding (no BOM), LF line endings, file size 350-650 bytes, sentence count
-  - Git workflow: add → commit with conventional message → push to origin
-
-  ### Relevant Technologies
-
-  - **Python 3.11+**: Core language, used for all feature implementations
-  - **pathlib.Path**: Cross-platform file I/O, preferred over os.path (per code patterns)
-  - **subprocess**: Git operations (add, commit, push) via CLI
-  - **Standard library**: No external dependencies beyond CrewAI for the project itself
-
-  Previous implementations show all steps are synchronous, single-threaded Python scripts.
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Where should prose content come from? | Hardcoded in script | Matches all 88 prior implementations, deterministic, no external dependencies |
+  | 2 | Should all file constraints be enforced or just warnings? | Enforce strictly | Maintains quality consistency, catches errors early, matches established pattern |
+  | 3 | How to handle if test-mprgt7.md already exists? | Fail with error | Prevents accidental data loss, clear error reporting, matches CLI safety practices |
+  | 4 | Validate sentence count programmatically? | Yes, with regex sentence parsing | Ensures spec compliance, catches formatting errors, feasible with stdlib |
+  | 5 | What if git operations fail? | Fail immediately with error | Clear visibility, matches typical CLI behavior, git failures usually require manual intervention |
 
   ## Affected Areas
 
@@ -106,15 +182,16 @@ content: |
 
   **External Libraries**:
   - No new dependencies required
-  - Uses only Python standard library: pathlib, subprocess, sys
+  - Uses only Python standard library: pathlib, subprocess, sys, re (regex for sentence validation)
 
   **Existing Code/Infrastructure**:
-  - Git repository with feature branch (already created)
+  - Git repository with feature branch (already created: feat/089-markdown-file-creation-7c4201)
   - Established commit message convention: `feat(089): create markdown file test-mprgt7.md with prose content`
-  - Previous 88 implementations as reference for validation patterns
+  - Previous 88 implementations as reference for validation patterns and file structure
 
   **Workflow Dependencies**:
   - Feature branch already exists (feat/089-markdown-file-creation-7c4201)
+  - User's git identity configured (user.name, user.email)
   - Can be implemented independently; no blocking dependencies on other features
 
   ## Size Estimate
@@ -129,7 +206,8 @@ content: |
   - Expected implementation time: 15-30 minutes of coding + validation
   - Git operations are trivial (add, commit, push follow standard patterns)
   - Validation logic is straightforward file checks (encoding, size, structure)
+  - Product decisions (5 questions) are all pre-resolved with recommended defaults
 
   ---
 
-  _Analysis complete — ready for implementation phase_
+  _Requirements phase complete — ready for implementation_
