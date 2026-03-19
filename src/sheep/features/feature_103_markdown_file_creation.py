@@ -62,7 +62,7 @@ def _validate_file_format_comprehensive(filepath: str) -> None:
             f"File contains UTF-8 BOM marker at start (bytes: EF BB BF). "
             f"Specification requires UTF-8 without BOM."
         )
-    _logger.debug("✓ No UTF-8 BOM marker found")
+    _logger.debug("OK: No UTF-8 BOM marker found")
 
     # Check 2: No CRLF line endings
     _logger.debug("Checking for CRLF line endings")
@@ -71,7 +71,7 @@ def _validate_file_format_comprehensive(filepath: str) -> None:
             f"File contains CRLF line endings (\\r\\n). "
             f"Specification requires Unix-style LF line endings (\\n only)."
         )
-    _logger.debug("✓ No CRLF line endings found")
+    _logger.debug("OK: No CRLF line endings found")
 
     # Check 3: Trailing newline exists
     _logger.debug("Checking for trailing newline")
@@ -80,7 +80,7 @@ def _validate_file_format_comprehensive(filepath: str) -> None:
             f"File does not end with trailing newline. "
             f"Specification requires Unix convention of trailing newline."
         )
-    _logger.debug("✓ Trailing newline present")
+    _logger.debug("OK: Trailing newline present")
 
     # Parse file structure
     lines = file_text.split('\n')
@@ -92,7 +92,7 @@ def _validate_file_format_comprehensive(filepath: str) -> None:
             f"First line is not a valid H1 heading. "
             f"Expected format: '# [heading text]', got: '{lines[0]}'"
         )
-    _logger.debug(f"✓ H1 heading valid: {lines[0]}")
+    _logger.debug(f"OK: H1 heading valid: {lines[0]}")
 
     # Check 5: Blank line after heading
     _logger.debug("Checking blank line after heading")
@@ -101,7 +101,7 @@ def _validate_file_format_comprehensive(filepath: str) -> None:
             f"No blank line after H1 heading. "
             f"Specification requires blank line between heading and prose."
         )
-    _logger.debug("✓ Blank line separator present")
+    _logger.debug("OK: Blank line separator present")
 
     # Extract prose content (everything after heading and blank line)
     prose_lines = lines[2:]
@@ -118,7 +118,7 @@ def _validate_file_format_comprehensive(filepath: str) -> None:
             f"Prose contains {sentence_count} sentences (detected by period count). "
             f"Specification requires 2-3 sentences. Prose: {prose_text[:100]}..."
         )
-    _logger.debug(f"✓ Sentence count valid: {sentence_count} periods found")
+    _logger.debug(f"OK: Sentence count valid: {sentence_count} periods found")
 
     # Check 7: File size in typical range (soft guideline)
     file_size = len(file_bytes)
@@ -134,7 +134,7 @@ def _validate_file_format_comprehensive(filepath: str) -> None:
             f"Content may be too verbose."
         )
     else:
-        _logger.debug(f"✓ File size within typical range: {file_size} bytes")
+        _logger.debug(f"OK: File size within typical range: {file_size} bytes")
 
     _logger.debug("All comprehensive validation checks passed")
 
