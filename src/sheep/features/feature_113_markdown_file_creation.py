@@ -28,6 +28,7 @@ _logger = get_logger(__name__)
 FEATURE_NUMBER = 113
 FEATURE_NAME = "markdown-file-creation-7a465a"
 MARKDOWN_FILENAME = "test-vt032y.md"
+COMMIT_MESSAGE = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
 
 
 def create_feature_113_markdown_file(repo_path: str | None = None) -> dict[str, str]:
@@ -81,8 +82,10 @@ def create_feature_113_markdown_file(repo_path: str | None = None) -> dict[str, 
 
         # Task 4: Stage and commit file
         _logger.info("Task 4: Staging and committing file")
-        commit_result = commit_markdown_file(filepath, content, repo_path)
-        _logger.debug(f"Commit result: {commit_result}")
+        commit_result = commit_markdown_file(
+            filepath, content, repo_path, custom_message=COMMIT_MESSAGE
+        )
+        _logger.info(f"File staged and committed with message: {COMMIT_MESSAGE}")
 
         # Task 5: Push to remote repository
         _logger.info("Task 5: Pushing to remote repository")
@@ -96,7 +99,7 @@ def create_feature_113_markdown_file(repo_path: str | None = None) -> dict[str, 
         return {
             "filepath": filepath,
             "content": content,
-            "commit_message": f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content",
+            "commit_message": COMMIT_MESSAGE,
             "push_result": push_result,
         }
 

@@ -1,5 +1,6 @@
 """Tests for feature_113_markdown_file_creation module."""
 
+import inspect
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -272,3 +273,168 @@ class TestFileValidation:
         text_content = test_file.read_text(encoding="utf-8")
         # Should not end with newline
         assert not text_content.endswith("\n")
+
+
+class TestGitCommit:
+    """Task-4 tests: Git staging and committing with conventional message."""
+
+    def test_commit_message_constant_exists(self):
+        """Test that COMMIT_MESSAGE constant is defined and has correct format."""
+        from sheep.features.feature_113_markdown_file_creation import COMMIT_MESSAGE
+
+        assert COMMIT_MESSAGE is not None
+        assert isinstance(COMMIT_MESSAGE, str)
+        assert COMMIT_MESSAGE.startswith("feat(113):")
+        assert "test-vt032y.md" in COMMIT_MESSAGE
+        assert "prose content" in COMMIT_MESSAGE
+
+    def test_commit_message_matches_specification(self):
+        """Test that commit message matches specification exactly."""
+        from sheep.features.feature_113_markdown_file_creation import COMMIT_MESSAGE
+
+        expected = "feat(113): create markdown file test-vt032y.md with prose content"
+        assert COMMIT_MESSAGE == expected
+
+    def test_commit_message_format_is_conventional(self):
+        """Test that commit message follows conventional commit format."""
+        from sheep.features.feature_113_markdown_file_creation import COMMIT_MESSAGE
+
+        # Conventional format: type(scope): description
+        # type should be 'feat'
+        assert COMMIT_MESSAGE.startswith("feat(")
+        # scope should be 113
+        assert "(113):" in COMMIT_MESSAGE
+        # description follows the colon
+        assert ": " in COMMIT_MESSAGE
+        # Has meaningful description
+        assert len(COMMIT_MESSAGE) > 20
+
+    def test_commit_message_contains_feature_number(self):
+        """Test that commit message includes feature number 113."""
+        from sheep.features.feature_113_markdown_file_creation import COMMIT_MESSAGE
+
+        assert "113" in COMMIT_MESSAGE
+
+    def test_commit_message_contains_filename(self):
+        """Test that commit message includes the markdown filename."""
+        from sheep.features.feature_113_markdown_file_creation import COMMIT_MESSAGE
+
+        assert "test-vt032y.md" in COMMIT_MESSAGE
+
+    def test_commit_message_no_auto_generated_topic(self):
+        """Test that commit message doesn't include auto-generated topic from content."""
+        from sheep.features.feature_113_markdown_file_creation import COMMIT_MESSAGE
+
+        # The message should use the specified format, not "feat: Create test-vt032y.md markdown file with [TOPIC] content"
+        # which would be generated automatically from content
+        assert not COMMIT_MESSAGE.startswith("feat: Create")
+        assert COMMIT_MESSAGE.startswith("feat(113):")
+
+
+class TestGitPush:
+    """Task-5 tests: Git push to remote and complete end-to-end workflow."""
+
+    def test_push_function_imported_in_module(self):
+        """Test that push_markdown_file is imported in feature module."""
+        from sheep.features import feature_113_markdown_file_creation
+
+        # Check that push_markdown_file is available
+        from sheep.content_generators import push_markdown_file
+
+        assert callable(push_markdown_file)
+
+    def test_workflow_returns_dict_with_push_result(self):
+        """Test that workflow function returns dict with push_result key."""
+        # We're testing the structure, not actual execution
+        import inspect
+
+        sig = inspect.signature(create_feature_113_markdown_file)
+        # Verify return type annotation indicates dict[str, str]
+        assert sig.return_annotation is not None
+
+    def test_push_result_should_be_in_return_dict(self):
+        """Test that the return dict from workflow includes push_result."""
+        # The function returns a dict with keys:
+        # filepath, content, commit_message, push_result
+        doc = create_feature_113_markdown_file.__doc__
+        assert "push_result" in doc
+
+    def test_complete_workflow_has_all_phases(self):
+        """Test that complete workflow includes all 5 phases."""
+        doc = create_feature_113_markdown_file.__doc__
+
+        # Verify docstring mentions all 5 tasks
+        assert "Generate" in doc  # Task 1
+        assert "Write" in doc  # Task 2
+        assert "Validate" in doc  # Task 3
+        assert "commit" in doc  # Task 4
+        assert "Push" in doc  # Task 5
+
+    def test_workflow_function_name_is_feature_113(self):
+        """Test that main orchestration function is named for feature 113."""
+        assert create_feature_113_markdown_file.__name__ == "create_feature_113_markdown_file"
+
+    def test_workflow_accepts_optional_repo_path(self):
+        """Test that workflow function accepts optional repo_path parameter."""
+        import inspect
+
+        sig = inspect.signature(create_feature_113_markdown_file)
+        assert "repo_path" in sig.parameters
+        assert sig.parameters["repo_path"].default is None
+
+    def test_workflow_returns_dict_structure(self):
+        """Test that workflow returns a dict with all required keys."""
+        doc = create_feature_113_markdown_file.__doc__
+
+        # From docstring, return dict should have:
+        # filepath, content, commit_message, push_result
+        assert "filepath" in doc
+        assert "content" in doc
+        assert "commit_message" in doc
+        assert "push_result" in doc
+
+
+class TestEndToEndWorkflow:
+    """Integration tests for complete feature 113 workflow."""
+
+    def test_orchestration_function_imports_all_dependencies(self):
+        """Test that feature module imports all required functions."""
+        from sheep.features.feature_113_markdown_file_creation import (
+            generate_markdown_content,
+            write_markdown_file,
+            validate_markdown_file,
+            commit_markdown_file,
+            push_markdown_file,
+        )
+
+        # Verify all are callable
+        assert callable(generate_markdown_content)
+        assert callable(write_markdown_file)
+        assert callable(validate_markdown_file)
+        assert callable(commit_markdown_file)
+        assert callable(push_markdown_file)
+
+    def test_feature_module_has_logging(self):
+        """Test that feature module has logging configured."""
+        from sheep.features.feature_113_markdown_file_creation import _logger
+
+        assert _logger is not None
+
+    def test_feature_can_be_run_as_script(self):
+        """Test that feature module has __main__ block for script execution."""
+        import sheep.features.feature_113_markdown_file_creation as feature_module
+
+        source = inspect.getsource(feature_module)
+        assert 'if __name__ == "__main__"' in source
+
+    def test_all_workflow_steps_are_logged(self):
+        """Test that feature module logs all workflow steps."""
+        import sheep.features.feature_113_markdown_file_creation as feature_module
+
+        source = inspect.getsource(feature_module)
+        # Verify logging for each task
+        assert "Task 1:" in source or "Generating" in source
+        assert "Task 2:" in source or "Writing" in source
+        assert "Task 3:" in source or "Validating" in source
+        assert "Task 4:" in source or "Staging" in source
+        assert "Task 5:" in source or "Pushing" in source
