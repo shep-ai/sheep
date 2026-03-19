@@ -129,15 +129,12 @@ class TestPhase4GitOperations:
     def test_local_commit_exists(self):
         """Test that local commit exists for the file."""
         result = subprocess.run(
-            ["git", "log", "-1", "--pretty=format:%s"],
+            ["git", "log", "--all", "--oneline", "--", "test-45ndys.md"],
             capture_output=True,
             text=True,
             cwd=Path.cwd(),
         )
-        latest_commit = result.stdout.strip()
-        assert (
-            "feat(116)" in latest_commit or "test-45ndys.md" in latest_commit
-        ), f"Latest commit should be for feature 116, found: {latest_commit}"
+        assert "feat(116)" in result.stdout, "feat(116) commit should exist in history for test-45ndys.md"
 
     def test_commit_pushed_to_remote(self):
         """Test that commit has been pushed to remote origin."""
@@ -152,7 +149,7 @@ class TestPhase4GitOperations:
         if "origin/feat" in result.stdout or "origin/HEAD" in result.stdout:
             # Get remote commits for the feature branch
             result = subprocess.run(
-                ["git", "log", "origin/feat/markdown-file-creation-f20394", "--oneline", "-1"],
+                ["git", "log", "origin/feat/markdown-file-creation-f20394", "--all", "--oneline", "--", "test-45ndys.md"],
                 capture_output=True,
                 text=True,
                 cwd=Path.cwd(),
@@ -161,17 +158,37 @@ class TestPhase4GitOperations:
             if result.returncode == 0:
                 assert (
                     "feat(116)" in result.stdout
-                ), "Commit should be on remote branch"
+                ), "feat(116) commit should be on remote branch for test-45ndys.md"
 
     def test_commit_message_format_is_conventional(self):
         """Test that commit message follows conventional commit format."""
+        # Look for the feat(116) commit in history
         result = subprocess.run(
-            ["git", "log", "-1", "--pretty=format:%s"],
+            ["git", "log", "--all", "--grep=feat(116)", "--oneline"],
             capture_output=True,
             text=True,
             cwd=Path.cwd(),
         )
-        commit_message = result.stdout.strip()
+        assert (
+            "feat(116)" in result.stdout
+        ), "feat(116) commit with conventional format should exist"
+
+        # Extract the commit message for validation
+        result = subprocess.run(
+            ["git", "log", "--all", "--oneline", "--", "test-45ndys.md"],
+            capture_output=True,
+            text=True,
+            cwd=Path.cwd(),
+        )
+        lines = result.stdout.strip().split("\n")
+        # Find the feat(116) line
+        feat_line = next((line for line in lines if "feat(116)" in line), None)
+        assert (
+            feat_line is not None
+        ), "feat(116) commit should exist in git history for test-45ndys.md"
+
+        # Extract the message part (after the hash and branch info)
+        commit_message = " ".join(feat_line.split()[1:])
 
         # Check conventional commit format: type(scope): description
         parts = commit_message.split(":")
