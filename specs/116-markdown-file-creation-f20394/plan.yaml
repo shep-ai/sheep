@@ -1,0 +1,160 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-f20394"
+summary: >
+  Implementation reuses proven content_generators.py module for all file operations.
+  Simple orchestration approach: generate markdown content, write to file with UTF-8/LF,
+  validate format, stage in git, commit with conventional message, and push to remote.
+  No new code architecture needed — follows exact pattern from 115+ prior features.
+
+relatedFeatures:
+  - number: 115
+    name: "markdown-file-creation"
+    relationship: "Identical pattern — demonstrates proven approach"
+  - number: 114
+    name: "markdown-file-creation"
+    relationship: "Reference for content format and validation"
+  - number: 69
+    name: "markdown-file-creation"
+    relationship: "Original specification establishing the pattern"
+
+technologies:
+  - "Python 3.11+ (pathlib, standard library)"
+  - "CrewAI LLM framework (Claude API for content generation)"
+  - "Git (version control, staging, commits, push)"
+  - "CommonMark (markdown validation)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits"
+    url: "https://www.conventionalcommits.org/"
+
+phases:
+  - id: "phase-1"
+    name: "Environment Verification"
+    description: "Verify content_generators.py module exists and all required functions are importable and callable"
+    parallel: false
+  - id: "phase-2"
+    name: "File Generation & Writing"
+    description: "Generate markdown content (H1 heading + 2-3 sentences) and write to test-45ndys.md with UTF-8 encoding and LF line endings"
+    parallel: false
+  - id: "phase-3"
+    name: "File Validation"
+    description: "Verify file meets all format requirements: UTF-8 encoding (no BOM), LF line endings, markdown structure, content quality, and file size"
+    parallel: false
+  - id: "phase-4"
+    name: "Git Operations"
+    description: "Stage file, create git commit with conventional message, and push to remote origin"
+    parallel: false
+
+filesToCreate: []
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature leverages the existing content_generators.py module, which provides all
+  required functionality for markdown file creation, validation, and git operations.
+  The implementation is a lightweight orchestration layer that calls these proven
+  functions in sequence:
+
+  1. **generate_markdown_content()** — Creates markdown with H1 heading + 2-3 sentences
+     via LLM (CrewAI/Claude), about any topic
+  2. **write_markdown_file()** — Persists content with UTF-8 encoding and LF line endings
+  3. **validate_markdown_file()** — Verifies encoding, line endings, markdown structure,
+     content quality, and file size
+  4. **commit_markdown_file()** — Stages file and creates git commit with conventional message
+  5. **push_markdown_file()** — Pushes commit to remote origin
+
+  No new modules, no source code modifications, no architectural changes. The feature
+  operates entirely in the repository root directory, isolated from src/sheep/.
+
+  ## Key Design Decisions
+
+  ### 1. Reuse Existing content_generators.py Module
+  **Chosen:** Call existing functions from proven module
+  **Rejected:** Custom implementation (duplicates tested code, adds maintenance burden and risk)
+  **Rationale:** 115+ features validate this approach. Functions are production-tested,
+  properly logged, handle all requirements including UTF-8 encoding without BOM, LF line
+  endings, markdown validation, error handling, and git operations with subprocess safety.
+  Why reinvent proven, working code?
+
+  ### 2. Simple Linear Orchestration
+  **Chosen:** Sequential function calls with explicit error handling, no retry loops
+  **Rejected:** Complex conditional logic, retry mechanisms, fallback strategies
+  **Rationale:** File creation and validation are deterministic operations. They should
+  succeed immediately or fail with a clear, actionable error. No transient failures are
+  expected in normal operation. Complexity adds risk without benefit.
+
+  ### 3. LLM-Based Content Generation
+  **Chosen:** Reuse CrewAI/Claude integration in existing generate_markdown_content()
+  **Rejected:** Hardcoded prose, random text generation, templates
+  **Rationale:** Proven across 115+ features. Produces high-quality, coherent prose.
+  Supports flexible "about anything" requirement. Implementer chooses topic; LLM handles
+  generation. No manual content creation burden.
+
+  ### 4. Flexible Topic Selection
+  **Chosen:** LLM selects topic at generation time (aligns with "about anything" requirement)
+  **Rejected:** Prescribe specific topic in spec, random selection from curated list
+  **Rationale:** Feature spec explicitly grants flexibility: "about anything". This approach
+  enables creative variation, matches all 115 prior implementations, reduces spec overhead.
+
+  ### 5. File Validation Scope
+  **Chosen:** Comprehensive validation (encoding, line endings, markdown structure, content,
+  size range as informational guidance)
+  **Rejected:** No validation, minimal validation (file exists only), strict size enforcement
+  **Rationale:** Comprehensive validation ensures quality and catches issues early.
+  File size (400-600 bytes) is naturally achieved by H1 heading + 2-3 sentences; no need
+  for strict enforcement or regeneration loops.
+
+  ### 6. Git Operations via CrewAI Tools
+  **Chosen:** Use GitCommitTool and GitPushTool from content_generators.py (subprocess wrappers)
+  **Rejected:** GitPython library (external dependency), direct subprocess (error-prone)
+  **Rationale:** CrewAI tools already exist in codebase, no new dependencies. Proper argument
+  escaping prevents injection risks. Used successfully across all prior features.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Environment):** Verify content_generators.py is importable and all required
+  functions exist. Single runtime check; blocks subsequent phases if functions unavailable.
+
+  **Phase 2 (File Generation):** Call existing functions to generate markdown and write to disk.
+  Natural starting point; no dependencies on other phases.
+
+  **Phase 3 (Validation):** Call validation function to verify file meets all requirements
+  before proceeding to git operations. Catches format issues early; prevents committing
+  invalid files.
+
+  **Phase 4 (Git):** Stage, commit, and push. Final phase; all previous phases must succeed.
+  Conventional commit message ensures consistency with project standards.
+
+  Phase ordering is logical and forced by dependencies: can't validate until file exists,
+  can't commit until file is validated, can't push until committed.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | **LLM API fails (rate limit, service unavailable, auth issue)** | generate_markdown_content() handles API errors; propagate with descriptive message. Caller can retry or investigate. |
+  | **File write fails (disk full, permissions, path issues)** | pathlib.Path.write_text() raises IOError with OS-level details. Caught and logged with context. |
+  | **Validation fails (wrong encoding, bad line endings, malformed markdown)** | validate_markdown_file() provides specific error message naming the issue. Fail fast; fix underlying cause. |
+  | **Git operations fail (not configured, permission denied, network unavailable)** | CrewAI tools return subprocess errors with git output. Logged and propagated for debugging. |
+  | **File already exists and contains different content** | write_markdown_file() overwrites (idempotent). Old file backed up in git history if previously committed. |
+  | **Git user.name / user.email not configured** | git commit fails with clear error message. User must configure git before retry. |
+  | **Feature branch doesn't exist** | Feature branch pre-created by system; unlikely in practice. Git push fails with clear error if missing. |
+  | **Network timeout during push** | git push times out, subprocess returns error code. Logged; push can be retried manually. |
+
+  ## Summary
+
+  This is a straightforward implementation leveraging 115+ prior feature executions and
+  existing proven functions. No new patterns, no architectural decisions, no unproven
+  approaches. Simple orchestration of existing code ensures reliability and quick
+  execution (10-15 minutes). The architecture is intentionally minimal: do one thing
+  (create markdown file) and do it well by reusing tested, proven infrastructure.
