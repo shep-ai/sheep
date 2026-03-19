@@ -1,0 +1,208 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-7a465a"
+summary: |
+  Implement markdown file creation feature by creating a feature module that orchestrates existing
+  sheep.content_generators functions: generate prose content via Claude API, write to file using pathlib,
+  validate encoding/line endings/structure, stage with git, commit with conventional message, and push
+  to remote. This follows the established pattern from 112 prior features with no new external dependencies.
+
+# Relationships
+relatedFeatures:
+  - number: 112
+    name: "markdown-file-creation-9f25b3"
+    relationship: "Identical pattern — uses same orchestration approach"
+  - number: 101
+    name: "markdown-file-creation"
+    relationship: "Canonical implementation providing reusable content_generators functions"
+
+technologies:
+  - "Python pathlib (file I/O)"
+  - "Claude API (via CrewAI LLM)"
+  - "Git (subprocess via git_tools)"
+  - "Python unittest (test framework)"
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: "phase-1"
+    name: "Foundation & Module Setup"
+    description: "Create the feature module and implement main orchestration function that coordinates the complete workflow"
+    parallel: false
+  - id: "phase-2"
+    name: "Content Generation & Persistence"
+    description: "Implement calls to generate markdown content, write to file, and validate file meets all spec requirements"
+    parallel: false
+  - id: "phase-3"
+    name: "Git Integration & Delivery"
+    description: "Implement git staging, committing with conventional message, and pushing to remote"
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - "src/sheep/features/feature_113_markdown_file_creation.py"
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature creates a new feature module that orchestrates existing sheep.content_generators functions
+  to implement the complete markdown file creation workflow. The module follows the established pattern from
+  features 101-112, which demonstrated that creating a dedicated feature module allows for:
+
+  1. **Clear separation of concerns**: Feature logic is isolated in its own module
+  2. **Reusability**: Low-level functions (generate, write, validate, commit, push) are imported from
+     sheep.content_generators and can be reused across features
+  3. **Testability**: Each function can be tested independently, and the orchestration can be tested end-to-end
+  4. **Maintainability**: Feature-specific logic is in one place; shared utilities are in content_generators
+
+  The feature module will import from:
+  - `sheep.content_generators`: generate_markdown_content(), write_markdown_file(), validate_markdown_file(),
+    commit_markdown_file(), push_markdown_file()
+  - `sheep.tools.git_tools`: GitCommitTool, GitPushTool for version control operations
+  - `pathlib`: Path for file operations
+  - `logging`: For instrumentation
+
+  ## Key Design Decisions
+
+  ### 1. Reuse Existing sheep.content_generators Module (not build new utilities)
+
+  **Decision:** Create a minimal feature module that imports and orchestrates existing functions from
+  sheep.content_generators rather than implementing file I/O, validation, or git operations from scratch.
+
+  **Rationale:** The research findings document that sheep.content_generators provides production-proven
+  functions used successfully across 112 prior features:
+  - `generate_markdown_content()`: Calls Claude API via CrewAI to generate H1 + 2-3 sentences
+  - `write_markdown_file(content, filename)`: Uses pathlib.Path.write_text() for safe file creation
+  - `validate_markdown_file(filepath)`: Checks all spec requirements (encoding, line endings, size, structure)
+  - `commit_markdown_file(filepath, content, repo_path)`: Stages and commits via git_tools
+  - `push_markdown_file(repo_path)`: Pushes to remote with upstream tracking
+
+  This approach:
+  - Eliminates code duplication (no reimplementation of validation, git operations, etc.)
+  - Reduces test burden (existing functions are already tested)
+  - Ensures consistency with 112 prior features
+  - Requires zero new external dependencies
+
+  ### 2. Single Feature Module in src/sheep/features/ (not inline implementation)
+
+  **Decision:** Create a dedicated feature module `src/sheep/features/feature_113_markdown_file_creation.py`
+  with a main orchestration function.
+
+  **Rationale:** Features 101-112 demonstrated that dedicated feature modules provide:
+  - A clear entry point for feature execution
+  - A place to add feature-specific logging and error handling
+  - A testable unit that can be invoked from test runners or CI/CD
+  - Consistency with established project structure
+
+  The module will export a main function `create_markdown_file_feature_113()` that orchestrates the workflow.
+
+  ### 3. Sequential Workflow (generate → write → validate → commit → push)
+
+  **Decision:** Execute workflow steps sequentially, stopping on validation failure before git operations.
+
+  **Rationale:** The workflow has natural dependencies:
+  1. Content must be generated before writing
+  2. File must be written before validation
+  3. File must be valid before staging in git (no point committing invalid content)
+  4. File must be committed before pushing
+
+  This ordering prevents invalid files from being committed to the repository.
+
+  ### 4. Comprehensive Error Handling and Logging
+
+  **Decision:** Wrap each workflow step in try/except, log all operations (including successes), and
+  raise descriptive exceptions on failure.
+
+  **Rationale:** The spec requirement to push to remote means the feature execution is observable
+  (pushed commits exist in the remote repository). Proper logging and error handling:
+  - Enables debugging if any step fails
+  - Provides visibility into feature execution
+  - Matches the instrumentation level of features 101-112
+
+  ### 5. No Configuration Files or Dependencies (use defaults)
+
+  **Decision:** Feature module accepts filename and optional repo_path; all other parameters use defaults
+  (topic is freely chosen by Claude, validation uses spec-defined constraints).
+
+  **Rationale:** The feature spec explicitly allows \"freely chosen arbitrary topic\" and specifies all
+  validation constraints. No feature-specific configuration is needed. This simplifies the module and
+  matches the \"S (Small)\" complexity level.
+
+  ## Implementation Strategy
+
+  ### Phase 1: Foundation & Module Setup
+  - Create `src/sheep/features/feature_113_markdown_file_creation.py` with:
+    - Imports from sheep.content_generators, logging, pathlib
+    - Main orchestration function `create_markdown_file_feature_113()`
+    - Error handling and logging instrumentation
+  - This establishes the entry point for all subsequent work
+
+  ### Phase 2: Content Generation & Persistence
+  - Implement the generation → write → validate pipeline
+  - Call `generate_markdown_content()` to get prose
+  - Call `write_markdown_file(content, \"test-vt032y.md\")` to persist
+  - Call `validate_markdown_file(...)` to ensure spec compliance
+  - Log success/failure at each step
+
+  ### Phase 3: Git Integration & Delivery
+  - Implement git staging and commit
+  - Call `commit_markdown_file(...)` to stage and commit with conventional message
+  - Call `push_markdown_file(...)` to push to remote
+  - Log all git operations
+  - Return result indicating success or failure
+
+  ### Why This Ordering
+
+  1. **Module Setup first** ensures we have a runnable entry point to test against
+  2. **Content generation & persistence second** ensures we can verify the file is created and valid before touching git
+  3. **Git integration last** ensures only valid, tested content gets committed and pushed
+
+  ## Risk Mitigation
+
+  | Risk | Probability | Mitigation |
+  | ---- | ----------- | ---------- |
+  | File size outside 400-600 byte range | Low | validate_markdown_file() checks size; if violated, raises exception and feature fails with clear error message |
+  | UTF-8 encoding issues | Very Low | pathlib.Path.write_text() uses UTF-8 by default; validate_markdown_file() re-reads and decodes to verify |
+  | CRLF line endings on Windows | Low | pathlib text mode produces LF; git autocrlf or .gitattributes normalizes to LF on commit; validate_markdown_file() checks for CRLF |
+  | Git operations fail (auth, network, merge conflicts) | Very Low | subprocess.CalledProcessError is caught; error message is logged; feature fails with clear exception |
+  | LLM API timeout or returns invalid content | Low | generate_markdown_content() has try/except; if invalid, validate_markdown_file() catches and raises; feature can retry |
+  | Feature module import fails | Very Low | Module syntax is checked in Phase 1; import errors caught immediately |
+  | File already exists and cannot be overwritten | Very Low | pathlib.Path.write_text() overwrites by default; no protective checks needed |
+
+  ## Files to Create and Modify
+
+  ### Files to Create
+  - `src/sheep/features/feature_113_markdown_file_creation.py`: Main feature orchestration module
+
+  ### Files to Modify
+  - None (feature is self-contained; no changes to existing code)
+
+  ## Testing Strategy
+
+  Each task includes TDD cycles (RED-GREEN-REFACTOR):
+  - **RED**: Write test that asserts expected behavior
+  - **GREEN**: Implement minimal code to pass test
+  - **REFACTOR**: Clean up, add error handling, improve logging
+
+  Testing covers:
+  - Module import and basic structure
+  - Content generation produces valid markdown
+  - File writing creates correct file at correct path
+  - Validation detects violations
+  - Git operations complete successfully
+  - End-to-end workflow produces committed, pushed file that meets spec
+
+  ## Conclusion
+
+  Feature 113 is a straightforward implementation of an established pattern. The module orchestrates
+  existing sheep.content_generators functions that have been proven across 112 prior features. No new
+  external dependencies are introduced, no architectural changes are needed, and the implementation
+  focuses on clear orchestration and error handling rather than reimplementing existing functionality.
