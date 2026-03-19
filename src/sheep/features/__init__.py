@@ -3,5 +3,8 @@
 from sheep.features.feature_101_markdown_file_creation import (
     create_feature_101_markdown_file,
 )
+from sheep.features.feature_102_markdown_file_creation import (
+    create_feature_102_markdown_file,
+)
 
-__all__ = ["create_feature_101_markdown_file"]
+__all__ = ["create_feature_101_markdown_file", "create_feature_102_markdown_file"]
