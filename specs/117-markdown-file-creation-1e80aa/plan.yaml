@@ -1,0 +1,244 @@
+name: "markdown-file-creation-1e80aa"
+summary: |
+  Implementation plan for feature 117: Create a single markdown file named
+  test-vlr6wx.md in the repository root with a markdown H1 heading and 2-3
+  sentences of prose content, following the established pattern from 116+
+  prior features. The implementation leverages existing Sheep framework
+  components for content generation, file I/O, and git integration.
+
+relatedFeatures:
+  - number: 116
+    name: "markdown-file-creation-f20394"
+    relationship: "Identical implementation pattern"
+  - number: 115
+    name: "markdown-content-file-763a04"
+    relationship: "Identical implementation pattern"
+  - number: 114
+    name: "markdown-content-file-8b811e"
+    relationship: "Identical implementation pattern"
+
+technologies:
+  - "Python 3.11+ (pathlib.Path for file I/O, native encoding handling)"
+  - "Claude API (via CrewAI for content generation)"
+  - "Sheep Framework (GitCommitTool, GitPushTool, get_reasoning_llm)"
+  - "Git (version control, staging, commits, push)"
+  - "CommonMark (markdown syntax specification)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Sheep Framework GitCommitTool"
+    url: "https://github.com/anthropics/sheep"
+  - title: "Conventional Commits"
+    url: "https://www.conventionalcommits.org/"
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+
+phases:
+  - id: "phase-1"
+    name: "Content Generation and File Creation"
+    description: "Generate markdown prose using Claude API, write file with UTF-8 encoding and LF line endings, validate structure and properties against specification requirements."
+    parallel: false
+  - id: "phase-2"
+    name: "Git Integration and Push"
+    description: "Stage the markdown file in git, create a conventional commit with the feature number and filename, push to remote origin with upstream tracking."
+    parallel: false
+
+filesToCreate:
+  - "test-vlr6wx.md"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 117 leverages the Sheep framework's existing abstractions for content generation and git integration.
+  The implementation is a straightforward orchestration of proven components:
+
+  1. **Content Generation**: Uses `sheep.config.llm.get_reasoning_llm()` (Claude API via CrewAI)
+     to generate markdown prose with a fixed prompt that ensures H1 heading + blank line + 2-3 sentences
+  2. **File I/O**: Uses Python's pathlib.Path with explicit encoding control (UTF-8, newline="")
+     to guarantee cross-platform consistency and prevent CRLF conversion on Windows
+  3. **Validation**: Calls the existing `validate_markdown_file()` function from content_generators.py
+     to verify UTF-8 encoding, LF line endings, structure, and size (300-600 bytes)
+  4. **Git Workflow**: Uses Sheep framework's GitCommitTool (for staging + commit) and GitPushTool
+     (for push with upstream tracking) to handle version control
+
+  This architecture is proven across 116+ prior features (069-116) with a 100% success rate.
+  No new modules or architectural changes are required.
+
+  ## Key Design Decisions
+
+  ### Decision 1: Reuse Existing content_generators.py Module
+
+  **Chosen**: Leverage existing orchestration functions in `src/sheep/content_generators.py`
+  rather than creating parallel implementations.
+
+  **Alternatives Considered**:
+  - Create a new module specific to feature 117 (would duplicate proven code)
+  - Use raw subprocess calls to create file and run git commands (less maintainable, no error handling)
+
+  **Rationale**: The research findings document that content_generators.py already exports:
+  `generate_markdown_content()`, `write_markdown_file()`, `validate_markdown_file()`,
+  `commit_markdown_file()`, `push_markdown_file()`, and `create_markdown_file()`.
+  These functions are battle-tested across 116+ prior features and provide comprehensive
+  error handling, logging, and validation. Reusing them ensures consistency and reliability.
+
+  ### Decision 2: Explicit Newline Parameter for Cross-Platform Consistency
+
+  **Chosen**: Pass `newline=""` to Python's open() function when writing the file,
+  and use binary read (rb) mode for validation to detect line ending violations.
+
+  **Alternatives Considered**:
+  - Default Python text mode (would convert \n to \r\n on Windows, failing validation)
+  - Post-write .replace() to strip CRLF (fragile, error-prone)
+  - Platform-specific conditional logic (adds complexity, harder to test)
+
+  **Rationale**: The specification explicitly requires "Unix-style LF line endings only".
+  Python's text mode is platform-dependent: on Windows it converts \n to \r\n unless
+  newline="" is specified. This parameter was discovered through testing in commit 534fff2
+  when earlier CRLF issues were resolved. The solution is proven and minimal.
+
+  ### Decision 3: Claude API for Content Generation
+
+  **Chosen**: Use Claude API via CrewAI's `get_reasoning_llm()` to generate markdown
+  prose with a fixed, hardcoded prompt that ensures correct format.
+
+  **Alternatives Considered**:
+  - Static content templates (would produce repetitive, low-quality prose)
+  - Random sentence assembly (produces grammatically awkward results)
+  - External markdown generators (unnecessary dependencies, overcomplicated)
+
+  **Rationale**: Claude API provides high-quality, coherent prose generation with full
+  semantic understanding. The Sheep framework's get_reasoning_llm() abstracts the LLM
+  layer, allowing content generation without hardcoding API keys or managing credentials.
+  All 116+ prior features use this exact pattern, ensuring consistency and proven reliability.
+  The LLM call is wrapped with validation (via validate_markdown_file) to ensure output
+  meets specification requirements.
+
+  ### Decision 4: Comprehensive Post-Write Validation
+
+  **Chosen**: Call `validate_markdown_file()` immediately after writing the file
+  to catch encoding, structure, or format errors before committing to git.
+
+  **Alternatives Considered**:
+  - No validation (would miss errors silently, violating specification)
+  - Lazy validation on read (too late; must catch issues immediately)
+  - Schema-based validation (overkill for markdown; custom function is clearer)
+
+  **Rationale**: The specification defines detailed success criteria: UTF-8 without BOM,
+  LF line endings, H1 heading structure, blank line separator, 2-3 sentence count, size
+  300-600 bytes. The validate_markdown_file() function (lines 150-244 in content_generators.py)
+  implements all these checks and is called immediately after file creation. This approach
+  prevents invalid files from being committed, reducing debugging time and ensuring
+  consistent quality across all 117 features.
+
+  ### Decision 5: Sheep Framework Git Tools
+
+  **Chosen**: Use GitCommitTool (with add_all=True for staging) and GitPushTool
+  (with set_upstream for remote tracking) from the Sheep framework.
+
+  **Alternatives Considered**:
+  - Direct subprocess.run() calls to git CLI (duplicates framework functionality, less testable)
+  - GitPython library (adds external dependency where Sheep already provides git tools)
+  - Manual shell commands via Bash (brittle, lacks error handling and logging)
+
+  **Rationale**: The Sheep framework provides proven git integration tools that are used
+  across all 116+ prior features. GitCommitTool handles staging, commit creation, and error
+  cases. GitPushTool handles remote push with upstream tracking. Using these tools ensures:
+  consistency with prior features, integrated error handling, structured logging, and
+  framework-wide observability. Avoids duplicating code that already exists and is proven.
+
+  ### Decision 6: Conventional Commit Format with Feature Number
+
+  **Chosen**: Use commit message format `feat(117): Create test-vlr6wx.md with prose content`
+  following conventional commits specification with feature number in scope.
+
+  **Alternatives Considered**:
+  - Simple format without feature number (lacks semantic context, breaks traceability)
+  - Custom format inconsistent with prior 116 features (breaks git history pattern)
+  - PR title only (loses feature tracking and conventional commit structure)
+
+  **Rationale**: The established pattern from 116+ prior features uses this format, enabling:
+  automated changelog generation, feature traceability via feature number in scope,
+  semantic meaning via "feat" type, and consistency with Angular/Semantic commit conventions.
+  The format is proven and documented in the research findings (line 315 in content_generators.py).
+
+  ## Implementation Strategy
+
+  ### Phase 1: Content Generation and File Creation
+
+  The first phase focuses on creating the markdown file with correct structure, encoding,
+  and line endings. This phase is prerequisite to git integration because we must validate
+  the file content before committing.
+
+  1. **Task 1.1: Generate markdown content** — Call Claude API with markdown generation prompt
+     to produce H1 heading + blank line + 2-3 sentences of prose
+  2. **Task 1.2: Write markdown file** — Write generated content to test-vlr6wx.md with
+     UTF-8 encoding and newline="" parameter to prevent CRLF conversion
+  3. **Task 1.3: Validate file structure and properties** — Call validate_markdown_file()
+     to verify UTF-8 encoding, LF line endings, heading structure, prose count, and size
+
+  **Why this order**: Content must be generated before it can be written. The file must be
+  written and validated before it can be committed to git. Validation must happen immediately
+  after writing to catch encoding/structure issues early.
+
+  ### Phase 2: Git Integration and Push
+
+  The second phase stages the validated file in git, creates a conventional commit, and
+  pushes to the remote origin. This phase depends on Phase 1 because we only commit after
+  validating the file.
+
+  1. **Task 2.1: Stage file and create git commit** — Use GitCommitTool to stage the file
+     and create a commit with conventional message format including feature number
+  2. **Task 2.2: Push to remote origin** — Use GitPushTool to push the commit to remote
+     origin with upstream tracking
+
+  **Why this order**: The file must be committed before it can be pushed. Upstream tracking
+  is set during push to establish feature branch tracking.
+
+  ### Rationale for Phase Ordering
+
+  Phase 1 (content creation) must complete before Phase 2 (git integration) because:
+  - Git commits must contain validated content (no invalid files in version control)
+  - Validation errors (encoding, line endings, structure) should be fixed before committing
+  - The validated file is the prerequisite for successful git operations
+
+  The two phases are sequential, not parallel, because Phase 2 depends entirely on Phase 1's
+  output (the validated markdown file).
+
+  ## Risk Mitigation
+
+  | Risk | Impact | Mitigation Strategy |
+  | ---- | ------ | ------------------- |
+  | Claude API unavailable or rate-limited | High | Implement retry logic with exponential backoff; log detailed error messages with timestamp for debugging |
+  | Generated prose doesn't match format (H1, 2-3 sentences) | Medium | Validate output immediately after generation; reject and retry if format is incorrect; use strict prompt template |
+  | CRLF line endings on Windows | High | Explicitly pass newline="" to open() and validate with binary read (rb); this is proven from commit 534fff2 |
+  | UTF-8 BOM present in file | Medium | Validation checks for and rejects UTF-8 BOM; use Python's default UTF-8 encoding without BOM when writing |
+  | File size outside 300-600 byte range | Low | Validation verifies size; if too short, ask for more prose; if too long, ask for shorter prose |
+  | Git credentials not configured | Medium | Assume git user.name and user.email are configured (standard development setup); error messages will indicate if not |
+  | Git push fails due to remote issues | Medium | GitPushTool handles errors; log detailed error messages; user can retry after resolving remote issues |
+  | Concurrent feature branch pushes | Low | Feature branch is pre-created and isolated per user; no concurrent modifications expected |
+  | Invalid markdown syntax | Low | Validate against CommonMark specification; prose generation via Claude produces valid syntax; validation rejects invalid files |
+
+  ## Dependencies
+
+  - **Feature branch**: `feat/117-markdown-file-creation-1e80aa` must be pre-created (assumed by system)
+  - **Sheep framework**: Must have access to content_generators.py functions and git tools
+  - **Claude API**: Must be configured via CrewAI's get_reasoning_llm() (handled by framework)
+  - **Git configuration**: git user.name and user.email must be configured (standard assumption)
+  - **Python 3.11+**: Standard library pathlib must be available
+  - **Write access**: Repository root directory must be writable
+
+  ## Files Affected
+
+  - **Create**: test-vlr6wx.md (300-600 bytes, markdown file with H1 heading and prose)
+  - **Modify**: None (no existing files are modified)
+  - **Git**: One new commit on feature branch `feat/117-markdown-file-creation-1e80aa`
+
+  ---
+
+  _Implementation plan complete — architecture defined, design decisions documented with rationale,
+  phases ordered by dependency, risks identified and mitigated, ready for detailed task breakdown_
