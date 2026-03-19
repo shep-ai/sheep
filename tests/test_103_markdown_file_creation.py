@@ -170,6 +170,7 @@ class TestMarkdownFileValidation:
 class TestOrchestratorFunction:
     """Tests for the orchestrator function tasks (task-2, task-3, task-4)."""
 
+    @mock.patch("sheep.features.feature_103_markdown_file_creation._validate_file_format_comprehensive")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.push_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.commit_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file")
@@ -182,6 +183,7 @@ class TestOrchestratorFunction:
         mock_validate,
         mock_commit,
         mock_push,
+        mock_comprehensive_validate,
         tmp_path
     ):
         """Test that orchestrator calls generate_markdown_content (task-2)."""
@@ -202,6 +204,7 @@ class TestOrchestratorFunction:
         # Verify result contains the generated content
         assert result["content"] == test_content
 
+    @mock.patch("sheep.features.feature_103_markdown_file_creation._validate_file_format_comprehensive")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.push_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.commit_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file")
@@ -214,6 +217,7 @@ class TestOrchestratorFunction:
         mock_validate,
         mock_commit,
         mock_push,
+        mock_comprehensive_validate,
         tmp_path
     ):
         """Test that orchestrator calls write_markdown_file with correct arguments (task-3)."""
@@ -234,6 +238,7 @@ class TestOrchestratorFunction:
         # Verify result contains the filepath
         assert result["filepath"] == test_file
 
+    @mock.patch("sheep.features.feature_103_markdown_file_creation._validate_file_format_comprehensive")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.push_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.commit_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file")
@@ -246,6 +251,7 @@ class TestOrchestratorFunction:
         mock_validate,
         mock_commit,
         mock_push,
+        mock_comprehensive_validate,
         tmp_path
     ):
         """Test that orchestrator calls validate_markdown_file (task-3)."""
@@ -263,6 +269,7 @@ class TestOrchestratorFunction:
         # Verify validate_markdown_file was called
         mock_validate.assert_called_once_with(test_file)
 
+    @mock.patch("sheep.features.feature_103_markdown_file_creation._validate_file_format_comprehensive")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.push_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.commit_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file")
@@ -275,6 +282,7 @@ class TestOrchestratorFunction:
         mock_validate,
         mock_commit,
         mock_push,
+        mock_comprehensive_validate,
         tmp_path
     ):
         """Test that orchestrator calls commit_markdown_file with exact message (task-4)."""
@@ -298,6 +306,7 @@ class TestOrchestratorFunction:
         # Verify result contains the commit message
         assert result["commit_message"] == expected_message
 
+    @mock.patch("sheep.features.feature_103_markdown_file_creation._validate_file_format_comprehensive")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.push_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.commit_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file")
@@ -310,6 +319,7 @@ class TestOrchestratorFunction:
         mock_validate,
         mock_commit,
         mock_push,
+        mock_comprehensive_validate,
         tmp_path
     ):
         """Test that orchestrator calls push_markdown_file (task-5)."""
@@ -330,6 +340,7 @@ class TestOrchestratorFunction:
         # Verify result contains the push result
         assert result["push_result"] == "Pushed"
 
+    @mock.patch("sheep.features.feature_103_markdown_file_creation._validate_file_format_comprehensive")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.push_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.commit_markdown_file")
     @mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file")
@@ -342,6 +353,7 @@ class TestOrchestratorFunction:
         mock_validate,
         mock_commit,
         mock_push,
+        mock_comprehensive_validate,
         tmp_path
     ):
         """Test that orchestrator returns dictionary with expected keys."""
@@ -367,3 +379,157 @@ class TestOrchestratorFunction:
         assert result["content"] == test_content
         assert "feat(103)" in result["commit_message"]
         assert result["push_result"] == "Pushed"
+
+
+class TestComprehensiveFileValidation:
+    """Tests for additional comprehensive validation checks after validate_markdown_file()."""
+
+    def test_orchestrator_detects_bom_in_file(self, tmp_path):
+        """Test that orchestrator detects and rejects files with UTF-8 BOM."""
+        # Create a file with UTF-8 BOM manually
+        test_file = tmp_path / MARKDOWN_FILENAME
+        content = "# Test Title\n\nFirst sentence. Second sentence.\n"
+        # Write with BOM by prepending the BOM bytes
+        with open(test_file, 'wb') as f:
+            f.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+            f.write(content.encode('utf-8'))
+
+        # Try to process this file through the full workflow
+        with mock.patch("sheep.features.feature_103_markdown_file_creation.generate_markdown_content") as mock_gen:
+            with mock.patch("sheep.features.feature_103_markdown_file_creation.write_markdown_file") as mock_write:
+                with mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file"):
+                    # Make write_markdown_file return the path with BOM file
+                    mock_write.return_value = str(test_file)
+                    mock_gen.return_value = content
+
+                    # The orchestrator should detect the BOM through explicit validation
+                    with pytest.raises(ValueError, match="BOM"):
+                        create_feature_103_markdown_file(repo_path=str(tmp_path))
+
+    def test_orchestrator_detects_crlf_line_endings(self, tmp_path):
+        """Test that orchestrator detects and rejects files with CRLF line endings."""
+        test_file = tmp_path / MARKDOWN_FILENAME
+        content = "# Test Title\r\n\r\nFirst sentence. Second sentence.\r\n"
+        test_file.write_bytes(content.encode('utf-8'))
+
+        with mock.patch("sheep.features.feature_103_markdown_file_creation.generate_markdown_content") as mock_gen:
+            with mock.patch("sheep.features.feature_103_markdown_file_creation.write_markdown_file") as mock_write:
+                with mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file"):
+                    mock_write.return_value = str(test_file)
+                    mock_gen.return_value = "# Test Title\n\nFirst sentence. Second sentence.\n"
+
+                    # The orchestrator should detect CRLF through explicit validation
+                    with pytest.raises(ValueError, match="CRLF|line ending"):
+                        create_feature_103_markdown_file(repo_path=str(tmp_path))
+
+    def test_orchestrator_detects_missing_trailing_newline(self, tmp_path):
+        """Test that orchestrator detects files without trailing newline."""
+        test_file = tmp_path / MARKDOWN_FILENAME
+        # Content without trailing newline
+        content = "# Test Title\n\nFirst sentence. Second sentence."
+        test_file.write_bytes(content.encode('utf-8'))
+
+        with mock.patch("sheep.features.feature_103_markdown_file_creation.generate_markdown_content") as mock_gen:
+            with mock.patch("sheep.features.feature_103_markdown_file_creation.write_markdown_file") as mock_write:
+                with mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file"):
+                    mock_write.return_value = str(test_file)
+                    mock_gen.return_value = "# Test Title\n\nFirst sentence. Second sentence.\n"
+
+                    # The orchestrator should detect missing trailing newline
+                    with pytest.raises(ValueError, match="trailing newline"):
+                        create_feature_103_markdown_file(repo_path=str(tmp_path))
+
+    def test_orchestrator_validates_h1_heading_format(self, tmp_path):
+        """Test that orchestrator validates H1 heading is properly formatted."""
+        test_file = tmp_path / MARKDOWN_FILENAME
+        # Content with improperly formatted heading (should start with "# ")
+        content = "##Test Title\n\nFirst sentence. Second sentence.\n"
+        # Use write_bytes to ensure LF line endings
+        test_file.write_bytes(content.encode('utf-8'))
+
+        with mock.patch("sheep.features.feature_103_markdown_file_creation.generate_markdown_content") as mock_gen:
+            with mock.patch("sheep.features.feature_103_markdown_file_creation.write_markdown_file") as mock_write:
+                with mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file"):
+                    mock_write.return_value = str(test_file)
+                    mock_gen.return_value = content
+
+                    # The orchestrator should detect improper H1 heading
+                    with pytest.raises(ValueError, match="H1|heading"):
+                        create_feature_103_markdown_file(repo_path=str(tmp_path))
+
+    def test_orchestrator_validates_blank_line_after_heading(self, tmp_path):
+        """Test that orchestrator validates blank line exists after heading."""
+        test_file = tmp_path / MARKDOWN_FILENAME
+        # Content without blank line after heading
+        content = "# Test Title\nFirst sentence. Second sentence.\n"
+        # Use write_bytes to ensure LF line endings
+        test_file.write_bytes(content.encode('utf-8'))
+
+        with mock.patch("sheep.features.feature_103_markdown_file_creation.generate_markdown_content") as mock_gen:
+            with mock.patch("sheep.features.feature_103_markdown_file_creation.write_markdown_file") as mock_write:
+                with mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file"):
+                    mock_write.return_value = str(test_file)
+                    mock_gen.return_value = content
+
+                    # The orchestrator should detect missing blank line
+                    with pytest.raises(ValueError, match="blank line"):
+                        create_feature_103_markdown_file(repo_path=str(tmp_path))
+
+    def test_orchestrator_validates_sentence_count(self, tmp_path):
+        """Test that orchestrator validates 2-3 sentences in prose."""
+        test_file = tmp_path / MARKDOWN_FILENAME
+        # Content with only 1 sentence (one period)
+        content = "# Test Title\n\nJust one sentence.\n"
+        # Use write_bytes to ensure LF line endings
+        test_file.write_bytes(content.encode('utf-8'))
+
+        with mock.patch("sheep.features.feature_103_markdown_file_creation.generate_markdown_content") as mock_gen:
+            with mock.patch("sheep.features.feature_103_markdown_file_creation.write_markdown_file") as mock_write:
+                with mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file"):
+                    mock_write.return_value = str(test_file)
+                    mock_gen.return_value = content
+
+                    # The orchestrator should detect insufficient sentences
+                    with pytest.raises(ValueError, match="sentence"):
+                        create_feature_103_markdown_file(repo_path=str(tmp_path))
+
+    def test_orchestrator_validates_file_size_and_logs_warning(self, tmp_path):
+        """Test that orchestrator validates file size and logs warning if outside range."""
+        test_file = tmp_path / MARKDOWN_FILENAME
+        # Content that's way too small (under 350 bytes)
+        content = "# T\n\nA.\n"
+        test_file.write_text(content, encoding="utf-8")
+
+        with mock.patch("sheep.features.feature_103_markdown_file_creation.generate_markdown_content") as mock_gen:
+            with mock.patch("sheep.features.feature_103_markdown_file_creation.write_markdown_file") as mock_write:
+                with mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file"):
+                    with mock.patch("sheep.features.feature_103_markdown_file_creation._logger") as mock_logger:
+                        mock_write.return_value = str(test_file)
+                        mock_gen.return_value = content
+                        mock_logger.debug = mock.MagicMock()
+
+                        # This should raise ValueError due to sentence count first
+                        # But when sentence count is OK, file size warning should be logged
+                        with pytest.raises(ValueError):
+                            create_feature_103_markdown_file(repo_path=str(tmp_path))
+
+    def test_valid_file_passes_all_validation_checks(self, tmp_path):
+        """Test that a properly formatted file passes all comprehensive validation checks."""
+        test_file = tmp_path / MARKDOWN_FILENAME
+        content = "# The Power of Persistence\n\nPersistence is the steadfast commitment to overcome obstacles and challenges while maintaining unwavering focus on our goals. It builds resilience and strength through repeated effort, determination, and the continuous refinement of our abilities and character. Through persistence, we unlock our potential and achieve what once seemed impossible.\n"
+        # Use write_bytes to ensure LF line endings
+        test_file.write_bytes(content.encode('utf-8'))
+
+        with mock.patch("sheep.features.feature_103_markdown_file_creation.generate_markdown_content") as mock_gen:
+            with mock.patch("sheep.features.feature_103_markdown_file_creation.write_markdown_file") as mock_write:
+                with mock.patch("sheep.features.feature_103_markdown_file_creation.validate_markdown_file"):
+                    with mock.patch("sheep.features.feature_103_markdown_file_creation.commit_markdown_file") as mock_commit:
+                        with mock.patch("sheep.features.feature_103_markdown_file_creation.push_markdown_file") as mock_push:
+                            mock_write.return_value = str(test_file)
+                            mock_gen.return_value = content
+                            mock_commit.return_value = "Committed"
+                            mock_push.return_value = "Pushed"
+
+                            # Should not raise any exception
+                            result = create_feature_103_markdown_file(repo_path=str(tmp_path))
+                            assert result["filepath"] == str(test_file)
