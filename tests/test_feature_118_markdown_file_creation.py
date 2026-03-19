@@ -389,7 +389,7 @@ class TestComprehensiveIntegration:
 
         # Mock the generate_markdown_content to return valid test content
         # This allows the test to run without requiring ANTHROPIC_API_KEY
-        test_content = "# Test Innovation\n\nInnovation drives technological progress in society. It requires creativity and persistence from dedicated teams. Organizations must foster cultures that encourage experimental thinking.\n"
+        test_content = "# Digital Transformation in Modern Enterprises\n\nDigital transformation represents a fundamental shift in how organizations operate and deliver value to customers in the modern economy. Companies across all industries are investing heavily in new technologies, processes, and business models to remain competitive. This comprehensive change requires leadership commitment and organizational culture shift to succeed.\n"
 
         with patch(
             "sheep.features.feature_118_markdown_file_creation.generate_markdown_content",
@@ -515,7 +515,7 @@ class TestComprehensiveIntegration:
         from unittest.mock import patch
 
         # Valid test content for mocking
-        test_content = "# Digital Transformation\n\nDigital transformation reshapes business operations and customer interactions. It requires investment in technology and organizational change. Companies must adapt quickly to remain competitive.\n"
+        test_content = "# Sustainable Business Practices and Corporate Responsibility\n\nSustainable business practices have become essential for long-term company success and stakeholder value creation. Organizations implementing environmental, social, and governance initiatives report improved brand reputation and operational efficiency. Leaders must balance profitability with responsibility to ensure positive impact on communities and the planet.\n"
 
         with patch(
             "sheep.features.feature_118_markdown_file_creation.generate_markdown_content",
@@ -574,7 +574,7 @@ class TestComprehensiveIntegration:
         from unittest.mock import patch
         import warnings
 
-        test_content = "# Cloud Computing\n\nCloud computing enables scalable and flexible infrastructure for businesses. It reduces capital expenditure and operational complexity. Organizations leverage cloud services for competitive advantage.\n"
+        test_content = "# Artificial Intelligence and Machine Learning Revolution\n\nArtificial intelligence and machine learning technologies are transforming industries from healthcare to finance by enabling faster decision-making and predictive analytics. Organizations implementing AI solutions report significant improvements in efficiency, customer satisfaction, and innovation capabilities. Strategic investment in AI talent and infrastructure is becoming increasingly critical for competitive advantage.\n"
 
         with patch(
             "sheep.features.feature_118_markdown_file_creation.generate_markdown_content",
