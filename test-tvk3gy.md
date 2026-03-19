@@ -1,3 +1,3 @@
-# Midnight Rain in the City
+# The Quiet Library
 
-The city changes character when rain starts after midnight. Neon signs blur into colorful reflections, and even familiar streets feel newly mysterious. Walking through that quiet glow makes ordinary moments feel cinematic.
+The library feels different in the early morning before anyone arrives. Sunlight slips through tall windows and turns dust into drifting sparks. In that silence, every page turn sounds important.
