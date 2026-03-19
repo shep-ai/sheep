@@ -1,0 +1,3 @@
+# The Beauty of Small Moments
+
+Life's most profound joy often arrives in the quietest, most unexpected moments when we pause to notice the details around us. A warm cup of tea on a cold morning, the laughter of a friend, or the way sunlight filters through leaves can remind us that contentment doesn't require grand gestures or extraordinary circumstances. These small moments, when we truly pay attention, reveal the extraordinary nature of an ordinary day.
