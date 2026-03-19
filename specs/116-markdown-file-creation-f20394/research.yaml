@@ -1,0 +1,367 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-f20394"
+summary: >
+  This feature follows the established pattern from 115+ preceding implementations. Technical
+  decisions prioritize simplicity, proven reliability, and consistency with existing codebase.
+  Uses CrewAI's LLM framework for content generation, Python standard library (pathlib) for
+  file I/O, and CrewAI tools for git operations. No external dependencies beyond existing
+  project requirements.
+
+# Relationships
+relatedFeatures:
+  - number: 115
+    name: "markdown-file-creation"
+    description: "Identical implementation pattern; demonstrates proven approach"
+  - number: 114
+    name: "markdown-file-creation"
+    description: "Reference for content format and validation requirements"
+  - number: 69
+    name: "markdown-file-creation"
+    description: "Original specification establishing the pattern used across all 100+ implementations"
+
+technologies:
+  - "Python 3.11+ (standard library: pathlib, re, subprocess)"
+  - "CrewAI LLM framework (for markdown content generation via Claude API)"
+  - "CrewAI tools (GitCommitTool, GitPushTool for version control)"
+  - "Git (command-line version control)"
+  - "CommonMark specification (markdown format validation)"
+
+relatedLinks:
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+
+# Structured technology decisions
+decisions:
+  - title: "Content Generation Method"
+    chosen: "LLM-based generation via CrewAI and Claude API"
+    rejected:
+      - "Hardcoded prose content — loses flexibility and creative variation; requires manual content updates for each feature"
+      - "Random text generation from templates — less coherent, less natural prose, less reliable quality"
+    rationale: >
+      CrewAI's LLM integration is already available in the codebase (see content_generators.py) and
+      has been successfully used across 100+ markdown-file-creation features (069-115). This approach
+      provides high-quality, coherent prose without manual content creation. The LLM can generate
+      content about any topic on demand, supporting the flexible \"about anything\" requirement. Uses
+      existing get_reasoning_llm() infrastructure with a well-defined prompt template that ensures
+      consistent output format (H1 heading + 2-3 sentences).
+
+  - title: "File Creation and Encoding"
+    chosen: "Python pathlib.Path with open() context manager, UTF-8 encoding, default newline handling"
+    rejected:
+      - "Manual binary file writing — unnecessary complexity for text files; requires explicit byte-level encoding handling"
+      - "External shell commands (echo, tee) — loses type safety, harder to validate, less portable"
+    rationale: >
+      Python's pathlib.Path.write_text() with encoding='utf-8' is the standard library approach and
+      is proven across all 115 prior implementations. On Unix systems (Linux, macOS), the default
+      newline=None parameter automatically produces LF-only line endings, meeting the requirement.
+      UTF-8 encoding is handled automatically without BOM. This approach is simple, readable, and
+      works reliably across platforms. The codebase already uses this pattern (see write_markdown_file
+      in content_generators.py:128-129).
+
+  - title: "File Validation Strategy"
+    chosen: "Comprehensive validation after file creation checking encoding, line endings, markdown structure, and content"
+    rejected:
+      - "No validation — risks silent failures and files that don't meet requirements"
+      - "Minimal validation (only file exists) — misses encoding, line ending, and content quality issues"
+    rationale: >
+      The codebase implements comprehensive validation (validate_markdown_file in content_generators.py:150-244)
+      checking: UTF-8 encoding with no BOM, LF-only line endings, H1 heading format, blank line separator,
+      2-3 sentence count, and trailing newline. This validation is critical for reliability across 100+
+      test files and ensures all files meet non-functional requirements. Validation failures provide
+      actionable error messages for debugging.
+
+  - title: "Git Operations Approach"
+    chosen: "Use CrewAI's GitCommitTool and GitPushTool (subprocess-based wrappers around git CLI)"
+    rejected:
+      - "GitPython library — additional dependency, less familiar to codebase authors, no clear advantage over existing tools"
+      - "Direct subprocess.run() calls to git — more error-prone, requires manual output parsing, less encapsulation"
+    rationale: >
+      The codebase already provides GitCommitTool and GitPushTool (in tools/git_tools.py) as part of
+      the CrewAI integration. These tools wrap subprocess calls with proper argument handling, error
+      detection, and logging. They are used across all markdown-file-creation features and have proven
+      reliable. No additional dependencies required. The tools handle conventional commit messages,
+      git staging, and upstream branch tracking automatically.
+
+  - title: "Commit Message Format"
+    chosen: "Conventional commit format: feat(116): Create markdown file test-45ndys.md with prose content"
+    rejected:
+      - "Auto-generated message with topic extraction — adds complexity for marginal benefit"
+      - "Simple message without feature number — loses context for feature tracking"
+    rationale: >
+      Feature spec explicitly requires this format: \"feat(116): Create markdown file test-45ndys.md
+      with prose content\". This aligns with conventional commit standards used across the project
+      and enables clear feature tracking. The message is simple, deterministic, and parsed consistently
+      across all implementations.
+
+  - title: "Error Handling and Recovery"
+    chosen: "Explicit exception raising with descriptive error messages; fail fast on validation errors"
+    rejected:
+      - "Silent error suppression with fallback values — hides issues, complicates debugging"
+      - "Retry loops on transient failures — not needed for file operations, overly complex"
+    rationale: >
+      File creation, encoding validation, and git operations are deterministic operations that should
+      succeed immediately or fail with a clear error. Silent failures mask underlying issues. The
+      codebase (content_generators.py) raises ValueError and IOError with descriptive messages for
+      validation failures, encoding issues, and file I/O errors. This approach integrates well with
+      the Sheep platform's error tracking and logging infrastructure.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should we reuse existing content_generators.py functions or implement custom file creation logic?"
+    resolved: true
+    options:
+      - option: "Reuse existing content_generators functions"
+        description: >
+          Call generate_markdown_content(), write_markdown_file(), validate_markdown_file(),
+          commit_markdown_file(), and push_markdown_file() from the shared content_generators.py
+          module. These functions are production-tested across 115+ features and handle all
+          requirements end-to-end.
+        selected: true
+      - option: "Implement custom file creation in feature module"
+        description: >
+          Implement dedicated feature_116_markdown_file_creation.py module with custom
+          logic mirroring content_generators patterns. Provides module isolation but duplicates
+          proven code and creates maintenance burden.
+        selected: false
+      - option: "Mix both approaches"
+        description: >
+          Reuse some functions (content generation, validation) but implement custom git
+          operations. Creates inconsistency and testing burden without clear benefit.
+        selected: false
+    selectionRationale: >
+      Reusing content_generators.py functions is the clear choice. These functions are already
+      in use, well-tested, properly logged, and handle all 116-markdown-file-creation requirements.
+      Features 112-115 follow this exact pattern successfully. Custom implementation would duplicate
+      code, add testing burden, and risk introducing bugs. Consistency across 115+ features
+      demonstrates this approach's reliability.
+
+  - question: "What prose topic should be used for the markdown content?"
+    resolved: true
+    options:
+      - option: "Implementer chooses any topic (as specified in feature spec)"
+        description: >
+          LLM generates content about any topic it selects. Full flexibility, aligns with original
+          \"about anything\" requirement. Matches 115+ prior implementations.
+        selected: true
+      - option: "Predefined topic from specification"
+        description: >
+          Feature spec defines a specific topic (e.g., \"about software engineering\", \"about
+          creativity\"). Removes ambiguity but reduces flexibility and requires topic definition.
+        selected: false
+      - option: "Random topic selection from a curated list"
+        description: >
+          Feature spec provides a list of 5-10 topics and LLM randomly selects one for each
+          generation. Balances variety with predictability, adds minor complexity.
+        selected: false
+    selectionRationale: >
+      The feature spec explicitly states \"Implementer chooses any topic\" and \"about anything\"
+      as the requirement. The LLM prompt template (MARKDOWN_GENERATION_PROMPT in content_generators.py)
+      already grants this flexibility: \"about any topic you choose\". This approach has worked
+      across 115 prior implementations and supports creative variation in content.
+
+  - question: "How should file size be validated (target 400-600 bytes)?"
+    resolved: true
+    options:
+      - option: "Validate file size after writing; warn if outside target range but do not fail"
+        description: >
+          Check file_size after writing. If outside 400-600 bytes, log a warning but allow the
+          file. Focus on format requirements rather than size constraints.
+        selected: true
+      - option: "Enforce strict file size limits (400-600 bytes); regenerate if outside"
+        description: >
+          Validate file size strictly; if outside range, regenerate content and retry. Ensures
+          all files meet exact size specification but adds retry complexity.
+        selected: false
+      - option: "Ignore file size entirely; focus only on format"
+        description: >
+          File size is informational only. No validation. Simplest approach, loses quality
+          assurance on content length consistency.
+        selected: false
+    selectionRationale: >
+      Current codebase validates file existence and non-zero size (content_generators.py:136-138)
+      but not strict 400-600 byte range. The specification lists file size (400-600 bytes) as a
+      non-functional requirement with medium priority. Exact enforcement would require retry loops
+      and regeneration, adding unnecessary complexity. Existing validation of file existence and
+      basic size check is sufficient. The 400-600 byte range is typically achieved naturally by
+      H1 heading + 2-3 sentences of prose (~50-100 words).
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-19
+  - **Status:** Complete
+
+  ## Technology Decisions Summary
+
+  All technical decisions follow the established pattern from 115+ preceding markdown-file-creation
+  implementations. No new dependencies required beyond what already exists in the codebase.
+
+  ### 1. Content Generation Method
+
+  **Chosen:** LLM-based generation via CrewAI and Claude API
+
+  **Rejected:**
+  - Hardcoded prose content — loses flexibility and creative variation; requires manual content updates for each feature
+  - Random text generation from templates — less coherent, less natural prose, less reliable quality
+
+  **Rationale:** CrewAI's LLM integration is already available in the codebase (see content_generators.py)
+  and has been successfully used across 100+ markdown-file-creation features (069-115). This approach
+  provides high-quality, coherent prose without manual content creation. The LLM can generate content
+  about any topic on demand, supporting the flexible \"about anything\" requirement. Uses existing
+  get_reasoning_llm() infrastructure with a well-defined prompt template that ensures consistent
+  output format (H1 heading + 2-3 sentences).
+
+  ### 2. File Creation and Encoding
+
+  **Chosen:** Python pathlib.Path with open() context manager, UTF-8 encoding, default newline handling
+
+  **Rejected:**
+  - Manual binary file writing — unnecessary complexity for text files; requires explicit byte-level encoding handling
+  - External shell commands (echo, tee) — loses type safety, harder to validate, less portable
+
+  **Rationale:** Python's pathlib.Path.write_text() with encoding='utf-8' is the standard library
+  approach and is proven across all 115 prior implementations. On Unix systems (Linux, macOS), the
+  default newline=None parameter automatically produces LF-only line endings, meeting the requirement.
+  UTF-8 encoding is handled automatically without BOM. This approach is simple, readable, and works
+  reliably across platforms. The codebase already uses this pattern (see write_markdown_file in
+  content_generators.py:128-129).
+
+  ### 3. File Validation Strategy
+
+  **Chosen:** Comprehensive validation after file creation checking encoding, line endings, markdown
+  structure, and content
+
+  **Rejected:**
+  - No validation — risks silent failures and files that don't meet requirements
+  - Minimal validation (only file exists) — misses encoding, line ending, and content quality issues
+
+  **Rationale:** The codebase implements comprehensive validation (validate_markdown_file in
+  content_generators.py:150-244) checking: UTF-8 encoding with no BOM, LF-only line endings,
+  H1 heading format, blank line separator, 2-3 sentence count, and trailing newline. This validation
+  is critical for reliability across 100+ test files and ensures all files meet non-functional
+  requirements. Validation failures provide actionable error messages for debugging.
+
+  ### 4. Git Operations Approach
+
+  **Chosen:** Use CrewAI's GitCommitTool and GitPushTool (subprocess-based wrappers around git CLI)
+
+  **Rejected:**
+  - GitPython library — additional dependency, less familiar to codebase authors, no clear advantage over existing tools
+  - Direct subprocess.run() calls to git — more error-prone, requires manual output parsing, less encapsulation
+
+  **Rationale:** The codebase already provides GitCommitTool and GitPushTool (in tools/git_tools.py)
+  as part of the CrewAI integration. These tools wrap subprocess calls with proper argument handling,
+  error detection, and logging. They are used across all markdown-file-creation features and have
+  proven reliable. No additional dependencies required. The tools handle conventional commit
+  messages, git staging, and upstream branch tracking automatically.
+
+  ### 5. Commit Message Format
+
+  **Chosen:** Conventional commit format: \"feat(116): Create markdown file test-45ndys.md with prose content\"
+
+  **Rejected:**
+  - Auto-generated message with topic extraction — adds complexity for marginal benefit
+  - Simple message without feature number — loses context for feature tracking
+
+  **Rationale:** Feature spec explicitly requires this format. It aligns with conventional commit
+  standards used across the project and enables clear feature tracking. The message is simple,
+  deterministic, and parsed consistently across all implementations.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ----------- | ------- | -------- | --------- |
+  | Python pathlib | File I/O operations | Use | Standard library, proven across 115+ implementations, simple and reliable |
+  | CrewAI LLM framework | Content generation via Claude API | Use | Already integrated into codebase, proven across all markdown-file-creation features |
+  | CrewAI GitCommitTool | Git staging and commit operations | Use | Built-in to CrewAI, no additional dependencies, proven reliable |
+  | CrewAI GitPushTool | Git push to remote repository | Use | Built-in to CrewAI, consistent with existing git operations, no additional dependencies |
+  | GitPython | Alternative for git operations | Reject | Would add unnecessary dependency; CrewAI tools already available and proven |
+  | External shell commands | Direct git/file operations | Reject | Less safe (command injection risk), less portable, loses type safety |
+  | Markdown validation libraries | Parse and validate markdown | Reject | Simple regex-based validation is sufficient; no need for external parser |
+
+  ## Security Considerations
+
+  1. **Path Traversal Prevention**: The write_markdown_file() function validates filename to prevent
+     path traversal attacks. Filenames with \"/\" or \"\\\" or starting with \".\" are rejected with
+     ValueError. Only filenames (not paths) are accepted.
+
+  2. **UTF-8 Encoding Safety**: Content is validated as valid UTF-8 after file creation. Invalid
+     UTF-8 sequences are caught with explicit UnicodeDecodeError handling.
+
+  3. **File Permissions**: File creation uses Python's default permissions (typically 0o644 for files,
+     restricted umask). Repository root is already part of git repository with expected permissions.
+
+  4. **Git Command Safety**: CrewAI's GitCommitTool and GitPushTool wrap subprocess calls with proper
+     argument escaping. No shell injection risk as commands use subprocess.run() with list-based args.
+
+  5. **Content Validation**: LLM-generated content is validated for:
+     - Proper sentence structure (period-based sentence count)
+     - No suspicious length extremes
+     - Valid markdown syntax
+     This prevents nonsensical or malformed content from being committed.
+
+  ## Performance Considerations
+
+  1. **File I/O**: Single file write operation (~400-600 bytes) is negligible overhead.
+
+  2. **LLM Generation**: Content generation via Claude API is the most time-intensive operation,
+     typically 2-5 seconds for a single request. This is acceptable for a feature with 10-15 minute
+     total execution time.
+
+  3. **Validation Overhead**: Comprehensive validation (reading file, parsing content, checking
+     line endings) is <100ms and acceptable trade-off for quality assurance.
+
+  4. **Git Operations**: Staging, committing, and pushing are standard git operations with minimal
+     overhead. Pushing may take 1-3 seconds depending on network and repository size.
+
+  5. **No Caching Needed**: File operations are not repeated within a single feature execution,
+     so caching provides no benefit.
+
+  ## Architecture Notes
+
+  1. **Integration with Existing Codebase**: This feature reuses the content_generators.py module
+     which was built for markdown-file-creation features 069-115. No new modules needed; all
+     functions are already available and tested.
+
+  2. **Isolated from Core Application**: The feature operates only on the repository root directory.
+     It does not touch src/sheep/, tests/, or configuration files. No impact on application source code.
+
+  3. **Follows Established Pattern**: All decisions match the pattern proven across 115+ preceding
+     implementations. No architectural changes or innovations needed.
+
+  4. **Git Workflow Integration**: Uses the same git tools and workflow as all other features.
+     Feature branch (feat/116-markdown-file-creation-f20394) is pre-created; implementation only
+     needs to stage, commit, and push the markdown file.
+
+  5. **Logging and Observability**: Uses the existing logging infrastructure (get_logger from
+     sheep.observability.logging). All operations are logged for debugging and auditing.
+
+  6. **Error Propagation**: Exceptions from file operations, content validation, or git operations
+     are allowed to propagate. The feature execution framework handles error reporting and cleanup.
+
+  ## Design Rationale Summary
+
+  This design prioritizes **consistency with 115+ proven implementations** over experimentation.
+  Every decision is grounded in existing codebase patterns:
+
+  - Content generation uses proven LLM integration
+  - File I/O uses Python standard library (pathlib)
+  - Validation is comprehensive and proven effective
+  - Git operations use CrewAI tools already in use across the project
+  - Error handling is explicit and informative
+
+  No new dependencies, no architectural changes, no unproven approaches. This straightforward
+  design ensures high reliability and quick implementation.
+
+  ---
+
+  _Research phase complete — all technical decisions documented with clear rationale and rejected
+  alternatives. Ready for implementation planning._
