@@ -79,9 +79,11 @@ def create_feature_102_markdown_file(repo_path: str | None = None) -> dict[str, 
         validate_markdown_file(filepath)
         _logger.info("File validation passed")
 
-        # Task 4: Stage and commit file
+        # Task 4: Stage and commit file with exact conventional message
         _logger.info("Task 4: Staging and committing file")
-        commit_result = commit_markdown_file(filepath, content, repo_path)
+        commit_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
+        _logger.debug(f"Using commit message: {commit_message}")
+        commit_result = commit_markdown_file(filepath, content, repo_path, custom_message=commit_message)
         _logger.debug(f"Commit result: {commit_result}")
 
         # Task 5: Push to remote repository
@@ -96,7 +98,7 @@ def create_feature_102_markdown_file(repo_path: str | None = None) -> dict[str, 
         return {
             "filepath": filepath,
             "content": content,
-            "commit_message": f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content",
+            "commit_message": commit_message,
             "push_result": push_result,
         }
 

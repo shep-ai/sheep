@@ -301,3 +301,160 @@ class TestOrchestratorFunction:
         assert result["content"] == test_content
         assert f"feat({FEATURE_NUMBER})" in result["commit_message"]
         assert MARKDOWN_FILENAME in result["commit_message"]
+
+
+class TestCommitAndPushOperations:
+    """Tests for task-5 and task-6: commit and push operations."""
+
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.push_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.commit_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.validate_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.write_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.generate_markdown_content")
+    def test_orchestrator_calls_commit_markdown_file(
+        self,
+        mock_generate,
+        mock_write,
+        mock_validate,
+        mock_commit,
+        mock_push,
+        tmp_path
+    ):
+        """Test that orchestrator calls commit_markdown_file (task-5)."""
+        # Setup mocks
+        test_content = "# Test Title\n\nFirst sentence. Second sentence.\n"
+        mock_generate.return_value = test_content
+        test_file = str(tmp_path / MARKDOWN_FILENAME)
+        mock_write.return_value = test_file
+        mock_commit.return_value = "Committed"
+        mock_push.return_value = "Pushed"
+
+        # Call orchestrator
+        result = create_feature_102_markdown_file(repo_path=str(tmp_path))
+
+        # Verify commit_markdown_file was called with correct filepath, content, and custom message
+        expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
+        mock_commit.assert_called_once_with(
+            test_file, test_content, str(tmp_path), custom_message=expected_message
+        )
+
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.push_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.commit_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.validate_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.write_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.generate_markdown_content")
+    def test_commit_message_format_correct(
+        self,
+        mock_generate,
+        mock_write,
+        mock_validate,
+        mock_commit,
+        mock_push,
+        tmp_path
+    ):
+        """Test that commit message has exact correct format (task-5)."""
+        # Setup mocks
+        test_content = "# Test Title\n\nFirst sentence. Second sentence.\n"
+        mock_generate.return_value = test_content
+        test_file = str(tmp_path / MARKDOWN_FILENAME)
+        mock_write.return_value = test_file
+        mock_commit.return_value = "Committed"
+        mock_push.return_value = "Pushed"
+
+        # Call orchestrator
+        result = create_feature_102_markdown_file(repo_path=str(tmp_path))
+
+        # Verify commit message has exact format: "feat(102): create markdown file test-59p72q.md with prose content"
+        expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
+        assert result["commit_message"] == expected_message
+
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.push_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.commit_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.validate_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.write_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.generate_markdown_content")
+    def test_orchestrator_calls_push_markdown_file(
+        self,
+        mock_generate,
+        mock_write,
+        mock_validate,
+        mock_commit,
+        mock_push,
+        tmp_path
+    ):
+        """Test that orchestrator calls push_markdown_file (task-6)."""
+        # Setup mocks
+        test_content = "# Test Title\n\nFirst sentence. Second sentence.\n"
+        mock_generate.return_value = test_content
+        test_file = str(tmp_path / MARKDOWN_FILENAME)
+        mock_write.return_value = test_file
+        mock_commit.return_value = "Committed"
+        mock_push.return_value = "Pushed"
+
+        # Call orchestrator
+        result = create_feature_102_markdown_file(repo_path=str(tmp_path))
+
+        # Verify push_markdown_file was called with correct repo_path
+        mock_push.assert_called_once_with(str(tmp_path))
+
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.push_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.commit_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.validate_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.write_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.generate_markdown_content")
+    def test_push_result_included_in_return_value(
+        self,
+        mock_generate,
+        mock_write,
+        mock_validate,
+        mock_commit,
+        mock_push,
+        tmp_path
+    ):
+        """Test that push result is included in return value (task-6)."""
+        # Setup mocks
+        test_content = "# Test Title\n\nFirst sentence. Second sentence.\n"
+        mock_generate.return_value = test_content
+        test_file = str(tmp_path / MARKDOWN_FILENAME)
+        mock_write.return_value = test_file
+        mock_commit.return_value = "Committed"
+        expected_push_result = "Pushed successfully"
+        mock_push.return_value = expected_push_result
+
+        # Call orchestrator
+        result = create_feature_102_markdown_file(repo_path=str(tmp_path))
+
+        # Verify push_result is in return value
+        assert result["push_result"] == expected_push_result
+
+
+class TestOrchestratorErrorHandling:
+    """Tests for orchestrator error handling (task-7)."""
+
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.generate_markdown_content")
+    def test_orchestrator_propagates_generation_errors(self, mock_generate, tmp_path):
+        """Test that orchestrator propagates content generation errors."""
+        # Setup mock to raise an error
+        mock_generate.side_effect = ValueError("Content generation failed")
+
+        # Verify error is propagated
+        with pytest.raises(ValueError, match="Content generation failed"):
+            create_feature_102_markdown_file(repo_path=str(tmp_path))
+
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.validate_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.write_markdown_file")
+    @mock.patch("sheep.features.feature_102_markdown_file_creation.generate_markdown_content")
+    def test_orchestrator_propagates_validation_errors(
+        self, mock_generate, mock_write, mock_validate, tmp_path
+    ):
+        """Test that orchestrator propagates file validation errors."""
+        # Setup mocks
+        test_content = "# Test Title\n\nFirst sentence. Second sentence.\n"
+        mock_generate.return_value = test_content
+        test_file = str(tmp_path / MARKDOWN_FILENAME)
+        mock_write.return_value = test_file
+        mock_validate.side_effect = ValueError("File validation failed")
+
+        # Verify error is propagated
+        with pytest.raises(ValueError, match="File validation failed"):
+            create_feature_102_markdown_file(repo_path=str(tmp_path))

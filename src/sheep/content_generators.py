@@ -271,7 +271,12 @@ def extract_topic_from_content(content: str) -> str:
     return topic
 
 
-def commit_markdown_file(filepath: str, content: str, repo_path: str | None = None) -> str:
+def commit_markdown_file(
+    filepath: str,
+    content: str,
+    repo_path: str | None = None,
+    custom_message: str | None = None,
+) -> str:
     """
     Stage and commit the markdown file with a conventional commit message.
 
@@ -279,6 +284,7 @@ def commit_markdown_file(filepath: str, content: str, repo_path: str | None = No
         filepath: Path to the markdown file to commit.
         content: The markdown content (used to extract topic for commit message).
         repo_path: Path to the git repository (defaults to current directory).
+        custom_message: Optional custom commit message to use instead of auto-generated.
 
     Returns:
         The commit result message from GitCommitTool.
@@ -293,15 +299,20 @@ def commit_markdown_file(filepath: str, content: str, repo_path: str | None = No
     _logger.info(f"Committing markdown file: {filepath}")
 
     try:
-        # Extract topic from content for commit message
-        topic = extract_topic_from_content(content)
-        _logger.debug(f"Extracted topic: {topic}")
-
         # Get filename only (for message clarity)
         filename = Path(filepath).name
 
-        # Format commit message: "feat: Create test-9veux3.md markdown file with [topic] content"
-        commit_message = f"feat: Create {filename} markdown file with {topic} content"
+        # Use custom message if provided, otherwise generate from content
+        if custom_message:
+            commit_message = custom_message
+            _logger.debug(f"Using custom commit message: {commit_message}")
+        else:
+            # Extract topic from content for commit message
+            topic = extract_topic_from_content(content)
+            _logger.debug(f"Extracted topic: {topic}")
+
+            # Format commit message: "feat: Create test-9veux3.md markdown file with [topic] content"
+            commit_message = f"feat: Create {filename} markdown file with {topic} content"
 
         _logger.debug(f"Commit message: {commit_message}")
 
