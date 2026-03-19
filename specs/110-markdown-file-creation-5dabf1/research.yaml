@@ -1,0 +1,228 @@
+name: "markdown-file-creation-5dabf1"
+summary: >
+  File creation using pathlib with explicit LF line endings and UTF-8 encoding, followed by git CLI
+  operations (stage, commit, push). No external dependencies required; straightforward implementation
+  following 65+ established test file precedents in the repository.
+
+relatedFeatures:
+  - number: 109
+    name: "markdown-file-creation"
+  - number: 108
+    name: "markdown-file-creation"
+  - number: 107
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ pathlib.Path"
+  - "Git (CLI, not GitPython)"
+  - "Markdown (CommonMark)"
+
+relatedLinks:
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3.11/library/pathlib.html"
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+
+decisions:
+  - title: "File I/O Method"
+    chosen: "pathlib.Path.write_text() with explicit encoding='utf-8' and newline='\\n'"
+    rejected:
+      - "Using open() function — more verbose, requires manual newline and encoding parameters, less idiomatic for single-operation writes"
+      - "Using subprocess to invoke shell echo/cat — overkill complexity, unmaintainable, inconsistent with Python approach"
+    rationale: >
+      Spec explicitly requires pathlib (NFR-5). pathlib.Path.write_text() is modern Python idiom for
+      file writing, provides clean API for encoding/newline control, atomic operation. The newline='\\n'
+      parameter forces Unix-style LF line endings regardless of platform (meeting NFR-2), and encoding='utf-8'
+      with default Python behavior prevents BOM (meeting NFR-1). Aligns with all 65+ existing test files.
+
+  - title: "Line Ending Handling Strategy"
+    chosen: "Explicit newline='\\n' parameter in pathlib.Path.write_text() to force LF on Windows"
+    rejected:
+      - "Rely on git autocrlf normalization — unreliable (depends on user config, repo .gitattributes), violates explicit control requirement"
+      - "Use binary mode with manual bytes encoding — unnecessary complexity, error-prone, harder to maintain"
+    rationale: >
+      Windows platform uses CRLF by default, but spec requires Unix LF (NFR-2). The newline='\\n' parameter
+      is the direct, explicit way to force LF line endings in Python's text mode. This ensures compliance
+      regardless of platform or git configuration. Safer than relying on post-commit normalization which
+      can fail or be overridden by user config.
+
+  - title: "UTF-8 Encoding without BOM"
+    chosen: "Use encoding='utf-8' in pathlib.Path.write_text() — Python 3's default behavior excludes BOM"
+    rejected:
+      - "Encoding 'utf-8-sig' — adds BOM, violates NFR-1 requirement"
+      - "Using codecs.open() with explicit encoding handling — unnecessary complexity"
+    rationale: >
+      Python 3's utf-8 encoding (the default) writes UTF-8 without Byte Order Mark (BOM). This is
+      the correct behavior for modern text files and web standards. The 'utf-8-sig' variant adds a BOM,
+      which is explicitly forbidden by NFR-1. Codecs module adds complexity without benefit.
+
+  - title: "Prose Content Generation"
+    chosen: "Free-form prose selection (implementer chooses topic) with requirement for readable, grammatically correct sentences"
+    rejected:
+      - "Template/parameterized prose ('Heading: {topic}\\n\\nSentence about {topic}...') — over-engineered, reduces readability quality"
+      - "Generated via ML/Lorem ipsum — does not meet 'readable and grammatically correct' requirement (spec FR-5)"
+    rationale: >
+      Spec allows flexible topic selection (NFR-8) and requires prose to be readable and grammatically
+      correct (FR-5). Free-form selection allows implementer judgment, ensures natural language quality,
+      maintains consistency with existing 65+ test files which all contain natural, topic-specific prose.
+      Simpler than generation or parameterization, better quality outcomes.
+
+  - title: "Git Workflow Implementation"
+    chosen: "Use subprocess.run() to invoke git CLI commands (git add, git commit, git push)"
+    rejected:
+      - "GitPython library — unnecessary dependency (spec NFR-9), complexity overhead, requires import/initialization"
+      - "Manual git plumbing via subprocess with low-level commands — error-prone, harder to debug"
+    rationale: >
+      Spec explicitly forbids new dependencies (NFR-9) and establishes git CLI workflow pattern. subprocess.run()
+      is lightweight, built-in, directly invokes git (transparent, debuggable). Feature branch already exists
+      (feat/110-markdown-file-creation-5dabf1), so workflow is: write file, stage, commit with conventional
+      message, push. GitPython adds overhead and maintenance burden for simple operations already well-handled
+      by CLI.
+
+openQuestions: []
+
+content: |
+  ## Status
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-19
+
+  ## Technology Decisions
+
+  ### 1. File I/O Method — pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path("test-caiv5r.md").write_text(content, encoding='utf-8', newline='\n')`
+
+  **Rejected:**
+  - Using `open()` function — More verbose, requires manual context manager, less idiomatic for single-operation writes
+  - Using subprocess shell commands — Overkill complexity, unmaintainable, inconsistent approach
+
+  **Rationale:**
+  Spec explicitly requires pathlib (NFR-5). `Path.write_text()` is the modern Python idiom for writing
+  text to file in one operation. It cleanly supports both `encoding='utf-8'` (which Python defaults to
+  without BOM on writes, meeting NFR-1) and `newline='\n'` (which forces Unix LF line endings on Windows,
+  meeting NFR-2). This approach is used in all 65+ existing test files in the repository.
+
+  ### 2. Line Ending Handling — Explicit newline Parameter
+
+  **Chosen:** Use `newline='\n'` parameter to force LF line endings regardless of platform
+
+  **Rejected:**
+  - Rely on git auto-conversion (`.gitattributes` or `core.autocrlf`) — Unreliable, depends on user/repo config
+  - Use binary mode with manual bytes encoding — Unnecessary complexity, error-prone
+
+  **Rationale:**
+  Windows platform uses CRLF by default, but spec requires Unix LF (NFR-2). Python's text mode with
+  `newline='\n'` parameter is the direct way to force LF. This ensures platform-independent compliance
+  and is more reliable than git normalization, which can be overridden by user configuration or repo
+  `.gitattributes` files.
+
+  ### 3. UTF-8 Encoding without BOM
+
+  **Chosen:** Use `encoding='utf-8'` in pathlib (Python default behavior, no BOM)
+
+  **Rejected:**
+  - Using `'utf-8-sig'` encoding — Adds Byte Order Mark, violates NFR-1
+  - Using codecs module for explicit control — Unnecessary complexity
+
+  **Rationale:**
+  Python 3's default `'utf-8'` encoding writes UTF-8 text without BOM (the modern standard for text files).
+  The `'utf-8-sig'` variant explicitly adds a BOM, which is forbidden by NFR-1. No additional complexity needed.
+
+  ### 4. Prose Content — Free-Form Selection
+
+  **Chosen:** Implementer selects any readable, grammatically correct topic (e.g., resilience, communication, learning)
+
+  **Rejected:**
+  - Parameterized templates (e.g., "Heading: {topic}...") — Over-engineered, reduces prose quality
+  - AI-generated or Lorem ipsum content — Does not meet "readable and grammatically correct" requirement
+
+  **Rationale:**
+  Spec allows flexible topic selection (NFR-8) and requires readable, grammatically correct prose (FR-5).
+  Free-form selection ensures natural language quality and is consistent with existing 65+ test files,
+  which all contain natural, topically-coherent prose (e.g., "The Art of Resilience", "Continuous Learning").
+  Simpler than generation/templating with better outcomes.
+
+  ### 5. Git Workflow — CLI Commands via subprocess
+
+  **Chosen:** Use `subprocess.run()` to invoke git CLI commands (git add, commit, push)
+
+  **Rejected:**
+  - GitPython library — Unnecessary dependency (spec NFR-9), adds import/initialization overhead
+  - Low-level git plumbing commands — More error-prone than high-level CLI
+
+  **Rationale:**
+  Spec explicitly forbids new dependencies (NFR-9) and uses git CLI in examples. The feature branch
+  already exists (`feat/110-markdown-file-creation-5dabf1`). Workflow is straightforward: stage file,
+  commit with conventional message, push. `subprocess.run()` is lightweight, built-in, transparent
+  (easy to debug), and sufficient for this simple 3-step workflow. GitPython would add unnecessary
+  complexity and dependency management burden.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | Python pathlib (std lib) | File I/O | Use | Built-in, explicitly required by spec (NFR-5), clean encoding/newline control |
+  | Python subprocess (std lib) | Git commands | Use | Built-in, no dependencies, transparent CLI invocation |
+  | GitPython | Git operations | Reject | Unnecessary dependency (violates NFR-9), overkill for 3-step workflow |
+  | Rich, Typer, CrewAI | Other project deps | Not needed | This feature doesn't integrate with project runtime; purely file/git operations |
+
+  ## Markdown Format Specification
+
+  Based on analysis of 65+ existing test files, the format is strictly:
+
+  ```
+  # Title
+
+  Sentence 1. Sentence 2. Sentence 3.
+  ```
+
+  - Line 1: Single markdown H1 heading (`#`) with title
+  - Line 2: Single blank line (provides visual separation)
+  - Lines 3+: 2-3 sentences of prose, no trailing blank line
+  - File size: Natural outcome of proper structure (~350-600 bytes)
+  - Encoding: UTF-8 without BOM
+  - Line endings: Unix LF (`\n`)
+
+  Examples from existing files:
+  - `test-4lc6c9.md`: "# The Art of Resilience" + 3 sentences
+  - `test-fsgmci.md`: "# The Art of Effective Communication" + 3 sentences
+  - `test-e39stk.md`: "# The Importance of Continuous Learning" + 3 sentences
+
+  ## Security Considerations
+
+  **Risk Level: None**
+
+  - No user input, no external data sources, no network operations
+  - File creation in controlled repository root directory (no path traversal possible)
+  - Git operations use CLI (no script injection — subprocess args are not shell-interpreted)
+  - No database access, no authentication/authorization logic needed
+  - Output (markdown file) is not executed or interpreted as code
+  - Compliance: Feature is purely file/git operations with no security-sensitive behavior
+
+  ## Performance Implications
+
+  **Impact: Negligible**
+
+  - Single file write operation: microseconds
+  - Single git operations (add/commit/push): hundreds of milliseconds
+  - No loops, no I/O bottlenecks, no optimization needed
+  - File size (~350-600 bytes) is trivial for any filesystem
+  - Git push performance depends on network, not implementation
+
+  ## Architecture Notes
+
+  This feature fits into the Sheep automated implementation platform as a minimal unit of work:
+
+  - **Pattern precedent:** 65+ identical test files already exist (features 063-109)
+  - **Isolated scope:** Affects only repository root (new file) and git history (one commit)
+  - **No source code impact:** Does not depend on or modify `/src/sheep/` application code
+  - **Standard workflow:** File creation → stage → commit → push (proven pattern)
+  - **Zero complexity:** No branching logic, error handling, or domain modeling needed
+
+  This is intentionally a simple, repeatable feature for testing the Sheep platform's automated
+  implementation capabilities. The established pattern provides clear guidance with no architectural
+  ambiguity or integration complexity.
+
+  ---
+
+  _Research phase complete — ready for implementation._
