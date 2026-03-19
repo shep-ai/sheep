@@ -46,7 +46,7 @@ def create_markdown_file():
         # encoding="utf-8" ensures UTF-8 without BOM (NFR-1)
         # newline="\n" forces Unix LF line endings (NFR-2)
         file_path.write_text(content, encoding="utf-8", newline="\n")
-        print(f"✓ Created {file_path}")
+        print(f"[OK] Created {file_path}")
         return True
     except PermissionError:
         print(f"Error: Permission denied writing to {file_path}", file=sys.stderr)
@@ -83,13 +83,13 @@ def validate_file():
         if binary_content.startswith(b'\xef\xbb\xbf'):
             print("Error: File has UTF-8 BOM (should not have BOM)", file=sys.stderr)
             return False
-        print("✓ UTF-8 encoding confirmed (no BOM)")
+        print("[OK] UTF-8 encoding confirmed (no BOM)")
 
         # Verify Unix-style LF line endings (not Windows CRLF)
         if b'\r\n' in binary_content:
             print("Error: File uses Windows CRLF line endings (should use Unix LF)", file=sys.stderr)
             return False
-        print("✓ Unix LF line endings confirmed")
+        print("[OK] Unix LF line endings confirmed")
 
         # Check file size
         size = len(binary_content)
@@ -100,7 +100,7 @@ def validate_file():
                 file=sys.stderr
             )
         else:
-            print(f"✓ File size: {size} bytes (valid: 300-600)")
+            print(f"[OK] File size: {size} bytes (valid: 300-600)")
 
         # Read file content as text for structure validation
         content = file_path.read_text(encoding="utf-8")
@@ -114,7 +114,7 @@ def validate_file():
                 file=sys.stderr
             )
             return False
-        print(f"✓ H1 heading: {lines[0]}")
+        print(f"[OK] H1 heading: {lines[0]}")
 
         # Line 1 should be blank
         if lines[1] != "":
@@ -123,7 +123,7 @@ def validate_file():
                 file=sys.stderr
             )
             return False
-        print("✓ Blank line after heading")
+        print("[OK] Blank line after heading")
 
         # Lines 2+ should contain prose
         prose_content = "\n".join(lines[2:]).strip()
@@ -141,8 +141,8 @@ def validate_file():
                 file=sys.stderr
             )
             return False
-        print(f"✓ Prose content: {sentence_count} sentences (valid: 2-3)")
-        print(f"✓ Prose length: {len(prose_content)} characters")
+        print(f"[OK] Prose content: {sentence_count} sentences (valid: 2-3)")
+        print(f"[OK] Prose length: {len(prose_content)} characters")
 
         return True
 
@@ -171,7 +171,7 @@ def main():
         sys.exit(1)
 
     print("\n" + "=" * 60)
-    print("✓ Phase 1 (File Creation & Validation) complete!")
+    print("[OK] Phase 1 (File Creation & Validation) complete!")
     print("=" * 60)
     sys.exit(0)
 

@@ -23,7 +23,7 @@ class TestValidateEncoding:
         """Test that validate_encoding passes for UTF-8 file without BOM."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\nSentence. Sentence. Sentence.", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\nSentence. Sentence. Sentence.".encode("utf-8"))
             # Should not raise
             validate_encoding(test_file)
 
@@ -61,7 +61,7 @@ class TestValidateLineEndings:
         """Test that validate_line_endings passes for Unix LF line endings."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\nSentence. Sentence. Sentence.", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\nSentence. Sentence. Sentence.".encode("utf-8"))
             # Should not raise
             validate_line_endings(test_file)
 
@@ -100,7 +100,7 @@ class TestValidateStructure:
         """Test that validate_structure passes for correct markdown structure."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\nSentence. Sentence. Sentence.", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\nSentence. Sentence. Sentence.".encode("utf-8"))
             # Should not raise
             validate_structure(test_file)
 
@@ -108,7 +108,7 @@ class TestValidateStructure:
         """Test that validate_structure rejects missing H1 heading."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("Not a heading\n\nSentence. Sentence. Sentence.", encoding='utf-8')
+            test_file.write_bytes("Not a heading\n\nSentence. Sentence. Sentence.".encode("utf-8"))
             with pytest.raises(ValidationError, match="must start with"):
                 validate_structure(test_file)
 
@@ -116,7 +116,7 @@ class TestValidateStructure:
         """Test that validate_structure rejects missing blank line after heading."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\nSentence. Sentence. Sentence.", encoding='utf-8')
+            test_file.write_bytes("# Heading\nSentence. Sentence. Sentence.".encode("utf-8"))
             with pytest.raises(ValidationError, match="blank"):
                 validate_structure(test_file)
 
@@ -124,7 +124,7 @@ class TestValidateStructure:
         """Test that validate_structure rejects missing prose content."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\n", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\n".encode("utf-8"))
             with pytest.raises(ValidationError, match="empty"):
                 validate_structure(test_file)
 
@@ -143,7 +143,7 @@ class TestValidateProSentences:
         """Test that validate_prose_sentences passes for 2 sentences."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\nFirst sentence. Second sentence.", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\nFirst sentence. Second sentence.".encode("utf-8"))
             # Should not raise
             validate_prose_sentences(test_file)
 
@@ -151,7 +151,7 @@ class TestValidateProSentences:
         """Test that validate_prose_sentences passes for 3 sentences."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\nFirst sentence. Second sentence. Third sentence.", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\nFirst sentence. Second sentence. Third sentence.".encode("utf-8"))
             # Should not raise
             validate_prose_sentences(test_file)
 
@@ -159,7 +159,7 @@ class TestValidateProSentences:
         """Test that validate_prose_sentences rejects 1 sentence."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\nOnly one sentence.", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\nOnly one sentence.".encode("utf-8"))
             with pytest.raises(ValidationError, match="2-3 sentences"):
                 validate_prose_sentences(test_file)
 
@@ -178,7 +178,7 @@ class TestValidateProSentences:
         """Test that validate_prose_sentences counts question marks as sentences."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\nQuestion? Statement. Exclamation!", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\nQuestion? Statement. Exclamation!".encode("utf-8"))
             # Should not raise (counts as 3 sentences)
             validate_prose_sentences(test_file)
 
@@ -186,7 +186,7 @@ class TestValidateProSentences:
         """Test that validate_prose_sentences counts exclamation marks as sentences."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\nExclamation! Statement.", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\nExclamation! Statement.".encode("utf-8"))
             # Should not raise (counts as 2 sentences)
             validate_prose_sentences(test_file)
 
@@ -213,7 +213,7 @@ class TestValidateFileSize:
                       "we unlock creative possibilities and deepen our understanding of ourselves and others around us. "
                       "This feeling of discovery reminds us that growth happens not through passive acceptance, "
                       "but through active engagement with the unfamiliar and unknown.")
-            test_file.write_text(content, encoding='utf-8')
+            test_file.write_bytes(content.encode('utf-8'))
             # Should not raise
             validate_file_size(test_file)
 
@@ -221,7 +221,7 @@ class TestValidateFileSize:
         """Test that validate_file_size rejects file smaller than 300 bytes."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# H\n\nS.", encoding='utf-8')
+            test_file.write_bytes("# H\n\nS.".encode("utf-8"))
             with pytest.raises(ValidationError, match="outside acceptable range"):
                 validate_file_size(test_file)
 
@@ -231,7 +231,7 @@ class TestValidateFileSize:
             test_file = Path(tmpdir) / "test.md"
             # Create content larger than 600 bytes
             large_content = "# Heading\n\n" + ("x" * 620)
-            test_file.write_text(large_content, encoding='utf-8')
+            test_file.write_bytes(large_content.encode('utf-8'))
             with pytest.raises(ValidationError, match="outside acceptable range"):
                 validate_file_size(test_file)
 
@@ -244,7 +244,7 @@ class TestValidateFileSize:
                       "Every moment of genuine discovery carries with it a profound sense of wonder and awakening that transforms how we see the world. "
                       "When we embrace curiosity and allow ourselves to explore new ideas without fear of failure, we unlock creative possibilities. "
                       "This feeling of discovery reminds us that growth happens through active engagement with the unknown.")
-            test_file.write_text(content, encoding='utf-8')
+            test_file.write_bytes(content.encode('utf-8'))
             # Verify it's at least 320 bytes
             file_size = len(test_file.read_bytes())
             assert file_size >= 320, f"File size {file_size} is less than 320"
@@ -257,7 +257,7 @@ class TestValidateFileSize:
             test_file = Path(tmpdir) / "test.md"
             # Create content approximately 600 bytes
             content = "# Heading\n\n" + ("x" * 580)
-            test_file.write_text(content, encoding='utf-8')
+            test_file.write_bytes(content.encode('utf-8'))
             # Should not raise
             validate_file_size(test_file)
 
@@ -284,7 +284,7 @@ class TestValidateFileIntegration:
                       "we unlock creative possibilities and deepen our understanding of ourselves and others around us. "
                       "This feeling of discovery reminds us that growth happens not through passive acceptance, "
                       "but through active engagement with the unfamiliar and unknown.")
-            test_file.write_text(content, encoding='utf-8')
+            test_file.write_bytes(content.encode('utf-8'))
             # Should not raise
             validate_file(test_file)
 
@@ -300,7 +300,7 @@ class TestValidateFileIntegration:
                       "we unlock creative possibilities and deepen our understanding of ourselves and others around us. "
                       "This feeling of discovery reminds us that growth happens not through passive acceptance, "
                       "but through active engagement with the unfamiliar and unknown.")
-            test_file.write_text(content, encoding='utf-8')
+            test_file.write_bytes(content.encode('utf-8'))
             # This should execute all 5 validation checks without raising
             validate_file(test_file)
 
@@ -326,7 +326,7 @@ class TestValidateFileIntegration:
         """Test that validate_file raises when structure is invalid."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("Not a heading\n\nSentence. Sentence. Sentence.", encoding='utf-8')
+            test_file.write_bytes("Not a heading\n\nSentence. Sentence. Sentence.".encode("utf-8"))
             with pytest.raises(ValidationError):
                 validate_file(test_file)
 
@@ -334,7 +334,7 @@ class TestValidateFileIntegration:
         """Test that validate_file raises when sentence count is wrong."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# Heading\n\nOnly one sentence.", encoding='utf-8')
+            test_file.write_bytes("# Heading\n\nOnly one sentence.".encode("utf-8"))
             with pytest.raises(ValidationError):
                 validate_file(test_file)
 
@@ -342,7 +342,7 @@ class TestValidateFileIntegration:
         """Test that validate_file raises when file size is wrong."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            test_file.write_text("# H\n\nS.", encoding='utf-8')
+            test_file.write_bytes("# H\n\nS.".encode("utf-8"))
             with pytest.raises(ValidationError):
                 validate_file(test_file)
 

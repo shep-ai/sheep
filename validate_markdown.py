@@ -87,9 +87,9 @@ def validate_file(file_path: Path) -> None:
         validate_structure(file_path)
         validate_prose_sentences(file_path)
         validate_file_size(file_path)
-        print(f"✓ {file_path.name} passed all validation checks")
+        print(f"[OK] {file_path.name} passed all validation checks")
     except ValidationError as e:
-        print(f"✗ {file_path.name} validation failed: {e}")
+        print(f"[FAIL] {file_path.name} validation failed: {e}")
         raise
 
 

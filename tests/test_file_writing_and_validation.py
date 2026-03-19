@@ -133,7 +133,7 @@ class TestValidateMarkdownFile:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.md"
             content = "# Valid Title\n\nFirst sentence. Second sentence. Third sentence.\n"
-            path.write_text(content, encoding="utf-8")
+            path.write_bytes(content.encode("utf-8"))
 
             result = validate_markdown_file(str(path))
             assert result is True
@@ -143,7 +143,7 @@ class TestValidateMarkdownFile:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.md"
             content = "## Second Level Heading\n\nFirst sentence. Second sentence. Third sentence.\n"
-            path.write_text(content, encoding="utf-8")
+            path.write_bytes(content.encode("utf-8"))
 
             with pytest.raises(ValueError, match="H1 heading"):
                 validate_markdown_file(str(path))
@@ -153,7 +153,7 @@ class TestValidateMarkdownFile:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.md"
             content = "# Title\nFirst sentence. Second sentence. Third sentence.\n"
-            path.write_text(content, encoding="utf-8")
+            path.write_bytes(content.encode("utf-8"))
 
             with pytest.raises(ValueError, match="blank"):
                 validate_markdown_file(str(path))
@@ -163,7 +163,7 @@ class TestValidateMarkdownFile:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.md"
             content = "# Title\n\nOnly one sentence.\n"
-            path.write_text(content, encoding="utf-8")
+            path.write_bytes(content.encode("utf-8"))
 
             with pytest.raises(ValueError, match="2-3 sentences"):
                 validate_markdown_file(str(path))
@@ -173,7 +173,7 @@ class TestValidateMarkdownFile:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "test.md"
             content = "# Title\n\nFirst. Second. Third. Fourth.\n"
-            path.write_text(content, encoding="utf-8")
+            path.write_bytes(content.encode("utf-8"))
 
             with pytest.raises(ValueError, match="2-3 sentences"):
                 validate_markdown_file(str(path))
@@ -241,13 +241,13 @@ class TestValidateMarkdownFile:
             # Test with exactly 2 sentences (periods)
             path = Path(tmpdir) / "test2.md"
             content = "# Title\n\nFirst sentence. Second sentence.\n"
-            path.write_text(content, encoding="utf-8")
+            path.write_bytes(content.encode("utf-8"))
             assert validate_markdown_file(str(path)) is True
 
             # Test with exactly 3 sentences
             path = Path(tmpdir) / "test3.md"
             content = "# Title\n\nFirst sentence. Second sentence. Third sentence.\n"
-            path.write_text(content, encoding="utf-8")
+            path.write_bytes(content.encode("utf-8"))
             assert validate_markdown_file(str(path)) is True
 
     def test_sentence_counting_is_simple(self):
@@ -256,7 +256,7 @@ class TestValidateMarkdownFile:
             # Content with abbreviation will count extra periods
             path = Path(tmpdir) / "test.md"
             content = "# Title\n\nDr. Smith studied biology. His research was groundbreaking. The findings changed science.\n"
-            path.write_text(content, encoding="utf-8")
+            path.write_bytes(content.encode("utf-8"))
 
             # This has 4 periods total (Dr. + 3 sentence ends) so validation will fail
             # This documents that the implementation counts all periods simply

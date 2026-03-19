@@ -30,9 +30,9 @@ def create_markdown_file():
 
     # Write file with explicit UTF-8 encoding
     # write_text() handles file creation, closing, and encoding automatically
-    path.write_text(PROSE_CONTENT, encoding='utf-8')
+    path.write_bytes(PROSE_CONTENT.encode('utf-8'))
 
-    print(f"✓ Created file: {FILENAME}")
+    print(f"[OK] Created file: {FILENAME}")
     return path
 
 
@@ -43,19 +43,19 @@ def validate_structure(text_content):
     # Check for H1 heading on first line
     if not lines[0].startswith('# '):
         raise ValueError(f"First line should be H1 heading (starting with '# '), got: {lines[0]}")
-    print("✓ H1 heading found on first line")
+    print("[OK] H1 heading found on first line")
 
     # Check for blank line separator
     if len(lines) < 2 or lines[1] != '':
         raise ValueError("Second line should be blank (blank line separator)")
-    print("✓ Blank line separator found")
+    print("[OK] Blank line separator found")
 
     # Count sentences in prose section (count periods)
     prose_section = '\n'.join(lines[2:])
     sentence_count = prose_section.count('.')
     if not (2 <= sentence_count <= 3):
         raise ValueError(f"Expected 2-3 sentences, found {sentence_count}")
-    print(f"✓ Content has {sentence_count} sentences (valid: 2-3)")
+    print(f"[OK] Content has {sentence_count} sentences (valid: 2-3)")
 
 
 def validate_encoding_and_line_endings(binary_content):
@@ -63,12 +63,12 @@ def validate_encoding_and_line_endings(binary_content):
     # Verify UTF-8 encoding (no BOM)
     if binary_content.startswith(b'\xef\xbb\xbf'):
         raise ValueError("File has UTF-8 BOM (should not have BOM)")
-    print("✓ File is UTF-8 encoded without BOM")
+    print("[OK] File is UTF-8 encoded without BOM")
 
     # Verify Unix-style LF line endings (not Windows CRLF)
     if b'\r\n' in binary_content:
         raise ValueError("File uses Windows CRLF line endings (should use Unix LF)")
-    print("✓ File uses Unix-style LF line endings")
+    print("[OK] File uses Unix-style LF line endings")
 
 
 def validate_file_size(binary_content):
@@ -76,7 +76,7 @@ def validate_file_size(binary_content):
     file_size = len(binary_content)
     if not (350 <= file_size <= 650):
         raise ValueError(f"File size {file_size} bytes is outside expected range (350-650)")
-    print(f"✓ File size is {file_size} bytes (valid: 350-650)")
+    print(f"[OK] File size is {file_size} bytes (valid: 350-650)")
 
 
 def validate_file(path):
@@ -106,11 +106,11 @@ def main():
         # Tasks 2-4: Validate file
         validate_file(path)
 
-        print(f"\n✓ Feature 072 Phase 1 complete: {FILENAME} created and validated")
+        print(f"\n[OK] Feature 072 Phase 1 complete: {FILENAME} created and validated")
         return 0
 
     except Exception as e:
-        print(f"✗ Error: {e}", file=sys.stderr)
+        print(f"[FAIL] Error: {e}", file=sys.stderr)
         return 1
 
 
