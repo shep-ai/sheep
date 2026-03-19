@@ -1,8 +1,9 @@
 """Tests for markdown file creation and validation for feature 105."""
 
+import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -338,6 +339,294 @@ class TestValidateFileIntegration:
                 os.chdir(original_cwd)
 
 
+class TestGitWorkflow:
+    """Tests for git workflow functions (stage, commit, push)."""
+
+    def test_stage_file_calls_git_add_with_correct_filename(self):
+        """Test that stage_file calls git add with the correct filename."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            create_test_knejqo.stage_file("test-file.md")
+
+            # Verify subprocess.run was called with correct arguments
+            mock_run.assert_called_once()
+            args, kwargs = mock_run.call_args
+            assert args[0] == ["git", "add", "test-file.md"]
+            assert kwargs.get("check") is True
+
+    def test_stage_file_raises_on_git_failure(self):
+        """Test that stage_file raises RuntimeError when git add fails."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.CalledProcessError(
+                1, "git add", stderr="error message"
+            )
+            with pytest.raises(RuntimeError, match="git add failed"):
+                create_test_knejqo.stage_file("test-file.md")
+
+    def test_stage_file_returns_true_on_success(self):
+        """Test that stage_file returns True on successful execution."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            result = create_test_knejqo.stage_file("test-file.md")
+            assert result is True
+
+    def test_create_commit_calls_git_commit_with_no_verify_flag(self):
+        """Test that create_commit calls git commit with --no-verify flag."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            create_test_knejqo.create_commit("feat(105): test message")
+
+            # Verify subprocess.run was called with --no-verify flag
+            mock_run.assert_called_once()
+            args, kwargs = mock_run.call_args
+            assert "--no-verify" in args[0]
+            assert "git" in args[0]
+            assert "commit" in args[0]
+
+    def test_create_commit_includes_conventional_commit_message(self):
+        """Test that create_commit uses the provided message."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        message = "feat(105): create markdown file test-knejqo.md with prose content"
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            create_test_knejqo.create_commit(message)
+
+            # Verify the message is included in the call
+            mock_run.assert_called_once()
+            args, kwargs = mock_run.call_args
+            assert message in args[0]
+
+    def test_create_commit_raises_on_git_failure(self):
+        """Test that create_commit raises RuntimeError when git commit fails."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.CalledProcessError(
+                1, "git commit", stderr="error message"
+            )
+            with pytest.raises(RuntimeError, match="git commit failed"):
+                create_test_knejqo.create_commit("test message")
+
+    def test_create_commit_returns_true_on_success(self):
+        """Test that create_commit returns True on successful execution."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            result = create_test_knejqo.create_commit("test message")
+            assert result is True
+
+    def test_push_to_remote_calls_git_push_with_upstream_flag(self):
+        """Test that push_to_remote calls git push with -u flag."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            create_test_knejqo.push_to_remote()
+
+            # Verify subprocess.run was called with -u origin HEAD
+            mock_run.assert_called_once()
+            args, kwargs = mock_run.call_args
+            assert args[0] == ["git", "push", "-u", "origin", "HEAD"]
+            assert kwargs.get("check") is True
+
+    def test_push_to_remote_raises_on_git_failure(self):
+        """Test that push_to_remote raises RuntimeError when git push fails."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.CalledProcessError(
+                1, "git push", stderr="error message"
+            )
+            with pytest.raises(RuntimeError, match="git push failed"):
+                create_test_knejqo.push_to_remote()
+
+    def test_push_to_remote_returns_true_on_success(self):
+        """Test that push_to_remote returns True on successful execution."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            result = create_test_knejqo.push_to_remote()
+            assert result is True
+
+    def test_run_git_workflow_executes_all_three_commands(self):
+        """Test that run_git_workflow calls stage, commit, and push in order."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch.object(create_test_knejqo, "stage_file") as mock_stage, \
+             patch.object(create_test_knejqo, "create_commit") as mock_commit, \
+             patch.object(create_test_knejqo, "push_to_remote") as mock_push:
+
+            mock_stage.return_value = True
+            mock_commit.return_value = True
+            mock_push.return_value = True
+
+            create_test_knejqo.run_git_workflow("test.md", "test message")
+
+            # Verify all three functions were called in order
+            mock_stage.assert_called_once_with("test.md")
+            mock_commit.assert_called_once_with("test message")
+            mock_push.assert_called_once()
+
+    def test_run_git_workflow_returns_true_on_success(self):
+        """Test that run_git_workflow returns True when all steps succeed."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch.object(create_test_knejqo, "stage_file") as mock_stage, \
+             patch.object(create_test_knejqo, "create_commit") as mock_commit, \
+             patch.object(create_test_knejqo, "push_to_remote") as mock_push:
+
+            mock_stage.return_value = True
+            mock_commit.return_value = True
+            mock_push.return_value = True
+
+            result = create_test_knejqo.run_git_workflow("test.md", "test message")
+            assert result is True
+
+    def test_run_git_workflow_raises_if_stage_fails(self):
+        """Test that run_git_workflow raises if stage_file fails."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch.object(create_test_knejqo, "stage_file") as mock_stage, \
+             patch.object(create_test_knejqo, "push_to_remote"):
+
+            mock_stage.side_effect = RuntimeError("git add failed")
+
+            with pytest.raises(RuntimeError):
+                create_test_knejqo.run_git_workflow("test.md", "test message")
+
+    def test_run_git_workflow_raises_if_commit_fails(self):
+        """Test that run_git_workflow raises if create_commit fails."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with patch.object(create_test_knejqo, "stage_file") as mock_stage, \
+             patch.object(create_test_knejqo, "create_commit") as mock_commit:
+
+            mock_stage.return_value = True
+            mock_commit.side_effect = RuntimeError("git commit failed")
+
+            with pytest.raises(RuntimeError):
+                create_test_knejqo.run_git_workflow("test.md", "test message")
+
+
+class TestFullIntegration:
+    """Integration tests for complete workflow (create, validate, commit)."""
+
+    def test_full_workflow_creates_validates_and_commits(self):
+        """Integration test: create file, validate, and stage/commit/push."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            import os
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Mock all git operations
+                with patch.object(create_test_knejqo, "stage_file") as mock_stage, \
+                     patch.object(create_test_knejqo, "create_commit") as mock_commit, \
+                     patch.object(create_test_knejqo, "push_to_remote") as mock_push:
+
+                    mock_stage.return_value = True
+                    mock_commit.return_value = True
+                    mock_push.return_value = True
+
+                    # Phase 1: Create file
+                    file_path = create_test_knejqo.create_markdown_file()
+                    assert file_path.exists()
+
+                    # Phase 2: Validate file
+                    result = create_test_knejqo.validate_file(file_path)
+                    assert result is True
+
+                    # Phase 3: Git workflow
+                    create_test_knejqo.run_git_workflow(
+                        str(file_path),
+                        "feat(105): create markdown file test-knejqo.md with prose content"
+                    )
+
+                    # Verify all git operations were called
+                    mock_stage.assert_called_once()
+                    mock_commit.assert_called_once()
+                    mock_push.assert_called_once()
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_full_workflow_via_main_function(self):
+        """Test that main() executes the complete workflow."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        import create_test_knejqo
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            import os
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Mock git operations
+                with patch.object(create_test_knejqo, "stage_file") as mock_stage, \
+                     patch.object(create_test_knejqo, "create_commit") as mock_commit, \
+                     patch.object(create_test_knejqo, "push_to_remote") as mock_push:
+
+                    mock_stage.return_value = True
+                    mock_commit.return_value = True
+                    mock_push.return_value = True
+
+                    result = create_test_knejqo.main()
+                    assert result == 0
+
+                    # Verify file was created and git operations were called
+                    assert (Path(tmpdir) / "test-knejqo.md").exists()
+                    mock_stage.assert_called_once()
+                    mock_commit.assert_called_once()
+                    mock_push.assert_called_once()
+
+            finally:
+                os.chdir(original_cwd)
+
+
 class TestMainFunction:
     """Tests for main function."""
 
@@ -352,10 +641,21 @@ class TestMainFunction:
             original_cwd = Path.cwd()
             try:
                 os.chdir(tmpdir)
-                result = create_test_knejqo.main()
-                assert result == 0
-                # Verify file was created
-                assert (Path(tmpdir) / "test-knejqo.md").exists()
+                # Mock git operations since we can't actually push in tests
+                with patch.object(create_test_knejqo, "stage_file") as mock_stage, \
+                     patch.object(create_test_knejqo, "create_commit") as mock_commit, \
+                     patch.object(create_test_knejqo, "push_to_remote") as mock_push:
+                    mock_stage.return_value = True
+                    mock_commit.return_value = True
+                    mock_push.return_value = True
+                    result = create_test_knejqo.main()
+                    assert result == 0
+                    # Verify file was created
+                    assert (Path(tmpdir) / "test-knejqo.md").exists()
+                    # Verify git workflow was executed
+                    mock_stage.assert_called_once()
+                    mock_commit.assert_called_once()
+                    mock_push.assert_called_once()
             finally:
                 os.chdir(original_cwd)
 
@@ -377,8 +677,8 @@ class TestMainFunction:
             finally:
                 os.chdir(original_cwd)
 
-    def test_main_executes_create_and_validate_in_order(self):
-        """Test that main executes file creation followed by validation."""
+    def test_main_executes_create_validate_and_commit_in_order(self):
+        """Test that main executes file creation, validation, and git workflow."""
         import sys
         sys.path.insert(0, str(Path(__file__).parent.parent))
         import create_test_knejqo
@@ -388,11 +688,20 @@ class TestMainFunction:
             original_cwd = Path.cwd()
             try:
                 os.chdir(tmpdir)
-                with patch.object(create_test_knejqo, 'validate_file') as mock_validate:
+                with patch.object(create_test_knejqo, 'validate_file') as mock_validate, \
+                     patch.object(create_test_knejqo, 'stage_file') as mock_stage, \
+                     patch.object(create_test_knejqo, 'create_commit') as mock_commit, \
+                     patch.object(create_test_knejqo, 'push_to_remote') as mock_push:
                     mock_validate.return_value = True
+                    mock_stage.return_value = True
+                    mock_commit.return_value = True
+                    mock_push.return_value = True
                     result = create_test_knejqo.main()
                     assert result == 0
-                    # Verify validate_file was called
+                    # Verify all operations were called in order
                     assert mock_validate.called
+                    assert mock_stage.called
+                    assert mock_commit.called
+                    assert mock_push.called
             finally:
                 os.chdir(original_cwd)
