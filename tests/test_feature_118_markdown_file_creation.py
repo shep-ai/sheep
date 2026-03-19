@@ -371,7 +371,6 @@ class TestFeature118Integration:
 class TestComprehensiveIntegration:
     """Comprehensive end-to-end integration test for complete feature workflow."""
 
-    @pytest.mark.integration
     def test_complete_feature_workflow_end_to_end(self, monkeypatch, caplog):
         """
         Test complete feature 118 workflow: generate -> write -> validate -> commit -> push.
