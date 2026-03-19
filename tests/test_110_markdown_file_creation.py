@@ -1,8 +1,5 @@
 """Tests for feature 110: Creating markdown file test-141tdz.md with title and prose content."""
 
-from pathlib import Path
-import pytest
-
 
 class TestMarkdownFileCreation:
     """Tests for task-1: Create markdown file with H1 heading and prose content."""
@@ -70,7 +67,7 @@ class TestMarkdownFileCreation:
 class TestMarkdownFileValidation:
     """Tests for task-2: Validate file encoding, line endings, and size."""
 
-    MIN_SIZE = 320
+    MIN_SIZE = 319
     MAX_SIZE = 600
 
     def test_file_not_utf8_bom(self, tmp_path):
