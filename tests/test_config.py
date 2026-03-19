@@ -3,8 +3,6 @@
 import os
 from unittest.mock import patch
 
-import pytest
-
 
 def test_settings_defaults():
     """Test that settings have sensible defaults."""
@@ -16,7 +14,7 @@ def test_settings_defaults():
         "SHEEP_LOG_LEVEL",
     ]
 
-    with patch.dict(os.environ, {k: "" for k in env_vars_to_clear}, clear=False):
+    with patch.dict(os.environ, dict.fromkeys(env_vars_to_clear, ""), clear=False):
         # Need to clear the lru_cache to get fresh settings
         from sheep.config.settings import get_settings
 
@@ -33,9 +31,16 @@ def test_llm_settings_providers():
     """Test that LLM settings correctly identify available providers."""
     from sheep.config.settings import LLMSettings
 
-    # No providers configured
-    settings = LLMSettings()
-    assert settings.get_available_providers() == []
+    # No providers configured (ensure env vars can't leak from the runner environment)
+    env_vars_to_clear = [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GOOGLE_API_KEY",
+        "CURSOR_API_KEY",
+    ]
+    with patch.dict(os.environ, dict.fromkeys(env_vars_to_clear, ""), clear=False):
+        settings = LLMSettings()
+        assert settings.get_available_providers() == []
 
 
 def test_langfuse_settings_configured():

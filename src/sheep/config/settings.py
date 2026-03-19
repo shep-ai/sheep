@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Any, Literal
 
-from pydantic import Field, SecretStr, field_validator, ValidationInfo
+from pydantic import Field, SecretStr, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,13 +30,13 @@ class LLMSettings(BaseSettings):
     def get_available_providers(self) -> list[str]:
         """Return list of configured providers."""
         providers = []
-        if self.openai_api_key:
+        if self.openai_api_key and self.openai_api_key.get_secret_value():
             providers.append("openai")
-        if self.anthropic_api_key:
+        if self.anthropic_api_key and self.anthropic_api_key.get_secret_value():
             providers.append("anthropic")
-        if self.google_api_key:
+        if self.google_api_key and self.google_api_key.get_secret_value():
             providers.append("google")
-        if self.cursor_api_key:
+        if self.cursor_api_key and self.cursor_api_key.get_secret_value():
             providers.append("cursor")
         return providers
 
