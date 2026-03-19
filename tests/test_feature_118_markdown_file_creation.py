@@ -8,8 +8,10 @@ Tests cover the main tasks:
 - Push file to remote
 """
 
+import os
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -19,9 +21,9 @@ from sheep.content_generators import (
     write_markdown_file,
 )
 from sheep.features.feature_118_markdown_file_creation import (
-    create_feature_118_markdown_file,
-    MARKDOWN_FILENAME,
     FEATURE_NUMBER,
+    MARKDOWN_FILENAME,
+    create_feature_118_markdown_file,
 )
 
 
@@ -90,14 +92,13 @@ class TestTask2WriteMarkdownFile:
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
             try:
-                import os
                 os.chdir(tmpdir)
 
                 content = "# Test Heading\n\nThis is test content. This is more content.\n"
                 filename = "test-content.md"
                 filepath = write_markdown_file(content, filename)
 
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     file_content = f.read()
                 assert file_content == content, "File content must match input exactly"
             finally:
@@ -383,9 +384,6 @@ class TestComprehensiveIntegration:
         5. Structured logging captures all major operations
         6. Complete workflow executes without errors or warnings
         """
-        import logging
-        from unittest.mock import patch
-
         # Mock the generate_markdown_content to return valid test content
         # This allows the test to run without requiring ANTHROPIC_API_KEY
         test_content = "# Digital Transformation in Modern Enterprises\n\nDigital transformation represents a fundamental shift in how organizations operate and deliver value to customers in the modern economy. Companies across all industries are investing heavily in new technologies, processes, and business models to remain competitive. This comprehensive change requires leadership commitment and organizational culture shift to succeed.\n"
@@ -570,7 +568,6 @@ class TestComprehensiveIntegration:
         This verifies that all operations complete successfully and no
         unexpected exceptions or warnings are raised.
         """
-        from unittest.mock import patch
         import warnings
 
         test_content = "# Artificial Intelligence and Machine Learning Revolution\n\nArtificial intelligence and machine learning technologies are transforming industries from healthcare to finance by enabling faster decision-making and predictive analytics. Organizations implementing AI solutions report significant improvements in efficiency, customer satisfaction, and innovation capabilities. Strategic investment in AI talent and infrastructure is becoming increasingly critical for competitive advantage.\n"
@@ -578,13 +575,12 @@ class TestComprehensiveIntegration:
         with patch(
             "sheep.features.feature_118_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
-        ):
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                try:
-                    result = create_feature_118_markdown_file()
-                except Exception as e:
-                    pytest.fail(f"Workflow raised exception: {e}")
+        ), warnings.catch_warnings(record=True):
+            warnings.simplefilter("always")
+            try:
+                result = create_feature_118_markdown_file()
+            except Exception as e:
+                pytest.fail(f"Workflow raised exception: {e}")
 
         # Should return valid result
         assert result is not None
@@ -640,9 +636,7 @@ def _check_prose_quality(content: str) -> bool:
     if len(prose) < 50:
         return False
     # Should have multiple words
-    if len(prose.split()) < 20:
-        return False
-    return True
+    return not len(prose.split()) < 20
 
 
 class TestTask4GitOperations:
@@ -827,7 +821,6 @@ class TestTask4GitOperations:
         )
 
         if result.returncode == 0:
-            logs = result.stdout
             # The file might be in git history if feature was completed
             # This is optional since feature might not have run yet
             pass
