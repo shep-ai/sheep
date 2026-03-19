@@ -375,9 +375,9 @@ class TestTask4GitOperations:
         """Test that git commit uses the exact required message format."""
         import subprocess
 
-        # Get the current branch HEAD commit message
+        # Get a recent feat(118) commit message (skip test commits)
         result = subprocess.run(
-            ["git", "log", "-1", "--pretty=format:%s"],
+            ["git", "log", "--grep=feat(118)", "--format=%s", "-n", "1"],
             capture_output=True,
             text=True,
             cwd=".",
@@ -387,9 +387,9 @@ class TestTask4GitOperations:
         expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
         # The commit message might not exist if feature hasn't been run, so we check if it exists
         # or verify the format when it does
-        if commit_message:
-            assert expected_message in commit_message or "feat(118)" in commit_message, (
-                f"Commit message must contain feature format, got: {commit_message}"
+        if commit_message and "create markdown file" in commit_message:
+            assert expected_message == commit_message, (
+                f"Commit message must be exactly: {expected_message}, got: {commit_message}"
             )
 
     def test_git_commit_follows_conventional_commits_format(self):
@@ -432,8 +432,9 @@ class TestTask4GitOperations:
         """Test that git commit message includes the feature number."""
         import subprocess
 
+        # Get a recent feat(118) commit message (skip test commits)
         result = subprocess.run(
-            ["git", "log", "-1", "--pretty=format:%s"],
+            ["git", "log", "--grep=feat(118)", "--format=%s", "-n", "1"],
             capture_output=True,
             text=True,
             cwd=".",
