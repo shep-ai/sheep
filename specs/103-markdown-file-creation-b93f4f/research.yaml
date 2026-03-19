@@ -1,0 +1,332 @@
+name: "markdown-file-creation-b93f4f"
+summary: >
+  Feature 103 follows the established markdown-file-creation pattern from 102 preceding features.
+  Implementation uses LLM-based content generation (Claude via CrewAI), structured file I/O with pathlib,
+  comprehensive validation (UTF-8 encoding, LF line endings, markdown syntax), and git integration via
+  custom tool wrappers. All utilities exist in content_generators.py; feature module orchestrates workflow.
+  No external dependencies beyond existing platform infrastructure.
+
+relatedFeatures:
+  - number: 102
+    name: "markdown-file-creation-39d8b4"
+    relationship: "Identical implementation pattern — demonstrates workflow orchestration and utility reuse"
+  - number: 101
+    name: "markdown-file-creation-e3ec6f"
+    relationship: "Identical implementation pattern — provides reference for feature module structure"
+
+technologies:
+  - "Python 3.11+ pathlib (file I/O)"
+  - "Claude LLM API (via CrewAI framework)"
+  - "CrewAI (LLM orchestration)"
+  - "Git (subprocess integration via custom tools)"
+  - "UTF-8 encoding with LF line endings"
+  - "structlog (structured logging)"
+  - "Pydantic (tools schema validation)"
+
+relatedLinks:
+  - title: "content_generators.py — Utility Module"
+    url: "src/sheep/content_generators.py"
+  - title: "Feature 102 Implementation Reference"
+    url: "src/sheep/features/feature_102_markdown_file_creation.py"
+  - title: "Feature 101 Implementation Reference"
+    url: "src/sheep/features/feature_101_markdown_file_creation.py"
+  - title: "Git Tools (GitCommitTool, GitPushTool)"
+    url: "src/sheep/tools/git_tools.py"
+  - title: "Structured Logging Configuration"
+    url: "src/sheep/observability/logging.py"
+
+decisions:
+  - title: "Content Generation Strategy (LLM vs Static vs Template)"
+    chosen: "LLM-based content generation using Claude API via CrewAI framework"
+    rejected:
+      - "Static/manually-written prose: Would require hardcoding content per feature, violating DRY principle and limiting scalability to 102+ features. Cannot scale beyond single implementation."
+      - "Template-based generation: Would require maintaining separate template files and template logic, adding complexity without benefit. Less flexible for varied topics."
+    rationale: >
+      LLM-based generation aligns perfectly with Sheep's agent-driven architecture.
+      This approach generates diverse, contextually-appropriate prose about any topic using Claude's reasoning capabilities,
+      matches existing pattern established by features 001-102 (102 successful implementations),
+      integrates with CrewAI framework, requires zero template management, and ensures consistent high-quality output
+      through structured prompt engineering. The prompt in content_generators.py ensures format compliance:
+      H1 heading, blank line, and 2-3 sentences.
+
+  - title: "File Encoding and Line Ending Strategy (UTF-8 variants and line ending styles)"
+    chosen: "UTF-8 encoding without BOM, Unix LF line endings"
+    rejected:
+      - "UTF-8 with BOM: Adds unnecessary 3-byte overhead, causes parser issues, violates Git best practices. No benefit for ASCII-compatible content."
+      - "CRLF line endings: Windows-specific convention; repository is Linux-based. Creates spurious diffs. Inconsistent with platform standard."
+      - "ASCII encoding: Unnecessarily restrictive; UTF-8 is backward-compatible with ASCII while supporting international characters."
+    rationale: >
+      UTF-8 without BOM and LF line endings are industry standard for cross-platform compatibility (Unix/Linux/macOS),
+      Git repository best practices (no spurious diffs), consistency with 102 preceding test files,
+      broad markdown parser support, and Python's default text mode on Unix systems.
+      Implementation uses pathlib.Path.open(encoding=\"utf-8\") and validates against CRLF and BOM.
+
+  - title: "Validation Approach (Strict vs Lenient vs None)"
+    chosen: "Comprehensive strict validation using binary read and text parsing"
+    rejected:
+      - "Lenient validation: Accept 1-4 sentences, CRLF or LF, relaxed markdown checks. Risks inconsistency with 102 prior files and hidden format issues."
+      - "No validation: Assume LLM always generates correct format. Violates fail-fast principle; prompt bugs would go undetected until integration testing."
+    rationale: >
+      Strict validation ensures consistency with 102 preceding test files and catches format issues early.
+      The validate_markdown_file() function performs comprehensive checks: binary read for encoding issues (BOM, invalid UTF-8),
+      sentence counting (2-3 periods), H1 heading check, line ending validation (no CRLF), trailing newline,
+      blank line separator, and UTF-8 decoding. All checks fail-fast with descriptive error messages.
+
+  - title: "Git Integration Pattern (Direct subprocess vs Custom tools vs High-level wrappers)"
+    chosen: "Custom GitCommitTool and GitPushTool wrappers via content_generators.py utilities"
+    rejected:
+      - "Direct subprocess.run() calls: Low-level, error-prone, difficult to test. No reusability. Harder to add tracing/logging."
+      - "Shell command strings: Security risk from command injection. Platform-specific. Difficult to parse output. Not easily testable."
+    rationale: >
+      Custom tool wrappers provide abstraction layer proven across 102+ features.
+      GitCommitTool handles staging, message formatting, error handling.
+      GitPushTool handles upstream tracking, remote configuration, push verification.
+      commit_markdown_file() and push_markdown_file() utilities orchestrate git operations with conventional commits format,
+      integrate with CrewAI framework for tracing via Langfuse, and provide reusable building blocks across features.
+
+  - title: "Implementation Pattern (Inline vs Utility-driven vs Monolithic class)"
+    chosen: "Utility-driven orchestration: Import content_generators functions, create feature-specific wrapper function"
+    rejected:
+      - "Inline implementation: Duplicate all logic within feature module. Violates DRY; 102 prior implementations show this doesn't scale."
+      - "Monolithic class: Single class handling generation, I/O, validation, git ops. Tight coupling; hard to test parts in isolation."
+    rationale: >
+      Utility-driven approach maximizes code reuse and maintainability, proven across 102 prior features.
+      Feature modules import all utilities from content_generators.py and create wrapper functions handling feature-specific metadata.
+      Feature 102 demonstrates pattern: ~50 lines of feature code vs. 400+ if inlined.
+      Approach enables rapid feature creation, easy debugging via isolated utility functions, and flexible parameterization.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-19
+
+  ## Technology Decisions
+
+  ### 1. Content Generation Strategy
+
+  **Chosen:** LLM-based content generation using Claude API via CrewAI framework
+
+  **Rejected:**
+  - Static/manually-written prose — Would require hardcoding content per feature, violating DRY principle.
+  - Template-based generation — Would require maintaining separate template files, adding complexity.
+
+  **Rationale:**
+  LLM-based generation aligns with Sheep's agent-driven architecture. Using Claude API via CrewAI:
+  - Generates diverse, contextually-appropriate prose using Claude's reasoning capabilities
+  - Matches existing pattern from features 001-102 (proven, 102 successful implementations)
+  - Integrates with CrewAI framework already in use for agent orchestration
+  - Requires zero template management or hardcoded content
+  - Enables consistent high-quality output through structured prompt engineering
+
+  The prompt in content_generators.py ensures format compliance: H1 heading + blank line + 2-3 sentences.
+
+  ### 2. File Encoding and Line Ending Strategy
+
+  **Chosen:** UTF-8 encoding without BOM, Unix LF line endings
+
+  **Rejected:**
+  - UTF-8 with BOM — Adds unnecessary 3-byte overhead, causes parser issues, violates Git best practices.
+  - CRLF line endings — Windows-specific; repository is Linux-based. Creates spurious diffs.
+  - ASCII encoding — Unnecessarily restrictive; UTF-8 is backward-compatible.
+
+  **Rationale:**
+  UTF-8 without BOM and LF line endings are industry standard for:
+  - Cross-platform compatibility (Unix/Linux/macOS conventions, repository's native environment)
+  - Git repository best practices (no spurious diffs from line ending changes)
+  - Consistency with 102 preceding test files in repository
+  - Broad markdown parser support without encoding-related issues
+  - Python's default text mode on Unix systems
+
+  **Implementation details:**
+  - write_markdown_file() uses pathlib.Path.open(encoding=\"utf-8\") for UTF-8 handling
+  - Platform defaults to LF on Unix, ensuring correct line endings
+  - validate_markdown_file() explicitly checks for CRLF presence and UTF-8 BOM
+
+  ### 3. Validation Approach
+
+  **Chosen:** Comprehensive strict validation using binary read and text parsing
+
+  **Rejected:**
+  - Lenient validation — Accept 1-4 sentences, CRLF or LF, relaxed markdown. Risks inconsistency.
+  - No validation — Assume LLM always generates correct format. Violates fail-fast principle.
+
+  **Rationale:**
+  Strict validation ensures consistency with 102 preceding test files and catches format issues early.
+  The validate_markdown_file() function performs comprehensive checks:
+  - Binary read detects encoding issues (BOM, invalid UTF-8) before text parsing
+  - Sentence counting enforces exactly 2-3 periods
+  - H1 heading check ensures markdown structure
+  - Line ending validation prevents Windows/Linux diffs
+  - Trailing newline check enforces Unix convention
+  - Blank line separator ensures correct markdown structure
+  - All checks fail-fast with descriptive error messages for debugging
+
+  ### 4. Git Integration Pattern
+
+  **Chosen:** Custom GitCommitTool and GitPushTool wrappers via content_generators.py utilities
+
+  **Rejected:**
+  - Direct subprocess.run() calls — Low-level, error-prone, difficult to test in isolation.
+  - Shell command strings — Security risk from command injection. Platform-specific. Hard to test.
+
+  **Rationale:**
+  Custom tool wrappers provide abstraction layer proven across 102+ prior features:
+  - GitCommitTool handles staging, message formatting, error handling atomically
+  - GitPushTool handles upstream tracking, remote configuration, push verification
+  - commit_markdown_file() utility orchestrates staging and committing with optional custom messages
+  - push_markdown_file() utility handles remote push with upstream tracking
+  - Tools integrate with CrewAI framework for agent-based execution and Langfuse tracing
+  - Conventional Commits format enforced (feat: prefix) for consistency across repository
+
+  ### 5. Implementation Pattern
+
+  **Chosen:** Utility-driven orchestration: Import content_generators functions, create feature-specific wrapper
+
+  **Rejected:**
+  - Inline implementation — Duplicate all logic within feature module. Violates DRY principle.
+  - Monolithic class — Single class handling all operations. Tight coupling; hard to test parts in isolation.
+
+  **Rationale:**
+  Utility-driven approach maximizes code reuse and maintainability, proven across 102 prior features:
+  - create_markdown_file() in content_generators.py orchestrates complete end-to-end workflow
+  - Feature modules import all utilities and create wrapper functions for feature-specific metadata
+  - Feature 102 demonstrates pattern: ~50 lines of feature code vs. 400+ if inlined
+  - Pattern enables rapid feature creation: copy template, update FEATURE_NUMBER/MARKDOWN_FILENAME, test
+  - All tested, reusable utilities centralized in content_generators.py
+  - Enables easy debugging: most logic testable in isolation via utility functions
+  - Supports parameterization: custom commit messages, repo paths, remote configuration
+
+  ## Library Analysis
+
+  | Library/Technology | Purpose | Decision | Reasoning |
+  | ---- | ---- | ---- | ---- |
+  | Python pathlib | File I/O, cross-platform paths | Use | Standard library; preferred over os.path; provides safe Path operations |
+  | Claude LLM API | Content generation | Use | Integrated with CrewAI; proven across 102 features; high-quality prose generation |
+  | CrewAI | LLM orchestration | Use | Existing platform framework; tool abstraction; tracing; error handling |
+  | structlog | Structured logging | Use | Existing infrastructure; context tracking; JSON serialization |
+  | Git (subprocess) | Version control | Use | Via custom tool wrappers; safer than raw subprocess; CrewAI integrated |
+  | Pydantic | Tool schema validation | Use | CrewAI BaseTool requirement; validates tool inputs before execution |
+  | Langfuse | Tracing and observability | Use | Integrated with CrewAI; tracks LLM calls; full workflow visibility |
+  | Regular expressions | String validation | Reject | Not needed; simple string methods (startswith, count, split) sufficient |
+  | External markdown libs | Markdown parsing | Reject | Not needed; validation is format-specific, not general parsing |
+
+  ## Security Considerations
+
+  ### Path Traversal Prevention
+
+  **Risk:** Filename parameter could contain path traversal sequences (e.g., `../../../etc/passwd.md`).
+
+  **Mitigation:** write_markdown_file() validates filename:
+  - Rejects any forward slash (Unix path separator)
+  - Rejects any backslash (Windows path separator)
+  - Rejects filenames starting with dot (hidden files, parent directory references)
+  - Combined with Path.cwd() / filename, guarantees file creation at repository root only
+
+  ### UTF-8 Encoding Validation
+
+  **Risk:** Malformed UTF-8 could cause processing issues or hide malicious content.
+
+  **Mitigation:** validate_markdown_file() explicitly decodes file as UTF-8:
+  - Binary read ensures raw bytes available for validation
+  - Explicit UTF-8 decode validates encoding before text processing
+  - UnicodeDecodeError caught and re-raised as ValueError with context
+
+  ### Content Validation
+
+  **Risk:** LLM could generate unexpected content (injection attempts, malformed syntax).
+
+  **Mitigation:**
+  - generate_markdown_content() validates generated content before returning
+  - Checks for H1 heading, sentence count, minimum length
+  - validate_markdown_file() performs comprehensive post-write validation
+  - Two-stage validation catches generation errors and file I/O corruption
+
+  ### No External Input Injection
+
+  **Current:** MARKDOWN_GENERATION_PROMPT is hardcoded; no user input in prompt.
+
+  **Effectiveness:** Eliminates prompt injection risk. Future parameterization would require input sanitization.
+
+  ## Performance Implications
+
+  ### Estimated Execution Time
+
+  - Content generation: 3-5 seconds (LLM API latency, CrewAI overhead)
+  - File write: <100ms (pathlib disk I/O, ~400-600 bytes)
+  - File validation: <50ms (binary read + text parsing of small file)
+  - Git add/commit: 1-2 seconds (subprocess overhead, object creation)
+  - Git push: 2-5 seconds (network latency, upstream tracking setup)
+  - **Total estimated:** 10-15 seconds for complete workflow
+
+  **Analysis:**
+  - LLM call dominates execution time; acceptable for batch operations
+  - File I/O negligible
+  - Git operations standard overhead for feature branches
+  - No performance bottlenecks identified
+  - Full workflow completes within NFR-1 requirement: \"30 seconds total\"
+
+  ### Scalability
+
+  - Approach scales to hundreds of features (101+ already completed successfully)
+  - No database queries, caching, or stateful operations
+  - Each feature execution is independent
+  - LLM API rate limiting could constrain parallel execution (handled at orchestration layer)
+  - Git operations scale to arbitrary number of branches
+
+  ### Resource Usage
+
+  - Memory: Minimal (<50MB for single file operation)
+  - Disk: Single file creation (~500 bytes per feature)
+  - Network: Single LLM API call + single git push per feature
+  - CPU: Negligible (mostly I/O bound)
+
+  ## Architecture Notes
+
+  ### How This Fits Into Sheep's Architecture
+
+  **Multi-Agent Orchestration:**
+  - Feature 103 is one unit of work executed by agent-driven code implementation system
+  - Orchestrated via CrewAI flows (code_implementation.py demonstrates pattern)
+  - Agents call feature functions from src/sheep/features/ module
+  - Result reported back to flow orchestrator
+
+  **Content Generation Pipeline:**
+  - LLM content generation centralized in content_generators.py
+  - Ensures consistent styling across all markdown files
+  - Claude API integrated via CrewAI LLM abstraction
+  - Prompt engineering in MARKDOWN_GENERATION_PROMPT ensures format compliance
+
+  **Git Integration:**
+  - Uses custom GitCommitTool and GitPushTool from src/sheep/tools/
+  - Integrated with CrewAI tool framework for agent execution
+  - Conventional Commits format ensures clean, readable git history
+  - Upstream tracking enables integration with CI/CD pipelines
+
+  **Observability:**
+  - All operations logged via structlog (get_logger(__name__))
+  - Integration points traced via Langfuse for full workflow visibility
+  - Structured logging enables issue debugging and performance monitoring
+
+  ### Design Patterns Used
+
+  - **Utility Pattern:** Centralized reusable functions in content_generators.py
+  - **Wrapper Pattern:** Feature modules wrap utilities for feature-specific logic
+  - **Orchestration Pattern:** Multi-step workflow coordinated via utility functions
+  - **Tool Pattern:** CrewAI BaseTool subclasses for agent integration
+  - **Validation Pattern:** Multi-stage validation (generation + write) ensures reliability
+
+  ### Consistency With Established Patterns
+
+  - Identical to features 102 and 101 (102 prior precedents)
+  - Uses all utilities already proven in production
+  - Follows Conventional Commits format standard across organization
+  - Integrates with existing CrewAI infrastructure without modifications
+  - Compatible with existing logging, tracing, and error handling systems
+
+  ---
+
+  _Research phase complete. All technology decisions documented with clear rationale and rejected alternatives._
+  _Implementation ready to proceed using utilities in content_generators.py following proven pattern from features 001-102._
