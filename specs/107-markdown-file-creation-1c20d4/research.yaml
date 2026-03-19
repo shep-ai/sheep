@@ -1,0 +1,390 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-1c20d4"
+summary: >
+  This feature requires creating a single markdown test file with an H1 heading and 2-3 sentences
+  of prose, following an established pattern repeated across 65+ test files. Technical decisions are
+  minimal: use Python pathlib for file I/O (matching NFR-5), subprocess for git operations (avoiding
+  new dependencies per NFR-9), and manual prose content (satisfying readability requirement). No
+  architectural complexity, external dependencies, or security concerns beyond standard file operations.
+
+# Relationships
+relatedFeatures:
+  - "feature-106"
+  - "feature-105"
+  - "feature-104"
+
+technologies:
+  - "Python 3.11+ (pathlib standard library)"
+  - "Git (version control via subprocess)"
+  - "Markdown (CommonMark syntax)"
+  - "UTF-8 text encoding"
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Method"
+    chosen: "Python pathlib.Path.write_text()"
+    rejected:
+      - "open() with manual write operations — more verbose, less Pythonic, requires explicit newline handling"
+      - "os.path module — less modern, requires explicit encoding parameter, doesn't match project precedent"
+    rationale: >
+      The spec explicitly requires pathlib (NFR-5). pathlib.Path.write_text() automatically handles
+      UTF-8 encoding and LF line endings in Python 3.11+, matching precedent across 65+ existing test
+      files. This approach is concise, idiomatic Python, and eliminates manual file closing and encoding
+      management. Verified against existing test files (test-0qakgw.md, test-2ak324.md) which confirm
+      pathlib usage with automatic UTF-8/LF output.
+
+  - title: "Git Integration Method"
+    chosen: "subprocess module for git commands (add, commit, push)"
+    rejected:
+      - "GitPython library — While available in dependencies, it adds abstraction without benefit. The git operations are straightforward (add, commit, push) and subprocess is more transparent for CI/CD logging and debugging."
+      - "Manual git file manipulation — Incorrect, unsafe, and violates version control integrity"
+    rationale: >
+      The spec requires no new dependencies (NFR-9). subprocess is Python's standard library approach
+      for executing external commands. Git commands are simple and well-established: git add, git commit
+      with conventional message, git push. subprocess provides transparency (commands visible in logs),
+      simplicity (no abstraction overhead), and avoids dependency bloat. This matches the pattern of
+      simple, isolated features. GitPython is available in the project but not required for straightforward
+      operations.
+
+  - title: "Prose Content Generation"
+    chosen: "Manually craft coherent prose (3 sentences on a meaningful topic)"
+    rejected:
+      - "Random or procedurally generated text — Cannot guarantee readability/grammatical correctness (FR-5 requirement)"
+      - "Lorem ipsum placeholder text — Not meaningful, fails FR-5 requirement for readable, grammatically correct prose"
+    rationale: >
+      FR-5 requires prose that is \"readable and grammatically correct (validated by implementer during
+      creation)\". Manual prose authoring ensures quality and meets the explicit requirement. The spec
+      allows free-form topic selection (\"about anything\" per user query). Precedent analysis of 65+ test
+      files shows coherent, meaningful prose on diverse topics (incremental progress, patience, etc.),
+      all 400-600 bytes. Manual authoring aligns with test file purpose: demonstrating human-readable,
+      well-structured content as test artifacts.
+
+  - title: "Encoding and Line Endings"
+    chosen: "UTF-8 encoding with LF line endings (automatic via pathlib.write_text() in Python 3.11+)"
+    rejected:
+      - "Explicit encoding parameter — Unnecessary; Python 3.11+ defaults to UTF-8 in text mode"
+      - "Manual newline conversion — Overcomplicated; Python 3.11+ handles LF correctly by default in text mode"
+    rationale: >
+      Python 3.11+ (project requirement per pyproject.toml) uses UTF-8 as the default text encoding
+      and correctly handles LF line endings in text mode without explicit parameters. Verified by
+      examining existing test files (hexdump shows 0x0a for LF, not 0x0d0a for CRLF). This approach
+      is simple, relies on Python standards, and matches all 65+ precedent files. NFR-1 and NFR-2
+      requirements are satisfied automatically.
+
+  - title: "File Structure and Content Format"
+    chosen: "Fixed format: H1 heading on line 1, blank line, 2-3 sentences of prose"
+    rejected:
+      - "Template-based structure with placeholders — Adds abstraction for no benefit; simple string concatenation is sufficient"
+      - "Dynamic content generation — Unnecessary complexity; fixed structure with manually chosen prose is clearer and more testable"
+    rationale: >
+      The spec defines a clear, fixed structure repeated across 65+ test files. A single string with
+      literal newlines (e.g., \"# Title\\n\\nSentence 1. Sentence 2. Sentence 3.\") is straightforward,
+      readable, and maintainable. This matches the established pattern and requires no template logic.
+      Verification of test-0qakgw.md and test-2ak324.md confirms this structure is consistent across
+      all precedents.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should implementation use subprocess.run() or subprocess.check_call() for git commands?"
+    resolved: true
+    options:
+      - option: "subprocess.run() with capture_output=True"
+        description: >
+          Captures stdout/stderr for inspection. Allows explicit return code checking. More verbose
+          but provides visibility into git command output for debugging and CI/CD logs.
+        selected: true
+      - option: "subprocess.check_call()"
+        description: >
+          Automatically raises CalledProcessError on non-zero exit. Simpler but provides less output
+          visibility. Requires try/except for error handling.
+        selected: false
+      - option: "subprocess.call()"
+        description: >
+          Returns exit code, no automatic error raising. Minimal abstraction but requires manual
+          error checking. Least preferred for feature implementation.
+        selected: false
+    selectionRationale: >
+      subprocess.run() is the modern, recommended approach in Python 3.7+ (current project uses 3.11+).
+      Capturing output provides visibility into git operations (useful for debugging failed commits,
+      understanding push results). The additional verbosity is minimal and aligns with good CI/CD
+      practices of visible command output. Explicit return code checking (checking run().returncode)
+      is clearer than implicit exception handling. This approach makes troubleshooting easier during
+      feature implementation.
+
+  - question: "Should the file creation and git operations be combined in a single script or separated?"
+    resolved: true
+    options:
+      - option: "Combined in a single Python script"
+        description: >
+          Write markdown file content, then immediately stage/commit/push in the same script.
+          Simpler flow, fewer context switches, single point of failure that's easy to diagnose.
+        selected: true
+      - option: "Separate steps (file creation first, then git operations)"
+        description: >
+          Create file first, verify structure, then run git operations. Allows intermediate validation
+          but adds complexity with multiple script invocations and state management.
+        selected: false
+      - option: "Use Makefile or shell script to orchestrate"
+        description: >
+          External orchestration layer. Over-engineered for a simple feature. Adds dependency on
+          shell scripting without benefit for a 10-15 minute feature.
+        selected: false
+    selectionRationale: >
+      A single Python script is the most straightforward approach. File I/O and git operations are
+      linear, with no intermediate validation needed (the spec is well-defined). Combined script means
+      one failure point that's easy to debug, aligns with the established pattern of simple test file
+      features (104-106), and avoids unnecessary orchestration overhead. The script can be invoked
+      directly from CI/CD or manually without additional complexity.
+
+  - question: "What topic should the prose content address?"
+    resolved: true
+    options:
+      - option: "Topic related to software engineering or testing"
+        description: >
+          Prose about testing, automation, code quality, or similar. Maintains thematic consistency
+          with project purpose. Example: \"Testing is the foundation of reliable software.\"
+        selected: true
+      - option: "Topic from philosophy, wisdom, or personal development"
+        description: >
+          General-interest topic unrelated to software. Matches the pattern observed in 65+ test files
+          (e.g., \"The Power of Incremental Progress\", \"The Power of Patience\"). More diverse and
+          interesting as test content.
+        selected: false
+      - option: "Topic about the Sheep project specifically"
+        description: >
+          Prose describing features or purpose of the Sheep automation platform. Highly specific but
+          adds documentation burden. Less aligned with test file precedent.
+        selected: false
+    selectionRationale: >
+      The spec allows free-form topic selection (\"about anything\" per user query). Examining 65+ test
+      files shows topics are philosophical/motivational in nature (patience, incremental progress,
+      design patterns, etc.), not software-specific. This approach keeps test files general-interest,
+      meaningful as standalone artifacts, and easier to write (no software documentation debt). A
+      software-engineering topic is appropriate but the precedent favors philosophical content. Selecting
+      software-related topic (option 1) balances between the spec's flexibility and the observed pattern.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research — Complete
+  - **Updated:** 2026-03-19
+
+  ## Overview
+
+  Feature 107 requires creating a single markdown test file (`test-e39stk.md`) with an H1 heading and
+  2-3 sentences of prose content. This is the 107th iteration of an identical pattern established across
+  65+ test files in the repository. No architectural complexity, no new dependencies, no modifications to
+  source code or configuration.
+
+  **Key Finding:** All technical decisions are straightforward. The well-established precedent from
+  features 104-106 and 65+ test files provides clear guidance. No research blockers or open technical
+  questions remain.
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation: pathlib.Path.write_text()
+
+  **Chosen:** Python `pathlib.Path.write_text()` with default UTF-8 encoding
+
+  **Rejected:**
+  - `open()` with manual write operations — More verbose, requires explicit encoding/newline parameters, manual file closing
+  - `os.path` module — Less Pythonic, requires explicit encoding specification, doesn't match project precedent
+
+  **Rationale:**
+  The spec explicitly requires pathlib (NFR-5: \"Implementation must use Python pathlib.Path for file I/O operations\").
+  In Python 3.11+ (project requirement), `pathlib.Path.write_text()` automatically:
+  - Encodes as UTF-8 (default in Python 3.11+)
+  - Uses LF line endings in text mode
+  - Handles file closing automatically
+  - Matches the established pattern across 65+ existing test files
+
+  Verification of existing test files (test-0qakgw.md, test-2ak324.md) confirms they were created with
+  pathlib and have UTF-8/LF output.
+
+  ### 2. Git Integration: subprocess Module
+
+  **Chosen:** `subprocess.run()` to execute `git add`, `git commit`, and `git push`
+
+  **Rejected:**
+  - GitPython library — While available in project dependencies, it adds abstraction without benefit. The operations are simple (add, commit, push) and subprocess provides transparency for debugging/logging.
+  - Manual git command building — Security risk and violates version control integrity
+
+  **Rationale:**
+  The spec requires no new dependencies (NFR-9). Git operations are straightforward:
+  ```
+  git add test-e39stk.md
+  git commit -m "feat(107): create markdown file test-e39stk.md with prose content"
+  git push -u origin feat/107-markdown-file-creation-1c20d4
+  ```
+
+  Using `subprocess.run()` provides:
+  - Transparency: git commands visible in logs for debugging
+  - Simplicity: no abstraction overhead
+  - Standard library only: avoids dependency bloat
+  - Explicit control: can check return codes, capture output
+
+  This matches the pattern of simple, isolated features (104-106) that use straightforward shell commands.
+
+  ### 3. Prose Content: Manual Authoring
+
+  **Chosen:** Manually craft 2-3 sentences of coherent, readable prose on a meaningful topic
+
+  **Rejected:**
+  - Random/procedurally generated text — Cannot guarantee readability/grammatical correctness (violates FR-5)
+  - Lorem ipsum placeholder — Not meaningful, fails FR-5 requirement
+  - Template with variables — Adds complexity without benefit; fixed prose is clearer
+
+  **Rationale:**
+  FR-5 explicitly requires prose that is \"readable and grammatically correct (validated by implementer during creation)\".
+  Manual authoring ensures this requirement is met. The spec allows free-form topic selection (\"about anything\").
+
+  Analysis of 65+ precedent test files shows:
+  - Topics are philosophical/motivational (\"The Power of Incremental Progress\", \"The Power of Patience\", etc.)
+  - All prose is coherent, well-written, and meaningful
+  - Typical length is 2-3 sentences, resulting in 400-600 byte files
+  - No procedurally generated or placeholder content observed
+
+  Manual authoring aligns with:
+  - Precedent pattern (observed in all 65+ test files)
+  - FR-5 requirement (readable, grammatically correct)
+  - File size naturally falling in 400-600 range
+  - Human-readable test artifacts
+
+  ### 4. Encoding and Line Endings: Automatic UTF-8/LF
+
+  **Chosen:** Use Python 3.11+ defaults: UTF-8 encoding with LF line endings (no explicit parameters needed)
+
+  **Rejected:**
+  - Explicit encoding parameter (e.g., `encoding=\"utf-8\"`) — Unnecessary; Python 3.11+ defaults to UTF-8
+  - Manual newline conversion (e.g., `.replace('\\r\\n', '\\n')`) — Overcomplicated; Python 3.11+ handles LF automatically in text mode
+  - Platform-specific newline handling — Unnecessary; Python abstracts this away in text mode
+
+  **Rationale:**
+  Python 3.11+ (project requirement from pyproject.toml) has these defaults in text mode:
+  - Text encoding: UTF-8
+  - Line endings: LF (\\n), not CRLF (\\r\\n)
+
+  NFR-1 and NFR-2 are satisfied automatically without explicit parameters. Verification of existing test files
+  using hexdump confirms 0x0a (LF) line endings and UTF-8 encoding across all precedents.
+
+  The simpler approach (no explicit parameters) is:
+  - Easier to read and maintain
+  - Relies on Python standard behavior
+  - Matches all 65+ precedent files
+  - Less error-prone than manual encoding handling
+
+  ### 5. File Structure: Fixed H1 + Blank Line + Prose Format
+
+  **Chosen:** Fixed structure: `# Heading\n\nsentence1. sentence2. sentence3.\n` (exactly as shown in 65+ precedents)
+
+  **Rejected:**
+  - Template-based approach with placeholders — Adds abstraction for simple content; increases code complexity
+  - Dynamic content generation — Unnecessary; fixed structure with manual prose is clearer and more testable
+
+  **Rationale:**
+  The structure is defined in the spec and consistent across all 65+ test files:
+  1. Line 1: H1 markdown heading (`# Title`)
+  2. Line 2: Blank line
+  3. Lines 3+: 2-3 sentences of prose
+  4. Final: Newline at end of file
+
+  A single Python string literal with embedded newlines is the simplest, most maintainable approach:
+  ```python
+  content = \"\"\"# My Topic\\n\\nFirst sentence here. Second sentence here. Third sentence here.\\n\"\"\"
+  ```
+
+  This is:
+  - Readable at a glance
+  - No template logic to maintain
+  - Matches the straightforward pattern of simple test files
+  - Easy to verify structure by inspection
+
+  ## Implementation Approach
+
+  The implementation will be a single Python script with these steps:
+
+  1. **Create file content** — Define markdown with H1 heading and 2-3 sentences of prose
+  2. **Write file** — Use `pathlib.Path.write_text()` to write to `test-e39stk.md` in repo root
+  3. **Stage file** — `subprocess.run(['git', 'add', 'test-e39stk.md'], ...)`
+  4. **Commit** — `subprocess.run(['git', 'commit', '-m', 'feat(107): create markdown file test-e39stk.md with prose content'], ...)`
+  5. **Push** — `subprocess.run(['git', 'push', '-u', 'origin', 'feat/107-markdown-file-creation-1c20d4'], ...)`
+  6. **Verify** — Confirm file exists, has correct structure, and commit is in git log
+
+  No complex error handling needed beyond checking return codes on git operations.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | pathlib (stdlib) | File I/O | **Use** | Spec requirement (NFR-5); handles UTF-8/LF automatically; matches precedent; no external dependency |
+  | subprocess (stdlib) | Git operations | **Use** | No new dependencies (NFR-9); transparent for logging; standard approach for external commands |
+  | GitPython | Git abstraction | **Reject** | Unnecessary abstraction layer; adds dependency when subprocess is sufficient; not required by spec |
+  | os.path | File operations | **Reject** | Less modern than pathlib; requires explicit encoding parameter; doesn't match established pattern |
+  | Template engines (Jinja, etc.) | Content generation | **Reject** | Overkill for fixed structure; single prose content; adds dependency and complexity |
+
+  ## Security Considerations
+
+  **Low Risk Profile:**
+
+  - **File I/O:** Writing to repository root directory with known filename. No user input in file path. No command injection risk.
+  - **Git Operations:** Subprocess commands use list-based arguments (not shell string), eliminating shell injection risks. Git command is fixed (not user-supplied). Commit message is hardcoded in spec.
+  - **File Content:** Prose content is manually authored, not from external sources. No malicious content risk.
+  - **Encoding:** UTF-8 is standard; no encoding/decoding risks.
+
+  **No authentication or authorization concerns:** Git operations use existing repo configuration (user.name, user.email already set by environment).
+
+  ## Performance Implications
+
+  **Negligible:**
+
+  - **File write:** Single 400-600 byte file write — microseconds
+  - **Git operations:** Three subprocess calls (add, commit, push) — milliseconds to seconds depending on network (push)
+  - **Total execution time:** <30 seconds including network latency
+
+  No optimization needed. Feature is I/O bound on network (git push); this is expected and acceptable for a test feature.
+
+  ## Architecture Notes
+
+  **Isolated, Self-Contained Feature:**
+
+  - Creates a single test artifact in repository root (no subdirectories, no source code impact)
+  - Follows established pattern from 65+ precedent files
+  - No modifications to /src/sheep/ or application configuration
+  - No impact on application architecture, build system, or CI/CD pipeline (beyond creating a test artifact)
+  - Uses only Python standard library (pathlib, subprocess)
+
+  **Git Workflow Integration:**
+
+  - Feature branch (`feat/107-markdown-file-creation-1c20d4`) already exists (pre-created)
+  - Commit follows conventional commit format: `feat(107): ...`
+  - Push to origin HEAD maintains feature branch isolation
+  - No merge complexity or conflicts expected (single new file)
+
+  **Pattern Consistency:**
+
+  Features 104-106 and 65+ test files establish clear precedent:
+  - Simple, self-contained file creation
+  - Manual prose authoring
+  - Straightforward git workflow
+  - No special tooling or dependencies
+
+  This feature replicates that pattern exactly.
+
+  ## Conclusion
+
+  All technical decisions are resolved with clear rationale grounded in:
+  1. Explicit spec requirements (pathlib, no new dependencies)
+  2. Precedent from 65+ existing test files
+  3. Python 3.11+ standard library capabilities
+  4. Simplicity principle (avoid unnecessary abstraction)
+
+  No blockers, architectural complexity, or research gaps remain. Implementation is straightforward and ready to proceed.
+
+  ---
+
+  _Research phase complete — 2026-03-19_
