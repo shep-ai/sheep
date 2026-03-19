@@ -1,0 +1,266 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-ca6ed1
+summary: >
+  Technical analysis for markdown file creation feature. Recommends using Python pathlib for file I/O with explicit UTF-8 encoding and LF line endings. File structure mirrors 65+ existing test files in the repository. No external dependencies required; uses only Python standard library and git CLI. Low security risk with subprocess-based git execution. Implementation is straightforward with minimal complexity.
+
+# Relationships
+relatedFeatures:
+  - number: 107
+    name: "markdown-file-creation"
+    relationship: "Identical implementation pattern — reference for file structure and content format"
+  - number: 106
+    name: "markdown-file-creation"
+    relationship: "Identical implementation pattern — reference for file structure and content format"
+  - number: 105
+    name: "markdown-file-creation"
+    relationship: "Identical implementation pattern — reference for file structure and content format"
+
+technologies:
+  - "Python 3.11+ pathlib (standard library)"
+  - "Python file I/O with explicit encoding (standard library)"
+  - "Git CLI (version control)"
+  - "Markdown (file format — CommonMark specification)"
+  - "UTF-8 encoding"
+  - "Unix LF line endings"
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Approach"
+    chosen: "Python pathlib.Path with standard file I/O"
+    rejected:
+      - "os.path with open() — More verbose, less idiomatic in modern Python. pathlib is the preferred approach in Python 3.4+ and is already specified in the feature spec (NFR-5)."
+      - "Template libraries (Jinja2, mako) — Adds external dependency complexity unnecessary for simple static content. Harder to modify and test. Violates NFR-8 (no new dependencies)."
+      - "f-strings with os.system() — Vulnerable to command injection if content isn't carefully sanitized. Not best practice."
+    rationale: >
+      pathlib.Path is the modern, idiomatic Python approach for file operations. It's included in the standard library since Python 3.4 and is explicitly required by NFR-5. It provides a clean, object-oriented API and handles platform-specific path operations transparently. For this simple file creation task, pathlib is perfect. The approach is consistent with established patterns in the codebase (evident from 65+ existing test files being created similarly). No external dependencies are introduced, satisfying NFR-8.
+
+  - title: "Line Ending Handling"
+    chosen: "Explicit LF line endings using newline='\\n' parameter in open()"
+    rejected:
+      - "Platform-default line endings (os.linesep or default mode) — Would use CRLF on Windows, violating NFR-2 requirement for Unix LF line endings. Creates platform-specific inconsistency."
+      - "Post-write line ending conversion — Adds an extra I/O operation and increases code complexity. Better to handle correctly at write time."
+      - "Using Python's universal newlines mode — Converts on read/write based on platform, but spec explicitly requires LF, not platform defaults."
+    rationale: >
+      NFR-2 explicitly requires Unix-style LF line endings, not Windows CRLF. The cleanest approach is to specify newline='\\n' in the open() call, which tells Python to use LF regardless of platform. This is well-documented in Python's io module documentation and is the standard way to enforce specific line endings. Writing with explicit newline handling produces correct results immediately without post-processing.
+
+  - title: "File Encoding"
+    chosen: "Explicit UTF-8 encoding with encoding='utf-8' parameter in open()"
+    rejected:
+      - "Platform-default encoding (relying on locale) — May produce different encodings on different machines (e.g., cp1252 on Windows, UTF-8 on Linux). Violates NFR-1 requirement for UTF-8 without BOM."
+      - "No encoding specification — Risk of encoding errors or platform-specific behavior. Less explicit and maintainable."
+    rationale: >
+      NFR-1 explicitly requires UTF-8 encoding without BOM. Specifying encoding='utf-8' in the open() call ensures consistent, explicit UTF-8 encoding on all platforms. Python's open() function with this parameter writes UTF-8 without BOM by default (no special BOM handling needed). This is the standard, recommended approach and makes the intent clear in the code.
+
+  - title: "Content Generation Approach"
+    chosen: "Direct string literal (hardcoded prose content)"
+    rejected:
+      - "Prompt-based generation (asking implementer for content) — Out of scope for research phase. Better handled during implementation phase with manual content creation per spec requirements."
+      - "Programmatic content generation — Unnecessary complexity for static prose. Harder to validate quality and readability. Doesn't align with spec's 'free-form' content requirement."
+      - "Template files or configuration — Adds indirection and file dependencies for no benefit in this single-file scenario."
+    rationale: >
+      The specification explicitly allows free-form prose content (any topic, any style) and states that prose validation is manual (per product decision 3 in the spec). The simplest approach is for the implementer to write quality prose directly as a string literal during implementation. This allows flexibility, quality control, and alignment with the spec's free-form requirement. No generation logic is needed. This mirrors the approach used in all 65+ existing test files, which contain varied, human-written prose content.
+
+  - title: "Git Workflow Execution"
+    chosen: "subprocess module for git commands (git add, git commit, git push)"
+    rejected:
+      - "GitPython library — Adds external dependency (violates NFR-8). More overhead than needed for simple git operations. Subprocess is sufficient and standard library only."
+      - "os.system() for git commands — UNSAFE. Vulnerable to shell injection if any variables aren't properly escaped. subprocess is strictly safer. os.system() is deprecated for this use case."
+      - "Shell commands with shell=True — Unnecessary and unsafe. subprocess with shell=False is the correct approach."
+    rationale: >
+      subprocess is the standard library way to execute external commands safely. Using subprocess.run() with shell=False and explicit argument lists prevents command injection vulnerabilities. For three simple git commands (add, commit, push), this is adequate and doesn't require external dependencies like GitPython. The approach is secure, standard, and widely recommended in Python best practices documentation.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Are there any platform-specific concerns with git execution in subprocess?"
+    resolved: true
+    options:
+      - option: "No significant concerns — subprocess handles platform differences"
+        description: "subprocess automatically adapts to platform differences (Windows vs Linux/Mac). Git CLI is available on all platforms. No special handling needed. Simplest and most standard approach."
+        selected: true
+      - option: "Need to handle shell path differences"
+        description: "Implement platform detection and conditional git paths. More complex, adds OS-specific code branches. Unnecessary since git is typically in PATH on all platforms."
+        selected: false
+      - option: "Need to normalize working directory and paths"
+        description: "Explicitly convert all paths to platform format before subprocess calls. Adds complexity, but pathlib already handles this transparently. Unnecessary."
+        selected: false
+    selectionRationale: >
+      subprocess works transparently across platforms. Git is widely available and in PATH on all major platforms where Python runs. pathlib already handles path conversions across platforms (POSIX vs Windows). No special platform-specific handling is needed. This aligns with the principle of keeping implementation simple and leveraging standard library abstractions that already handle platform differences.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-19
+  - **Status:** Complete
+
+  ## Technology Overview
+
+  This feature requires only Python standard library and git CLI—no external dependencies. The implementation involves:
+
+  - **File I/O**: pathlib.Path for creating the markdown file
+  - **Encoding**: Explicit UTF-8 with proper line ending handling
+  - **Content**: Human-written prose matching the established pattern (65+ test files)
+  - **Git Integration**: subprocess for git commands (add, commit, push)
+  - **File Format**: Markdown (CommonMark-compliant structure)
+
+  ## Technology Decisions
+
+  ### 1. File I/O Approach — pathlib.Path
+
+  **Chosen:** Python's pathlib.Path with standard open() for file I/O
+
+  **Rejected:**
+  - os.path with open() — More verbose, less idiomatic. pathlib is the modern standard (Python 3.4+).
+  - Template libraries (Jinja2) — Adds external dependency unnecessarily for static content.
+  - Programmatic generation — Unnecessary complexity for free-form prose content.
+
+  **Rationale:** pathlib is the modern, idiomatic Python approach and is explicitly required by NFR-5. It handles platform-specific path operations transparently and integrates seamlessly with Python's file I/O. For this simple operation, it's sufficient, clean, and follows Python best practices. This approach aligns with existing patterns in the codebase (evidenced by 65+ existing test files).
+
+  ### 2. Line Ending Handling — Explicit LF via newline Parameter
+
+  **Chosen:** Specify `newline='\n'` in the open() call to enforce Unix LF line endings
+
+  **Rejected:**
+  - Platform-default line endings (os.linesep) — Would produce CRLF on Windows, violating NFR-2.
+  - Post-write conversion — Adds unnecessary I/O operation and complexity.
+  - Universal newlines mode — Converts based on platform; we need explicit LF control.
+
+  **Rationale:** NFR-2 explicitly requires Unix-style LF line endings. Specifying `newline='\n'` in Python's open() function ensures consistent LF on all platforms (Windows, macOS, Linux). This is the standard, documented way to enforce specific line endings in Python and produces correct results immediately without post-processing. Python's file I/O documentation recommends this approach for cross-platform consistency.
+
+  ### 3. File Encoding — Explicit UTF-8
+
+  **Chosen:** Specify `encoding='utf-8'` in the open() call
+
+  **Rejected:**
+  - Platform-default encoding — May vary by locale/platform (cp1252 on Windows, UTF-8 on Linux). Violates NFR-1.
+  - No explicit encoding — Risk of platform inconsistency and encoding errors.
+
+  **Rationale:** NFR-1 explicitly requires UTF-8 without BOM. Specifying `encoding='utf-8'` in open() ensures consistent UTF-8 encoding on all platforms. Python's UTF-8 codec by default does not add BOM, satisfying the "without BOM" requirement. This is explicit, maintainable, and the standard approach for consistent encoding across platforms.
+
+  ### 4. Content Generation — Direct String Literal
+
+  **Chosen:** Implementer writes prose content directly as a string literal during implementation phase
+
+  **Rejected:**
+  - Prompt-based generation — Out of scope for research; belongs in implementation planning.
+  - Programmatic generation — Adds unnecessary complexity for static content.
+  - Template files — Adds file dependencies and indirection with no benefit.
+
+  **Rationale:** The specification explicitly allows free-form prose (any topic, any style) and designates prose validation as manual (per product decision 3). Direct string literals are simple, flexible, and allow quality control. This approach mirrors all 65+ existing test files, which contain human-written, varied prose. No generation logic is needed; the implementer writes content directly during implementation.
+
+  ### 5. Git Workflow — subprocess Module
+
+  **Chosen:** Use subprocess.run() for executing git commands (add, commit, push)
+
+  **Rejected:**
+  - GitPython library — Adds external dependency (violates NFR-8). Unnecessary overhead for simple operations.
+  - os.system() — Unsafe; vulnerable to command injection if variables aren't properly escaped.
+  - Shell commands with shell=True — Adds complexity and security risk without benefit.
+
+  **Rationale:** subprocess is the standard library way to safely execute external commands. Using subprocess.run() with shell=False and explicit argument lists prevents command injection vulnerabilities. For three straightforward git commands, this is sufficient and requires no external dependencies. This approach is recommended by Python security best practices and the Python documentation.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | pathlib | File path and I/O operations | Use | Standard library (Python 3.4+), modern, idiomatic, explicitly required by NFR-5. Cleaner than os.path. |
+  | subprocess | Execute git commands | Use | Standard library, safe approach to command execution (shell=False prevents injection), no external dependencies. |
+  | UTF-8 encoding | File encoding | Use | Built into Python, satisfies NFR-1, explicitly specified via encoding parameter. No alternative needed. |
+  | Git CLI | Version control operations | Use | Already available on system, no Python package needed. subprocess invokes it. |
+  | Markdown format | File format specification | Use | Lightweight, human-readable, CommonMark-compliant. No special library needed; plain text format. |
+  | Jinja2/Mako | Template generation | Reject | Unnecessary for static content. Adds external dependency (violates NFR-8). Direct strings are simpler. |
+  | GitPython | Python git library | Reject | External dependency (violates NFR-8). subprocess is adequate for our simple needs. |
+  | os.path | Older file path API | Reject | pathlib is the modern standard and explicitly required by the spec. os.path is less idiomatic. |
+
+  ## Security Considerations
+
+  ### File I/O Security
+
+  - **Risk:** Writing to repository root directory
+  - **Mitigation:** Feature spec explicitly designates repository root as target location (FR-2). File creation is performed with explicit pathlib.Path, preventing path traversal. No user input is used in the path.
+  - **Assessment:** Low risk. File I/O operations are straightforward with no untrusted input involved.
+
+  ### Git Command Execution
+
+  - **Risk:** Executing git commands via subprocess
+  - **Mitigation:** Use subprocess.run() with shell=False and explicit argument lists. Do not pass user input directly to git commands. All parameters (filename, commit message, branch) are defined in the spec and code, not external input.
+  - **Assessment:** Low risk. subprocess with shell=False is safe. No shell injection possible with hardcoded git arguments.
+
+  ### File Encoding and Content
+
+  - **Risk:** UTF-8 encoding may allow certain characters; prose content could theoretically be malicious
+  - **Mitigation:** File content is specification-defined and implementer-controlled. Prose is manually validated by implementer per product decision 3. No external input sources.
+  - **Assessment:** Low risk. Content is under implementer control with manual validation requirements.
+
+  ### No External Dependencies
+
+  - **Assessment:** NFR-8 requires no new external dependencies. This design uses only Python standard library and git CLI. No third-party packages introduce supply chain risk.
+
+  ## Performance Implications
+
+  ### File Creation
+
+  - **I/O Operation:** Single file write (~400-600 bytes) to disk. Negligible impact.
+  - **Optimization:** No optimization needed. Sequential write is fastest approach for small files.
+  - **Assessment:** Performance is not a concern for this single, small file operation.
+
+  ### Git Operations
+
+  - **git add:** Adds file to staging area. Negligible performance impact.
+  - **git commit:** Writes commit object and updates branch ref. Negligible impact for single file.
+  - **git push:** Network operation; depends on network latency, not code efficiency. No optimization possible at implementation level.
+  - **Assessment:** Git performance is network-dependent, not implementation-dependent. No code-level optimizations needed.
+
+  ### Overall
+
+  - **Estimate:** File creation + git operations should complete in <1 second on typical systems.
+  - **Scalability:** This feature is not concerned with scalability; it's a single, atomic operation.
+
+  ## Architecture Notes
+
+  ### Fit Within Existing Codebase
+
+  This feature follows the established pattern from 65+ existing test files (`test-*.md`) in the repository root. The implementation integrates seamlessly with the existing codebase because:
+
+  1. **File Location:** Repository root directory, matching all existing test files.
+  2. **File Format:** Markdown (CommonMark), same as all existing test files.
+  3. **Content Structure:** One H1 heading + blank line + 2-3 sentences, identical to existing files.
+  4. **Git Integration:** Conventional commit format (`feat(108): ...`) aligns with repository commit conventions.
+  5. **No Source Code Changes:** Feature is purely file creation; no modifications to `/src/sheep/` or other source code (NFR-7).
+
+  ### Dependencies and Constraints
+
+  - **Python 3.11+:** Feature requires Python 3.11+ as per technology stack in spec. pathlib and subprocess are available in all Python 3.x versions.
+  - **Git Configuration:** Standard git configuration (user.name, user.email) must be set up for commits. This is assumed to be pre-configured in the repository.
+  - **Feature Branch:** Feature branch `feat/108-markdown-file-creation-ca6ed1` must exist and be checked out before implementation. Pre-created per setup.
+  - **Write Access:** Repository root must be writable. Already available in working directory.
+
+  ### No Special Considerations
+
+  - No database schema changes needed.
+  - No API modifications required.
+  - No configuration files need updating.
+  - No documentation needs generation (spec is the source of truth).
+
+  ## Implementation Readiness
+
+  **All decisions made. No blockers identified.**
+
+  - File I/O approach is clear (pathlib.Path with explicit encoding/line endings).
+  - Content generation is straightforward (direct string literal, manually written).
+  - Git workflow is standard and well-documented (subprocess for commands).
+  - No external dependencies required; only standard library and git CLI.
+  - Low security risk; no special precautions beyond using subprocess safely.
+  - Performance is not a concern; operation is trivial.
+  - Architectural fit is excellent; aligns with 65+ existing test files.
+
+  **Ready to proceed to implementation planning phase.**
+
+  ---
+
+  _Research phase complete — all technical decisions documented and ready for implementation planning_
