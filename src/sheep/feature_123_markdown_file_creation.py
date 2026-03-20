@@ -183,27 +183,24 @@ def task_5_push_changes() -> str:
         raise
 
 
-def main() -> dict[str, str]:
+def main() -> bool:
     """
-    Execute phase 4 implementation: Git Integration & Publishing.
+    Execute phase 5: Orchestration & Validation.
 
-    This function orchestrates all five tasks:
+    This function orchestrates all tasks in sequence:
     - Task 2: Generate markdown content
     - Task 3: Write to disk
     - Task 4: Commit with git
     - Task 5: Push to remote
 
     Returns:
-        Dictionary with results:
-        - content: The generated markdown content
-        - filepath: Full path to the created file
-        - commit_result: Result from git commit operation
-        - push_result: Result from git push operation
+        True if all tasks complete successfully, False on failure.
 
     Raises:
-        Any exceptions from tasks 2-5 are propagated to the caller.
+        Any exceptions from tasks 2-5 are logged and return False.
     """
-    _logger.info(f"Feature {FEATURE_NUMBER} - Phase 4: Git Integration & Publishing")
+    _logger.info(f"Starting feature {FEATURE_NUMBER} execution")
+    _logger.info(f"Feature {FEATURE_NUMBER} - Phase 5: Orchestration & Validation")
 
     try:
         # Execute task 2: Generate markdown content
@@ -218,22 +215,15 @@ def main() -> dict[str, str]:
         # Execute task 5: Push changes to remote origin
         push_result = task_5_push_changes()
 
-        _logger.info(f"Feature {FEATURE_NUMBER} - Phase 4 complete")
-
-        return {
-            "content": content,
-            "filepath": filepath,
-            "commit_result": commit_result,
-            "push_result": push_result,
-        }
+        _logger.info(f"Feature {FEATURE_NUMBER} completed successfully")
+        return True
 
     except Exception as e:
-        _logger.error(f"Feature {FEATURE_NUMBER} - Phase 4 failed: {e}")
-        raise
+        _logger.error(f"Feature {FEATURE_NUMBER} failed: {e}")
+        return False
 
 
 if __name__ == "__main__":
     # Allow running this module directly for testing
-    result = main()
-    print(f"Success! Created file: {result['filepath']}")
-    print(f"File contains {len(result['content'])} bytes of content")
+    success = main()
+    exit(0 if success else 1)
