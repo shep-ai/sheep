@@ -55,7 +55,7 @@ class TestTask1GenerateMarkdownContent:
 
     def test_generated_content_size_is_reasonable(self):
         """Test that generated content size is within reasonable bounds."""
-        test_content = "# Test Topic\n\nSentence one. Sentence two. Sentence three.\n"
+        test_content = "# Emerging Technologies and Innovation\n\nEmerging technologies such as artificial intelligence, blockchain, and quantum computing are reshaping industries and creating new opportunities for innovation and growth. Organizations that embrace these technologies early gain competitive advantages and better position themselves for future success. Investment in research and development remains essential for companies seeking to stay ahead of technological changes.\n"
         with patch(
             "tests.test_feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
