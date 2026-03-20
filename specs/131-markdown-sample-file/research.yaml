@@ -1,0 +1,438 @@
+name: markdown-sample-file
+summary: >
+  This feature creates a single markdown file (test-b35cf7.md) using the established
+  pattern from features 125-130. The implementation uses Python pathlib.Path for
+  file creation with explicit UTF-8 encoding and LF line endings, hardcoded prose
+  content (H1 heading + 2-3 sentences), in-script validation, and standard git
+  subprocess workflows. No external dependencies or architectural decisions required.
+
+relatedFeatures:
+  - "130: Create markdown file test-laceiq.md"
+  - "129: Create markdown file test-3pz04c.md"
+  - "128: Create markdown file test-zihquv.md"
+  - "127: Create markdown file test-xkd1zo.md"
+  - "126: Create markdown file test-zlzcz0.md with prose content"
+  - "125: Add feature specification for markdown-file-create"
+
+technologies:
+  - "Python 3.11+ pathlib (file I/O)"
+  - "Python subprocess (git integration)"
+  - "Git (version control and commits)"
+  - "Markdown (CommonMark specification)"
+  - "UTF-8 text encoding"
+
+relatedLinks:
+  - title: "Feature 130 specification"
+    url: "https://github.com/anthropics/sheep/pull/199"
+  - title: "CommonMark specification"
+    url: "https://commonmark.org/"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+
+decisions:
+  - title: "File Creation Method"
+    chosen: "Python pathlib.Path.write_text() with explicit UTF-8 encoding"
+    rejected:
+      - "Direct bash echo command — less portable, harder to control encoding and line endings, not aligned with Python standard library preference"
+      - "Python os.write() — requires manual file handle management and encoding conversion, more error-prone than pathlib"
+      - "Manual open() context manager — more verbose than write_text(), offers no advantage for single write operation"
+    rationale: >
+      pathlib.Path.write_text() is the recommended modern Python approach for simple
+      file creation. It automatically handles file creation, closing, and provides
+      explicit encoding control. The method is already listed in the feature spec
+      technologies and used consistently in features 125-130. It provides a clean,
+      readable API that matches the established codebase pattern.
+
+  - title: "Prose Content Strategy"
+    chosen: "Hardcoded, topic-specific prose content (H1 heading + 2-3 sentences)"
+    rejected:
+      - "Template-based prose generation — adds unnecessary complexity and abstraction for a single-use feature with no parameterization"
+      - "AI-generated content — introduces dependency on language model API, adds latency, makes output non-deterministic"
+      - "Lorem ipsum placeholder text — unprofessional, inconsistent with existing 100+ test files which all contain coherent prose"
+    rationale: >
+      The spec explicitly allows "about anything" and all existing test files (125-130)
+      use hardcoded, topic-specific prose. This approach is simple, deterministic,
+      and maintains consistency with the established pattern. Topic selection is
+      unconstrained, so any coherent subject works: technical topics (AI, cloud
+      computing, debugging), natural phenomena (the moon, weather), human topics
+      (learning, creativity, communication) are all valid. Hardcoding enables easy
+      validation and requires no external dependencies.
+
+  - title: "Line Ending Management"
+    chosen: "Explicit control using write_text() with implicit LF handling by Python text mode"
+    rejected:
+      - "Platform-default line endings — would produce CRLF on Windows, violating FR-6 requirement for Unix LF endings"
+      - "Post-creation conversion — two-pass approach (write then convert) is less efficient and error-prone"
+      - "Binary mode with manual b'\\n' — more error-prone than relying on Python's text mode semantics"
+    rationale: >
+      Python's text mode write_text() on all platforms converts \n to the platform
+      line ending. However, FR-6 specifies Unix LF endings must be used. This is
+      achieved by writing the content with newline='\n' parameter explicitly, or
+      by writing in text mode and accepting Python's default (which produces LF on
+      Unix systems where this code runs). The established pattern (features 125-130)
+      uses write_text() successfully without explicit newline parameter, relying on
+      the Linux/Unix environment to produce LF endings. This matches the Sheep
+      platform's Unix-based execution environment.
+
+  - title: "Git Workflow Implementation"
+    chosen: "Direct subprocess.run() calls for git add, commit, and push with --no-verify flag"
+    rejected:
+      - "GitPython library — adds external dependency, more abstraction than needed for simple three-operation workflow"
+      - "Manual git commands via shell string execution — less safe than subprocess array args, harder to handle errors"
+      - "Pre-commit hooks — would conflict with --no-verify flag, adds unnecessary complexity for test file creation"
+    rationale: >
+      subprocess.run() is part of Python standard library and provides safe command
+      execution with explicit argument arrays (avoiding shell injection risks).
+      The --no-verify flag skips pre-commit hooks as required by the feature spec
+      (features 125-130 all use this pattern). This approach is simple, reliable,
+      and matches the established pattern exactly. No external dependencies needed.
+
+  - title: "Validation Strategy"
+    chosen: "In-script validation of encoding, line endings, file size, and content structure"
+    rejected:
+      - "No validation — risks shipping incorrect file format, violates multiple success criteria"
+      - "External validation script — separates validation concern from creation, harder to debug failures, unnecessary complexity"
+      - "Test suite validation — over-engineering for a minimal test feature, adds dependency on test framework"
+    rationale: >
+      The reference implementation (create_markdown.py from features 125-130) includes
+      comprehensive validation before commit. This ensures all success criteria are
+      met (encoding, line endings, file size, structure) before pushing to remote.
+      Validation provides immediate feedback if something is wrong and prevents
+      committing invalid files. The validation is straightforward: check for BOM,
+      verify no CRLF present, measure file size, verify H1 heading structure,
+      count sentences.
+
+  - title: "Character Encoding Specification"
+    chosen: "UTF-8 without byte-order mark (BOM)"
+    rejected:
+      - "UTF-16 — incompatible with CommonMark specification and most text editors, overly complex for simple ASCII prose"
+      - "ASCII-only — artificially limiting, UTF-8 provides full compatibility with ASCII while enabling future international content"
+      - "UTF-8 with BOM — violates FR-5 requirement for no BOM, adds unnecessary bytes, not recommended for UTF-8 files"
+    rationale: >
+      FR-5 explicitly requires UTF-8 encoding without BOM. This is the standard
+      encoding for markdown and text files across the industry. Python's write_text()
+      with encoding='utf-8' automatically handles this correctly, never adding BOM
+      unless explicitly requested. UTF-8 is the best choice for markdown as it's
+      compatible with the CommonMark specification and required by the feature spec.
+
+  - title: "File Size Target"
+    chosen: "Natural prose generation targeting 2-3 sentences (approximately 400-600 bytes)"
+    rejected:
+      - "Exact byte-count padding — artificial and fragile, would require post-creation adjustment and validation, violates spec's 'approximately' phrasing"
+      - "Variable length content — inconsistent with precedent from features 125-130 which all fall in the 400-600 byte range"
+      - "Minimal prose (1 sentence) — would violate FR-3 requirement for exactly 2-3 sentences"
+    rationale: >
+      The spec allows "approximately 400-600 bytes" (NFR-1), not an exact requirement.
+      Features 125-130 all naturally fall in this range with 2-3 sentences of
+      coherent prose. A typical sentence is 12-15 words, averaging 70-80 characters
+      plus spaces and punctuation, yielding roughly 130-180 bytes per sentence. Two
+      sentences = 260-360 bytes; three sentences = 390-540 bytes. Including an H1
+      heading (20-40 bytes) and blank line (1 byte) naturally yields 280-580 bytes.
+      This matches the spec's target perfectly without artificial padding.
+
+  - title: "Content Topic Selection"
+    chosen: "Any coherent, grammatically correct prose topic (flexible selection with examples: software engineering, nature, learning, technology, business)"
+    rejected:
+      - "Randomized topic selection — unnecessary complexity, non-deterministic output makes testing harder"
+      - "Restricted topic whitelist — overly prescriptive, spec says 'about anything', no business reason to constrain topics"
+      - "User-specified topic — would require additional input parameter, complicates implementation, spec doesn't require this"
+    rationale: >
+      The spec explicitly states the feature should create prose "about anything" —
+      there are no constraints on topic. The 100+ existing test files demonstrate
+      diverse topics: The Moon, Markdown, AI/ML, Learning, etc. Any coherent topic
+      with proper grammar is acceptable. Hardcoding a single topic simplifies the
+      implementation while maintaining consistency with the established pattern.
+      Topic variety across the entire test suite (features 125-130+) is sufficient
+      to demonstrate the system's flexibility.
+
+openQuestions:
+  - question: "Should the implementation include retry logic for git push failures?"
+    resolved: true
+    options:
+      - option: "No retry logic — fail fast on git push errors"
+        description: >
+          If git push fails (network error, auth failure, etc.), the script immediately
+          raises an exception and exits. This provides clear error feedback to the caller
+          for investigation. Matches the established pattern from features 125-130 which
+          use simple subprocess.run() with check=True (fail on non-zero exit).
+        selected: true
+      - option: "Exponential backoff retry (e.g., 3 attempts with 2s/4s/8s delays)"
+        description: >
+          Implement retry logic to handle transient network failures. Adds complexity
+          and error handling code, but improves robustness for flaky networks. Not
+          used in any of the reference implementations (125-130).
+        selected: false
+      - option: "Queue failed push for manual retry later"
+        description: >
+          Commit successfully but defer push if it fails initially. Adds state
+          management and queuing logic, significant complexity increase, not
+          aligned with "simple atomic operation" goal of test features.
+        selected: false
+    selectionRationale: >
+      The spec treats push failure as exceptional (success criteria FR-8 requires
+      successful push). The established pattern (features 125-130) uses simple
+      subprocess.run() with check=True which raises CalledProcessError on failure.
+      This provides clear, observable behavior: either the push succeeds and the
+      function returns, or it fails with an exception that can be logged and
+      investigated. Network retries add complexity for marginal benefit in a test
+      suite context where network is expected to be reliable. Fail-fast approach
+      is cleaner and matches the precedent pattern exactly.
+
+  - question: "Should the implementation validate markdown syntax using a markdown parser?"
+    resolved: true
+    options:
+      - option: "Simple structure validation (check for H1 heading, blank line, prose) — current approach"
+        description: >
+          Validate only that the file has the required structure (H1 heading, blank
+          line, prose sentences). This is lightweight, requires no external dependencies,
+          and catches the critical structural requirements from the spec. The CommonMark
+          spec compliance is implicitly verified by the prose content being valid English
+          sentences.
+        selected: true
+      - option: "Full CommonMark parser validation (e.g., python-markdown library)"
+        description: >
+          Import a markdown parser and verify the file is valid CommonMark. Adds
+          external dependency, increases validation complexity, provides minimal
+          additional value since the prose content (H1 heading + sentences) is
+          inherently valid CommonMark if properly formatted.
+        selected: false
+      - option: "No validation — trust implementation correctness"
+        description: >
+          Skip validation entirely, assume the write_text() and prose content
+          are correct by construction. Risky for an automated feature, removes
+          confidence that success criteria are met, violates the established
+          pattern (features 125-130 all include validation).
+        selected: false
+    selectionRationale: >
+      Simple structure validation is sufficient. The prose content is plain English
+      sentences with punctuation — inherently valid markdown if formatted correctly
+      (H1 heading, blank line, sentences on separate lines). Adding a full CommonMark
+      parser would introduce an external dependency for minimal additional assurance.
+      The spec requires NFR-2 (markdown validity per CommonMark), but this is best
+      satisfied by ensuring proper structure and grammar, which are built into the
+      hardcoded prose. The reference implementations (125-130) use simple structure
+      validation without external parsers, providing precedent and validation that
+      this approach is sufficient.
+
+  - question: "Should the feature create file with hardcoded prose or accept parametric content?"
+    resolved: true
+    options:
+      - option: "Hardcoded prose for test-b35cf7.md — fixed content per feature"
+        description: >
+          Each markdown file feature (125-131+) has unique content hardcoded into the
+          implementation. Simple, deterministic, requires no parameterization or
+          user input. Matches all precedent implementations (125-130) exactly.
+        selected: true
+      - option: "Parametric content — allow topic/title as function parameters"
+        description: >
+          Generalize file creation into a library function accepting topic, title,
+          and prose as parameters. More flexible for potential reuse, but adds
+          complexity to the feature implementation and is not supported by
+          precedent implementations (125-130) which all hardcode content.
+        selected: false
+      - option: "Random topic selection from predefined list"
+        description: >
+          Select prose topics randomly from a curated list. Demonstrates variety
+          but adds complexity, makes output non-deterministic, inconsistent with
+          all precedent features (125-130) which produce fixed output.
+        selected: false
+    selectionRationale: >
+      Hardcoded prose is the only choice consistent with features 125-130. Each
+      feature has a unique filename and unique prose content compiled into the
+      implementation. This is simple, deterministic, and matches the established
+      pattern exactly. The feature specification explicitly calls for creating
+      "test-b35cf7.md with a title and 2-3 sentences about anything" — not a
+      reusable library function. Hardcoding ensures predictable, testable behavior
+      and requires zero additional implementation complexity.
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-20
+  - **Research Status:** Complete — all technical decisions made, no open questions remain
+
+  ## Technology Decisions
+
+  ### 1. File Creation Method
+
+  **Chosen:** Python pathlib.Path.write_text() with explicit UTF-8 encoding
+
+  **Rejected:**
+  - Direct bash echo command — less portable, harder to control encoding and line endings
+  - Python os.write() — requires manual file handle management, more error-prone
+  - Manual open() context manager — more verbose, no advantage for single write operation
+
+  **Rationale:** pathlib.Path is the modern standard Python approach, already specified in feature technologies, and used consistently in features 125-130. It provides clean, readable API with automatic file closing and explicit encoding control. No external dependencies required.
+
+  ### 2. Prose Content Strategy
+
+  **Chosen:** Hardcoded, topic-specific prose (H1 heading + 2-3 sentences)
+
+  **Rejected:**
+  - Template-based prose — unnecessary complexity for single-use feature
+  - AI-generated content — introduces latency and non-determinism
+  - Lorem ipsum text — unprofessional, inconsistent with 100+ existing test files
+
+  **Rationale:** Spec allows "about anything" — any coherent topic is valid. Hardcoding matches established pattern (125-130), is simple and deterministic, requires no dependencies. Topics can vary across test suite to demonstrate flexibility.
+
+  ### 3. Line Ending Management
+
+  **Chosen:** Python text mode write_text() producing Unix LF line endings
+
+  **Rejected:**
+  - Platform defaults — would produce CRLF on Windows, violating FR-6
+  - Post-creation conversion — inefficient two-pass approach
+  - Binary mode with manual conversion — error-prone and verbose
+
+  **Rationale:** Python's text mode on Unix systems naturally produces LF endings. This is guaranteed on the Sheep platform's Linux execution environment. Matches established pattern from features 125-130.
+
+  ### 4. Git Workflow Implementation
+
+  **Chosen:** Direct subprocess.run() calls for git add, commit (--no-verify), and push
+
+  **Rejected:**
+  - GitPython library — unnecessary external dependency for three-operation workflow
+  - Shell string execution — less safe than subprocess array arguments
+  - Pre-commit hook integration — conflicts with --no-verify requirement
+
+  **Rationale:** subprocess.run() is standard library, safe (explicit args avoid injection), matches established pattern exactly (features 125-130). --no-verify skips hooks as required.
+
+  ### 5. Validation Strategy
+
+  **Chosen:** In-script validation of encoding, line endings, file size, and content structure
+
+  **Rejected:**
+  - No validation — risky, lacks feedback before committing
+  - External validation script — separates concerns, harder to debug
+  - Test suite validation — over-engineering for minimal test feature
+
+  **Rationale:** Reference implementation (features 125-130) validates before committing. Checks: no BOM, no CRLF, file size 350-650 bytes, H1 heading present, 2-3 sentences. Provides immediate feedback and prevents invalid commits.
+
+  ### 6. Encoding Specification
+
+  **Chosen:** UTF-8 without byte-order mark (BOM)
+
+  **Rejected:**
+  - UTF-16 — incompatible with CommonMark, overly complex
+  - ASCII-only — artificially limiting
+  - UTF-8 with BOM — violates FR-5 requirement
+
+  **Rationale:** FR-5 explicitly requires UTF-8 without BOM. This is standard for markdown files and required by CommonMark spec. Python's write_text(encoding='utf-8') never adds BOM unless explicitly requested.
+
+  ### 7. File Size Target
+
+  **Chosen:** Natural prose generation targeting 2-3 sentences (~400-600 bytes)
+
+  **Rejected:**
+  - Exact byte padding — artificial, fragile, violates spec's "approximately" phrasing
+  - Variable prose length — inconsistent with precedent (features 125-130)
+  - Fewer sentences — violates FR-3 requirement for 2-3 sentences
+
+  **Rationale:** Spec allows "approximately 400-600 bytes". Natural prose (H1 heading ~30 bytes + 3 sentences ~150 bytes each = 500-520 bytes total) naturally falls in target range without padding.
+
+  ### 8. Content Topic Selection
+
+  **Chosen:** Flexible topic selection — any coherent, grammatically correct prose
+
+  **Rejected:**
+  - Randomized topics — unnecessary complexity, non-deterministic
+  - Restricted whitelist — overly prescriptive, spec says "about anything"
+  - User-specified topics — requires additional parameters, increases complexity
+
+  **Rationale:** Spec explicitly allows "about anything". Hardcoding a single topic simplifies implementation. Topic variety across all test features (125-131+, 100+ total) demonstrates system's flexibility without constraining individual features.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | pathlib.Path | File I/O | Use | Standard library, modern Python approach, precise encoding control, already in feature spec technologies |
+  | subprocess | Git integration | Use | Standard library, safe argument handling, matches established pattern (125-130), no external dependencies |
+  | git CLI | Version control | Use (via subprocess) | Already available, standard on development systems, reliable for simple operations (add/commit/push) |
+  | GitPython | Git wrapper | Reject | External dependency, unnecessary abstraction for simple three-step workflow, adds complexity |
+  | markdown library | Content validation | Reject | External dependency, not needed — prose is valid markdown if properly structured and grammatical |
+  | python-markdown | HTML conversion | Reject | Not required for this feature, file creation only, no conversion needed |
+
+  ## Security Considerations
+
+  **File System Security:**
+  - No risks identified. Feature creates a new file in repository root; no overwrite of existing files, no path traversal (hardcoded filename), no sensitive data written.
+
+  **Git Security:**
+  - Uses --no-verify flag to skip pre-commit hooks. This is intentional and required (features 125-130 also use it). Risk: legitimate hooks won't run. Mitigation: this is acceptable for automated test features where hooks are development conveniences, not security boundaries.
+  - subprocess.run() with array arguments (not shell string) prevents command injection.
+
+  **Encoding Security:**
+  - UTF-8 encoding is safe. No risk from BOM presence/absence beyond spec compliance.
+
+  **Content Security:**
+  - Hardcoded prose content — no injection vectors, no user input processed.
+
+  ## Performance Implications
+
+  **File Creation:** Single write_text() call is minimal operation (~1-2ms). No performance concerns.
+
+  **Validation:** Simple regex/string checks (H1 detection, blank line check, sentence counting). ~1-3ms overhead. Acceptable for test feature context.
+
+  **Git Operations:**
+  - git add: ~10-50ms depending on repository size
+  - git commit: ~10-50ms (hash calculation)
+  - git push: ~100-1000ms (network operation, depends on connectivity)
+
+  Total time per feature: ~150-1100ms dominated by network push time. No optimization needed; time is acceptable for test feature automation context.
+
+  **Memory:** Negligible. File content (~500 bytes) loaded in memory once, subprocess handles git operations. No memory concerns.
+
+  ## Architecture Notes
+
+  **Fit in Sheep Platform:**
+  - This feature is orthogonal to main application code. No code changes to /src/sheep/, no impact on build system, test suite, or CI/CD.
+  - Follows the established test feature pattern (125-130, 100+) exactly.
+  - Uses only Python standard library (pathlib, subprocess) and git CLI.
+  - Can be implemented as standalone script or as part of larger feature automation system.
+
+  **Consistency with Existing Code:**
+  - Matches reference implementations (features 125-130) precisely:
+    - Same file creation approach (pathlib.Path.write_text)
+    - Same validation logic (BOM check, CRLF check, size check, structure check)
+    - Same git workflow (git add, git commit --no-verify, git push -u origin HEAD)
+  - No architectural changes needed.
+
+  **Integration Points:**
+  - Git repository (already initialized and configured)
+  - File system (repository root writable)
+  - Remote origin (already configured)
+  - Git configuration (user.name, user.email already set)
+
+  All infrastructure is already in place; implementation requires no additional setup.
+
+  ## Implementation Pattern
+
+  **From Precedent (Features 125-130):**
+
+  1. Create markdown file with pathlib.Path.write_text(prose_content, encoding='utf-8')
+  2. Validate file (BOM, CRLF, size, structure, sentences)
+  3. Stage with git add
+  4. Commit with conventional message: feat(131): Create markdown file test-b35cf7.md
+  5. Push with git push -u origin HEAD
+  6. Return success or raise exception on error
+
+  **No Deviation Needed:** The established pattern from features 125-130 is proven, simple, and directly applicable to feature 131.
+
+  ## Conclusion
+
+  This feature requires minimal technical decisions because the pattern is fully established by features 125-130. Implementation strategy is clear:
+
+  - Use Python pathlib.Path.write_text() for file creation
+  - Hardcode prose content (H1 heading + 2-3 sentences, any topic)
+  - Validate before committing (structure, encoding, line endings, size)
+  - Use subprocess.run() for git add/commit/push with --no-verify flag
+  - Push to remote to complete feature
+
+  No external dependencies, no architectural decisions, no security concerns beyond expected scope. Ready to proceed to implementation phase.
+
+  ---
+
+  _Research phase complete — technical decisions finalized, library analysis comprehensive, security and performance implications evaluated, implementation ready to proceed_
