@@ -1,0 +1,308 @@
+name: "markdown-file-creation-fc455d"
+summary: >
+  Feature 133 creates a markdown file (test-fsakw9.md) at the repository root following the well-established
+  pattern from 130+ preceding features. Implementation reuses existing infrastructure in content_generators.py
+  (LLM-generated content, file I/O, validation, git operations) with no modifications to source code required.
+  The feature module is a straightforward copy-paste pattern from feature 127, implementing a single
+  create_feature_133_markdown_file() function that orchestrates generate→write→validate→commit→push.
+
+relatedFeatures: []
+
+technologies:
+  - "Python 3.11+ standard library (pathlib, built-in file I/O, encoding handling)"
+  - "CrewAI (LLM orchestration framework, provides abstraction over multiple LLM providers)"
+  - "Anthropic Claude API (via CrewAI's LLM factory, requires ANTHROPIC_API_KEY environment variable)"
+  - "Git (version control, staging, commits, push with upstream tracking)"
+  - "Markdown CommonMark syntax (H1 heading + 2-3 sentences prose format)"
+  - "sheep.content_generators module (existing helper functions for markdown workflow)"
+  - "sheep.tools module (GitCommitTool, GitPushTool for git operations)"
+  - "sheep.observability.logging module (structured logging via get_logger())"
+
+relatedLinks:
+  - title: "Sheep Platform README"
+    url: "file:///README.md"
+  - title: "Content Generators Module"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "Feature 127 Implementation (Recent Pattern Reference)"
+    url: "file:///src/sheep/features/feature_127_markdown_file_creation.py"
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "Anthropic Claude API"
+    url: "https://docs.anthropic.com/claude/reference/getting-started-with-the-api"
+
+decisions:
+  - title: "Content Generation Method"
+    chosen: "LLM-generated (Claude API via CrewAI)"
+    rejected:
+      - "Static predefined text — breaks established pattern from 130+ features, provides no content variety, simpler but inconsistent with project conventions"
+      - "Random template combinations — less coherent, not established in pattern, adds complexity without benefit"
+    rationale: >
+      LLM-generated content is the correct choice because all 130+ preceding markdown-file-creation features
+      (001-132) use Claude API for content generation via CrewAI's LLM abstraction. The content_generators.py
+      module already implements generate_markdown_content() with proper prompt engineering, error handling, and
+      validation. This approach provides content variety, leverages existing infrastructure with zero modifications,
+      and maintains consistency across the feature suite. The ~2-3 second API latency is acceptable for a Small-sized feature.
+
+  - title: "File Location Strategy"
+    chosen: "Repository root directory"
+    rejected:
+      - "Subdirectory (e.g., /test-files or /markdown-tests) — all 130+ test markdown files from features 001-132 are located at repository root; changing location would break the established pattern, require infrastructure changes across 130+ features, and necessitate modifications to content_generators.py's write_markdown_file() function"
+      - "Feature-specific subdirectory under /src/sheep/features — violates separation of concerns; features produce artifacts (markdown files) at repository root, not in source code directory"
+    rationale: >
+      Repository root location is the correct choice because features 001-132 established a clear precedent:
+      all test markdown files (test-*.md) are created at the repository root via Path.cwd() in write_markdown_file().
+      Changing this location would require modifications to the content generation pipeline and break consistency.
+      The established pattern is proven to work across 130+ features and should not be altered for a single feature.
+
+  - title: "File Size Validation Approach"
+    chosen: "Lenient guideline (approximately 400-600 bytes, allow natural variation)"
+    rejected:
+      - "Strict enforcement (exact byte count within narrow range) — LLM-generated content naturally varies in length due to model sampling and prompt randomness; strict validation would cause fragile failures for valid, coherent content; breaks established pattern from features 001-132"
+      - "No size validation — reduces quality assurance; file size is a useful proxy for content completeness and presence of required elements (heading + prose)"
+    rationale: >
+      The guideline approach is correct because LLM-generated markdown content inherently varies in length.
+      The generate_markdown_content() function uses a reasoning LLM with temperature=0.2 (low temperature
+      for consistency) but prose length still varies naturally based on sentence structure and word choice.
+      A ~400-600 byte guideline accommodates this natural variation while ensuring content is substantial
+      (ruling out near-empty or minimal files). The established pattern from features 001-132 treats 400-600
+      as a guideline, not a hard constraint, and validate_markdown_file() enforces more important properties
+      (heading presence, sentence count, encoding, line endings) rather than byte count.
+
+  - title: "Module Execution Modes"
+    chosen: "Dual support (standalone executable + importable module)"
+    rejected:
+      - "Import-only (no standalone execution) — limits flexibility, breaks established pattern where all feature modules (001-127) support 'python -m src.sheep.features.feature_XXX' execution; reduces CLI usability"
+      - "Standalone-only (no imports) — defeats modularity and reusability; prevents programmatic access and integration into larger workflows; unnecessarily restrictive"
+    rationale: >
+      Dual support is the correct choice because all feature modules from 001-127 implement both execution modes:
+      they define a create_feature_XXX_markdown_file() function that is importable AND include a __main__ guard
+      that allows standalone execution. This pattern provides flexibility for both CLI workflows (python -m)
+      and programmatic access (from src.sheep.features.feature_133_markdown_file_creation import create_feature_133_markdown_file).
+      The feature_127 implementation demonstrates this pattern clearly and should be followed exactly.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Content Generation Method: LLM-Generated via Claude API
+
+  **Chosen:** LLM-generated markdown content using Claude API through CrewAI's LLM factory
+
+  **Rejected:**
+  - Static predefined text — breaks established pattern from 130+ features, provides no variety
+  - Random template combinations — less coherent, adds complexity without established precedent
+
+  **Rationale:**
+  All 130+ preceding markdown-file-creation features use Claude API for content generation via CrewAI's
+  LLM abstraction layer. The existing content_generators.py module provides:
+  - `generate_markdown_content()` — orchestrates LLM call with proper prompt engineering
+  - Validation of generated content format (H1 heading, 2-3 sentences, reasonable length)
+  - Support for multiple LLM providers (OpenAI, Anthropic, Google, Cursor) via LLM factory
+
+  **Implementation Details:**
+  - Uses `get_reasoning_llm()` from sheep.config.llm, configured with temperature=0.2 for consistency
+  - Prompt template in MARKDOWN_GENERATION_PROMPT requests H1 heading + 2-3 sentences
+  - LLM response is extracted, validated, and trailing newline ensured
+  - API latency (~2-3 seconds) is acceptable for a Small-sized feature
+
+  **Dependencies:**
+  - Anthropic Claude API access (via ANTHROPIC_API_KEY environment variable)
+  - CrewAI framework (already a project dependency, provides LLM abstraction)
+  - No modifications to content_generators.py needed
+
+  ### 2. File Location: Repository Root Directory
+
+  **Chosen:** Repository root directory (alongside 130+ existing test-*.md files)
+
+  **Rejected:**
+  - Subdirectory (/test-files, /markdown-tests) — breaks established pattern, requires infrastructure changes
+  - Feature source directory (/src/sheep/features) — violates separation of concerns
+
+  **Rationale:**
+  Features 001-132 established a clear convention: all test markdown files are created at the repository root
+  using `Path.cwd()` in the write_markdown_file() function. This location is hardcoded into the existing
+  content generation pipeline and changing it would require modifications to content_generators.py.
+
+  **Implementation Details:**
+  - write_markdown_file() function uses `repo_root = Path.cwd()` to resolve repository root
+  - Filename must be safe (no path traversals, no slashes)
+  - File created via `open(file_path, "w", encoding="utf-8")`
+  - File existence and non-empty state verified after write
+
+  **Dependencies:**
+  - Write access to repository root (standard in feature branch workflows)
+  - No directory creation needed (repository root already exists)
+
+  ### 3. File Size Validation: Lenient Guideline (400-600 bytes)
+
+  **Chosen:** Treat 400-600 bytes as a guideline, allow natural variation due to LLM-generated content
+
+  **Rejected:**
+  - Strict byte count enforcement — would cause fragile failures for valid content
+  - No size validation — reduces quality assurance
+
+  **Rationale:**
+  LLM-generated content inherently varies in length due to model sampling, word choice, and sentence structure.
+  Even with low temperature (0.2), prose length varies naturally. The established pattern from features 001-132
+  treats 400-600 as guidance for expected file size, not a hard constraint.
+
+  **Implementation Details:**
+  - validate_markdown_file() checks more important properties than byte count:
+    - H1 heading presence and format
+    - Blank line separator after heading
+    - Exactly 2-3 sentences (counted by periods)
+    - UTF-8 encoding without BOM
+    - Unix LF line endings (no CRLF)
+    - Trailing newline
+  - File size is logged but not used as a validation failure criterion
+  - Guideline of 400-600 bytes is enforced at feature spec level, not in code
+
+  ### 4. Module Execution: Dual Support (Standalone + Importable)
+
+  **Chosen:** Support both standalone execution and module import
+
+  **Rejected:**
+  - Import-only — reduces flexibility, breaks established pattern
+  - Standalone-only — limits modularity and reusability
+
+  **Rationale:**
+  All feature modules from 001-127 support dual execution modes. This provides flexibility for different usage patterns:
+  - Programmatic/API access: `from src.sheep.features.feature_133_markdown_file_creation import create_feature_133_markdown_file`
+  - CLI execution: `python -m src.sheep.features.feature_133_markdown_file_creation`
+  - Integration into larger workflows or agents
+
+  **Implementation Details:**
+  - Define `create_feature_133_markdown_file(repo_path: str | None = None)` as the public function
+  - Include `if __name__ == "__main__":` guard to enable standalone execution
+  - Standalone mode calls the main function and prints results
+  - Return value is a dictionary with filepath, content, commit_message, push_result
+
+  **Pattern Reference:**
+  Feature 127 (feature_127_markdown_file_creation.py) demonstrates this pattern exactly and should be copied with
+  only feature number and filename changes.
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | Cross-platform file path handling, repository root resolution | **Use** | Standard library, already used in content_generators.py, provides Path.cwd() for repo root detection |
+  | CrewAI | LLM orchestration and abstraction over multiple providers | **Use** | Existing project dependency, provides get_reasoning_llm() factory, handles API key management and retry logic |
+  | Anthropic SDK | Claude API access (via CrewAI) | **Use** | Configured through CrewAI's LLM factory, accessed via get_reasoning_llm() which reads ANTHROPIC_API_KEY |
+  | sheep.content_generators | Orchestration module with helper functions | **Use (no modifications)** | Provides all needed functions: generate_markdown_content(), write_markdown_file(), validate_markdown_file(), commit_markdown_file(), push_markdown_file() |
+  | sheep.tools (GitCommitTool, GitPushTool) | Git operations for staging, committing, pushing | **Use** | Already implemented, supports conventional commits and upstream tracking |
+  | sheep.observability.logging | Structured logging with get_logger() | **Use** | Provides logger instance with info/debug/error levels, used at each step for observability |
+  | sheep.config.llm (get_reasoning_llm) | LLM factory for reasoning tasks | **Use** | Configured with appropriate temperature (0.2) for content generation consistency |
+
+  ## Security Considerations
+
+  ### File Encoding and Line Endings
+  - **UTF-8 without BOM** — ensures cross-platform compatibility and prevents encoding issues
+  - **Unix LF line endings** — enforced in write_markdown_file() and validated in validate_markdown_file()
+  - **No path traversal vulnerability** — filename validation in write_markdown_file() prevents directory traversal attacks
+
+  ### Git Operations
+  - **Conventional commit format** — feature_XXX number included in message, allows traceability
+  - **Upstream tracking** — push with -u flag enables pull/fetch operations
+  - **File staging** — only the specific markdown file is staged (add_all=True in commit_markdown_file)
+
+  ### API Security
+  - **API key management** — ANTHROPIC_API_KEY is managed through environment variables by sheep.config.llm
+  - **No hardcoded credentials** — LLM factory handles secret retrieval via get_secret_value()
+  - **No sensitive data in commit messages** — commit message format is fixed, no variable data leaked
+
+  ### File System
+  - **Safe filename validation** — no slashes or path traversal sequences allowed in filename
+  - **Existing file handling** — write_markdown_file() will overwrite existing files (expected behavior)
+  - **Permission requirements** — requires write access to repository root (standard in feature branches)
+
+  ## Performance Considerations
+
+  ### LLM API Latency
+  - **Expected latency** — ~2-3 seconds for Claude API call (via get_reasoning_llm with temperature=0.2)
+  - **Total execution time** — feature spec estimates 10-15 minutes for complete development; API latency is acceptable
+  - **Retry logic** — CrewAI's LLM factory handles transient failures with automatic retries
+  - **No optimization needed** — latency is inherent to LLM-based content generation
+
+  ### File I/O Performance
+  - **Small file size** — test-fsakw9.md is ~400-600 bytes, negligible I/O cost
+  - **Sequential operations** — generate → write → validate → commit → push executed in sequence (no parallelization possible)
+  - **No caching needed** — single file operation, no repeated access patterns
+
+  ### Git Operations Performance
+  - **Single commit** — one git add and git commit per feature execution
+  - **Single push** — one push to remote origin with upstream tracking
+  - **No merge/rebase** — feature branch is isolated, no merge complexity
+  - **Total time** — git operations contribute ~1-2 seconds, negligible compared to LLM latency
+
+  ### Memory Usage
+  - **Content buffer** — ~1 KB for markdown content and metadata (negligible)
+  - **LLM response** — CrewAI handles response parsing and cleanup automatically
+  - **No memory leaks** — functions are stateless, no persistent data structures
+
+  ## Architecture Notes
+
+  ### Design Pattern: Established Feature Module Pattern
+  Feature 133 follows the proven pattern from features 001-132:
+
+  ```
+  create_feature_XXX_markdown_file(repo_path=None) -> dict[str, str]
+      ├─ Generate markdown content (LLM)
+      ├─ Write file to disk (pathlib + file I/O)
+      ├─ Validate file (comprehensive checks)
+      ├─ Stage and commit (git tools)
+      └─ Push to remote (git tools)
+  ```
+
+  ### Integration Points
+  - **Uses content_generators.py exclusively** — no modifications to other modules
+  - **Imports from sheep.content_generators** — generate_markdown_content, write_markdown_file, validate_markdown_file, commit_markdown_file, push_markdown_file
+  - **Uses sheep.observability.logging** — get_logger() for structured logging at each step
+  - **No dependencies on agents or flows** — this is a standalone feature module, not a Crew agent
+  - **Git repository context** — assumes repository root is cwd (standard for feature branch workflows)
+
+  ### Module Structure (copy from feature 127)
+  ```
+  src/sheep/features/feature_133_markdown_file_creation.py:
+  ├─ Module docstring (feature number, filename, purpose)
+  ├─ Imports (pathlib, content_generators, logging)
+  ├─ Feature metadata constants (FEATURE_NUMBER=133, MARKDOWN_FILENAME="test-fsakw9.md")
+  ├─ create_feature_133_markdown_file() function
+  │  ├─ Docstring (parameters, return type, exceptions)
+  │  └─ Logging at each step (5 tasks: generate, write, validate, commit, push)
+  └─ __main__ guard (for standalone execution)
+  ```
+
+  ### Reuse and Consistency
+  - **No utility code needed** — content_generators.py provides all required functionality
+  - **Copy-paste pattern** — feature_127 is a template for feature_133; only change: FEATURE_NUMBER, MARKDOWN_FILENAME, function name
+  - **Established conventions** — docstring format, logging structure, error handling all match features 001-132
+  - **No configuration needed** — feature works with environment variable LLM credentials set up by sheep.config
+
+  ### Error Handling
+  - **Propagate exceptions** — ValueError and IOError from file operations, Exception from git/LLM operations
+  - **Logging of errors** — each step logs errors with _logger.error()
+  - **No recovery logic** — feature is atomic; if any step fails, the operation fails (expected behavior)
+
+  ### Testing Implications
+  - **No unit tests required** — feature type 133 follows the same pattern as 001-132, all tested via integration
+  - **Validation is built-in** — validate_markdown_file() checks all specification requirements
+  - **Manual verification** — success criteria check: file exists, git commit present, push completed
+
+  ## Implementation Checklist (Summary)
+
+  - [ ] Create feature module: `src/sheep/features/feature_133_markdown_file_creation.py`
+  - [ ] Copy template from feature_127, update: FEATURE_NUMBER=133, MARKDOWN_FILENAME="test-fsakw9.md"
+  - [ ] Implement create_feature_133_markdown_file(repo_path=None) function with 5 tasks
+  - [ ] Add logging at each step using get_logger()
+  - [ ] Include __main__ guard for standalone execution
+  - [ ] Verify imports work: content_generators, logging, pathlib
+  - [ ] Test: python -m src.sheep.features.feature_133_markdown_file_creation
+  - [ ] Verify: test-fsakw9.md created at repository root with proper format
+  - [ ] Verify: git commit message format: "feat(133): create markdown file test-fsakw9.md with prose content"
+  - [ ] Verify: file passes validate_markdown_file() checks
+  - [ ] Verify: file pushed to remote origin with upstream tracking
+
+  ---
+
+  _Research phase complete — technology decisions documented with clear rationale, library analysis performed, security and performance considerations identified. Ready for implementation planning._
