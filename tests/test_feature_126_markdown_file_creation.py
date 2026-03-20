@@ -23,6 +23,7 @@ from sheep.content_generators import (
 from sheep.features.feature_126_markdown_file_creation import (
     FEATURE_NUMBER,
     MARKDOWN_FILENAME,
+    create_feature_126_markdown_file,
 )
 
 
