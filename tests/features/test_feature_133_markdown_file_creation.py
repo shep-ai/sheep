@@ -157,7 +157,7 @@ class TestGitWorkflowCompletion:
             "sheep.features.feature_133_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
         ):
-            result = create_feature_133_markdown_file()
+            create_feature_133_markdown_file()
 
         try:
             log_output = subprocess.check_output(
@@ -180,7 +180,7 @@ class TestGitWorkflowCompletion:
             "sheep.features.feature_133_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
         ):
-            result = create_feature_133_markdown_file()
+            create_feature_133_markdown_file()
 
         try:
             status_output = subprocess.check_output(
