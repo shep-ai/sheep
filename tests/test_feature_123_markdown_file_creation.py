@@ -14,6 +14,8 @@ from sheep.content_generators import (
 from sheep.feature_123_markdown_file_creation import (
     task_2_generate_markdown_content,
     task_3_write_markdown_file_to_disk,
+    task_4_commit_changes,
+    task_5_push_changes,
     main,
 )
 
@@ -199,12 +201,117 @@ class TestTask3WriteMarkdownFileToDisk:
                 os.chdir(original_cwd)
 
 
+class TestTask4CommitChanges:
+    """Task 4: Stage and commit the markdown file with conventional message."""
+
+    @patch("sheep.feature_123_markdown_file_creation.commit_markdown_file")
+    def test_task4_calls_commit_markdown_file(self, mock_commit):
+        """Test that task_4_commit_changes calls commit_markdown_file."""
+        mock_commit.return_value = "Committed: feat(123): Create markdown file test-b3x0s1.md with prose content (#192)"
+
+        filepath = "/tmp/test-b3x0s1.md"
+        content = "# Test\n\nFirst sentence. Second sentence. Third sentence.\n"
+
+        result = task_4_commit_changes(filepath, content)
+
+        # Verify that commit_markdown_file was called
+        assert mock_commit.called
+        assert isinstance(result, str)
+
+    @patch("sheep.feature_123_markdown_file_creation.commit_markdown_file")
+    def test_task4_uses_correct_commit_message(self, mock_commit):
+        """Test that task_4_commit_changes uses the exact required commit message."""
+        mock_commit.return_value = "Committed"
+
+        filepath = "/tmp/test-b3x0s1.md"
+        content = "# Test\n\nFirst sentence. Second sentence. Third sentence.\n"
+
+        task_4_commit_changes(filepath, content)
+
+        # Verify the correct commit message was passed
+        expected_message = "feat(123): Create markdown file test-b3x0s1.md with prose content (#192)"
+        call_args = mock_commit.call_args
+        assert call_args is not None
+        assert call_args.kwargs["custom_message"] == expected_message
+
+    @patch("sheep.feature_123_markdown_file_creation.commit_markdown_file")
+    def test_task4_returns_commit_result(self, mock_commit):
+        """Test that task_4_commit_changes returns the commit result message."""
+        expected_result = "Committed: feat(123): Create markdown file test-b3x0s1.md with prose content (#192)"
+        mock_commit.return_value = expected_result
+
+        filepath = "/tmp/test-b3x0s1.md"
+        content = "# Test\n\nFirst sentence. Second sentence. Third sentence.\n"
+
+        result = task_4_commit_changes(filepath, content)
+
+        assert result == expected_result
+
+    @patch("sheep.feature_123_markdown_file_creation.commit_markdown_file")
+    def test_task4_raises_on_commit_failure(self, mock_commit):
+        """Test that task_4_commit_changes raises exception if commit fails."""
+        mock_commit.side_effect = Exception("Git config missing")
+
+        filepath = "/tmp/test-b3x0s1.md"
+        content = "# Test\n\nFirst sentence. Second sentence. Third sentence.\n"
+
+        with pytest.raises(Exception):
+            task_4_commit_changes(filepath, content)
+
+
+class TestTask5PushChanges:
+    """Task 5: Push committed changes to remote origin."""
+
+    @patch("sheep.feature_123_markdown_file_creation.push_markdown_file")
+    def test_task5_calls_push_markdown_file(self, mock_push):
+        """Test that task_5_push_changes calls push_markdown_file."""
+        mock_push.return_value = "Pushed to origin/feat/123-markdown-file-creation-55cdca"
+
+        result = task_5_push_changes()
+
+        # Verify that push_markdown_file was called
+        assert mock_push.called
+        assert isinstance(result, str)
+
+    @patch("sheep.feature_123_markdown_file_creation.push_markdown_file")
+    def test_task5_pushes_to_origin_remote(self, mock_push):
+        """Test that task_5_push_changes pushes to origin remote."""
+        mock_push.return_value = "Pushed"
+
+        task_5_push_changes()
+
+        # Verify the correct remote was specified
+        call_args = mock_push.call_args
+        assert call_args is not None
+        assert call_args.kwargs["remote"] == "origin"
+
+    @patch("sheep.feature_123_markdown_file_creation.push_markdown_file")
+    def test_task5_returns_push_result(self, mock_push):
+        """Test that task_5_push_changes returns the push result message."""
+        expected_result = "Pushed to origin/feat/123-markdown-file-creation-55cdca"
+        mock_push.return_value = expected_result
+
+        result = task_5_push_changes()
+
+        assert result == expected_result
+
+    @patch("sheep.feature_123_markdown_file_creation.push_markdown_file")
+    def test_task5_raises_on_push_failure(self, mock_push):
+        """Test that task_5_push_changes raises exception if push fails."""
+        mock_push.side_effect = Exception("Network error")
+
+        with pytest.raises(Exception):
+            task_5_push_changes()
+
+
 class TestMainOrchestration:
     """Integration tests for main() orchestration function."""
 
+    @patch("sheep.feature_123_markdown_file_creation.push_markdown_file")
+    @patch("sheep.feature_123_markdown_file_creation.commit_markdown_file")
     @patch("sheep.content_generators.get_reasoning_llm")
-    def test_main_orchestrates_task2_and_task3(self, mock_get_llm):
-        """Test that main() successfully orchestrates task 2 and task 3."""
+    def test_main_orchestrates_all_tasks(self, mock_get_llm, mock_commit, mock_push):
+        """Test that main() successfully orchestrates all tasks 2-5."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
             try:
@@ -217,6 +324,10 @@ class TestMainOrchestration:
                 }
                 mock_get_llm.return_value = mock_llm
 
+                # Mock git operations
+                mock_commit.return_value = "Committed"
+                mock_push.return_value = "Pushed"
+
                 # Execute main()
                 result = main()
 
@@ -224,6 +335,8 @@ class TestMainOrchestration:
                 assert isinstance(result, dict)
                 assert "content" in result
                 assert "filepath" in result
+                assert "commit_result" in result
+                assert "push_result" in result
 
                 # Verify file was created
                 assert Path(result["filepath"]).exists()
@@ -231,11 +344,17 @@ class TestMainOrchestration:
                 # Verify content matches
                 file_content = Path(result["filepath"]).read_text(encoding="utf-8")
                 assert file_content == result["content"]
+
+                # Verify git operations were called
+                assert mock_commit.called
+                assert mock_push.called
             finally:
                 os.chdir(original_cwd)
 
+    @patch("sheep.feature_123_markdown_file_creation.push_markdown_file")
+    @patch("sheep.feature_123_markdown_file_creation.commit_markdown_file")
     @patch("sheep.content_generators.get_reasoning_llm")
-    def test_main_returns_valid_file_path(self, mock_get_llm):
+    def test_main_returns_valid_file_path(self, mock_get_llm, mock_commit, mock_push):
         """Test that main() returns a valid file path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -247,6 +366,8 @@ class TestMainOrchestration:
                     "content": "# Valid Path\n\nThis should create a valid file path. The path is returned in the result. Everything works together."
                 }
                 mock_get_llm.return_value = mock_llm
+                mock_commit.return_value = "Committed"
+                mock_push.return_value = "Pushed"
 
                 result = main()
                 filepath = result["filepath"]

@@ -112,23 +112,98 @@ def task_3_write_markdown_file_to_disk(content: str) -> str:
         raise
 
 
+def task_4_commit_changes(filepath: str, content: str) -> str:
+    """
+    Task 4: Stage and commit the markdown file with conventional message.
+
+    This task calls the existing commit_markdown_file() function with the
+    exact commit message format specified in the feature requirements:
+    "feat(123): Create markdown file test-b3x0s1.md with prose content (#192)"
+
+    Args:
+        filepath: Full path to the markdown file to commit.
+        content: The markdown content (passed to commit_markdown_file).
+
+    Returns:
+        Result message from the git commit operation.
+
+    Raises:
+        ValueError: If git commit fails.
+        Exception: If git operations fail.
+    """
+    _logger.info(f"Feature {FEATURE_NUMBER} - Task 4: Committing changes to git")
+
+    try:
+        # Conventional commit message with feature number and exact filename
+        commit_message = f"feat({FEATURE_NUMBER}): Create markdown file {FILENAME} with prose content (#192)"
+
+        # Call the existing commit_markdown_file function with custom message
+        result = commit_markdown_file(
+            filepath=filepath,
+            content=content,
+            custom_message=commit_message,
+        )
+
+        _logger.info(
+            f"Task 4 complete: Committed {FILENAME} with message: {commit_message}"
+        )
+        return result
+
+    except Exception as e:
+        _logger.error(f"Task 4 failed: {e}")
+        raise
+
+
+def task_5_push_changes() -> str:
+    """
+    Task 5: Push committed changes to remote origin with upstream tracking.
+
+    This task calls the existing push_markdown_file() function which:
+    - Pushes the current branch to origin remote
+    - Sets upstream tracking with -u flag
+    - Returns push result status
+
+    Returns:
+        Result message from the git push operation.
+
+    Raises:
+        Exception: If git push fails (network error, auth error, etc.).
+    """
+    _logger.info(f"Feature {FEATURE_NUMBER} - Task 5: Pushing changes to remote origin")
+
+    try:
+        # Call the existing push_markdown_file function
+        result = push_markdown_file(remote="origin")
+
+        _logger.info(f"Task 5 complete: Pushed to remote origin")
+        return result
+
+    except Exception as e:
+        _logger.error(f"Task 5 failed: {e}")
+        raise
+
+
 def main() -> dict[str, str]:
     """
-    Execute phase 2 implementation: Content Generation & Validation.
+    Execute phase 4 implementation: Git Integration & Publishing.
 
-    This function orchestrates the two tasks:
+    This function orchestrates all five tasks:
     - Task 2: Generate markdown content
     - Task 3: Write to disk
+    - Task 4: Commit with git
+    - Task 5: Push to remote
 
     Returns:
         Dictionary with results:
         - content: The generated markdown content
         - filepath: Full path to the created file
+        - commit_result: Result from git commit operation
+        - push_result: Result from git push operation
 
     Raises:
-        Any exceptions from task 2 or task 3 are propagated to the caller.
+        Any exceptions from tasks 2-5 are propagated to the caller.
     """
-    _logger.info(f"Feature {FEATURE_NUMBER} - Phase 2: Content Generation & Validation")
+    _logger.info(f"Feature {FEATURE_NUMBER} - Phase 4: Git Integration & Publishing")
 
     try:
         # Execute task 2: Generate markdown content
@@ -137,15 +212,23 @@ def main() -> dict[str, str]:
         # Execute task 3: Write markdown file to disk
         filepath = task_3_write_markdown_file_to_disk(content)
 
-        _logger.info(f"Feature {FEATURE_NUMBER} - Phase 2 complete")
+        # Execute task 4: Commit changes to git
+        commit_result = task_4_commit_changes(filepath, content)
+
+        # Execute task 5: Push changes to remote origin
+        push_result = task_5_push_changes()
+
+        _logger.info(f"Feature {FEATURE_NUMBER} - Phase 4 complete")
 
         return {
             "content": content,
             "filepath": filepath,
+            "commit_result": commit_result,
+            "push_result": push_result,
         }
 
     except Exception as e:
-        _logger.error(f"Feature {FEATURE_NUMBER} - Phase 2 failed: {e}")
+        _logger.error(f"Feature {FEATURE_NUMBER} - Phase 4 failed: {e}")
         raise
 
 
