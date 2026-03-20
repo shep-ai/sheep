@@ -1,0 +1,304 @@
+name: "markdown-file-creation-a884ea"
+summary: >
+  "Feature 133 creates a markdown file (test-mdvgli.md) by orchestrating existing utilities from
+  content_generators.py. This is a proven pattern replicated successfully in features 125-132.
+  No new code, architecture changes, or dependencies required. Implementation wraps existing
+  functions: LLM content generation → file write with validation → git workflow (add/commit/push)."
+
+relatedFeatures:
+  - "132: Create markdown file test-fz0c6t.md"
+  - "131: Create markdown file test-qoqhm7.md"
+  - "130: Create markdown file test-laceiq.md"
+  - "129: Create markdown file test-3pz04c.md"
+  - "128: Create markdown file test-zihquv.md"
+  - "127: Create markdown file test-xkd1zo.md"
+  - "121: Create markdown file test-a6pcqm.md"
+
+technologies:
+  - "Python"
+  - "CrewAI"
+  - "Anthropic Claude API"
+  - "Git"
+  - "Markdown"
+  - "Pathlib"
+
+relatedLinks:
+  - title: "Content Generators Module"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "Feature 127 Implementation Reference"
+    url: "file:///src/sheep/features/feature_127_markdown_file_creation.py"
+  - title: "Git Tools"
+    url: "file:///src/sheep/tools/git_tools.py"
+  - title: "Conventional Commits"
+    url: "https://www.conventionalcommits.org/"
+
+phases:
+  - id: "phase-1"
+    name: "Feature Module Creation"
+    description: >
+      "Create src/sheep/features/feature_133_markdown_file_creation.py as a thin wrapper module.
+      This provides feature discoverability and structure while reusing all complexity from
+      content_generators.py. Mirrors the established pattern from features 125-132."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Implementation & Integration"
+    description: >
+      "Implement the create_feature_133_markdown_file() orchestration function that calls
+      create_markdown_file() from content_generators.py with appropriate parameters. Define
+      feature constants (number, name, filename). Ensure proper error handling and logging."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Testing & Validation"
+    description: >
+      "Write unit tests verifying file creation, content format, encoding, and git workflow.
+      Execute the feature to generate test-mdvgli.md with LLM-generated content. Validate
+      output using existing validation functions."
+    parallel: false
+
+  - id: "phase-4"
+    name: "Git Integration & Completion"
+    description: >
+      "Verify git workflow: file is staged, commit message is conventional format, and push
+      to feature branch succeeds. Confirm no errors logged during execution. Feature complete."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_133_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 133 follows the established utility centralization pattern from features 125-132:
+
+  ```
+  Feature Module (20-30 lines)
+       ↓
+       └─→ create_markdown_file() orchestrator
+            ├─→ generate_markdown_content() — LLM integration (CrewAI + Claude)
+            ├─→ write_markdown_file() — File I/O with UTF-8 + LF validation
+            ├─→ validate_markdown_file() — Format/encoding/structure checks
+            ├─→ commit_markdown_file() — Git add + commit (conventional format)
+            └─→ push_markdown_file() — Git push with upstream tracking
+  ```
+
+  **Key Pattern:** All complexity lives in content_generators.py (440 lines, battle-tested across
+  113+ markdown files). The feature module is merely a thin orchestration layer that:
+  1. Defines feature constants (number, name, filename)
+  2. Calls create_markdown_file() with appropriate parameters
+  3. Returns result and handles errors
+
+  This maximizes code reuse (0% duplication) while maintaining feature structure for discoverability.
+
+  ## Key Design Decisions
+
+  ### 1. Reuse Existing Content Generators Utilities
+
+  **Decision:** Import and call existing functions from src/sheep/content_generators.py rather
+  than implementing custom logic.
+
+  **Alternatives Considered:**
+  - Create new module with duplicated logic (rejected: violates DRY, adds maintenance burden)
+  - Inline implementation directly (rejected: loses separation of concerns, harder to test)
+
+  **Rationale:** Features 125-132 prove this pattern works reliably. The content_generators.py
+  module provides six key functions that encapsulate all complexity: content generation, file
+  writing, validation, and git operations. These functions have been validated across 113+
+  markdown files. Creating a thin orchestration layer provides feature structure while achieving
+  maximum code reuse.
+
+  **Evidence:** Feature 127 implementation (src/sheep/features/feature_127_markdown_file_creation.py)
+  demonstrates exactly this pattern: ~25 lines importing and calling create_markdown_file().
+
+  ### 2. LLM Content Generation via CrewAI + Anthropic Claude
+
+  **Decision:** Use existing get_reasoning_llm() factory function that returns CrewAI LLM with
+  Anthropic Claude backend (temperature=0.2 for deterministic outputs).
+
+  **Why This Approach:**
+  - Platform standardization: All features use CrewAI with Anthropic Claude
+  - Proven track record: generate_markdown_content() successfully generates 113+ markdown files
+  - Proper error handling: LLM framework catches API errors, timeouts, rate limits
+  - Structured logging: All LLM calls logged via sheep.observability.logging
+  - No configuration needed: LLM is pre-configured in src/sheep/config/llm.py
+
+  **Implementation:** Call generate_markdown_content(feature_name, markdown_filename) which:
+  1. Calls llm.call() with structured prompt requiring H1 heading + 2-3 sentences
+  2. Validates response format
+  3. Returns markdown content string
+
+  ### 3. File Writing with UTF-8 + LF Validation
+
+  **Decision:** Use existing write_markdown_file(filepath, content) which handles:
+  - UTF-8 encoding without BOM (Python built-in open with encoding='utf-8')
+  - LF line endings (automatic on Unix; no explicit newline parameter needed)
+  - Trailing newline enforcement
+  - Comprehensive validation of encoding/line-endings before writing
+
+  **Why This Approach:**
+  - Python's built-in open() correctly handles UTF-8 without BOM on Unix systems
+  - Existing function already validates file after writing
+  - Prevents edge cases (BOM, CRLF, missing newline) from reaching git stage
+  - Consistent with 125-132 pattern
+
+  **Details:**
+  ```python
+  # UTF-8 without BOM: Python default with encoding parameter
+  with open(filepath, 'w', encoding='utf-8') as f:
+      f.write(content)
+
+  # LF on Unix: Automatic (no explicit newline='')
+  # CRLF detection: validate_markdown_file() checks for \r\n and raises error
+  # BOM detection: validate_markdown_file() checks for EF BB BF bytes
+  ```
+
+  ### 4. Markdown Structure Validation
+
+  **Decision:** Use existing validate_markdown_file(filepath) which enforces:
+  1. File exists and is readable
+  2. No UTF-8 BOM
+  3. Valid UTF-8 encoding throughout
+  4. No CRLF line endings
+  5. First line is H1 heading ("# " prefix)
+  6. Blank separator line follows heading
+  7. 2-3 sentences of prose after separator
+  8. Proper sentence counting (period-delimited)
+  9. Trailing newline present
+
+  **Why This Approach:**
+  - Comprehensive validation catches format issues before git stage
+  - Existing function proven across 113+ markdown files
+  - Centralized validation prevents duplication
+  - Clear error messages for debugging
+  - Prevents git history pollution with invalid markdown
+
+  **Error Handling:** Raises ValueError with descriptive message for each validation failure.
+  Feature module catches and logs error appropriately.
+
+  ### 5. Git Workflow: Add → Commit → Push
+
+  **Decision:** Use existing commit_markdown_file() and push_markdown_file() which wrap
+  GitCommitTool and GitPushTool from src/sheep/tools/git_tools.py.
+
+  **Workflow:**
+  ```
+  1. commit_markdown_file(filepath, content, repo_path, custom_message)
+     - Calls GitCommitTool with message="feat(133): Create markdown file test-mdvgli.md"
+     - Stages file with: git add <filepath>
+     - Creates commit with: git commit -m <message>
+
+  2. push_markdown_file(repo_path)
+     - Calls GitPushTool with: git push -u origin <branch>
+     - Sets upstream tracking automatically
+  ```
+
+  **Why This Approach:**
+  - Platform standard: Existing tools used by features 125-132
+  - Proper error handling: Subprocess errors caught and logged
+  - Conventional commits: Message format enforced at tool level
+  - Idempotent: Tools handle branch detection automatically
+  - Logging: All git operations logged via observability framework
+
+  ### 6. Feature Module Structure
+
+  **Decision:** Create src/sheep/features/feature_133_markdown_file_creation.py with:
+  - Feature constants (FEATURE_NUMBER=133, FEATURE_NAME, MARKDOWN_FILENAME)
+  - Single orchestration function: create_feature_133_markdown_file(repo_path)
+  - Proper error handling and logging
+  - No duplicated logic from content_generators.py
+
+  **Module Structure (20-30 lines expected):**
+  ```python
+  import logging
+  from pathlib import Path
+  from src.sheep.content_generators import create_markdown_file
+  from src.sheep.config.llm import get_reasoning_llm
+
+  FEATURE_NUMBER = 133
+  FEATURE_NAME = "markdown-file-creation-a884ea"
+  MARKDOWN_FILENAME = "test-mdvgli.md"
+
+  logger = logging.getLogger(__name__)
+
+  def create_feature_133_markdown_file(repo_path: str) -> dict:
+      """Create feature 133 markdown file."""
+      try:
+          result = create_markdown_file(
+              feature_number=FEATURE_NUMBER,
+              feature_name=FEATURE_NAME,
+              markdown_filename=MARKDOWN_FILENAME,
+              repo_path=repo_path,
+              llm=get_reasoning_llm()
+          )
+          logger.info(f"Feature 133 completed: {result}")
+          return result
+      except Exception as e:
+          logger.error(f"Feature 133 failed: {e}")
+          raise
+  ```
+
+  **Why This Approach:**
+  - Matches features 125-132 pattern exactly
+  - Provides feature discoverability in src/sheep/features/ directory
+  - Minimal code: ~25 lines vs. duplicating 440+ lines from content_generators
+  - Clear separation of concerns: module orchestration vs. implementation details
+  - Easy to test and debug (one function, one responsibility)
+
+  ## Implementation Strategy
+
+  ### Phase Ordering Rationale
+
+  1. **Phase 1 (Feature Module Creation)** comes first because it defines the entry point and
+     constants. Must exist before implementation and testing can proceed.
+
+  2. **Phase 2 (Implementation & Integration)** comes second. With the module structure in place,
+     implement the orchestration function that calls existing utilities. This is the actual
+     feature implementation.
+
+  3. **Phase 3 (Testing & Validation)** comes third. Unit tests ensure the feature works end-to-end:
+     file is created, content is correct format, encoding is UTF-8 + LF, git commands succeed.
+
+  4. **Phase 4 (Git Integration & Completion)** comes last. Verify the git workflow is complete:
+     file is staged, conventional commit message created, pushed to feature branch.
+
+  ### Why This Order
+
+  - **Dependency chain:** Each phase depends on previous phase's completion
+  - **Testability:** Can't test (phase 3) before implementation (phase 2)
+  - **Execution:** Can't verify git state (phase 4) until feature actually runs (phase 3)
+  - **Follows TDD:** Red (tests) → Green (implementation) → Refactor → Integration
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | **LLM generation fails or returns invalid format** | Use existing generate_markdown_content() which validates response and retries on error. Fall back to structured prompt if needed. |
+  | **File write fails (permissions, disk space)** | write_markdown_file() handles I/O errors gracefully. Tests verify error handling paths. |
+  | **Encoding issues (BOM, CRLF present)** | validate_markdown_file() enforces UTF-8 without BOM and LF-only line endings. Validation happens before commit. |
+  | **Git operations fail (network, permissions)** | commit_markdown_file() and push_markdown_file() handle git errors. Logging captures exact failure reason. |
+  | **Feature module has import errors** | Unit tests import and call function, catching any module-level import issues early. |
+  | **Content doesn't meet requirements (wrong structure)** | validate_markdown_file() enforces H1 heading + blank line + 2-3 sentences structure before commit. |
+  | **Breaking changes in content_generators.py** | content_generators.py is stable across 125-132; any changes must maintain backward compatibility. |
+  | **Git workflow not idempotent** | Tools handle branch detection automatically; commit message is immutable across runs. |
+
+  ## Success Criteria
+
+  Implementation is complete when all of the following are true:
+
+  1. ✓ File test-mdvgli.md exists in repository root
+  2. ✓ File contains H1 heading (e.g., "# Title")
+  3. ✓ File contains exactly 2-3 sentences of prose
+  4. ✓ File has UTF-8 encoding without BOM
+  5. ✓ File has LF line endings (not CRLF)
+  6. ✓ validate_markdown_file() passes all checks
+  7. ✓ File is staged: git add test-mdvgli.md
+  8. ✓ Conventional commit: "feat(133): Create markdown file test-mdvgli.md"
+  9. ✓ Commit pushed to feature branch (feat/133-markdown-file-creation-a884ea)
+  10. ✓ No errors logged during entire workflow
+
+  All success criteria verified by existing validation functions and git status checks.
