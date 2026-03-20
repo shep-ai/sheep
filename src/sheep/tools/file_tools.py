@@ -1,6 +1,5 @@
 """File operation tools for agents."""
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -45,7 +44,7 @@ class FileReadTool(BaseTool):
             return f"Error: Path is not a file: {file_path}"
 
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(path, encoding="utf-8", errors="replace") as f:
                 lines = f.readlines()
 
             if start_line is not None or end_line is not None:

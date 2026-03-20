@@ -2,7 +2,6 @@
 
 import subprocess
 from pathlib import Path
-from typing import Any
 
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
