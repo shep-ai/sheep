@@ -1,0 +1,319 @@
+name: "test-markdown-file-407ea4"
+
+summary: >
+  Implementation strategy for feature 131: Create a markdown file (test-8yajvp.md)
+  with H1 heading and 2-3 sentences of prose. The feature follows the established
+  pattern from features 125-130, orchestrating existing content generation, file I/O,
+  and git operation helpers. No architectural changes required; implementation is ~30
+  lines of Python coordinating proven components. Single phase approach due to tight
+  dependencies between steps (generate → write → validate → commit → push).
+
+relatedFeatures:
+  - "130: Create markdown file test-laceiq.md"
+  - "129: Create markdown file test-3pz04c.md"
+  - "128: Create markdown file test-zihquv.md"
+  - "127: Create markdown file test-xkd1zo.md"
+
+technologies:
+  - "Python (pathlib, file I/O)"
+  - "CrewAI (LLM framework)"
+  - "Claude API (content generation)"
+  - "Git (version control via subprocess)"
+  - "Markdown (text format)"
+
+relatedLinks:
+  - title: "Sheep Repository Architecture"
+    url: "https://github.com/anthropics/sheep"
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+
+phases:
+  - id: "phase-1"
+    name: "Feature Implementation & Validation"
+    description: >
+      Single phase covering the entire feature workflow: Generate markdown content
+      via LLM, write file to repository root with validation, stage and commit with
+      conventional format, push to feature branch. All steps are sequential with tight
+      dependencies (output of each step feeds into the next), so a single phase is
+      appropriate. No parallel work possible due to data flow requirements.
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_131_markdown_file.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 131 integrates seamlessly with the existing Sheep platform architecture by
+  leveraging established helper functions and patterns from features 125-130. The
+  implementation is pure orchestration:
+
+  ```
+  generate_markdown_content()
+    ↓ (H1 heading + 2-3 sentences)
+  write_markdown_file()
+    ↓ (write to test-8yajvp.md)
+  validate_markdown_file()
+    ↓ (verify format/encoding/line endings)
+  commit_markdown_file()
+    ↓ (stage + commit with feat(131): message)
+  push_markdown_file()
+    ↓ (push to remote)
+  return results
+  ```
+
+  ### Module Organization
+
+  The implementation lives in `src/sheep/features/feature_131_markdown_file.py` following
+  the naming convention established in prior features. The module exports a single
+  orchestration function: `create_feature_131_markdown_file(repo_path=None)`.
+
+  ### No Architectural Changes
+
+  This feature requires zero modifications to the core platform because:
+  - All helper functions exist and are proven (features 125-130)
+  - No new dependencies introduced
+  - No changes to sheep.tools, sheep.content_generators, or any core modules
+  - Error handling and logging use existing infrastructure
+  - Git integration uses established subprocess patterns (no new git tools)
+
+  ## Key Design Decisions
+
+  ### 1. Content Generation: LLM-Based (Selected)
+
+  **Chosen:** Use existing `generate_markdown_content()` function from
+  `sheep.content_generators` module, which uses Claude API via CrewAI.
+
+  **Why:**
+  - Proven in features 125-127; generates natural, coherent prose
+  - Creates variety across 131+ test files without management overhead
+  - Spec explicitly resolves openQuestion #2: "Implementation chooses content"
+  - Integrates with existing LLM configuration and API infrastructure
+  - Validates output format before returning (checks H1, sentence count)
+
+  **Alternatives rejected:**
+  - Static prose: Reduces file variety; doesn't exercise LLM integration
+  - Template-based: Adds complexity when proven LLM approach already exists
+  - Content rotation: Configuration overhead without clear benefit
+
+  ### 2. File I/O: Existing write_markdown_file() Helper (Selected)
+
+  **Chosen:** Use `write_markdown_file()` from `sheep.content_generators` module.
+
+  **Why:**
+  - Validates filenames to prevent path traversal (checks for `/`, `\`, leading `.`)
+  - Enforces UTF-8 encoding with no BOM
+  - Verifies file existence and non-empty immediately after write
+  - Clear error messages with file path and size info
+  - Already tested in 6+ prior features
+
+  **Alternatives rejected:**
+  - Raw pathlib.Path.write_text(): More boilerplate; loses validation
+  - open() with manual handling: Error-prone; less Pythonic
+  - Third-party libraries: Unnecessary dependency
+
+  ### 3. Validation: Immediate, Pre-Commit (Selected)
+
+  **Chosen:** Call `validate_markdown_file()` immediately after file write, before git operations.
+
+  **Validation checks performed:**
+  - H1 heading: Starts with `# ` (single space required)
+  - Blank line: Line 2 is empty (separator between heading and prose)
+  - Prose: Exactly 2-3 sentences (validated by period count)
+  - Encoding: Valid UTF-8, no BOM
+  - Line endings: LF (Unix), not CRLF
+  - Trailing newline: File ends with `\n`
+  - File exists: Actually on disk (not just returned path)
+
+  **Why early validation:**
+  - Spec explicitly resolves openQuestion #1: "Validate file creation"
+  - Detects I/O failures immediately, before expensive git operations
+  - Provides actionable error messages for diagnostics
+  - Aligns with NFR-1: "File creation must complete without errors; errors immediately visible"
+
+  **Alternatives rejected:**
+  - Validate after staging: Delays error detection; complicates recovery
+  - No validation: Risks undetected I/O failures; obscured error diagnosis
+
+  ### 4. Git Operations: Existing Tools (Selected)
+
+  **Chosen:** Use `commit_markdown_file()` and `push_markdown_file()` from
+  `sheep.tools.git_tools` module.
+
+  **Why:**
+  - Both functions already exist and are proven (features 125-130)
+  - Use subprocess.run() with check=True for immediate error detection
+  - No external dependencies (GitPython not used in codebase)
+  - Error handling is transparent (no retries or masking)
+  - Integrate seamlessly with existing git infrastructure
+
+  **Flow:**
+  1. `commit_markdown_file(feature_number=131, filename="test-8yajvp.md")`
+     - Stages with `git add`
+     - Creates commit with `feat(131): Create markdown file test-8yajvp.md`
+  2. `push_markdown_file()`
+     - Pushes to remote with `-u` upstream tracking
+
+  **Alternatives rejected:**
+  - Direct subprocess.run(): Reinvents wheel; duplicates existing tools
+  - GitPython: External dependency; codebase uses subprocess
+  - Manual git command strings: Error-prone; less maintainable
+
+  ### 5. Commit Message Format (Selected)
+
+  **Chosen:** `feat(131): Create markdown file test-8yajvp.md`
+
+  **Structure:**
+  - Type: `feat` (feature type per conventional commits)
+  - Scope: `131` (feature number for traceability)
+  - Subject: `Create markdown file test-8yajvp.md` (concise, descriptive)
+
+  **Why:**
+  - Follows conventional commits specification
+  - Consistent with git log from features 125-130
+  - Feature number enables cross-referencing with specs
+  - Subject stays under 50 characters (best practice)
+
+  **Alternatives rejected:**
+  - Generic format without feature number: Loses context
+  - Extended format with content topics: Violates subject line conventions
+  - Custom per-feature format: Unnecessary inconsistency
+
+  ### 6. Error Handling: Fail Fast (Selected)
+
+  **Chosen:** Fail immediately with clear error messages; no retry logic.
+
+  **Approach:**
+  - Exceptions propagate up with descriptive context
+  - Logging captures error details for troubleshooting
+  - No silent failures or recovery attempts
+  - Errors immediately visible to platform and user
+
+  **Why:**
+  - Spec explicitly resolves openQuestion #3: "Fail immediately with errors visible"
+  - Transient failures unlikely for simple local file + git operations
+  - Test features should expose issues clearly, not mask them
+  - Aligns with NFR-1 and NFR-4: immediate error visibility
+
+  **Alternatives rejected:**
+  - Retry logic: Adds complexity; hides systematic issues
+  - Partial success handling: Complex; masks underlying problems
+
+  ## Implementation Strategy
+
+  ### Phase 1: Feature Implementation & Validation
+
+  The single phase encompasses the entire feature because all steps form a tightly-coupled
+  data pipeline:
+
+  1. **Generate** markdown content via LLM
+  2. **Write** content to file with filename validation and UTF-8 encoding
+  3. **Validate** file format, encoding, line endings, prose structure
+  4. **Commit** file to git with conventional message format
+  5. **Push** to remote with upstream tracking
+
+  Each step depends on the previous step's output, making parallel execution impossible.
+  The sequential nature is not a limitation—it reflects the logical order of file
+  creation workflows.
+
+  ### Code Structure
+
+  ```python
+  # File: src/sheep/features/feature_131_markdown_file.py
+
+  FEATURE_NUMBER = 131
+  FEATURE_NAME = "test-markdown-file-407ea4"
+  MARKDOWN_FILENAME = "test-8yajvp.md"
+
+  def create_feature_131_markdown_file(repo_path=None):
+      """Main orchestration function."""
+      # Step 1: Generate content
+      # Step 2: Write file
+      # Step 3: Validate file
+      # Step 4: Commit
+      # Step 5: Push
+      # Return results dict
+  ```
+
+  ### Error Handling Strategy
+
+  Each step includes a try/except block with clear error messages:
+  - Content generation fails: "Failed to generate markdown content: {error}"
+  - File write fails: "Failed to write markdown file: {error}"
+  - Validation fails: "Markdown file validation failed: {reason}"
+  - Git operations fail: "Git operation failed: {error}"
+
+  All exceptions propagate up to the caller; no recovery attempts.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | LLM API timeout/failure | Exception caught and propagated with clear message; user can retry feature execution |
+  | File already exists (idempotence failure) | Git add will see it as modification; commit may fail if unstaged; clear error message indicates issue |
+  | Git push network failure | Tool handles with error message; user retries; no data loss |
+  | Encoding/format issues | Validation catches before commit; prevents malformed file in git |
+  | Path traversal via filename | write_markdown_file() validates filename; prevents attacks |
+  | Race conditions on file | File verified to exist immediately after write; narrow window; acceptable for this use case |
+  | Repository not initialized | Git operations will fail with clear message; acceptable (feature assumes valid repo) |
+
+  ## Security Considerations
+
+  ### Input Validation
+  - **Filename:** Validated by write_markdown_file() to prevent path traversal
+  - **Content:** Generated by LLM, not user-supplied; no injection vectors
+  - **Encoding:** Enforced UTF-8 with no BOM; prevents encoding-based attacks
+
+  ### File System Safety
+  - **Permissions:** Uses standard file I/O; inherits directory permissions
+  - **Race conditions:** File verified immediately after write; minimal exposure window
+
+  ### Git Operations
+  - **Command injection:** subprocess.run() uses list arguments (no shell=True)
+  - **Credentials:** Uses existing git SSH keys or configured auth; no credentials in code
+
+  ## Testing Strategy
+
+  ### Unit Test for Orchestration Function
+  - Mock generate_markdown_content() to return fixed valid content
+  - Mock write_markdown_file() to simulate file creation
+  - Mock validate_markdown_file() to return success
+  - Mock commit_markdown_file() and push_markdown_file()
+  - Assert orchestration function returns expected result dict
+
+  ### Integration Test (Manual Verification)
+  - Execute feature function against real repository
+  - Verify file exists at repository root
+  - Verify file contains H1 heading and 2-3 sentences
+  - Verify file is staged (in git status)
+  - Verify commit is in git log with correct message
+  - Verify remote repository reflects pushed commit
+
+  ## Dependencies & Prerequisites
+
+  **No new dependencies required.** All helper functions exist:
+  - `sheep.content_generators.generate_markdown_content()`
+  - `sheep.content_generators.write_markdown_file()`
+  - `sheep.content_generators.validate_markdown_file()`
+  - `sheep.tools.git_tools.commit_markdown_file()`
+  - `sheep.tools.git_tools.push_markdown_file()`
+
+  Existing CrewAI, Claude API, and git integrations handle all heavy lifting.
+
+  ## Success Criteria
+
+  Feature 131 is complete when:
+  1. File test-8yajvp.md exists in repository root
+  2. File contains exactly one H1 markdown heading (#)
+  3. File contains between 2-3 coherent sentences
+  4. File is valid markdown with proper encoding (UTF-8, LF line endings)
+  5. File is staged in git (appears in `git status`)
+  6. File is committed with message: "feat(131): Create markdown file test-8yajvp.md"
+  7. Commit is pushed to feature branch (feat/131-test-markdown-file-407ea4)
+  8. No unintended side effects (only test-8yajvp.md created)
