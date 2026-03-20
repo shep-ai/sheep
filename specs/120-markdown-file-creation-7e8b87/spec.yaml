@@ -12,7 +12,7 @@ summary: >
   as title and 2-3 sentences of prose content, following the well-established pattern of 100+ test files
   in the Sheep project. The implementation will use file I/O to create the markdown file, stage it
   in git, commit with a conventional commit message, and push to the feature branch.
-phase: Analysis
+phase: Requirements
 sizeEstimate: S
 
 # Relationships
@@ -41,7 +41,42 @@ technologies:
 relatedLinks: []
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: "Should the implementation validate that the created file meets success criteria (size, encoding, line endings), or trust that the write operation produces the correct file?"
+    resolved: true
+    options:
+      - option: "No post-write validation"
+        description: "Trust the Python write operation to produce correctly formatted UTF-8 LF output; skip validation checks. Keeps implementation simple (single write call), follows established pattern from features 099-119, and aligns with NFR-4 (straightforward imperative code with no validation)."
+        selected: true
+      - option: "Validate after write"
+        description: "After writing the file, verify encoding, line endings, size, and content format match requirements. Adds confidence but increases implementation complexity and contradicts the NFR-4 requirement for straightforward imperative code with no validation."
+        selected: false
+    selectionRationale: "No post-write validation is recommended because the straightforward write operation using pathlib.Path().write_text() produces UTF-8 LF output by default on Linux/Unix systems. Adding validation contradicts the established pattern (NFR-4) of simple imperative code with no validation. All 100+ existing test files were created without post-write validation, confirming this approach works reliably."
+    answer: "No post-write validation"
+
+  - question: "How should the implementation behave if test-96jjvi.md already exists in the repository root?"
+    resolved: true
+    options:
+      - option: "Overwrite existing file"
+        description: "Silently overwrite the file if it exists (standard pathlib.Path().write_text() behavior). Follows the imperative file-creation approach, consistent with how all previous similar features handle files."
+        selected: true
+      - option: "Raise error if exists"
+        description: "Check for file existence first and raise an error if found. More defensive but adds complexity and assumes file should not exist, which may not reflect real-world usage patterns."
+        selected: false
+    selectionRationale: "Overwrite is recommended because write_text() naturally overwrites by default, the implementation uses straightforward imperative code (no existence checks per NFR-4), and this matches the behavior of all previous markdown-file-creation features (099-119). The feature description does not prohibit overwriting, and defensive checking contradicts the imperative pattern."
+    answer: "Overwrite existing file"
+
+  - question: "Should the prose content be hand-written by the implementation author or generated from a template?"
+    resolved: true
+    options:
+      - option: "Hand-written prose"
+        description: "The implementation author writes specific, coherent prose content about a chosen topic. Each file has unique, meaningful content. Follows established practice from features 099-119, produces human-readable output, simple to implement."
+        selected: true
+      - option: "Template-generated prose"
+        description: "Use a template or template system to generate prose content automatically (e.g., template substitution or generation logic). More scalable for many files but adds implementation complexity and deviates from all 100+ existing test files."
+        selected: false
+    selectionRationale: "Hand-written prose is recommended because all 100+ existing test files and all 19 previous markdown-file-creation features (099-119) use hand-written content specific to each file. The pattern is established and proven. Template generation would be a significant departure from established practice and would add unnecessary complexity contrary to the straightforward imperative approach required by NFR-4."
+    answer: "Hand-written prose"
 
 # Markdown content (the actual spec)
 content: |
@@ -73,9 +108,9 @@ content: |
 
   ## Functional Requirements
 
-  - **FR-1**: Create a markdown file named `test-96jjvi.md` in the repository root directory
-  - **FR-2**: File must contain a single H1 markdown heading as the title (format: `# [Title]`)
-  - **FR-3**: File must contain 2-3 sentences of prose content following the heading
+  - **FR-1**: Create a markdown file named `test-96jjvi.md` in the repository root directory using Python pathlib file I/O
+  - **FR-2**: File must contain a single H1 markdown heading as the title in format `# [Title]`
+  - **FR-3**: File must contain 2-3 sentences of coherent prose content following the heading, separated by blank line
   - **FR-4**: Stage the created file to git using `git add test-96jjvi.md`
   - **FR-5**: Create a git commit with conventional commit message: `feat(120): Create markdown file test-96jjvi.md with prose content`
   - **FR-6**: Push the commit to the feature branch `feat/120-markdown-file-creation-7e8b87` using `git push`
@@ -85,57 +120,19 @@ content: |
   - **NFR-1**: File encoding must be UTF-8 without BOM, consistent with established pattern from features 099-119
   - **NFR-2**: Line endings must be LF (Unix-style), not CRLF or CR
   - **NFR-3**: File size should be approximately 300-600 bytes, following the pattern of 100+ existing test files
-  - **NFR-4**: Implementation must follow straightforward imperative code pattern: create content string, write to file (no validation)
+  - **NFR-4**: Implementation must follow straightforward imperative code pattern: create content string, write to file (no validation, no edge-case handling, no defensive checks)
   - **NFR-5**: Implementation must not modify source code, configuration files, or test files
-  - **NFR-6**: Implementation must follow the established pattern from features 099-119 exactly
+  - **NFR-6**: Implementation must follow the established pattern from features 099-119 exactly (no new abstractions, no new helpers, no configuration)
 
-  ## Codebase Analysis
+  ## Product Decisions
 
-  ### Project Structure
+  This requirements phase made three implicit product decisions explicit with AI-recommended defaults:
 
-  The Sheep repository consists of:
-  - **Repository root**: Contains 100+ test markdown files (test-*.md) following a consistent pattern, plus Python helper scripts, configuration and documentation files
-  - **src/sheep/**: Application source code (agents, config, flows, tools, observability) implementing the CrewAI-based automated implementation platform
-  - **specs/**: Feature specification directory with subdirectories for each feature number (e.g., specs/120-markdown-file-creation-7e8b87/)
-  - **tests/**: Test suite for the application with test files for markdown file creation features
-  - **pyproject.toml**: Python project configuration (requires Python >=3.11) with CrewAI, Pydantic, and other dependencies
-  - **.github/**: GitHub workflows and CI/CD configuration
-  - **README.md**: Project documentation describing the Sheep platform
-
-  The test markdown files at the repository root are artifacts of the markdown-file-creation feature
-  pattern (features 099-120) and do not form part of the application source code.
-
-  ### Architecture Patterns
-
-  **Established File Creation Pattern (100+ precedents)**:
-  - Simple file creation using Python pathlib for I/O operations
-  - Each markdown file follows: `# Heading\n\n<2-3 sentences of prose>`
-  - UTF-8 encoding (no BOM), LF line endings
-  - File size typically 300-600 bytes
-  - Implementation follows straightforward imperative code (create content string, write to file)
-  - Optional git workflow: stage file, commit with conventional message, push to branch
-
-  **Git Workflow Pattern**:
-  - Feature branch already created as `feat/120-markdown-file-creation-7e8b87`
-  - Create/modify files in working directory
-  - Stage with `git add test-96jjvi.md`
-  - Commit with conventional commit format: `feat(120): Create markdown file test-96jjvi.md with prose content`
-  - Push to feature branch
-  - No modifications to source code or configuration files
-
-  **Feature Implementation Pattern (observed in features 099-119)**:
-  - Minimal, isolated changes affecting only repository root
-  - No dependencies on application source code (/src/sheep/)
-  - No test modifications, no configuration changes
-  - Single-file operations with straightforward I/O
-
-  ### Relevant Technologies
-
-  - **Python 3.11+**: Project requires Python 3.11 or higher (from pyproject.toml)
-  - **pathlib (Python standard library)**: Used for file I/O operations (example: Path(\"test-96jjvi.md\").write_text())
-  - **Git**: Version control; file staging, commits, and branch operations
-  - **Markdown syntax**: Simple format with heading (#) and prose content
-  - **CrewAI**: Framework used in the Sheep platform (not directly involved in this feature)
+  | # | Decision | Recommendation | Rationale |
+  | - | -------- | --------------- | --------- |
+  | 1 | File validation approach | No post-write validation; trust write operation | Aligns with NFR-4 (straightforward imperative code), matches 100+ existing test files, keeps implementation simple |
+  | 2 | Existing file behavior | Overwrite if file exists | Standard pathlib.Path().write_text() behavior, consistent with all previous features (099-119), imperative approach |
+  | 3 | Content generation method | Hand-written prose by implementation author | All 100+ existing test files use hand-written content, all previous features (099-119) follow this pattern, human-readable output |
 
   ## Affected Areas
 
@@ -145,15 +142,15 @@ content: |
   | File System | Low | Single file creation operation (~300-600 bytes); no directory structure changes, no deletions or overwrites |
   | Git Repository | Low | Standard single commit and push following established pattern from features 099-119; no branch/merge complexity, no destructive operations |
   | Source Code | None | Feature is purely file creation; does not depend on or impact any source code in /src/sheep/ or elsewhere |
-  | Specs Directory | Low | Updates only this spec.yaml file as part of analysis phase; no impact on other specs or configurations |
+  | Specs Directory | Low | Updates only this spec.yaml file as part of requirements phase; no impact on other specs or configurations |
 
   ## Dependencies
 
-  - **Git repository**: Feature branch `feat/120-markdown-file-creation-7e8b87` must exist (pre-created)
+  - **Git repository**: Feature branch `feat/120-markdown-file-creation-7e8b87` must exist and be checked out (pre-created)
   - **File system**: Write access to repository root directory (already available)
-  - **Established pattern**: 100+ test files provide clear precedent for content format and structure
+  - **Established pattern**: 100+ test files provide clear precedent for content format, structure, and encoding
   - **Git configuration**: Standard git configuration (user.name, user.email) must be set up for commits
-  - **Python pathlib**: Available in Python 3.11+ standard library (no external dependencies)
+  - **Python pathlib**: Available in Python 3.11+ standard library (no external dependencies required)
 
   ## Size Estimate
 
@@ -170,7 +167,8 @@ content: |
   - No testing, documentation, or configuration changes required
   - Recent feature implementations (099-119) demonstrate efficient implementation of identical features in 10-15 minutes
   - Straightforward imperative code pattern (no validation) keeps implementation simple
+  - Product decisions are explicit and have clear, established defaults from precedent
 
   ---
 
-  _Analysis phase complete — specification ready for implementation_
+  _Requirements phase complete — specification ready for implementation_
