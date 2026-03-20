@@ -1,13 +1,19 @@
 """Content generation utilities for creating markdown and other content."""
 
+import os
 import re
 from pathlib import Path
+
+from git import Repo
 
 from sheep.config.llm import get_reasoning_llm
 from sheep.observability.logging import get_logger
 from sheep.tools import GitCommitTool, GitPushTool
 
 _logger = get_logger(__name__)
+
+# Regex pattern to extract feature number from branch names like feat/126-...
+FEATURE_BRANCH_PATTERN = r"feat/(\d+)-"
 
 # Prompt template for markdown generation
 MARKDOWN_GENERATION_PROMPT = """Generate a markdown document with the following structure:
@@ -22,6 +28,53 @@ Format example:
 
 This is the first sentence. This is the second sentence. This is the third sentence.
 """
+
+
+def get_feature_number() -> int | None:
+    r"""
+    Extract feature number from git branch name or environment variable.
+
+    Attempts to extract feature number in the following order:
+    1. Git branch name matching pattern feat/(\d+)-
+    2. FEATURE_NUMBER environment variable
+    3. Returns None if no feature number found
+
+    Returns:
+        Feature number as integer, or None if extraction fails.
+
+    Example:
+        If branch is 'feat/126-markdown-file-create-e7da08', returns 126.
+        If branch is 'feat/markdown-file-create-e7da08' but FEATURE_NUMBER=126, returns 126.
+    """
+    try:
+        # Try to extract from git branch name
+        repo = Repo(Path.cwd())
+        branch_name = repo.head.ref.name
+
+        # Try to match the pattern feat/(\d+)-
+        match = re.match(FEATURE_BRANCH_PATTERN, branch_name)
+        if match:
+            feature_number = int(match.group(1))
+            _logger.debug(f"Extracted feature number {feature_number} from branch '{branch_name}'")
+            return feature_number
+
+    except Exception as e:
+        _logger.debug(f"Could not extract feature number from git branch: {e}")
+
+    # Fall back to environment variable
+    env_feature_number = os.getenv("FEATURE_NUMBER")
+    if env_feature_number:
+        try:
+            feature_number = int(env_feature_number)
+            _logger.debug(f"Using feature number {feature_number} from FEATURE_NUMBER env var")
+            return feature_number
+        except ValueError:
+            _logger.warning(
+                f"FEATURE_NUMBER env var is not a valid integer: {env_feature_number}"
+            )
+
+    _logger.debug("Could not extract feature number from branch or environment variable")
+    return None
 
 
 def generate_markdown_content() -> str:
@@ -276,6 +329,7 @@ def commit_markdown_file(
     content: str,
     repo_path: str | None = None,
     custom_message: str | None = None,
+    feature_number: int | None = None,
 ) -> str:
     """
     Stage and commit the markdown file with a conventional commit message.
@@ -285,6 +339,7 @@ def commit_markdown_file(
         content: The markdown content (used to extract topic for commit message).
         repo_path: Path to the git repository (defaults to current directory).
         custom_message: Optional custom commit message to use instead of auto-generated.
+        feature_number: Optional feature number to include in commit message scope.
 
     Returns:
         The commit result message from GitCommitTool.
@@ -311,8 +366,18 @@ def commit_markdown_file(
             topic = extract_topic_from_content(content)
             _logger.debug(f"Extracted topic: {topic}")
 
-            # Format commit message: "feat: Create test-9veux3.md markdown file with [topic] content"
-            commit_message = f"feat: Create {filename} markdown file with {topic} content"
+            # Extract feature number if not provided
+            if feature_number is None:
+                feature_number = get_feature_number()
+
+            # Format commit message with feature number scope if available
+            if feature_number:
+                commit_message = (
+                    f"feat({feature_number}): Create {filename} markdown file with {topic} content"
+                )
+            else:
+                _logger.warning("No feature number found, using simple feat: format")
+                commit_message = f"feat: Create {filename} markdown file with {topic} content"
 
         _logger.debug(f"Commit message: {commit_message}")
 
@@ -361,7 +426,7 @@ def push_markdown_file(repo_path: str | None = None, remote: str = "origin") -> 
 
 
 def create_markdown_file(
-    filename: str, repo_path: str | None = None
+    filename: str, repo_path: str | None = None, feature_number: int | None = None
 ) -> dict[str, str]:
     """
     Orchestrate the complete workflow to create, write, commit, and push a markdown file.
@@ -377,6 +442,7 @@ def create_markdown_file(
     Args:
         filename: Name of the markdown file to create (e.g., "test-9veux3.md").
         repo_path: Path to the git repository (defaults to current directory).
+        feature_number: Optional feature number to include in commit message scope.
 
     Returns:
         Dictionary containing:
@@ -396,6 +462,10 @@ def create_markdown_file(
     _logger.info(f"Creating markdown file: {filename}")
 
     try:
+        # Extract feature number if not provided
+        if feature_number is None:
+            feature_number = get_feature_number()
+
         # Step 1: Generate markdown content
         _logger.info("Step 1: Generating markdown content")
         content = generate_markdown_content()
@@ -413,13 +483,19 @@ def create_markdown_file(
 
         # Step 4: Commit file
         _logger.info("Step 4: Committing markdown file")
-        commit_result = commit_markdown_file(filepath, content, repo_path)
+        commit_result = commit_markdown_file(
+            filepath, content, repo_path, feature_number=feature_number
+        )
         _logger.debug(f"Commit result: {commit_result}")
 
-        # Extract commit message from the result for return value
-        # GitCommitTool returns "Committed: {message}\n{stdout}"
+        # Generate the commit message for return value
         topic = extract_topic_from_content(content)
-        commit_message = f"feat: Create {filename} markdown file with {topic} content"
+        if feature_number:
+            commit_message = (
+                f"feat({feature_number}): Create {filename} markdown file with {topic} content"
+            )
+        else:
+            commit_message = f"feat: Create {filename} markdown file with {topic} content"
 
         # Step 5: Push to remote
         _logger.info("Step 5: Pushing to remote repository")
