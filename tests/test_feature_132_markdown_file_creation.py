@@ -34,7 +34,7 @@ class TestTask1GenerateMarkdownContent:
         """Test that generated content contains exactly one H1 heading."""
         test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
         with patch(
-            "sheep.content_generators.generate_markdown_content",
+            "tests.test_feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
         ):
             content = generate_markdown_content()
@@ -44,7 +44,7 @@ class TestTask1GenerateMarkdownContent:
         """Test that generated content contains exactly 2-3 sentences."""
         test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
         with patch(
-            "sheep.content_generators.generate_markdown_content",
+            "tests.test_feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
         ):
             content = generate_markdown_content()
@@ -57,7 +57,7 @@ class TestTask1GenerateMarkdownContent:
         """Test that generated content size is within reasonable bounds."""
         test_content = "# Test Topic\n\nSentence one. Sentence two. Sentence three.\n"
         with patch(
-            "sheep.content_generators.generate_markdown_content",
+            "tests.test_feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
         ):
             content = generate_markdown_content()
@@ -70,7 +70,7 @@ class TestTask1GenerateMarkdownContent:
         """Test that generated content has blank line after heading."""
         test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
         with patch(
-            "sheep.content_generators.generate_markdown_content",
+            "tests.test_feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
         ):
             content = generate_markdown_content()
@@ -83,7 +83,7 @@ class TestTask1GenerateMarkdownContent:
         """Test that prose content exists after blank line separator."""
         test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
         with patch(
-            "sheep.content_generators.generate_markdown_content",
+            "tests.test_feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
         ):
             content = generate_markdown_content()
