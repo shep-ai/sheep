@@ -332,7 +332,7 @@ class TestFeature127Integration:
 
     def test_create_feature_127_content_has_correct_format(self):
         """Test that created content meets all format requirements."""
-        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+        test_content = "# Digital Transformation in Modern Enterprises\n\nDigital transformation represents a fundamental shift in how organizations operate and deliver value to customers in the modern economy. Companies across all industries are investing heavily in new technologies, processes, and business models to remain competitive. This comprehensive change requires leadership commitment and organizational culture shift to succeed.\n"
 
         with patch(
             "sheep.features.feature_127_markdown_file_creation.generate_markdown_content",
