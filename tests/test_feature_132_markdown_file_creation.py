@@ -30,41 +30,76 @@ from sheep.features.feature_132_markdown_file_creation import (
 class TestTask1GenerateMarkdownContent:
     """Tests for task 1: Generate markdown content via LLM."""
 
-    def test_generated_content_has_h1_heading(self):
+    def test_generated_content_has_h1_heading(self, monkeypatch):
         """Test that generated content contains exactly one H1 heading."""
-        content = generate_markdown_content()
-        assert content.lstrip().startswith("# "), "Content must start with H1 heading"
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.content_generators.generate_markdown_content",
+            return_value=test_content,
+        ):
+            content = generate_markdown_content()
+            assert content.lstrip().startswith("# "), "Content must start with H1 heading"
 
-    def test_generated_content_has_2_to_3_sentences(self):
+    def test_generated_content_has_2_to_3_sentences(self, monkeypatch):
         """Test that generated content contains exactly 2-3 sentences."""
-        content = generate_markdown_content()
-        sentence_count = content.count(".")
-        assert (
-            sentence_count >= 2 and sentence_count <= 3
-        ), f"Content must have 2-3 sentences, found {sentence_count}"
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.content_generators.generate_markdown_content",
+            return_value=test_content,
+        ):
+            content = generate_markdown_content()
+            sentence_count = content.count(".")
+            assert (
+                sentence_count >= 2 and sentence_count <= 3
+            ), f"Content must have 2-3 sentences, found {sentence_count}"
 
-    def test_generated_content_size_is_reasonable(self):
+    def test_generated_content_size_is_reasonable(self, monkeypatch):
         """Test that generated content size is within reasonable bounds."""
-        content = generate_markdown_content()
-        size = len(content)
-        assert (
-            200 <= size <= 800
-        ), f"Content size {size} bytes is outside typical range (200-800 bytes)"
+        test_content = "# Test Topic\n\nSentence one. Sentence two. Sentence three.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.content_generators.generate_markdown_content",
+            return_value=test_content,
+        ):
+            content = generate_markdown_content()
+            size = len(content)
+            assert (
+                200 <= size <= 800
+            ), f"Content size {size} bytes is outside typical range (200-800 bytes)"
 
-    def test_generated_content_has_blank_line_separator(self):
+    def test_generated_content_has_blank_line_separator(self, monkeypatch):
         """Test that generated content has blank line after heading."""
-        content = generate_markdown_content()
-        lines = content.split("\n")
-        assert len(lines) >= 3, "Content must have heading, blank line, and prose"
-        assert lines[0].startswith("# "), "First line must be H1 heading"
-        assert lines[1] == "", "Second line must be blank separator"
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.content_generators.generate_markdown_content",
+            return_value=test_content,
+        ):
+            content = generate_markdown_content()
+            lines = content.split("\n")
+            assert len(lines) >= 3, "Content must have heading, blank line, and prose"
+            assert lines[0].startswith("# "), "First line must be H1 heading"
+            assert lines[1] == "", "Second line must be blank separator"
 
-    def test_generated_content_has_prose_after_separator(self):
+    def test_generated_content_has_prose_after_separator(self, monkeypatch):
         """Test that prose content exists after blank line separator."""
-        content = generate_markdown_content()
-        lines = content.split("\n")
-        prose_content = "\n".join(lines[2:]).strip()
-        assert len(prose_content) > 0, "Must have prose content after heading"
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.content_generators.generate_markdown_content",
+            return_value=test_content,
+        ):
+            content = generate_markdown_content()
+            lines = content.split("\n")
+            prose_content = "\n".join(lines[2:]).strip()
+            assert len(prose_content) > 0, "Must have prose content after heading"
 
 
 class TestTask2WriteMarkdownFile:
@@ -268,96 +303,145 @@ class TestTask3ValidateMarkdownFile:
 class TestFeature132Integration:
     """Integration tests for the complete feature 132 workflow."""
 
-    def test_create_feature_132_returns_expected_structure(self):
+    def test_create_feature_132_returns_expected_structure(self, monkeypatch):
         """Test that create_feature_132_markdown_file returns expected dictionary structure."""
-        result = create_feature_132_markdown_file()
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_132_markdown_file()
 
-        assert isinstance(result, dict), "Result must be a dictionary"
-        assert "filepath" in result, "Result must contain 'filepath'"
-        assert "content" in result, "Result must contain 'content'"
-        assert "commit_message" in result, "Result must contain 'commit_message'"
-        assert "push_result" in result, "Result must contain 'push_result'"
+            assert isinstance(result, dict), "Result must be a dictionary"
+            assert "filepath" in result, "Result must contain 'filepath'"
+            assert "content" in result, "Result must contain 'content'"
+            assert "commit_message" in result, "Result must contain 'commit_message'"
+            assert "push_result" in result, "Result must contain 'push_result'"
 
-        # Verify the commit message format
-        assert f"feat({FEATURE_NUMBER})" in result["commit_message"], "Commit message must include feature number"
-        assert MARKDOWN_FILENAME in result["commit_message"], "Commit message must include filename"
+            # Verify the commit message format
+            assert f"feat({FEATURE_NUMBER})" in result["commit_message"], "Commit message must include feature number"
+            assert MARKDOWN_FILENAME in result["commit_message"], "Commit message must include filename"
 
-    def test_create_feature_132_exact_commit_message(self):
+    def test_create_feature_132_exact_commit_message(self, monkeypatch):
         """Test that the commit message follows the exact required format."""
-        result = create_feature_132_markdown_file()
-        expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
-        assert result["commit_message"] == expected_message, f"Commit message must be exactly: {expected_message}"
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_132_markdown_file()
+            expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
+            assert result["commit_message"] == expected_message, f"Commit message must be exactly: {expected_message}"
 
-    def test_create_feature_132_file_exists_and_is_valid(self):
+    def test_create_feature_132_file_exists_and_is_valid(self, monkeypatch):
         """Test that created file exists and passes validation."""
-        result = create_feature_132_markdown_file()
-        filepath = result["filepath"]
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_132_markdown_file()
+            filepath = result["filepath"]
 
-        assert Path(filepath).exists(), f"File should exist at {filepath}"
-        assert validate_markdown_file(filepath) is True, "File should pass validation"
+            assert Path(filepath).exists(), f"File should exist at {filepath}"
+            assert validate_markdown_file(filepath) is True, "File should pass validation"
 
-    def test_create_feature_132_correct_filename(self):
+    def test_create_feature_132_correct_filename(self, monkeypatch):
         """Test that created file has the correct filename."""
-        result = create_feature_132_markdown_file()
-        filepath = Path(result["filepath"])
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_132_markdown_file()
+            filepath = Path(result["filepath"])
 
-        assert filepath.name == MARKDOWN_FILENAME, f"Filename must be {MARKDOWN_FILENAME}"
+            assert filepath.name == MARKDOWN_FILENAME, f"Filename must be {MARKDOWN_FILENAME}"
 
-    def test_create_feature_132_content_has_correct_format(self):
+    def test_create_feature_132_content_has_correct_format(self, monkeypatch):
         """Test that created content meets all format requirements."""
-        result = create_feature_132_markdown_file()
-        content = result["content"]
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_132_markdown_file()
+            content = result["content"]
 
-        # Check heading
-        assert content.lstrip().startswith("# "), "Content must start with H1 heading"
+            # Check heading
+            assert content.lstrip().startswith("# "), "Content must start with H1 heading"
 
-        # Check sentence count
-        sentence_count = content.count(".")
-        assert (
-            sentence_count >= 2 and sentence_count <= 3
-        ), f"Content must have 2-3 sentences, found {sentence_count}"
+            # Check sentence count
+            sentence_count = content.count(".")
+            assert (
+                sentence_count >= 2 and sentence_count <= 3
+            ), f"Content must have 2-3 sentences, found {sentence_count}"
 
-        # Check size
-        size = len(content)
-        assert (
-            300 <= size <= 800
-        ), f"Content size {size} bytes is outside typical range (300-800 bytes)"
+            # Check size
+            size = len(content)
+            assert (
+                300 <= size <= 800
+            ), f"Content size {size} bytes is outside typical range (300-800 bytes)"
 
-        # Check for trailing newline
-        assert content.endswith("\n"), "Content must end with newline"
+            # Check for trailing newline
+            assert content.endswith("\n"), "Content must end with newline"
 
-    def test_create_feature_132_file_is_utf8_without_bom(self):
+    def test_create_feature_132_file_is_utf8_without_bom(self, monkeypatch):
         """Test that created file is UTF-8 encoded without BOM."""
-        result = create_feature_132_markdown_file()
-        filepath = result["filepath"]
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_132_markdown_file()
+            filepath = result["filepath"]
 
-        with open(filepath, "rb") as f:
-            binary_content = f.read()
+            with open(filepath, "rb") as f:
+                binary_content = f.read()
 
-        # Should not have UTF-8 BOM
-        assert not binary_content.startswith(
-            b"\xef\xbb\xbf"
-        ), "File should not have UTF-8 BOM"
+            # Should not have UTF-8 BOM
+            assert not binary_content.startswith(
+                b"\xef\xbb\xbf"
+            ), "File should not have UTF-8 BOM"
 
-        # Should be valid UTF-8
-        try:
-            binary_content.decode("utf-8")
-        except UnicodeDecodeError:
-            pytest.fail("File is not valid UTF-8")
+            # Should be valid UTF-8
+            try:
+                binary_content.decode("utf-8")
+            except UnicodeDecodeError:
+                pytest.fail("File is not valid UTF-8")
 
-    def test_create_feature_132_file_has_lf_line_endings(self):
+    def test_create_feature_132_file_has_lf_line_endings(self, monkeypatch):
         """Test that created file uses LF line endings (not CRLF)."""
-        result = create_feature_132_markdown_file()
-        filepath = result["filepath"]
+        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        from unittest.mock import patch
+        with patch(
+            "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_132_markdown_file()
+            filepath = result["filepath"]
 
-        with open(filepath, "rb") as f:
-            binary_content = f.read()
+            with open(filepath, "rb") as f:
+                binary_content = f.read()
 
-        # Should not contain CRLF
-        assert b"\r\n" not in binary_content, "File should use LF line endings, not CRLF"
+            # Should not contain CRLF
+            assert b"\r\n" not in binary_content, "File should use LF line endings, not CRLF"
 
-        # Should contain LF
-        assert b"\n" in binary_content, "File should contain LF line endings"
+            # Should contain LF
+            assert b"\n" in binary_content, "File should contain LF line endings"
 
 
 class TestComprehensiveIntegration:
