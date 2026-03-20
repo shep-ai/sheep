@@ -74,8 +74,9 @@ class WebSearchTool(BaseTool):
 
     def _run(self, query: str, max_results: int = 5) -> str:
         try:
-            from duckduckgo_search import DDGS
             import time
+
+            from duckduckgo_search import DDGS
 
             results = []
 
