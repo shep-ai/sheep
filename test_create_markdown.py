@@ -1,225 +1,128 @@
-"""
-Test suite for markdown file creation feature.
-
-Tests verify that test-g6uftw.md file:
-- Exists and is readable
-- Contains correct markdown structure (heading + prose)
-- Uses proper encoding (UTF-8) and line endings (LF)
-- Has meaningful, grammatically correct content
-- Falls within acceptable file size range
-"""
-
-import os
+"""Tests for markdown file creation (feature 123)."""
 import re
-import unittest
 from pathlib import Path
+import tempfile
+import os
 
 
-class TestMarkdownFileCreation(unittest.TestCase):
-    """Test cases for test-g6uftw.md markdown file creation."""
+def test_content_has_h1_heading():
+    """Content should have exactly one H1 heading."""
+    from create_markdown import CONTENT
+    assert CONTENT.startswith("# "), "Content must start with H1 heading (# )"
+    lines = CONTENT.split("\n")
+    assert lines[0].startswith("# "), "First line must be H1 heading"
+    h1_count = sum(1 for line in lines if line.startswith("# "))
+    assert h1_count == 1, f"Expected exactly 1 H1 heading, found {h1_count}"
 
-    FILENAME = "test-g6uftw.md"
 
-    def setUp(self):
-        """Set up test fixtures."""
-        self.file_path = Path(self.FILENAME)
+def test_content_has_blank_line_after_heading():
+    """Content should have a blank line after the H1 heading."""
+    from create_markdown import CONTENT
+    lines = CONTENT.split("\n")
+    assert len(lines) > 1, "Content must have multiple lines"
+    assert lines[1] == "", "Second line must be blank"
 
-    def test_file_exists(self):
-        """Test that the markdown file exists at repository root."""
-        self.assertTrue(
-            self.file_path.exists(),
-            f"File {self.FILENAME} does not exist at repository root"
-        )
 
-    def test_file_is_readable(self):
-        """Test that the markdown file is readable."""
-        self.assertTrue(
-            self.file_path.is_file(),
-            f"{self.FILENAME} is not a regular file"
-        )
-        self.assertTrue(
-            os.access(self.file_path, os.R_OK),
-            f"{self.FILENAME} is not readable"
-        )
+def test_content_has_prose():
+    """Content should have 2-3 sentences of prose after the blank line."""
+    from create_markdown import CONTENT
+    lines = CONTENT.split("\n")
+    prose_text = "\n".join(lines[2:]).strip()
+    assert prose_text, "Content must have prose after blank line"
 
-    def test_file_encoding_is_utf8(self):
-        """Test that file encoding is UTF-8 (no BOM)."""
+    # Count sentences (roughly: split by periods)
+    sentences = [s.strip() for s in prose_text.split(".") if s.strip()]
+    assert 2 <= len(sentences) <= 3, f"Expected 2-3 sentences, found {len(sentences)}: {sentences}"
+
+
+def test_file_write_creates_file():
+    """Writing file should create test-aibs55.md."""
+    # Use temporary directory for testing
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
         try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
-                f.read()
-        except UnicodeDecodeError:
-            self.fail(f"{self.FILENAME} is not valid UTF-8 encoded")
+            os.chdir(tmpdir)
+            from create_markdown import write_markdown_file
 
-        # Check for UTF-8 BOM
-        with open(self.file_path, 'rb') as f:
-            raw_bytes = f.read()
-        self.assertFalse(
-            raw_bytes.startswith(b'\xef\xbb\xbf'),
-            f"{self.FILENAME} has UTF-8 BOM (should not)"
-        )
+            write_markdown_file()
 
-    def test_file_line_endings_are_lf(self):
-        """Test that file uses LF line endings (not CRLF or CR)."""
-        with open(self.file_path, 'rb') as f:
-            raw_bytes = f.read()
-
-        self.assertNotIn(
-            b'\r\n',
-            raw_bytes,
-            f"{self.FILENAME} contains CRLF line endings (should be LF)"
-        )
-        self.assertNotIn(
-            b'\r',
-            raw_bytes,
-            f"{self.FILENAME} contains CR line endings (should be LF)"
-        )
-
-    def test_file_contains_level1_heading(self):
-        """Test that file contains exactly one level-1 heading (#)."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        # Count level-1 headings (lines starting with single #)
-        heading_count = len(re.findall(r'^\#\s+', content, re.MULTILINE))
-        self.assertEqual(
-            heading_count,
-            1,
-            f"Expected exactly 1 level-1 heading, found {heading_count}"
-        )
-
-    def test_heading_is_first_line(self):
-        """Test that level-1 heading is on the first line."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            first_line = f.readline().strip()
-
-        self.assertTrue(
-            first_line.startswith('# '),
-            f"First line should be a level-1 heading starting with '# ', got: {first_line!r}"
-        )
-
-    def test_blank_line_after_heading(self):
-        """Test that there is exactly one blank line after the heading."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        self.assertGreaterEqual(
-            len(lines),
-            3,
-            f"File should have at least 3 lines (heading + blank + prose), has {len(lines)}"
-        )
-        self.assertEqual(
-            lines[1].strip(),
-            '',
-            f"Second line should be blank, got: {lines[1]!r}"
-        )
-
-    def test_prose_content_exists(self):
-        """Test that file contains prose content after the heading."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        prose_lines = [line for line in lines[2:] if line.strip()]
-        self.assertGreater(
-            len(prose_lines),
-            0,
-            "File should contain prose content after heading and blank line"
-        )
-
-    def test_contains_2_or_3_sentences(self):
-        """Test that prose contains 2-3 sentences."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        # Get prose content (everything after heading and blank line)
-        prose = ''.join(lines[2:]).strip()
-
-        # Count sentences: split on periods, exclamation marks, question marks
-        # followed by spaces (or end of string)
-        sentences = re.split(r'[.!?]+\s+', prose)
-        # Filter out empty strings
-        sentences = [s.strip() for s in sentences if s.strip()]
-
-        self.assertGreaterEqual(
-            len(sentences),
-            2,
-            f"Expected at least 2 sentences, found {len(sentences)}"
-        )
-        self.assertLessEqual(
-            len(sentences),
-            3,
-            f"Expected at most 3 sentences, found {len(sentences)}"
-        )
-
-    def test_prose_is_grammatically_correct(self):
-        """Test that prose starts with a capital letter and is well-formed."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        prose = ''.join(lines[2:]).strip()
-
-        self.assertGreater(
-            len(prose),
-            0,
-            "Prose content is empty"
-        )
-        self.assertTrue(
-            prose[0].isupper(),
-            f"Prose should start with capital letter, starts with: {prose[0]!r}"
-        )
-
-    def test_prose_content_is_meaningful(self):
-        """Test that prose content is not empty placeholder text."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-
-        prose = ''.join(lines[2:]).strip()
-
-        # Content should not be obvious placeholder text
-        placeholder_patterns = [
-            r'^\s*lorem ipsum',
-            r'todo|tbd|placeholder',
-            r'to\s+be\s+filled|to\s+fill',
-            r'^\s*\.\.\.',
-        ]
-
-        for pattern in placeholder_patterns:
-            self.assertIsNone(
-                re.search(pattern, prose, re.IGNORECASE),
-                f"Prose contains placeholder pattern: {pattern}"
-            )
-
-    def test_file_size_is_in_range(self):
-        """Test that file size is between 400-600 bytes."""
-        file_size = self.file_path.stat().st_size
-        self.assertGreaterEqual(
-            file_size,
-            400,
-            f"File size {file_size} bytes is below 400-byte minimum"
-        )
-        self.assertLessEqual(
-            file_size,
-            600,
-            f"File size {file_size} bytes exceeds 600-byte maximum"
-        )
-
-    def test_markdown_syntax_is_valid(self):
-        """Test that file contains valid markdown (no unmatched brackets/parens)."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        # Check for unmatched brackets
-        self.assertEqual(
-            content.count('['),
-            content.count(']'),
-            "Unmatched square brackets in markdown"
-        )
-
-        # Check for unmatched parentheses in links
-        # (This is a basic check; full markdown validation would be more complex)
-        markdown_link_count = len(re.findall(r'\[.*?\]\(.*?\)', content))
-        # If there are markdown links, they should be properly formed
-        # This is implicit in the regex match above
+            file_path = Path("test-aibs55.md")
+            assert file_path.exists(), "test-aibs55.md should exist after write_markdown_file()"
+        finally:
+            os.chdir(original_cwd)
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_file_size_in_range():
+    """File size should be between 300-500 bytes."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            from create_markdown import write_markdown_file
+
+            write_markdown_file()
+
+            file_path = Path("test-aibs55.md")
+            file_size = file_path.stat().st_size
+            assert 300 <= file_size <= 500, f"File size {file_size} not in range 300-500"
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_file_encoding_utf8():
+    """File should be UTF-8 encoded."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            from create_markdown import write_markdown_file
+
+            write_markdown_file()
+
+            file_path = Path("test-aibs55.md")
+            # Read with UTF-8 should succeed
+            content = file_path.read_text(encoding="utf-8")
+            assert content, "File should have readable UTF-8 content"
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_file_line_endings_lf():
+    """File should use Unix LF line endings, not CRLF."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            from create_markdown import write_markdown_file
+
+            write_markdown_file()
+
+            file_path = Path("test-aibs55.md")
+            # Read as binary to check line endings
+            content_binary = file_path.read_bytes()
+            assert b"\r\n" not in content_binary, "File should not contain CRLF (Windows line endings)"
+            assert b"\n" in content_binary, "File should contain LF (Unix line endings)"
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_file_content_matches_constant():
+    """File content should match CONTENT constant."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+            from create_markdown import CONTENT, write_markdown_file
+
+            write_markdown_file()
+
+            file_path = Path("test-aibs55.md")
+            file_content = file_path.read_text(encoding="utf-8")
+            assert file_content == CONTENT, "File content should match CONTENT constant"
+        finally:
+            os.chdir(original_cwd)
+
+
+if __name__ == "__main__":
+    # Run with: python -m pytest test_create_markdown.py -v
+    print("Run tests with: python -m pytest test_create_markdown.py -v")

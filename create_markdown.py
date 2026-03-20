@@ -1,116 +1,111 @@
-#!/usr/bin/env python3
-"""
-Create markdown file test-n49t8o.md following the established pattern.
-
-This script:
-1. Creates test-n49t8o.md with hardcoded prose content (H1 heading + 2-3 sentences)
-2. Uses pathlib.Path for file I/O (per NFR-5)
-3. Validates file format (UTF-8, LF line endings, structure)
-4. Stages file with git add
-5. Commits with conventional message
-6. Pushes to remote origin
-"""
-
+"""Create markdown file test-aibs55.md (feature 123)."""
 from pathlib import Path
-import subprocess
-import sys
-
-# Hardcoded prose content: H1 heading + exactly 2-3 sentences
-# Topic: The Moon and its influence on Earth
-PROSE_CONTENT = """# The Moon and Its Impact on Earth
-
-The Moon is Earth's only natural satellite and plays a crucial role in maintaining the conditions necessary for life. Its gravitational influence stabilizes Earth's axial tilt, preventing chaotic climate changes that would make complex life difficult to sustain. The Moon also regulates ocean tides, which have shaped marine ecosystems and human civilizations for millennia.
-"""
-
-# Filename to create
-FILENAME = "test-n49t8o.md"
 
 
-def create_markdown_file():
-    """Create the markdown file using pathlib.Path.write_text()."""
-    path = Path(FILENAME)
+# Task 1: Define markdown content with proper structure
+# H1 heading + blank line + 2-3 sentences of prose
+CONTENT = """# The Art of Storytelling
 
-    # Write file with explicit UTF-8 encoding
-    # write_text() handles file creation, closing, and encoding automatically
-    path.write_text(PROSE_CONTENT, encoding='utf-8')
-
-    print(f"✓ Created file: {FILENAME}")
-    return path
+Stories connect us across time and distance, allowing people from different cultures and eras to understand each other's experiences and emotions. The best stories don't just inform; they transform our perspective and challenge our assumptions about the world. Throughout history, the ability to tell compelling stories has shaped civilizations and changed the course of human events."""
 
 
-def validate_file(path):
-    """Validate file format, encoding, and line endings."""
-    # Read file to check encoding and line endings
-    binary_content = path.read_bytes()
-    text_content = path.read_text(encoding='utf-8')
-
-    # Verify UTF-8 encoding (no BOM)
-    assert not binary_content.startswith(b'\xef\xbb\xbf'), "File should not have BOM"
-    print("✓ File is UTF-8 encoded without BOM")
-
-    # Verify Unix-style LF line endings (not Windows CRLF)
-    assert b'\r\n' not in binary_content, "File should use LF, not CRLF"
-    print("✓ File uses Unix-style LF line endings")
-
-    # Verify file size is in expected range (400-600 bytes typical)
-    file_size = len(binary_content)
-    assert 350 < file_size < 650, f"File size {file_size} is outside expected range"
-    print(f"✓ File size is {file_size} bytes (expected ~400-600)")
-
-    # Verify content structure
-    lines = text_content.strip().split('\n')
-    assert lines[0].startswith('# '), "First line should be H1 heading"
-    assert lines[1] == '', "Second line should be blank"
-
-    # Count sentences (simple check: count periods)
-    prose_section = '\n'.join(lines[2:])
-    sentence_count = prose_section.count('.')
-    assert 2 <= sentence_count <= 3, f"Expected 2-3 sentences, found {sentence_count}"
-    print(f"✓ Content has correct structure: H1 heading + {sentence_count} sentences")
-
-    return True
-
-
-def stage_and_commit():
-    """Stage file and commit with conventional message using subprocess."""
-    # Git add
-    subprocess.run(['git', 'add', FILENAME], check=True)
-    print(f"✓ Staged file with: git add {FILENAME}")
-
-    # Git commit with conventional message
-    commit_message = "feat(069): create markdown file test-n49t8o.md with prose content"
-    subprocess.run(['git', 'commit', '--no-verify', '-m', commit_message], check=True)
-    print(f"✓ Committed with message: {commit_message}")
-
-
-def push_to_remote():
-    """Push changes to remote origin."""
-    subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], check=True)
-    print("✓ Pushed to remote origin")
-
-
-def main():
-    """Main entry point: create file, validate, commit, and push."""
+def write_markdown_file(filename: str = "test-aibs55.md") -> None:
+    """
+    Task 2: Write markdown file with proper encoding and line endings.
+    
+    Creates the markdown file with:
+    - UTF-8 encoding without BOM
+    - Unix LF line endings (not CRLF)
+    - Content from CONTENT constant
+    
+    Args:
+        filename: Name of the file to create (default: test-aibs55.md)
+        
+    Raises:
+        FileNotFoundError: If directory doesn't exist or no write access
+        PermissionError: If insufficient permissions to write file
+        ValueError: If content validation fails
+    """
     try:
-        # Task 1-2: Create file
-        path = create_markdown_file()
+        # Write file with explicit UTF-8 encoding and Unix LF line endings
+        file_path = Path(filename)
+        file_path.write_text(CONTENT, encoding="utf-8", newline="\n")
+        
+        # Validate file meets all requirements
+        _validate_file(file_path)
+        
+    except FileNotFoundError as e:
+        raise FileNotFoundError(
+            f"Cannot write to {filename}: directory not found or no write access. "
+            f"Ensure you're in the repository root directory."
+        ) from e
+    except PermissionError as e:
+        raise PermissionError(
+            f"Cannot write to {filename}: insufficient permissions. "
+            f"Check that you have write access to the repository root."
+        ) from e
 
-        # Task 3: Validate
-        validate_file(path)
 
-        # Task 4: Git add and commit
-        stage_and_commit()
-
-        # Task 5: Git push
-        push_to_remote()
-
-        print("\n✓ Feature 069 complete: markdown file created, committed, and pushed")
-        return 0
-
-    except Exception as e:
-        print(f"✗ Error: {e}", file=sys.stderr)
-        return 1
+def _validate_file(file_path: Path) -> None:
+    """
+    Validate that the created file meets all requirements.
+    
+    Args:
+        file_path: Path to the file to validate
+        
+    Raises:
+        ValueError: If any validation check fails
+    """
+    # Check file exists
+    if not file_path.exists():
+        raise ValueError(f"File {file_path} was not created successfully")
+    
+    # Check file size (300-500 bytes)
+    file_size = file_path.stat().st_size
+    if not (300 <= file_size <= 500):
+        raise ValueError(
+            f"File size {file_size} bytes is outside required range 300-500 bytes. "
+            f"Adjust prose content length."
+        )
+    
+    # Check content is readable as UTF-8
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError(
+            f"File is not valid UTF-8 encoding: {e}"
+        ) from e
+    
+    # Validate content structure
+    if not content.startswith("# "):
+        raise ValueError("Content must start with H1 heading (# )")
+    
+    lines = content.split("\n")
+    if len(lines) < 3:
+        raise ValueError("Content must have heading, blank line, and prose")
+    
+    if lines[1] != "":
+        raise ValueError("Second line must be blank (after H1 heading)")
+    
+    # Check for prose content
+    prose_text = "\n".join(lines[2:]).strip()
+    if not prose_text:
+        raise ValueError("Content must include prose after blank line")
+    
+    # Count sentences (split by periods)
+    sentences = [s.strip() for s in prose_text.split(".") if s.strip()]
+    if not (2 <= len(sentences) <= 3):
+        raise ValueError(
+            f"Content must have 2-3 sentences, found {len(sentences)}. "
+            f"Adjust prose content."
+        )
+    
+    # Check for CRLF line endings (Windows)
+    content_binary = file_path.read_bytes()
+    if b"\r\n" in content_binary:
+        raise ValueError("File contains CRLF (Windows) line endings. Must use Unix LF.")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    write_markdown_file()
+    print("✓ Created test-aibs55.md successfully")
