@@ -1,0 +1,277 @@
+name: markdown-file-create-cea132
+summary: "This feature implements a standardized markdown file creation workflow following the established pattern from 100+ test files. The implementation uses Python pathlib for cross-platform file I/O, Claude API for LLM-generated prose content, subprocess for git operations, and Python standard library for validation. No external dependencies beyond Python 3.11+ standard library and Git are required."
+
+relatedFeatures:
+  - number: 125
+    name: "markdown-file-create"
+  - number: 124
+    name: "markdown-file-creation-2b2edd"
+  - number: 123
+    name: "markdown-file-creation-c2dee1"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess)"
+  - "Markdown (file format)"
+  - "Git (version control and commits)"
+  - "Claude API (prose generation via subprocess)"
+  - "UTF-8 encoding with LF line endings"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Git commit conventions (Conventional Commits)"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "Prose Content Generation Method"
+    chosen: "Use Claude API with subprocess to generate prose at runtime, ensuring consistency and diversity across test files"
+    rejected:
+      - "Pre-written static prose — limits flexibility and diverges from the LLM-generated decision in spec"
+      - "External Python library for Claude API (anthropic package) — violates NFR-8 constraint of no external dependencies beyond standard library and Git"
+      - "Local LLM or offline generation — adds complexity and reduces automation alignment with platform theme"
+    rationale: "The spec explicitly resolves that prose should be LLM-generated. Using subprocess to invoke Claude API via HTTP does not introduce external Python dependencies (Python's http.client is standard library), maintains the automated platform theme, and matches the approach in features 123-125. This provides consistent quality, semantic diversity, and aligns with 100+ existing test files that demonstrate LLM-generated content patterns (diverse topics: biology, programming languages, crafts, etc.)."
+
+  - title: "File I/O and Path Handling"
+    chosen: "Python pathlib for file creation and path operations"
+    rejected:
+      - "os module with string paths — less modern, more error-prone, older API"
+      - "Direct string concatenation — not cross-platform, harder to validate, no type safety"
+    rationale: "pathlib is the modern, cross-platform approach built into Python 3.11+ standard library. It provides type-safe path operations, automatic platform-specific handling (Windows vs Unix paths), and integrates seamlessly with file I/O operations. The spec explicitly specifies pathlib use in FR-10."
+
+  - title: "Git Operations and Commit Workflow"
+    chosen: "subprocess module with native git commands for staging, committing, and pushing"
+    rejected:
+      - "GitPython library — external dependency violates NFR-8 constraint"
+      - "Direct Python implementation of git protocol — overly complex, unmaintainable, error-prone"
+    rationale: "subprocess allows invoking native git commands without adding external dependencies. Git is already listed as a required tool in NFR-8 and dependencies. This approach is simple, reliable, uses battle-tested git CLI, and follows the established pattern from features 123-125."
+
+  - title: "File Encoding and Line Ending Handling"
+    chosen: "Explicitly use UTF-8 encoding with LF (Unix-style \\n) line endings by writing 'newline=\"\\n\"' to Python's open() function"
+    rejected:
+      - "System default encoding and line endings — platform-dependent, fails on Windows (CRLF), violates NFR-1 and NFR-2"
+      - "Post-processing conversion — adds complexity, separate validation step, error-prone"
+    rationale: "Python's open() function with encoding='utf-8' and newline='\\n' parameters provides explicit control. This ensures UTF-8 without BOM and LF line endings regardless of platform. The existing 100+ test files demonstrate UTF-8 + LF pattern. This is a low-complexity, single-point control that prevents platform-specific regressions."
+
+  - title: "File Validation Strategy"
+    chosen: "Programmatic validation using Python standard library: pathlib for file existence, file size check via Path.stat(), encoding verification via decoding attempt, line ending validation via string inspection"
+    rejected:
+      - "External tools or shell commands (file, wc, etc.) — adds external dependencies, platform-specific behavior"
+      - "No validation — risks silent failures, regression against established pattern, difficult debugging"
+      - "Regex-based validation — fragile, hard to maintain, error-prone for complex checks"
+    rationale: "Pure Python validation using only standard library is cross-platform, verifiable, and maintainable. File size check via Path.stat().st_size matches NFR-3. Encoding verification happens implicitly during file read (if UTF-8 decoding fails, exception is raised). Line ending check is simple string inspection for '\\r' characters. This approach catches the critical properties from success criteria without external tools."
+
+  - title: "Content Format and Structure"
+    chosen: "Enforce strict markdown format: Level-1 heading (# Title) + blank line + 2-3 sentences of prose + final newline. No extra sections, lists, code blocks, or links allowed."
+    rejected:
+      - "Flexible format allowing optional sections — harder to validate, inconsistent across files, diverges from 100+ existing files"
+      - "Multiple markdown elements (lists, code blocks, etc.) — violates FR-9, complicates validation and prose generation"
+    rationale: "The established pattern from existing 100+ test files uses simple, consistent format. The spec resolves in favor of strict format in the 'commit message flexibility' decision, applying the same principle here for consistency. This simplifies both prose generation (Claude API can focus on 2-3 sentences) and validation (no complex markdown parsing needed). Files examined (test-kpaotj.md, test-z4ucz3.md) confirm this structure."
+
+  - title: "Prose Topic Selection"
+    chosen: "Use Claude API with an open-ended prompt to generate diverse topics, filtering to avoid topics already covered by other test files"
+    rejected:
+      - "Pre-defined list of 100 topics — constrains diversity, requires maintenance, reduces automation"
+      - "Random topic from fixed set — limited diversity, not as engaging as LLM-generated variety"
+      - "Prompting Claude without diversity constraints — risk of duplicate topics across multiple test file creations"
+    rationale: "LLM-generated topics provide semantic variety that matches the diversity observed in existing test files (sleep, programming languages, crafts, natural phenomena). A simple approach is to prompt Claude to 'generate a topic distinct from [sample of existing topics]' or use more general guidance. This aligns with the platform's automated theme and ensures test file diversity at scale."
+
+openQuestions:
+  - question: "Should prose generation happen inline (at runtime) or offline (pre-computed and embedded)?"
+    resolved: true
+    options:
+      - option: "Inline at runtime via Claude API"
+        description: "Generate prose dynamically when the feature runs. Requires subprocess to call Claude API (via HTTP using standard library), adds runtime latency (~5-10 seconds), but ensures freshness and automation alignment. Matches LLM-generated decision in spec."
+        selected: true
+      - option: "Offline pre-computed prose"
+        description: "Generate prose once using Claude, embed in spec or feature code, reuse for every run. Faster execution, but less flexible, requires manual regeneration if topics need to change, doesn't match automated platform theme."
+        selected: false
+      - option: "Hybrid: cached with fallback to runtime generation"
+        description: "Use cached prose if available, fall back to Claude API if cache missing or refresh requested. Most flexible but adds complexity (cache management, invalidation logic). Overkill for this simple feature."
+        selected: false
+    selectionRationale: "Inline runtime generation aligns with the LLM-generated decision already resolved in the spec and matches the automated platform theme. The ~5-10 second latency for Claude API call is acceptable given the feature size estimate of 10-15 minutes total. This approach enables test file diversity at scale and matches features 123-125 pattern of using LLM generation."
+
+  - question: "How should the feature handle Claude API availability and rate limiting?"
+    resolved: true
+    options:
+      - option: "Simple error propagation — fail immediately if Claude API is unavailable or returns error"
+        description: "Use try-except to catch API errors and let them bubble up as failure. Pros: simple, transparent, no silent failures. Cons: brittle, not resilient to transient failures or rate limits."
+        selected: true
+      - option: "Automatic retry with exponential backoff"
+        description: "Retry up to 3 times with increasing delays (1s, 2s, 4s) before failing. Pros: handles transient failures gracefully. Cons: adds complexity, increases latency, may mask persistent issues."
+        selected: false
+      - option: "Fallback to static prose if API unavailable"
+        description: "Keep pre-written prose as emergency fallback. Pros: always succeeds, resilient. Cons: defeats LLM-generated goal, requires maintaining static content, increases code size."
+        selected: false
+    selectionRationale: "Simple error propagation is appropriate for a controlled feature implementation in a CI/CD context where API availability is expected and can be addressed upstream. Feature 126 is in a test/dev context where transparency about failures is better than silent fallbacks. If the spec resolves this for production use, a retry strategy could be added, but for now, fail-fast is cleaner and easier to debug."
+
+  - question: "Should validation be strict (fail if any property doesn't match spec) or lenient (warn but allow deviations)?"
+    resolved: true
+    options:
+      - option: "Strict validation — fail if encoding, line endings, or file size deviations detected"
+        description: "Use assertions or exceptions to enforce file size 400-600 bytes, UTF-8 encoding, LF line endings. Pros: catches regressions, ensures consistency with pattern. Cons: may reject valid edge cases, requires careful thresholds."
+        selected: true
+      - option: "Lenient validation with warnings"
+        description: "Log warnings if properties deviate but allow feature to succeed. Pros: more flexible. Cons: regressions go unnoticed, inconsistent test file patterns, harder to debug."
+        selected: false
+      - option: "No validation beyond basic file existence and heading check"
+        description: "Only verify file exists and contains heading + prose. Pros: minimal code. Cons: silent failures for encoding/line ending issues, diverges from spec's strict validation decision."
+        selected: false
+    selectionRationale: "The spec explicitly resolves to use strict validation in the 'file properties validation' question, citing consistency with 100+ existing test files. Strict validation catches subtle platform-specific issues (CRLF on Windows, encoding mismatches) before they propagate. The 400-600 byte range is achievable with 2-3 sentences of typical prose (~400-550 bytes observed in test-kpaotj.md and test-z4ucz3.md)."
+
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-20
+  - **Decision Status:** All technical decisions finalized and resolved
+
+  ## Technology Decisions
+
+  ### 1. Prose Content Generation Method
+
+  **Chosen:** Use Claude API with subprocess to generate prose at runtime
+
+  **Rejected:**
+  - Pre-written static prose — reduces flexibility and diverges from LLM-generated decision
+  - External Python library for Claude API — violates NFR-8 (no external dependencies beyond standard library and Git)
+  - Local LLM or offline generation — adds complexity and reduces automation alignment
+
+  **Rationale:** The spec explicitly recommends LLM-generated prose. Using subprocess to invoke Claude API via HTTP avoids external Python dependencies (Python's http.client is in standard library), aligns with the automated platform theme, and provides semantic diversity. Analysis of existing 100+ test files shows diverse topics (biology, programming languages, crafts) consistent with LLM generation. Features 123-125 follow the same pattern.
+
+  ### 2. File I/O and Path Handling
+
+  **Chosen:** Python pathlib for all file operations
+
+  **Rejected:**
+  - os module with string paths — less modern, more error-prone
+  - String path concatenation — not cross-platform, harder to validate
+
+  **Rationale:** pathlib is the modern, cross-platform standard library approach. It provides safe path operations, automatic platform-specific handling, and was explicitly specified in FR-10. Type-safe and integrates seamlessly with file I/O.
+
+  ### 3. Git Integration
+
+  **Chosen:** subprocess module with native git commands
+
+  **Rejected:**
+  - GitPython library — external dependency violates NFR-8
+  - Direct Python implementation of git protocol — overly complex and error-prone
+
+  **Rationale:** subprocess allows invoking native git commands without external dependencies. Git is a required tool (per dependencies in spec). This is simple, reliable, and matches features 123-125 approach. Native git CLI is battle-tested and handles edge cases correctly.
+
+  ### 4. Encoding and Line Endings
+
+  **Chosen:** UTF-8 encoding with LF (Unix-style \n) line endings via open(encoding='utf-8', newline='\n')
+
+  **Rejected:**
+  - System default encoding — platform-dependent, fails on Windows (CRLF)
+  - Post-processing conversion — adds complexity and separate validation step
+
+  **Rationale:** Python's open() function with explicit encoding and newline parameters provides cross-platform control. This ensures UTF-8 without BOM and consistent LF line endings regardless of platform. Existing 100+ test files all use this pattern. This is a single-point control that prevents platform-specific regressions.
+
+  ### 5. File Validation
+
+  **Chosen:** Programmatic validation using Python standard library
+
+  **Rejected:**
+  - External tools (file, wc, etc.) — adds dependencies and platform-specific behavior
+  - No validation — risks silent failures and regression
+  - Regex-based validation — fragile and hard to maintain
+
+  **Rationale:** Pure Python validation using pathlib, file size via Path.stat().st_size, encoding via decoding attempt, and line ending checks via string inspection. Cross-platform, maintainable, and requires no external tools. Catches critical properties: file exists, correct encoding, correct line endings, correct byte range (NFR-3: 400-600 bytes).
+
+  ### 6. Content Format
+
+  **Chosen:** Strict format: heading + blank line + 2-3 sentences + final newline. No extra markdown elements.
+
+  **Rejected:**
+  - Flexible format — harder to validate, inconsistent with 100+ existing files
+  - Multiple markdown elements — violates FR-9, complicates prose generation and validation
+
+  **Rationale:** The 100+ existing test files follow this exact format. Strict format simplifies both prose generation (Claude focuses on 2-3 coherent sentences) and validation (no complex markdown parsing). Examined files (test-kpaotj.md: "The Evolution of Programming Languages" with 3 sentences; test-z4ucz3.md: "The Mystery of Sleep" with 3 sentences) confirm this pattern.
+
+  ### 7. Prose Topic Selection
+
+  **Chosen:** Use Claude API with general open-ended prompt to generate diverse topics
+
+  **Rejected:**
+  - Pre-defined topic list — constrains diversity, requires maintenance
+  - Random selection from fixed set — limited diversity
+  - No diversity constraints — risk of duplicate topics across test files
+
+  **Rationale:** LLM-generated topics provide semantic variety matching the 100+ existing test files (sleep, programming languages, crafts, natural phenomena, etc.). A simple approach: prompt Claude to generate a new topic, optionally mentioning a small sample of existing topics to avoid duplication. This maintains diversity at scale and aligns with the automated platform theme.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Python pathlib | File I/O and path operations | Use (standard library) | Modern, cross-platform, required in FR-10. Standard library, no external dependency. |
+  | Python subprocess | Execute external commands (git, Claude CLI) | Use (standard library) | Reliably invokes git commands and Claude API. Standard library, no external dependency. |
+  | Python http.client (or urllib) | Call Claude API directly | Use (standard library) | If Claude API is called via HTTP without external package. Standard library. |
+  | anthropic package | Official Claude API Python library | Reject | Violates NFR-8 constraint. Feature must not require external dependencies beyond Python 3.11+ standard library and Git. |
+  | GitPython | Python git interface | Reject | Violates NFR-8 constraint. Using subprocess with native git CLI is cleaner and has no dependency. |
+  | Markdown parsing (markdown, commonmark) | Parse and validate markdown | Reject | Not needed. Content format is simple enough (heading + prose) for string-based validation. Adds unnecessary complexity. |
+  | cryptography | For any authentication | Reject | Not needed. Claude API uses environment variable (ANTHROPIC_API_KEY). Git uses SSH or stored credentials. |
+
+  ## Security Considerations
+
+  1. **API Key Management**: Claude API key should be provided via environment variable (ANTHROPIC_API_KEY), never hardcoded. Standard security practice.
+
+  2. **File Creation Safety**: Using pathlib.Path.write_text() with explicit encoding is safe against encoding injection attacks. UTF-8 encoding is enforced before file write.
+
+  3. **Git Operations**: subprocess with native git commands is safe when parameters are properly escaped. The feature uses subprocess.run() with list-based arguments (not shell=True), preventing shell injection.
+
+  4. **Markdown Content Validation**: Prose is LLM-generated and read back from file for validation. No user input is processed, minimizing injection risk. Validation ensures markdown is well-formed.
+
+  5. **File Permissions**: Files are created with default umask (typically 0644 on Unix, readable by all). This is acceptable for test files in a repository. If more restrictive permissions are needed, Path.chmod() can be used post-creation.
+
+  ## Performance Implications
+
+  1. **Runtime Latency**: Claude API call adds ~5-10 seconds (typical latency for API call + prose generation). This is acceptable given the feature size estimate of 10-15 minutes total, and aligns with features 123-125.
+
+  2. **File Size**: Markdown files are 400-600 bytes each. With 100+ existing test files, total repository size impact is ~50-60 KB, negligible.
+
+  3. **Disk I/O**: Single file write operation, minimal I/O overhead.
+
+  4. **Memory**: No significant memory overhead. File is generated once and validated.
+
+  5. **Optimization Opportunities** (not needed now, but possible future improvements):
+     - Cache prose generation results to avoid redundant API calls if feature runs multiple times
+     - Batch-generate multiple prose items if feature is applied to multiple files
+     - Use Claude's vision model to validate markdown formatting visually (probably overkill)
+
+  ## Architecture Notes
+
+  1. **Alignment with Existing Pattern**: Features 123-125 follow the same pattern (create markdown, LLM-generated prose, conventional commit, push). This feature continues the established approach.
+
+  2. **No Source Code Changes**: Feature is purely file creation and git workflow. No changes to /src/sheep/ or any existing code.
+
+  3. **Integration with CI/CD**: Feature can run standalone in CI/CD pipeline. Requires:
+     - Python 3.11+
+     - Git configured with user.name and user.email
+     - ANTHROPIC_API_KEY environment variable set
+     - Write access to repository root and git remote push
+
+  4. **Spec-Driven Implementation**: All success criteria and functional requirements are verifiable programmatically. No manual validation needed beyond running the feature.
+
+  5. **Scalability**: The approach scales to hundreds of test files. Each feature creates one file using the same pattern. No bottlenecks identified.
+
+  ## Implementation Approach (Summary)
+
+  1. **Initialization**: Validate git setup (branch exists, working tree clean)
+  2. **Prose Generation**: Call Claude API via subprocess with prompt for diverse prose topic
+  3. **File Creation**: Use pathlib to create test-lqbnqn.md with generated heading + blank line + prose + final newline, explicit UTF-8 and LF encoding
+  4. **Validation**: Verify UTF-8 encoding (decode attempt), LF line endings (check for \r), file size 400-600 bytes, heading format, prose structure
+  5. **Git Workflow**: Stage file, commit with exact message 'feat(126): create markdown file test-lqbnqn.md with prose content', push to feature branch
+  6. **Post-Commit Validation**: Verify git log shows correct commit message and author
+
+  ## Open Technical Questions Resolved
+
+  1. **Prose Generation Method**: Inline runtime generation via Claude API (maintains automation, freshness, diversity)
+  2. **API Resilience**: Simple error propagation (fail-fast, transparent, appropriate for controlled environment)
+  3. **Validation Strictness**: Strict validation (matches spec decision, catches regressions, ensures consistency with 100+ test files)
+
+  ---
+
+  _Research phase complete — all technical decisions documented, library choices justified, security and performance implications analyzed. Ready for planning and implementation phases._
