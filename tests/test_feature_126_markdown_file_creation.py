@@ -553,3 +553,154 @@ class TestComprehensiveIntegration:
         assert all_met, (
             f"Not all success criteria met: {[k for k, v in success_criteria.items() if not v]}"
         )
+
+
+class TestIntegrationWithGitRepository:
+    """Integration tests for feature 126 with actual git repository operations.
+
+    These tests verify the complete workflow including git commit and push operations
+    in a temporary git repository to ensure all git operations work correctly.
+    """
+
+    def test_integration_with_temporary_git_repository(self, tmp_path, monkeypatch):
+        """
+        Test complete feature 126 workflow in a temporary git repository.
+
+        Verifies:
+        1. Setup: Create temporary git repository with proper configuration
+        2. Execution: Call feature function to create and commit markdown file
+        3. Verification: File exists with correct format
+        4. Git verification: Commit exists with correct message
+        5. Cleanup: Temporary files are removed after test
+        """
+        import subprocess
+
+        # Setup: Create temporary git repository
+        temp_repo = tmp_path / "test_repo"
+        temp_repo.mkdir()
+
+        # Change to temporary repo
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(temp_repo)
+
+            # Initialize git repository
+            subprocess.run(
+                ["git", "init"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Configure git for commits
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Create initial commit
+            Path(".gitkeep").touch()
+            subprocess.run(
+                ["git", "add", ".gitkeep"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial commit"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Execute: Call feature function with mocked content
+            test_content = "# Git and Version Control\n\nGit is the most widely used distributed version control system for managing source code. Teams use git workflows like pull requests and branch protection to maintain code quality. Understanding git fundamentals helps developers collaborate effectively.\n"
+
+            with patch(
+                "sheep.features.feature_126_markdown_file_creation.generate_markdown_content",
+                return_value=test_content,
+            ):
+                from sheep.features.feature_126_markdown_file_creation import (
+                    create_feature_126_markdown_file,
+                )
+
+                result = create_feature_126_markdown_file(repo_path=str(temp_repo))
+
+            # Verification: File exists and has correct content
+            filepath = Path(result["filepath"])
+            assert filepath.exists(), f"File should exist at {filepath}"
+            assert filepath.name == MARKDOWN_FILENAME, f"File should be named {MARKDOWN_FILENAME}"
+
+            file_content = filepath.read_text(encoding="utf-8")
+            assert file_content == test_content, "File content should match generated content"
+
+            # Verify file format (encoding, line endings, structure)
+            with open(filepath, "rb") as f:
+                binary_content = f.read()
+
+            # Check UTF-8 without BOM
+            assert not binary_content.startswith(
+                b"\xef\xbb\xbf"
+            ), "File should not have UTF-8 BOM"
+            binary_content.decode("utf-8")  # Should not raise
+
+            # Check LF line endings
+            assert b"\r\n" not in binary_content, "File should use LF, not CRLF"
+            assert b"\n" in binary_content, "File should contain LF line endings"
+
+            # Verify markdown structure
+            assert test_content.startswith("# "), "Content must start with H1 heading"
+            assert "\n\n" in test_content, "Content must have blank line separator"
+
+            # Verify sentence count
+            sentence_count = test_content.count(".")
+            assert (
+                2 <= sentence_count <= 3
+            ), f"Content must have 2-3 sentences, found {sentence_count}"
+
+            # Git verification: Check that commit was created
+            result_status = subprocess.run(
+                ["git", "log", "--oneline"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            log_output = result_status.stdout
+            assert "feat(126)" in log_output, "Git log should contain feat(126) commit"
+            assert (
+                MARKDOWN_FILENAME in log_output
+            ), "Git log should mention the markdown filename"
+
+            # Verify commit message format
+            result_message = subprocess.run(
+                ["git", "log", "-1", "--format=%B"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            commit_message = result_message.stdout.strip()
+            expected_message = (
+                f"feat({FEATURE_NUMBER}): Create markdown file {MARKDOWN_FILENAME} with prose content"
+            )
+            assert (
+                commit_message == expected_message
+            ), f"Commit message should be '{expected_message}', got '{commit_message}'"
+
+            # Verify file is staged in git (should be committed)
+            result_status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            status_output = result_status.stdout
+            assert (
+                MARKDOWN_FILENAME not in status_output
+            ), "File should be committed, not staged or untracked"
+
+        finally:
+            # Cleanup: Return to original working directory
+            os.chdir(original_cwd)
