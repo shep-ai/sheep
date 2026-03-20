@@ -1,0 +1,426 @@
+name: "markdown-file-create"
+summary: >
+  Technical implementation uses Python pathlib for safe file I/O with UTF-8 encoding, subprocess for git workflows,
+  and hardcoded prose content matching the established pattern from 100+ existing test files. No external dependencies
+  required; all operations use Python 3.11+ standard library. File format is strictly replicated from features 121-124:
+  markdown H1 heading + blank line + exactly 2-3 sentences, 400-600 bytes, Unix LF line endings.
+
+relatedFeatures:
+  - number: 124
+    name: "markdown-file-creation-2b2edd"
+    relationship: "Identical technical pattern and implementation approach"
+  - number: 123
+    name: "markdown-file-creation-c2dee1"
+    relationship: "Identical technical pattern and implementation approach"
+  - number: 122
+    name: "markdown-file-creation-62fd1e"
+    relationship: "Identical technical pattern and implementation approach"
+  - number: 121
+    name: "markdown-file-creation-1ea7c6"
+    relationship: "Identical technical pattern and implementation approach"
+
+technologies:
+  - "Python 3.11+ standard library"
+  - "pathlib.Path for file I/O"
+  - "subprocess for git operations"
+  - "UTF-8 text encoding"
+  - "Git conventional commits"
+  - "Markdown syntax (CommonMark)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess module documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+  - title: "CommonMark Markdown specification"
+    url: "https://spec.commonmark.org/"
+
+decisions:
+  - title: "File I/O Library and Approach"
+    chosen: "Python pathlib.Path.write_text() with UTF-8 encoding"
+    rejected:
+      - "open() built-in function — less elegant, requires manual resource management, more verbose for simple write operations"
+      - "os.path for file operations — deprecated in favor of pathlib, less object-oriented, requires additional modules"
+      - "Third-party libraries (e.g., fs) — introduces external dependency, unnecessary complexity for simple file creation"
+    rationale: >
+      pathlib.Path.write_text() is the modern, recommended approach for simple file writing in Python 3.11+.
+      It automatically handles file creation, closing, and encoding, provides a clean object-oriented API,
+      and is safer than string-based paths against path traversal attacks. All existing features 121-124 use this
+      exact approach, establishing a clear codebase pattern. No external dependencies are required, keeping the
+      implementation pure Python standard library.
+
+  - title: "Content Generation Strategy"
+    chosen: "Hardcoded prose content matching established pattern"
+    rejected:
+      - "Algorithmic/template-based generation — adds complexity, harder to maintain consistency with 100+ existing files"
+      - "External APIs for content (GPT, etc.) — introduces external dependencies, network latency, API costs, unreliability"
+      - "Random permutations of sentence templates — may produce less coherent prose, harder to validate"
+    rationale: >
+      Each existing test file (121-124 and 100+ others) contains a single, carefully crafted prose string that is
+      coherent, grammatically correct, and topically appropriate. Hardcoding the prose for test-g4d3am.md matches
+      this established pattern, ensures content quality without external dependencies, and is consistent with the
+      product decision to use auto-generated content (which in this context means pre-written, structured content
+      rather than runtime generation). This approach is proven effective across existing implementations.
+
+  - title: "Topic and Title Selection"
+    chosen: "Single topic selected during implementation phase"
+    rejected:
+      - "Random topic selection at runtime — adds complexity, requires topic list maintenance, harder to validate"
+      - "User input/configuration — violates requirement of self-contained file creation, introduces input validation"
+      - "Topic list from external source — introduces external dependency, network calls, maintenance burden"
+    rationale: >
+      The spec allows any topic unrestricted. Looking at features 121-124, each file covers a distinct topic
+      (Sleep, AI/ML, Debugging, Patience) with no apparent constraint or randomization. The simplest approach is
+      to select a meaningful topic during implementation planning and hardcode the corresponding prose. This matches
+      the established pattern where each feature creates one file with one topic. Topic selection flexibility is
+      preserved by allowing any topic choice during implementation.
+
+  - title: "Git Workflow Implementation"
+    chosen: "subprocess.run() with explicit git commands (shell=False)"
+    rejected:
+      - "GitPython library — external dependency, adds abstraction layer, unnecessary for simple operations"
+      - "Shell execution (shell=True) — security risk for injection, harder to debug, not portable"
+      - "Manual git plumbing — overly low-level, error-prone, no benefit over subprocess"
+    rationale: >
+      subprocess.run() with explicit command array (shell=False) is the secure, standard Python approach for
+      executing git commands. It avoids shell injection vulnerabilities, provides clear error handling via
+      returncode and stderr, and requires no external dependencies. All existing features 121-124 use this exact
+      pattern (confirmed in git_workflow_089.py and similar implementations). Three operations are required:
+      git add, git commit, git push.
+
+  - title: "Content Validation Approach"
+    chosen: "Post-write validation of structure, encoding, line endings, and file size"
+    rejected:
+      - "No validation — risks non-conformant files, makes debugging harder, violates non-functional requirements"
+      - "Complex pre-write validation — unnecessary complexity, validation is simpler after file creation"
+      - "External validation tool — adds dependency, slower than in-process validation"
+    rationale: >
+      After writing the file with pathlib.Path.write_text(), validate: (1) structure (H1 heading, blank line,
+      2-3 sentences), (2) encoding (UTF-8, no BOM), (3) line endings (LF only), (4) file size (400-600 bytes).
+      This matches the validation pattern in existing test files (e.g., create_test_2ak324.py). Python string
+      operations verify structure, binary operations verify encoding/line endings, len() validates size. All
+      validation is performed locally without external tools.
+
+  - title: "Markdown Validation"
+    chosen: "Structural validation (H1 heading, blank line, sentence count)"
+    rejected:
+      - "Full CommonMark parser library — overkill for simple validation, adds external dependency"
+      - "No markdown validation — risks invalid markdown, difficult to debug"
+      - "Regex-based validation — fragile, harder to maintain than direct string operations"
+    rationale: >
+      The markdown format is simple: line 1 is H1 heading (starts with '# '), line 2 is blank, lines 3+ are prose.
+      Validation checks: (1) lines[0].startswith('# '), (2) lines[1] == '', (3) count periods in prose section to
+      verify 2-3 sentences. This straightforward string-based approach is used in all existing implementations and
+      is sufficient for the constrained markdown format. No external parser library is needed.
+
+  - title: "Error Handling Strategy"
+    chosen: "Explicit exception raising with descriptive messages"
+    rejected:
+      - "Silent failures — makes debugging impossible, violates non-functional requirement of clean state validation"
+      - "Generic Exception types — harder to distinguish between types of failures"
+      - "sys.exit() without messages — poor user feedback"
+    rationale: >
+      All operations (file creation, validation, git commands) should raise descriptive ValueError, RuntimeError,
+      or OSError exceptions with specific details (e.g., 'Expected 2-3 sentences, found 4'). This allows the caller
+      to distinguish failures and provides clear diagnostics. The main() function catches exceptions and returns
+      non-zero exit code on failure. This pattern is used consistently in existing feature implementations.
+
+openQuestions:
+  - question: "Should the implementation use Python 3.11+ f-strings or older formatting for broader compatibility?"
+    resolved: true
+    options:
+      - option: "Use f-strings (Python 3.6+)"
+        description: "f-strings are modern, readable, and widely supported in Python 3.6+. All recent features use f-strings."
+        selected: true
+      - option: "Use .format() method (Python 2.7+)"
+        description: "Broader compatibility but more verbose, inconsistent with existing codebase pattern."
+        selected: false
+      - option: "Use % formatting (Python 2+)"
+        description: "Legacy approach, not recommended, inconsistent with modern Python best practices."
+        selected: false
+    selectionRationale: >
+      Features 121-124 use f-strings throughout their implementation. The spec specifies Python 3.11+ as the minimum
+      version, so compatibility with older Python versions is not a concern. f-strings are the modern standard and
+      match the established codebase pattern.
+
+  - question: "Should git operations include error handling for pre-existing files or assume clean working tree?"
+    resolved: true
+    options:
+      - option: "Assume clean working tree, fail if file already exists"
+        description: "Simple approach, consistent with existing features which assume a clean slate. File should not exist."
+        selected: true
+      - option: "Check for existing file and skip/overwrite based on configuration"
+        description: "More robust but adds complexity, unnecessary given feature scope."
+        selected: false
+      - option: "Implement atomic operations with rollback on failure"
+        description: "Over-engineered for a simple single-file feature, adds significant complexity."
+        selected: false
+    selectionRationale: >
+      The feature branch feat/125-markdown-file-create is created fresh for this feature. The file test-g4d3am.md
+      should not exist before implementation starts. If it already exists, the script should fail with a clear error.
+      This is the simplest approach and matches the pattern in existing features where each feature creates a single,
+      new test file on its dedicated branch.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O: pathlib.Path.write_text()
+
+  **Chosen:** Use `pathlib.Path.write_text(CONTENT, encoding='utf-8')`
+
+  **Why this approach:**
+  - Modern Python idiom for simple file writing (Python 3.4+, standard library)
+  - Automatically handles file creation, closing, and encoding
+  - Object-oriented API is cleaner than open() or os.path functions
+  - Safer than string-based paths (protects against path traversal)
+  - All existing features 121-124 use this exact pattern
+  - Zero external dependencies
+
+  **Validation:**
+  After writing, validate:
+  1. File exists at correct path
+  2. Content is readable as UTF-8
+  3. Structure matches template (H1 + blank line + prose)
+  4. Line endings are Unix LF (not CRLF)
+  5. File size is 400-600 bytes
+
+  ### 2. Content Generation: Hardcoded Prose
+
+  **Chosen:** Single, carefully-crafted prose string hardcoded in implementation
+
+  **Structure:**
+  ```
+  # Title Here
+
+  Sentence one. Sentence two. Sentence three.
+  ```
+
+  **Content characteristics:**
+  - Exactly 2-3 sentences (count periods)
+  - Coherent, grammatically correct prose
+  - Topically appropriate (can be any topic)
+  - No trailing blank line
+  - Total file size 400-600 bytes
+
+  **Why hardcoded:**
+  - Matches established pattern from 100+ existing test files
+  - Ensures quality without external dependencies or APIs
+  - Simplest implementation, highest confidence in consistency
+  - Each feature (121-124) created one file with one topic
+  - Prose is pre-written, not generated at runtime
+
+  ### 3. Git Workflow: subprocess.run() with shell=False
+
+  **Chosen:** Use `subprocess.run()` with explicit command arrays
+
+  **Three-step workflow:**
+
+  ```python
+  # Step 1: Stage file
+  subprocess.run(["git", "add", "test-g4d3am.md"], capture_output=True)
+
+  # Step 2: Create commit
+  message = "feat(125): create markdown file test-g4d3am.md with prose content"
+  subprocess.run(["git", "commit", "-m", message], capture_output=True)
+
+  # Step 3: Push to remote
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], capture_output=True)
+  ```
+
+  **Error handling:**
+  - Capture stderr and stdout
+  - Check returncode != 0 to detect failures
+  - Raise RuntimeError with specific error message if any step fails
+
+  **Why subprocess.run():**
+  - Standard library, no external dependencies
+  - shell=False prevents shell injection vulnerabilities
+  - Explicit command arrays are portable and clear
+  - All existing implementations use this pattern
+  - Subprocess errors are caught via returncode
+
+  ### 4. Markdown Validation
+
+  **Chosen:** Structural validation using string operations
+
+  **Validation checks:**
+  1. H1 heading: `lines[0].startswith('# ')`
+  2. Blank separator: `lines[1] == ''`
+  3. Sentence count: Count periods in prose section (should be 2-3)
+  4. No trailing blank line (file ends after last sentence)
+
+  **Why string-based validation:**
+  - Simple, clear logic for constrained format
+  - No external parsing libraries needed
+  - Fast and deterministic
+  - Used in all existing feature implementations
+  - Sufficient for this format (not complex markdown)
+
+  ### 5. Encoding and Line Ending Validation
+
+  **Chosen:** Binary content inspection
+
+  **UTF-8 without BOM:**
+  ```python
+  binary = path.read_bytes()
+  if binary.startswith(b'\xef\xbb\xbf'):
+      raise ValueError("File has UTF-8 BOM")
+  ```
+
+  **Unix LF line endings:**
+  ```python
+  if b'\r\n' in binary:
+      raise ValueError("File uses CRLF (should use LF)")
+  ```
+
+  **File size validation:**
+  ```python
+  if not (400 <= len(binary) <= 600):
+      raise ValueError(f"File size {len(binary)} is outside 400-600 bytes")
+  ```
+
+  ---
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O | **Use** | Modern, safe, built-in, no dependencies. Established pattern in features 121-124. |
+  | subprocess (stdlib) | Git operations | **Use** | Standard approach for running external commands securely. All existing implementations use this. |
+  | No external packages | — | **Reject all** | Feature requires only Python 3.11+ standard library. No external dependencies = no supply chain risk, faster installation, simpler maintenance. |
+  | GitPython | Git operations | **Reject** | Unnecessary abstraction layer. Simple git commands are clearer with subprocess. Adds external dependency. |
+  | Any markdown parser | Markdown validation | **Reject** | Constrained markdown format (H1 + blank + prose) is simpler to validate with string operations than full parser. No complex markdown features needed. |
+
+  ---
+
+  ## Security Considerations
+
+  ### Path Safety
+  - **pathlib.Path protects against path traversal:** All file operations use relative paths (`Path("test-g4d3am.md")`). No user-provided paths, no string concatenation. Safe against directory escape attacks.
+  - **No file system traversal:** File is created only in repository root, cannot be created elsewhere.
+
+  ### Command Injection Prevention
+  - **subprocess.run() with shell=False:** Git commands are passed as explicit arrays, not shell strings. Prevents shell injection attacks even if commit message or filenames contained special characters (which they don't).
+  - **Example:** `subprocess.run(["git", "commit", "-m", message])` instead of `os.system(f"git commit -m {message}")`
+
+  ### Input Validation
+  - **No external input:** Prose content, filename, and git commit message are all hardcoded. No user input processing, no parsing of external data.
+  - **Content validation:** Post-write validation ensures file meets all requirements before git operations.
+
+  ### Dependency Security
+  - **Zero external dependencies:** Implementation uses only Python 3.11+ standard library. No supply chain risk from third-party packages.
+  - **Subprocess security:** Git is called via subprocess, not embedded (no local git code execution risk).
+
+  ### File Content Safety
+  - **UTF-8 encoding validation:** Prevents invalid byte sequences or encoding exploits.
+  - **Line ending validation:** Ensures consistent behavior across platforms.
+  - **File size limits:** Prevents accidental creation of extremely large files.
+
+  ---
+
+  ## Performance Implications
+
+  ### Single-File Operation
+  - File creation: ~1-5ms (pathlib.Path.write_text() is very fast)
+  - Validation: ~5-10ms (string operations and binary checks)
+  - Total execution: < 100ms for file operations alone
+
+  ### Git Operations
+  - `git add`: ~50-200ms (depends on repo size, typically fast for single file)
+  - `git commit`: ~50-200ms (creates new tree object, depends on working tree state)
+  - `git push`: ~500ms-2s (depends on network latency and remote server response)
+
+  ### Total Feature Execution: ~1-3 seconds
+  - Dominated by network latency of git push
+  - No optimization needed; execution is already linear and efficient
+
+  ### No Performance Bottlenecks
+  - File I/O: Minimal, single file write
+  - Validation: All O(n) string operations where n = file size (~500 bytes)
+  - Git operations: Standard subprocess calls, no unexpected overhead
+  - No loops, no network calls except git push
+
+  ### Memory Usage
+  - File content: ~500 bytes in memory
+  - Validation: ~500 bytes for text, same for binary
+  - Total peak memory: < 5 MB (includes subprocess overhead)
+
+  ---
+
+  ## Integration with Existing Codebase
+
+  ### Pattern Consistency
+  - **Features 121-124 precedent:** Implementation exactly mirrors these four recent features. All use:
+    - pathlib.Path.write_text() for file creation
+    - Hardcoded prose content with H1 + blank line + 2-3 sentences
+    - subprocess.run() for git add/commit/push
+    - Structural + encoding + line-ending + size validation
+  - **100+ existing test files:** Repository already contains 100+ test-*.md files following this same format. Implementation adds one more to this collection.
+
+  ### No Code Reuse Opportunity
+  - Each feature creates a single script tailored to its specific filename and prose content
+  - No shared utility library for markdown file creation across features
+  - This is acceptable given the small, self-contained scope of each feature
+
+  ### Directory Structure
+  - Feature branch: `feat/125-markdown-file-create` (pre-created)
+  - File location: Repository root (`test-g4d3am.md`)
+  - No changes to directory structure or existing files
+
+  ### Git Repository Impact
+  - **Minimal:** Single commit with one file added
+  - **No merge complexity:** Feature branch is fresh, no conflicts expected
+  - **Conventional commits:** Message format `feat(125): ...` matches repository convention
+  - **Clean history:** No amends, rebases, or force pushes required
+
+  ---
+
+  ## Implementation Checklist
+
+  ### Phase 1: File Creation & Validation
+  - [ ] Create `test-g4d3am.md` with H1 title + blank line + 2-3 sentences
+  - [ ] Validate markdown structure (H1, blank line, sentence count)
+  - [ ] Validate UTF-8 encoding (no BOM)
+  - [ ] Validate Unix LF line endings (no CRLF)
+  - [ ] Validate file size 400-600 bytes
+
+  ### Phase 2: Git Operations
+  - [ ] Stage file with `git add test-g4d3am.md`
+  - [ ] Create commit with message: "feat(125): create markdown file test-g4d3am.md with prose content"
+  - [ ] Push to remote with `git push -u origin HEAD`
+
+  ### Phase 3: Verification
+  - [ ] Verify file exists in repository root
+  - [ ] Verify git log shows commit with correct message
+  - [ ] Verify working tree is clean (`git status`)
+  - [ ] Verify file is accessible on remote branch
+
+  ---
+
+  ## Known Constraints & Assumptions
+
+  1. **Feature branch exists:** `feat/125-markdown-file-create` must be pre-created and checked out
+  2. **Working directory is repo root:** File is created relative to current directory
+  3. **Git is configured:** `user.name` and `user.email` must be set for commits
+  4. **Network access:** git push requires internet access to remote
+  5. **File doesn't exist yet:** `test-g4d3am.md` should not exist before implementation
+  6. **Python 3.11+:** pathlib has full feature set
+  7. **Unix-like line endings preferred:** Implementation assumes LF line endings (standard for git/CI)
+
+  ---
+
+  ## Differences from Prior Art
+
+  Feature 125 implementation is **identical** to features 121-124 with only these differences:
+  - **Filename:** test-g4d3am.md (vs. test-a6pcqm.md, test-50rmt9.md, etc.)
+  - **Prose topic:** To be selected during implementation (features 121-124 covered Sleep, Debugging, AI/ML, Patience)
+  - **Commit message:** References feature 125 instead of 121-124
+  - **All else:** Same file format, validation, git workflow
+
+  This is intentional and desired—the feature spec explicitly states "Strict pattern replication" as the product decision.
+
+  ---
+
+  _Research phase complete. Implementation ready to proceed with confidence. All decisions validated against existing patterns in codebase._
