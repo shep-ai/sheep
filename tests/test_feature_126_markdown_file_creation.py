@@ -11,7 +11,7 @@ Tests cover the main tasks:
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -363,7 +363,7 @@ class TestCreateFeature126MarkdownFile:
                 create_feature_126_markdown_file,
             )
 
-            result = create_feature_126_markdown_file()
+            create_feature_126_markdown_file()
             mock_generate.assert_called_once()
 
     def test_orchestration_function_file_exists_after_creation(self):
