@@ -30,11 +30,9 @@ from sheep.features.feature_132_markdown_file_creation import (
 class TestTask1GenerateMarkdownContent:
     """Tests for task 1: Generate markdown content via LLM."""
 
-    def test_generated_content_has_h1_heading(self, monkeypatch):
+    def test_generated_content_has_h1_heading(self):
         """Test that generated content contains exactly one H1 heading."""
         test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
         with patch(
             "sheep.content_generators.generate_markdown_content",
             return_value=test_content,
@@ -42,11 +40,9 @@ class TestTask1GenerateMarkdownContent:
             content = generate_markdown_content()
             assert content.lstrip().startswith("# "), "Content must start with H1 heading"
 
-    def test_generated_content_has_2_to_3_sentences(self, monkeypatch):
+    def test_generated_content_has_2_to_3_sentences(self):
         """Test that generated content contains exactly 2-3 sentences."""
         test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
         with patch(
             "sheep.content_generators.generate_markdown_content",
             return_value=test_content,
@@ -57,11 +53,9 @@ class TestTask1GenerateMarkdownContent:
                 sentence_count >= 2 and sentence_count <= 3
             ), f"Content must have 2-3 sentences, found {sentence_count}"
 
-    def test_generated_content_size_is_reasonable(self, monkeypatch):
+    def test_generated_content_size_is_reasonable(self):
         """Test that generated content size is within reasonable bounds."""
         test_content = "# Test Topic\n\nSentence one. Sentence two. Sentence three.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
         with patch(
             "sheep.content_generators.generate_markdown_content",
             return_value=test_content,
@@ -72,11 +66,9 @@ class TestTask1GenerateMarkdownContent:
                 200 <= size <= 800
             ), f"Content size {size} bytes is outside typical range (200-800 bytes)"
 
-    def test_generated_content_has_blank_line_separator(self, monkeypatch):
+    def test_generated_content_has_blank_line_separator(self):
         """Test that generated content has blank line after heading."""
         test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
         with patch(
             "sheep.content_generators.generate_markdown_content",
             return_value=test_content,
@@ -87,11 +79,9 @@ class TestTask1GenerateMarkdownContent:
             assert lines[0].startswith("# "), "First line must be H1 heading"
             assert lines[1] == "", "Second line must be blank separator"
 
-    def test_generated_content_has_prose_after_separator(self, monkeypatch):
+    def test_generated_content_has_prose_after_separator(self):
         """Test that prose content exists after blank line separator."""
         test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
         with patch(
             "sheep.content_generators.generate_markdown_content",
             return_value=test_content,
@@ -303,11 +293,9 @@ class TestTask3ValidateMarkdownFile:
 class TestFeature132Integration:
     """Integration tests for the complete feature 132 workflow."""
 
-    def test_create_feature_132_returns_expected_structure(self, monkeypatch):
+    def test_create_feature_132_returns_expected_structure(self):
         """Test that create_feature_132_markdown_file returns expected dictionary structure."""
-        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
+        test_content = "# Software Development Best Practices\n\nModern software development requires adopting best practices in code organization, testing, and deployment. Teams that implement continuous integration and automated testing report significantly faster release cycles and fewer production issues. Code reviews and pair programming enhance code quality while spreading knowledge across the team.\n"
         with patch(
             "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
@@ -324,11 +312,9 @@ class TestFeature132Integration:
             assert f"feat({FEATURE_NUMBER})" in result["commit_message"], "Commit message must include feature number"
             assert MARKDOWN_FILENAME in result["commit_message"], "Commit message must include filename"
 
-    def test_create_feature_132_exact_commit_message(self, monkeypatch):
+    def test_create_feature_132_exact_commit_message(self):
         """Test that the commit message follows the exact required format."""
-        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
+        test_content = "# Software Development Best Practices\n\nModern software development requires adopting best practices in code organization, testing, and deployment. Teams that implement continuous integration and automated testing report significantly faster release cycles and fewer production issues. Code reviews and pair programming enhance code quality while spreading knowledge across the team.\n"
         with patch(
             "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
@@ -337,11 +323,9 @@ class TestFeature132Integration:
             expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
             assert result["commit_message"] == expected_message, f"Commit message must be exactly: {expected_message}"
 
-    def test_create_feature_132_file_exists_and_is_valid(self, monkeypatch):
+    def test_create_feature_132_file_exists_and_is_valid(self):
         """Test that created file exists and passes validation."""
-        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
+        test_content = "# Software Development Best Practices\n\nModern software development requires adopting best practices in code organization, testing, and deployment. Teams that implement continuous integration and automated testing report significantly faster release cycles and fewer production issues. Code reviews and pair programming enhance code quality while spreading knowledge across the team.\n"
         with patch(
             "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
@@ -352,11 +336,9 @@ class TestFeature132Integration:
             assert Path(filepath).exists(), f"File should exist at {filepath}"
             assert validate_markdown_file(filepath) is True, "File should pass validation"
 
-    def test_create_feature_132_correct_filename(self, monkeypatch):
+    def test_create_feature_132_correct_filename(self):
         """Test that created file has the correct filename."""
-        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
+        test_content = "# Software Development Best Practices\n\nModern software development requires adopting best practices in code organization, testing, and deployment. Teams that implement continuous integration and automated testing report significantly faster release cycles and fewer production issues. Code reviews and pair programming enhance code quality while spreading knowledge across the team.\n"
         with patch(
             "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
@@ -366,11 +348,9 @@ class TestFeature132Integration:
 
             assert filepath.name == MARKDOWN_FILENAME, f"Filename must be {MARKDOWN_FILENAME}"
 
-    def test_create_feature_132_content_has_correct_format(self, monkeypatch):
+    def test_create_feature_132_content_has_correct_format(self):
         """Test that created content meets all format requirements."""
-        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
+        test_content = "# Software Development Best Practices\n\nModern software development requires adopting best practices in code organization, testing, and deployment. Teams that implement continuous integration and automated testing report significantly faster release cycles and fewer production issues. Code reviews and pair programming enhance code quality while spreading knowledge across the team.\n"
         with patch(
             "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
@@ -396,11 +376,9 @@ class TestFeature132Integration:
             # Check for trailing newline
             assert content.endswith("\n"), "Content must end with newline"
 
-    def test_create_feature_132_file_is_utf8_without_bom(self, monkeypatch):
+    def test_create_feature_132_file_is_utf8_without_bom(self):
         """Test that created file is UTF-8 encoded without BOM."""
-        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
+        test_content = "# Software Development Best Practices\n\nModern software development requires adopting best practices in code organization, testing, and deployment. Teams that implement continuous integration and automated testing report significantly faster release cycles and fewer production issues. Code reviews and pair programming enhance code quality while spreading knowledge across the team.\n"
         with patch(
             "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
@@ -422,11 +400,9 @@ class TestFeature132Integration:
             except UnicodeDecodeError:
                 pytest.fail("File is not valid UTF-8")
 
-    def test_create_feature_132_file_has_lf_line_endings(self, monkeypatch):
+    def test_create_feature_132_file_has_lf_line_endings(self):
         """Test that created file uses LF line endings (not CRLF)."""
-        test_content = "# Test Topic\n\nSentence one. Sentence two.\n"
-        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-        from unittest.mock import patch
+        test_content = "# Software Development Best Practices\n\nModern software development requires adopting best practices in code organization, testing, and deployment. Teams that implement continuous integration and automated testing report significantly faster release cycles and fewer production issues. Code reviews and pair programming enhance code quality while spreading knowledge across the team.\n"
         with patch(
             "sheep.features.feature_132_markdown_file_creation.generate_markdown_content",
             return_value=test_content,
