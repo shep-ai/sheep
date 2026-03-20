@@ -1,0 +1,380 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-cbf451
+summary: >
+  Technical research for feature 123 (create markdown file test-aibs55.md).
+  Implementation will use pathlib.Path.write_text() for file I/O with explicit UTF-8 encoding
+  and LF line endings, subprocess for git operations, and follows the established pattern
+  from 120+ existing test files. No external dependencies required beyond Python standard library.
+
+# Relationships
+relatedFeatures:
+  - number: 122
+    name: "markdown-file-creation"
+  - number: 121
+    name: "markdown-file-creation"
+  - number: 120
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ standard library (pathlib, subprocess)"
+  - "Git command-line interface"
+  - "Markdown (file format)"
+  - "UTF-8 text encoding"
+  - "Unix line endings (LF)"
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Implementation"
+    chosen: "pathlib.Path.write_text() with explicit UTF-8 encoding and newline='\\n'"
+    rejected:
+      - "Using open() with manual encoding: More verbose, requires manual context manager, more error-prone encoding handling"
+      - "Using os.write(): Low-level API, requires manual encoding and binary mode handling, less readable code"
+    rationale: >
+      pathlib is the modern Python way to handle file I/O (available in Python 3.4+, standard since 3.11).
+      Path.write_text() provides clean, readable syntax while handling encoding automatically.
+      Explicit encoding='utf-8' ensures UTF-8 encoding without BOM as required by NFR-1.
+      The newline='\\n' parameter ensures Unix LF line endings regardless of platform (Windows uses CRLF by default).
+      This approach matches spec requirement NFR-6 to use pathlib for file I/O operations.
+      This pattern is consistent with existing Sheep project conventions.
+
+  - title: "Git Operations Execution Method"
+    chosen: "subprocess.run() with individual git commands (add, commit, push)"
+    rejected:
+      - "GitPython library: Adds external dependency, increases complexity, overkill for simple sequential git operations"
+      - "Direct os.system() or shell execution: Platform-dependent, security risks from command injection, less portable"
+    rationale: >
+      subprocess is part of Python standard library, no additional dependencies required.
+      Git operations (add, commit, push) are straightforward sequential calls with no complex state management.
+      subprocess.run() allows proper error handling and output capture without complexity.
+      Using git CLI directly avoids Python library dependency, follows Unix principle of composable tools.
+      The check=True parameter ensures errors are raised as exceptions, enabling proper error handling.
+      Matches established pattern from similar test automation in the Sheep project.
+
+  - title: "Content Generation and Topic Selection"
+    chosen: "Implementer selects prose topic from any subject (flexible content)"
+    rejected:
+      - "Random topic generator: Adds unnecessary complexity, requires topic library or hardcoded topic list"
+      - "Fixed topic: Reduces implementer creativity and flexibility, contradicts spec's 'about anything' guidance"
+    rationale: >
+      Feature spec explicitly resolves this (openQuestions #2): implementer's choice is recommended.
+      This approach matches how 120+ existing test files were created by different implementers.
+      Flexible topic selection provides appropriate creative freedom for a straightforward task.
+      No research or architectural decisions needed for topic generation, keeping implementation simple.
+      Reduces implementation complexity and aligns with established test file patterns.
+
+  - title: "Encoding and Line Ending Assurance Strategy"
+    chosen: "Explicit parameters in write_text() at creation time with runtime file verification"
+    rejected:
+      - "Pre-validation framework: Unnecessary for single file creation, adds complexity"
+      - "Post-commit git inspection: Requires git inspection tooling, adds latency, overcomplicated"
+    rationale: >
+      Using write_text() with encoding='utf-8' and newline='\\n' guarantees correct encoding and line endings at write time.
+      Python's text mode file operations handle encoding correctly when parameters are explicit.
+      Runtime verification (reading file back to check size, content structure) is simple and sufficient.
+      No need for elaborate validation framework for single small file.
+      Matches requirements NFR-1 (UTF-8 without BOM) and NFR-2 (Unix LF line endings).
+      Simple approach reduces potential points of failure.
+
+  - title: "Error Handling Strategy"
+    chosen: "Explicit exception handling for file I/O and git operations with descriptive error messages"
+    rejected:
+      - "No error handling: Risky, silent failures could occur, unclear debugging if something fails"
+      - "Generic exception catching: Masks underlying issues, makes debugging harder for users"
+    rationale: >
+      File operations can fail (permissions, disk space, path issues) and git can fail (authentication, branch state).
+      Explicit error handling for FileNotFoundError, PermissionError, and subprocess.CalledProcessError allows clear debugging.
+      Descriptive error messages help users understand what went wrong and how to fix it.
+      Keep implementation simple while being robust and user-friendly.
+      Matches quality standards of recent features (120-122).
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should this feature create a standalone executable script or be integrated into existing test automation?"
+    resolved: true
+    options:
+      - option: "Standalone Python script"
+        description: >
+          Create a self-contained script that performs file creation, git operations, and validation.
+          Can be run manually or invoked by external automation.
+          Matches current Sheep project pattern of individual feature implementations.
+        selected: true
+      - option: "Integrated into CI/CD pipeline"
+        description: >
+          Part of automated workflow triggered by external system.
+          Requires coordination with pipeline architecture.
+          More complex, reduces standalone testability.
+        selected: false
+      - option: "Library module for reuse"
+        description: >
+          Exportable functions that could be reused across multiple features.
+          Requires design for abstraction and parameterization.
+          Over-engineered for single file creation.
+        selected: false
+    selectionRationale: >
+      Standalone Python script is the right choice based on established Sheep project patterns.
+      Recent features (120-122) followed standalone implementation approach.
+      Each feature has its own implementation, making testing and debugging straightforward.
+      Can be invoked by higher-level automation without tight coupling.
+      Simplest approach that matches project conventions and requirements.
+
+  - question: "Should implementation validate file size (300-500 bytes requirement)?"
+    resolved: true
+    options:
+      - option: "Runtime validation with assertion/check"
+        description: >
+          After writing file, verify it meets size requirement (300-500 bytes).
+          Fails loudly if requirements not met, catches content-generation errors early.
+          Adds minimal verification code (2-3 lines).
+        selected: true
+      - option: "No validation (assume requirements met)"
+        description: >
+          Trust that prose content will naturally fall in size range.
+          Reduces implementation lines of code.
+          Risk: might miss edge cases if content is too short or too long.
+        selected: false
+      - option: "Post-commit validation via git inspection"
+        description: >
+          Verify file size after commit and push.
+          More rigorous but adds latency and requires git inspection tooling.
+          Overkill for straightforward file creation.
+        selected: false
+    selectionRationale: >
+      Runtime validation is appropriate because file size range (300-500 bytes) is explicit requirement (NFR-3).
+      Simple assertion after writing catches errors immediately before git operations.
+      Matches quality standards seen in features 120-122 (all verified requirements).
+      Minimal code complexity (one Path.stat() check for file size).
+      Fails fast and clearly if requirements not met.
+
+  - question: "Which Python version should be the minimum requirement?"
+    resolved: true
+    options:
+      - option: "Python 3.11+ (match current Sheep project baseline)"
+        description: >
+          Consistent with modern Python, matches project's stated Python 3.11+ support.
+          pathlib available and fully featured since Python 3.4.
+          subprocess features work well in 3.11, all needed stdlib available.
+        selected: true
+      - option: "Python 3.8+ (broader compatibility)"
+        description: >
+          Wider deployment compatibility.
+          Requires more careful API checks, less modern syntax available.
+          Unnecessary for new features given project baseline.
+        selected: false
+      - option: "Python 3.4+ (maximum compatibility)"
+        description: >
+          pathlib available since 3.4, maximum reach.
+          Very old, missing many modern features and optimizations.
+          Not practical for current project or future maintenance.
+        selected: false
+    selectionRationale: >
+      Python 3.11+ is the right choice matching Sheep project's stated baseline.
+      Spec lists 'Python standard library (text encoding)' suggesting modern Python.
+      Recent features (120-122) use current project Python version.
+      3.11+ provides stable, well-tested standard library with all needed tools.
+      Avoids compatibility shims and old syntax workarounds.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-20
+  - **Next Phase:** Implementation
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation
+
+  **Chosen:** pathlib.Path.write_text() with explicit UTF-8 encoding and newline handling
+
+  **Implementation pattern:**
+  ```python
+  from pathlib import Path
+  content = "# Title\n\nTwo to three sentences of prose content here."
+  Path("test-aibs55.md").write_text(content, encoding='utf-8', newline='\n')
+  ```
+
+  **Rejected:**
+  - open() with manual encoding: More verbose, requires context manager, error-prone
+  - os.write(): Low-level, requires binary mode and manual encoding
+
+  **Rationale:** pathlib is modern Python standard (3.4+, stable in 3.11+). Path.write_text() is readable
+  and handles encoding automatically. Explicit encoding='utf-8' ensures no BOM (requirement NFR-1).
+  The newline='\\n' parameter forces Unix LF regardless of platform (Windows CRLF avoidance).
+  Matches spec requirement NFR-6 to use pathlib.
+
+  ### 2. Git Operations Execution
+
+  **Chosen:** subprocess.run() with explicit git commands
+
+  **Implementation pattern:**
+  ```python
+  import subprocess
+  subprocess.run(['git', 'add', 'test-aibs55.md'], check=True)
+  subprocess.run(['git', 'commit', '-m', 'feat(123): create markdown file test-aibs55.md with prose content'], check=True)
+  subprocess.run(['git', 'push'], check=True)
+  ```
+
+  **Rejected:**
+  - GitPython library: External dependency, unnecessary for simple operations
+  - Shell execution (os.system): Security risk, platform-dependent
+
+  **Rationale:** subprocess is in Python stdlib, no dependencies. check=True raises CalledProcessError
+  on failure, enabling proper error handling. Git CLI direct usage avoids complexity.
+  Matches Sheep project automation patterns.
+
+  ### 3. Content Generation Strategy
+
+  **Chosen:** Implementer selects prose topic (flexible, implementer's choice)
+
+  **Pattern from features 120-122:**
+  120+ existing test files all have implementer-selected topics, proving this works at scale.
+  Each implementer chooses appropriate prose related to their understanding.
+
+  **Rejected:**
+  - Random topic generation: Adds complexity, requires hardcoded list or library
+  - Fixed topic: Contradicts spec's "about anything" guidance
+
+  **Rationale:** Spec explicitly resolves this (openQuestions #2). Implementer's choice matches
+  how 120+ existing files were created. No additional tooling needed.
+
+  ### 4. Encoding and Line Ending Assurance
+
+  **Chosen:** Guarantee at write time with runtime verification
+
+  **Implementation:**
+  - write_text() parameters ensure UTF-8 without BOM and LF line endings
+  - Runtime check: verify file size 300-500 bytes after writing
+  - Runtime check: verify H1 heading present and prose content exists
+
+  **Rejected:**
+  - Pre-validation: Unnecessary for single small file
+  - Post-commit validation: Adds latency, requires git inspection
+
+  **Rationale:** Explicit write_text() parameters guarantee correct encoding and line endings.
+  Python text mode correctly handles these when parameters set explicitly.
+  Simple runtime verification ensures success before git operations.
+
+  ### 5. Error Handling
+
+  **Chosen:** Explicit exception handling with descriptive messages
+
+  **Key errors to handle:**
+  - FileNotFoundError: no write access to repository root
+  - PermissionError: insufficient file system permissions
+  - subprocess.CalledProcessError: git operations fail (auth, branch state, etc.)
+  - ValueError: content validation fails (size out of range, missing heading)
+
+  **Rejected:**
+  - No error handling: silent failures, unclear debugging
+  - Generic catching: masks root causes
+
+  **Rationale:** File and git operations can fail legitimately. Clear error messages help users.
+  Keep implementation simple while being robust.
+
+  ## Library Analysis
+
+  | Technology | Purpose | Decision | Rationale |
+  | ---------- | ------- | -------- | --------- |
+  | pathlib | File I/O | Use (stdlib) | Modern, clean API, no dependencies |
+  | subprocess | Git execution | Use (stdlib) | Safe, portable, explicit control |
+  | git | Version control | Use (external) | Already required by project |
+  | Python 3.11+ | Runtime | Require | Matches Sheep baseline, modern stdlib |
+
+  **External Dependencies:** None. Implementation uses Python standard library only.
+
+  **Why no external dependencies:**
+  - pathlib: modern, available in Python 3.4+
+  - subprocess: in stdlib, safe for external commands
+  - git: already required by Sheep project (version control)
+  - Markdown: text format, no library needed for simple creation
+
+  ## Security Considerations
+
+  **Input Safety:**
+  - File path hardcoded as `test-aibs55.md` (no user input) — no path injection risk
+  - Prose content is implementer-created (not from untrusted source) — no sanitization needed
+
+  **Git Operations:**
+  - Using subprocess with explicit argument list (no shell=True) prevents command injection
+  - Git commands are hardcoded and explicit (add, commit, push)
+  - No user input flowing into git command arguments
+
+  **File System:**
+  - Writing to repository root (safe, already available)
+  - No special permissions required
+  - No symbolic link traversal risks
+  - No file overwrites or deletions, only append
+
+  **Conclusion:** Minimal security surface. Implementation follows safe patterns throughout.
+  No authentication, no untrusted input, no complex file operations.
+
+  ## Performance Implications
+
+  **File Creation:** Single small file write (~300-500 bytes) is negligible — <1ms
+
+  **Git Operations:** Three git commands execute sequentially:
+  - `git add`: <100ms (local indexing, small file)
+  - `git commit`: <500ms (local write to git objects)
+  - `git push`: 1-5 seconds (network dependent)
+
+  **Total Runtime:** 2-10 seconds depending on network latency to remote origin
+
+  **Assessment:** Acceptable for test feature. No optimization needed. Operations are simple and fast.
+
+  **Scalability:** Feature is single-file, isolated. No impact on system scalability.
+
+  ## Architecture Notes
+
+  **Feature Isolation:**
+  This feature is a continuation of the markdown-file-creation pattern established in features 102-122.
+  Implementation requires no architectural changes, no impact on source code (/src/sheep/),
+  no dependencies on Sheep core systems.
+
+  **Relationship to Sheep:**
+  - Isolated feature (test file creation only)
+  - Follows established test pattern (120+ files as precedent)
+  - Standard git workflow (no special branching or merging)
+  - No impact on: core codebase, configuration, testing infrastructure, CI/CD
+
+  **Integration Points:** None. Feature is fully self-contained.
+
+  **Codebase Patterns to Follow:**
+  - Use pathlib for file I/O (matches Python best practices and recent features)
+  - Use subprocess for external commands (safe, stdlib approach)
+  - Follow conventional commit message format (already specified in requirements)
+  - Keep implementation focused and simple (no extra features, no over-engineering)
+
+  **Related Features Patterns:**
+  Features 120-122 all follow identical approach:
+  1. Create markdown file with H1 heading and 2-3 sentences
+  2. Validate encoding and content requirements
+  3. Stage with git add
+  4. Commit with conventional message
+  5. Push to feature branch
+
+  This feature should follow the same proven pattern.
+
+  ## Implementation Readiness
+
+  ✅ **All decisions complete. Feature has clear technical path forward:**
+
+  1. Create markdown content with H1 heading and 2-3 sentences of prose (implementer chooses topic)
+  2. Write to `test-aibs55.md` using pathlib.Path.write_text() with encoding='utf-8' and newline='\\n'
+  3. Verify file size 300-500 bytes, H1 heading present, prose content exists
+  4. Execute git add, commit, push commands via subprocess.run() with proper error handling
+  5. Handle errors with clear, descriptive messages
+
+  ✅ **No blockers or research gaps remain.** Pattern validated by:
+  - 120+ existing test files in repository
+  - Recent features 120-122 successfully implemented identical pattern
+  - Established Sheep project conventions for file I/O and git operations
+  - Python standard library fully supports all operations
+
+  ---
+
+  _Research phase complete — ready for implementation_
