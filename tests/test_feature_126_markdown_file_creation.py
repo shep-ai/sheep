@@ -335,7 +335,7 @@ class TestFeature126Integration:
         """Test that created content meets all format requirements."""
         from unittest.mock import MagicMock
 
-        test_content = "# Test Topic\n\nThis is test sentence one. This is test sentence two.\n"
+        test_content = "# Test Topic for Feature 126\n\nThis is test sentence number one providing meaningful content. This is test sentence number two giving more information. This is test sentence number three completing the thought.\n"
         mock_llm = MagicMock()
         mock_llm.call.return_value = {"content": test_content}
 
