@@ -1,0 +1,253 @@
+name: "markdown-file-create-e7da08"
+summary: >
+  Feature 126 implements a straightforward markdown file creation workflow following the
+  established pattern from 125+ prior features. The implementation uses the existing
+  orchestrator function `create_markdown_file()` which combines LLM-based content generation
+  (via Claude API), UTF-8 file writing with validation, git staging/committing, and push to
+  remote. Key architectural decision: fix a bug in commit message generation to include
+  feature number scope (feat(126):) for proper traceability and spec compliance. Feature
+  number is extracted from the current git branch name (regex: feat/(\d+)-) with fallback
+  to environment variable. This ensures all commits correlate clearly to feature tickets
+  and enables git log filtering by feature scope.
+
+relatedFeatures:
+  - number: 125
+    name: "markdown-file-create (previous iteration)"
+  - number: 121
+    name: "markdown-file-creation-1ea7c6 (reference implementation)"
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI"
+  - "Pydantic"
+  - "pathlib (file I/O)"
+  - "GitPython (git operations)"
+  - "Claude API (content generation)"
+  - "structlog (logging)"
+
+relatedLinks:
+  - title: "Content Generators Module"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-create-e7da08/src/sheep/content_generators.py"
+  - title: "Git Tools Module"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-create-e7da08/src/sheep/tools/git_tools.py"
+  - title: "Sheep Project README"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-create-e7da08/README.md"
+
+phases:
+  - id: phase-1
+    name: "Bug Fix & Feature Number Extraction"
+    description: >
+      Fix the existing bug where commit messages are generated without feature number scope.
+      Currently, commits are created as `feat: Create ...` instead of the specification-required
+      `feat(126): Create ...` format. Implement feature number extraction from git branch name
+      using regex (feat/(\d+)-) with environment variable fallback. This ensures all commits
+      properly correlate to feature tickets and enables git log filtering by feature scope.
+      This fix is mandatory for spec compliance (NFR-5) and establishes the pattern for all
+      subsequent feature iterations.
+    parallel: false
+
+  - id: phase-2
+    name: "Markdown File Creation & Validation"
+    description: >
+      Use the existing `create_markdown_file()` orchestrator function to generate, write,
+      and validate the markdown file `test-trd8nx.md` following all specification requirements.
+      Leverage the mature infrastructure: Claude API for content generation, pathlib for safe
+      file I/O, and the two-phase validation system (binary checks for encoding/line endings,
+      then text checks for structure/content). Verify all success criteria are met: H1 heading,
+      2-3 sentences, UTF-8 without BOM, Unix LF line endings, file size ≥50 bytes.
+    parallel: false
+
+  - id: phase-3
+    name: "Git Workflow & Remote Push"
+    description: >
+      Verify complete git workflow: file is properly staged via GitCommitTool, committed with
+      correct conventional commit message including feature number scope, and pushed to remote
+      with upstream tracking (-u flag). Confirm remote branch reflects the pushed changes and
+      commit history is intact. This phase validates the end-to-end feature completion workflow.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - "src/sheep/content_generators.py"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 126 integrates seamlessly into the Sheep platform's content generation framework.
+  The implementation leverages a mature, proven pattern established over 125+ prior feature iterations.
+
+  ### Integration Points
+
+  1. **LLM Content Generation**
+     - Uses `get_reasoning_llm()` factory from `sheep.config.llm` to obtain Claude API instance
+     - CrewAI framework provides LLM abstraction, model flexibility via environment config, and Langfuse observability
+     - MARKDOWN_GENERATION_PROMPT is well-tuned to produce compliant markdown (H1 + 2-3 sentences)
+
+  2. **File I/O & Validation**
+     - `write_markdown_file()` uses pathlib.Path with explicit UTF-8 encoding, no BOM
+     - Python's default text mode on Unix systems writes LF (`\n`) line endings
+     - Two-phase `validate_markdown_file()` checks binary-level issues (BOM, CRLF) then text structure
+     - Validation is mandatory before commit (line 411 in content_generators.py)
+
+  3. **Git Operations**
+     - GitCommitTool and GitPushTool from `sheep.tools.git_tools` integrate with CrewAI tool framework
+     - GitCommitTool stages files and commits with error detection for \"nothing to commit\"
+     - GitPushTool enables automatic branch detection and upstream tracking setup (-u flag)
+     - Tools provide structured logging via framework observability (Langfuse tracing)
+
+  4. **Logging Instrumentation**
+     - Module-level logger from `get_logger(__name__)` provides structured logging at each workflow step
+     - Consistent with framework observability patterns (structlog, Langfuse integration)
+
+  ### Workflow Architecture
+
+  The orchestrator follows a clear sequence:
+  1. Generate markdown content via Claude API
+  2. Write to disk with UTF-8 encoding, LF line endings
+  3. Validate binary and text structure
+  4. Stage and commit with proper conventional message
+  5. Push to remote with upstream tracking
+  6. Return results dictionary
+
+  Each step has structured logging and error handling. The orchestrator function ensures all steps
+  complete successfully before returning results.
+
+  ## Key Design Decisions
+
+  ### 1. Feature Number in Commit Message Scope
+
+  **Decision:** Include feature number in commit message scope: `feat(126): Create test-trd8nx.md markdown file with [topic] content`
+
+  **Current Bug:** Lines 315 and 422 in content_generators.py generate commits without feature number.
+  This is inconsistent with specification NFR-5 and breaks traceability to feature tickets.
+
+  **Why This Matters:**
+  - Specification requirement (NFR-5): \"Commit message must follow conventional commits format: feat(NUMBER): description\"
+  - Enables git log filtering by feature: `git log --oneline | grep 'feat(126)'`
+  - Correlates commits to feature tickets (traceability)
+  - Matches established pattern in git history (prior commits show feature number scope)
+  - Enables CI/CD automation keyed on commit scope
+
+  **Implementation:** Extract feature number from branch name using regex pattern `feat/(\d+)-` on
+  the current git branch. Fallback to `FEATURE_NUMBER` environment variable if regex doesn't match.
+  This is low-friction and maintains compatibility with the branch naming convention.
+
+  ### 2. Two-Phase File Validation
+
+  **Decision:** Binary-level checks (encoding, line endings) before text-level checks (structure, content)
+
+  **Why This Approach:**
+  - Binary validation detects UTF-8 BOM (`\xef\xbb\xbf`), CRLF (`\r\n`) presence
+  - Text-only parsing cannot reliably detect these binary issues
+  - BOM can hide code in some editors; CRLF breaks Unix tools and git diffs
+  - Text validation then safely checks H1 heading, blank line separator, sentence count, trailing newline
+  - Two-phase approach catches subtle formatting issues early, before commit
+
+  **Spec Compliance:** Directly implements NFR-1 through NFR-4 (encoding, line endings, trailing newline, file size)
+
+  ### 3. LLM Integration via CrewAI Framework
+
+  **Decision:** Use `get_reasoning_llm()` from `sheep.config.llm` for Claude API access (no direct Anthropic SDK)
+
+  **Why This Pattern:**
+  - CrewAI is the established LLM abstraction layer across the Sheep codebase
+  - Provides model flexibility via environment configuration
+  - Built-in Langfuse observability hooks for request tracing and monitoring
+  - Framework-level error handling and retry logic
+  - 125+ prior features use this pattern successfully
+
+  **Prompt Design:** MARKDOWN_GENERATION_PROMPT is tightly specified:
+  - Requests H1 heading (title)
+  - Blank line separator
+  - Exactly 2-3 sentences
+  - Returns only markdown (no meta-text)
+  - Claude reliably produces compliant output without post-processing
+
+  ### 4. Git Tool Integration via CrewAI Tools
+
+  **Decision:** Use GitCommitTool and GitPushTool from `sheep.tools.git_tools` (not direct subprocess or GitPython)
+
+  **Why This Pattern:**
+  - Tools are BaseTool subclasses, integrate with CrewAI observation system
+  - Structured logging and error detection (e.g., \"nothing to commit\")
+  - Consistent error handling across the framework
+  - Tool-based approach enables Langfuse tracing of git operations
+  - Established pattern in Sheep architecture, used throughout codebase
+
+  **Current Implementation:**
+  - GitCommitTool stages files with `git add -A`, detects commit errors
+  - GitPushTool auto-detects current branch, sets upstream tracking with `-u` flag
+  - Both tools provide structured error messages for debugging
+
+  ## Implementation Strategy
+
+  ### Phase Ordering Rationale
+
+  **Phase 1 (Bug Fix) comes first** because:
+  - The commit message format is core to the specification (NFR-5)
+  - Feature number extraction is a prerequisite for correct commit messages in all subsequent features
+  - Fixing this bug now establishes the correct pattern for feature 127+
+  - This is a small, focused change (implement 1-2 helper functions)
+  - Unblocks Phase 2 and Phase 3 (commit messages must be correct before file creation)
+
+  **Phase 2 (File Creation & Validation) comes second** because:
+  - Depends on Phase 1 (commit message bug must be fixed first)
+  - Focuses on content generation and file validation (core feature work)
+  - Uses existing, proven infrastructure (no architectural changes needed)
+  - All success criteria are measurable (file exists, format correct, validation passes)
+
+  **Phase 3 (Git Workflow & Push) comes last** because:
+  - Depends on Phase 1 (correct commit messages) and Phase 2 (valid file exists)
+  - Validates end-to-end workflow (file staging, commit, push)
+  - Confirms changes reach remote repository
+  - Closure phase: verify feature is complete and published
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Feature number extraction regex fails on unexpected branch name format | Implement fallback to `FEATURE_NUMBER` environment variable; unit tests for edge cases (detached HEAD, custom branch names) |
+  | LLM API call fails or returns malformed markdown | Validate generated content against MARKDOWN_GENERATION_PROMPT requirements before writing file; error handling + retry in get_reasoning_llm() |
+  | File already exists with same name (collision) | write_markdown_file() will overwrite; this is acceptable per spec (feature is deterministic) |
+  | Git push fails (network, auth, remote changes) | GitPushTool has error detection; raises exception with descriptive message; manual retry after auth check |
+  | Validation fails (encoding issue, wrong line endings) | Two-phase validation catches issues early; error message indicates which validation check failed; fix the underlying issue (LLM output, file I/O) before retry |
+  | BOM or CRLF sneaks into file | validate_markdown_file() explicitly rejects BOM (`\xef\xbb\xbf`) and CRLF (`\r\n`); never reaches commit stage |
+
+  ## Files Modified
+
+  ### src/sheep/content_generators.py
+
+  **Changes:**
+  1. Add helper function `get_feature_number()` to extract feature number from git branch name
+     - Regex pattern: `feat/(\d+)-` matches `feat/126-markdown-file-create-e7da08`
+     - Fallback: check `FEATURE_NUMBER` environment variable
+     - Returns: integer feature number or None
+
+  2. Update `commit_markdown_file()` function signature to accept optional `feature_number` parameter
+     - Line 315: change commit message format to include feature number
+     - Example: `f\"feat({feature_number}): Create {filename} markdown file with {topic} content\"`
+
+  3. Update `create_markdown_file()` function signature to accept optional `feature_number` parameter
+     - Extract feature number if not provided (use `get_feature_number()`)
+     - Line 422: change commit message return value to include feature number
+     - Pass feature number to `commit_markdown_file()` call
+
+  **No new files created.** All changes are within the existing module to fix the commit message bug.
+
+  ## Dependencies & Constraints
+
+  - **Python 3.11+** (already available in environment)
+  - **CrewAI 0.86.0+** (already in pyproject.toml)
+  - **GitPython** (used indirectly via GitCommitTool and GitPushTool)
+  - **Git CLI** available in PATH (for GitCommitTool and GitPushTool)
+  - **Feature branch** must follow naming convention: `feat/[number]-[description]`
+  - **Remote origin** must be configured (verified before pushing)
+
+  ---
+
+  _Planning phase complete. All architectural decisions documented with rationale.
+  Two minor code modifications required (feature number extraction and commit message format).
+  Ready for implementation._

@@ -1,0 +1,295 @@
+name: "markdown-file-create-e7da08"
+summary: >
+  7 tasks across 3 phases. Phase 1 fixes the commit message bug by implementing feature number
+  extraction from git branch name and updating both commit_markdown_file() and create_markdown_file().
+  Phase 2 creates the markdown file test-trd8nx.md and validates it meets all requirements
+  (H1 heading, 2-3 sentences, UTF-8 without BOM, LF line endings, ≥50 bytes). Phase 3 verifies
+  the complete git workflow (staging, committing with proper message, and pushing to remote with
+  upstream tracking). Total estimated effort: 2-3 hours.
+
+relatedFeatures:
+  - number: 125
+    name: "markdown-file-create (previous iteration)"
+  - number: 121
+    name: "markdown-file-creation-1ea7c6 (reference implementation)"
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI"
+  - "pytest"
+  - "GitPython"
+  - "Claude API"
+
+relatedLinks:
+  - title: "Content Generators Module"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-create-e7da08/src/sheep/content_generators.py"
+  - title: "Git Tools Module"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-create-e7da08/src/sheep/tools/git_tools.py"
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: "Create feature number extraction helper function"
+    description: >
+      Implement `get_feature_number()` helper function to extract the feature number from the
+      current git branch name using regex pattern `feat/(\d+)-`. This function is the foundation
+      for fixing the commit message bug. It will support fallback to `FEATURE_NUMBER` environment
+      variable for edge cases (detached HEAD, custom branch names). Returns integer feature number
+      or None if extraction fails.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - "Function `get_feature_number()` exists in content_generators.py"
+      - "Regex pattern `feat/(\d+)-` correctly extracts number from branch name `feat/126-...`"
+      - "Function returns integer (e.g., 126) when branch matches pattern"
+      - "Function falls back to `FEATURE_NUMBER` environment variable if branch doesn't match"
+      - "Function returns None if no feature number can be extracted"
+      - "Handles edge cases gracefully (detached HEAD, empty branch name)"
+    tdd:
+      red:
+        - "Write test in tests/unit/test_content_generators.py that asserts `get_feature_number()` can extract 126 from branch `feat/126-markdown-file-create-e7da08`"
+        - "Write test that asserts function returns None when branch name doesn't match pattern"
+        - "Write test that asserts function falls back to `FEATURE_NUMBER` environment variable"
+      green:
+        - "Implement `get_feature_number()` function using regex to extract feature number from `Repo(Path.cwd()).head.ref.name`"
+        - "Use try/except to handle GitCommandError when in detached HEAD state"
+        - "Implement fallback to `os.getenv('FEATURE_NUMBER')`"
+        - "Minimal implementation to pass tests"
+      refactor:
+        - "Extract regex pattern to module-level constant `FEATURE_BRANCH_PATTERN = r'feat/(\\d+)-'`"
+        - "Add docstring with examples and edge case handling"
+        - "Consider type hints: `def get_feature_number() -> int | None:`"
+    estimatedEffort: "30 minutes"
+
+  - id: task-2
+    phaseId: phase-1
+    title: "Fix commit_markdown_file() to include feature number in commit message"
+    description: >
+      Update `commit_markdown_file()` function to accept optional `feature_number` parameter and
+      include it in the commit message scope. Change commit message format from `feat: Create ...`
+      (line 315) to `feat(126): Create ...` where 126 is the feature number. This directly fixes
+      the specification violation (NFR-5) and establishes the correct pattern for all future features.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "Function signature updated: `commit_markdown_file(..., feature_number: int | None = None)`"
+      - "Commit message includes feature number scope: `feat(126): Create test-trd8nx.md markdown file with [topic] content`"
+      - "If feature_number not provided, function calls `get_feature_number()` to extract it"
+      - "Handles case where feature number is None (falls back to simple `feat: ...` format, logs warning)"
+      - "All structured logging messages are preserved"
+    tdd:
+      red:
+        - "Write test that calls `commit_markdown_file(..., feature_number=126)` and verifies commit message contains `feat(126):`"
+        - "Write test that calls function without feature_number and verifies `get_feature_number()` is called"
+      green:
+        - "Update function signature to accept `feature_number` parameter"
+        - "Modify line 315 to format commit message as `feat({feature_number}): Create {filename} markdown file with {topic} content`"
+        - "Add fallback logic: if feature_number is None, call `get_feature_number()` and use result or log warning"
+        - "Minimal change to pass tests"
+      refactor:
+        - "Extract commit message formatting to helper function for clarity"
+        - "Review logging statements to ensure clarity"
+        - "Ensure error handling is consistent with codebase patterns"
+    estimatedEffort: "30 minutes"
+
+  - id: task-3
+    phaseId: phase-1
+    title: "Fix create_markdown_file() to pass feature number and return correct commit message"
+    description: >
+      Update `create_markdown_file()` orchestrator function to extract feature number and pass it
+      to `commit_markdown_file()`. Fix the return value at line 422 to also include feature number
+      in the commit message. This completes the bug fix and ensures the final return value accurately
+      reflects what was actually committed to git.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - "Function signature updated: `create_markdown_file(filename: str, feature_number: int | None = None, ...)`"
+      - "Function extracts feature number (if not provided) at start using `get_feature_number()`"
+      - "Passes feature_number to `commit_markdown_file()` call (line 416)"
+      - "Return value at line 422 includes feature number: `commit_message = f\"feat({feature_number}): Create {filename} markdown file with {topic} content\"`"
+      - "All structured logging messages are consistent and clear"
+    tdd:
+      red:
+        - "Write integration test that calls `create_markdown_file('test-file.md', feature_number=126)` and verifies returned commit_message includes `feat(126):`"
+        - "Write test that calls without feature_number and verifies function extracts it correctly"
+      green:
+        - "Update function signature to accept `feature_number` parameter (default None)"
+        - "Add logic to extract feature_number at beginning if None: `if feature_number is None: feature_number = get_feature_number()`"
+        - "Pass feature_number to commit_markdown_file() call"
+        - "Update line 422 to include feature_number in return value"
+        - "Minimal change to pass tests"
+      refactor:
+        - "Review all logging statements for consistency"
+        - "Ensure error handling is clear and actionable"
+        - "Consider if any docstring updates are needed"
+    estimatedEffort: "30 minutes"
+
+  - id: task-4
+    phaseId: phase-2
+    title: "Create markdown file test-trd8nx.md with proper format"
+    description: >
+      Call `create_markdown_file('test-trd8nx.md', feature_number=126)` to generate, write, and
+      validate the markdown file. This task leverages all previous bug fixes and the mature
+      infrastructure (Claude API for content, pathlib for file I/O, two-phase validation).
+      Verify the file is created in the repository root with correct format before proceeding
+      to git operations.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - "File `test-trd8nx.md` exists in repository root directory"
+      - "File contains exactly one H1 heading (starting with `# `)"
+      - "File contains 2-3 sentences of coherent prose after the heading"
+      - "File is encoded in UTF-8 without BOM (Byte Order Mark)"
+      - "File uses LF line endings exclusively (no CRLF)"
+      - "File ends with a trailing newline character"
+      - "File size is at least 50 bytes (ensures meaningful content)"
+      - "Validation passes all checks (no exceptions raised)"
+    tdd:
+      red:
+        - "Write test that calls `create_markdown_file('test-trd8nx.md', feature_number=126)` and asserts returned filepath matches repository root"
+        - "Write test that verifies the returned content contains H1 heading and prose"
+      green:
+        - "Call `create_markdown_file('test-trd8nx.md', feature_number=126)` and capture result"
+        - "Verify result dictionary contains: filepath, content, commit_message, push_result"
+        - "Assert no exceptions are raised during creation"
+        - "Minimal verification to pass tests"
+      refactor:
+        - "Read created file and verify all format requirements (H1, sentences, encoding, line endings)"
+        - "Check file size is ≥50 bytes"
+        - "Log full file content and path for debugging"
+    estimatedEffort: "45 minutes"
+
+  - id: task-5
+    phaseId: phase-2
+    title: "Validate markdown file format and encoding"
+    description: >
+      Perform deep validation of the created file to ensure it meets all specification
+      requirements. Verify UTF-8 encoding without BOM, Unix LF line endings, proper markdown
+      structure (H1 heading, blank line separator, 2-3 sentences), trailing newline, and file size.
+      This validation is already performed by `validate_markdown_file()` internally, but this task
+      ensures we can independently verify all requirements are met.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "File is readable and decodable as UTF-8"
+      - "File contains no UTF-8 BOM (`\\xef\\xbb\\xbf` bytes)"
+      - "File contains no CRLF line endings (only LF `\\n`)"
+      - "File starts with exactly one H1 heading (regex: `^# .+`)"
+      - "Blank line exists after H1 heading (line 2 is empty or whitespace)"
+      - "Prose content contains 2-3 sentences (counted by periods)"
+      - "File ends with exactly one trailing newline"
+      - "File size is at least 50 bytes and at most 1 KB (reasonable content)"
+    tdd:
+      red:
+        - "Write test that reads the file in binary mode and asserts no UTF-8 BOM is present"
+        - "Write test that asserts no CRLF (`\\r\\n`) sequences exist in file"
+        - "Write test that counts sentences (period delimiters) and asserts 2-3 sentences"
+      green:
+        - "Read file as binary, check for BOM signature"
+        - "Search binary content for CRLF bytes"
+        - "Read file as text, parse H1 heading, count sentences via period splits"
+        - "Verify trailing newline and file size"
+        - "Assert all checks pass"
+      refactor:
+        - "Extract validation logic into reusable helper functions if needed"
+        - "Add clear error messages for any validation failures"
+        - "Document validation rules in docstrings"
+    estimatedEffort: "30 minutes"
+
+  - id: task-6
+    phaseId: phase-3
+    title: "Verify git staging and commit with feature number"
+    description: >
+      Verify the git workflow functioned correctly: file was staged in git index, committed with
+      the correct conventional commit message including feature number scope `feat(126):`, and
+      commit exists on the feature branch with proper metadata. Check git log to confirm commit
+      message format and content.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - "File `test-trd8nx.md` is staged in git index (shown in `git status`)"
+      - "Commit exists on current branch (visible in `git log`)"
+      - "Commit message follows format: `feat(126): Create test-trd8nx.md markdown file with [topic] content`"
+      - "Commit includes correct author information"
+      - "Commit timestamp is recent (within last 5 minutes)"
+    tdd:
+      red:
+        - "Write test that runs `git status` and asserts `test-trd8nx.md` is listed in staged changes"
+        - "Write test that runs `git log -1 --pretty=format:%s` and asserts commit message matches pattern `feat(126):`"
+      green:
+        - "Run git commands to inspect repository state"
+        - "Parse git output to verify staging status and commit message"
+        - "Assert all checks pass"
+      refactor:
+        - "Add helper functions to run git commands cleanly"
+        - "Improve error messages for debugging"
+        - "Document git commands used and their purpose"
+    estimatedEffort: "20 minutes"
+
+  - id: task-7
+    phaseId: phase-3
+    title: "Verify push to remote with upstream tracking"
+    description: >
+      Verify the push to remote repository succeeded: changes are reflected on origin, upstream
+      tracking is configured correctly, and remote branch contains the correct commit. Check that
+      the feature branch on origin matches the local feature branch with no divergence.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - "Push to remote completed successfully (no errors)"
+      - "Remote branch `origin/feat/126-markdown-file-create-e7da08` exists and is up-to-date"
+      - "Upstream tracking is configured: `git rev-parse --abbrev-ref --symbolic-full-name @{u}` returns `origin/feat/...`"
+      - "Remote branch contains the same commit as local branch"
+      - "File `test-trd8nx.md` is visible in remote branch"
+    tdd:
+      red:
+        - "Write test that runs `git ls-remote origin feat/126-markdown-file-create-e7da08` and asserts remote branch exists"
+        - "Write test that verifies local and remote commit hashes match for HEAD"
+      green:
+        - "Run git commands to check remote status"
+        - "Parse output to verify remote branch exists and matches local"
+        - "Assert no divergence between local and remote"
+      refactor:
+        - "Add helper to safely run git commands and parse output"
+        - "Improve error messages if remote operations fail"
+        - "Document git commands used and their purpose"
+    estimatedEffort: "20 minutes"
+
+totalEstimate: "2h 45m"
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  Feature 126 is implemented across 3 phases and 7 concrete tasks. The implementation follows TDD
+  with RED-GREEN-REFACTOR cycles for each task.
+
+  **Phase 1** (Bug Fix & Feature Number Extraction) fixes the critical bug where commit messages
+  were generated without feature number scope. This phase adds a helper function `get_feature_number()`
+  and updates two existing functions (`commit_markdown_file()` and `create_markdown_file()`) to use it.
+  This is the highest priority because spec compliance (NFR-5) and traceability depend on it.
+
+  **Phase 2** (Markdown File Creation & Validation) creates the actual file `test-trd8nx.md` using
+  the now-fixed `create_markdown_file()` function. It leverages the mature infrastructure: Claude API
+  for content generation, pathlib for safe file I/O, two-phase validation (binary then text checks).
+  All success criteria are verified: H1 heading, 2-3 sentences, UTF-8 without BOM, LF line endings,
+  trailing newline, ≥50 bytes.
+
+  **Phase 3** (Git Workflow & Remote Push) verifies the complete git workflow functions correctly:
+  file is properly staged, committed with correct conventional message including feature number scope,
+  and pushed to remote with upstream tracking. This closure phase confirms the feature is complete and
+  published.
+
+  Each task has clear acceptance criteria, TDD cycles (red/green/refactor), and estimated effort.
+  Total effort: 2 hours 45 minutes.
+
+  ---
+
+  _Task breakdown complete. All tasks ordered by dependency. Ready for implementation._
