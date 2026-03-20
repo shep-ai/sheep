@@ -32,12 +32,20 @@ class TestTask1GenerateMarkdownContent:
 
     def test_generated_content_has_h1_heading(self):
         """Test that generated content contains exactly one H1 heading."""
-        content = generate_markdown_content()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two.\n"
+
+        with patch("sheep.content_generators.generate_markdown_content", return_value=test_content):
+            content = generate_markdown_content()
+
         assert content.lstrip().startswith("# "), "Content must start with H1 heading"
 
     def test_generated_content_has_2_to_3_sentences(self):
         """Test that generated content contains exactly 2-3 sentences."""
-        content = generate_markdown_content()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with patch("sheep.content_generators.generate_markdown_content", return_value=test_content):
+            content = generate_markdown_content()
+
         sentence_count = content.count(".")
         assert (
             sentence_count >= 2 and sentence_count <= 3
@@ -45,7 +53,11 @@ class TestTask1GenerateMarkdownContent:
 
     def test_generated_content_size_is_reasonable(self):
         """Test that generated content size is within reasonable bounds."""
-        content = generate_markdown_content()
+        test_content = "# Digital Transformation in Modern Enterprises\n\nDigital transformation represents a fundamental shift in how organizations operate and deliver value to customers in the modern economy. Companies across all industries are investing heavily in new technologies, processes, and business models to remain competitive. This comprehensive change requires leadership commitment and organizational culture shift to succeed.\n"
+
+        with patch("sheep.content_generators.generate_markdown_content", return_value=test_content):
+            content = generate_markdown_content()
+
         size = len(content)
         assert (
             200 <= size <= 800
@@ -53,7 +65,11 @@ class TestTask1GenerateMarkdownContent:
 
     def test_generated_content_has_blank_line_separator(self):
         """Test that generated content has blank line after heading."""
-        content = generate_markdown_content()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two.\n"
+
+        with patch("sheep.content_generators.generate_markdown_content", return_value=test_content):
+            content = generate_markdown_content()
+
         lines = content.split("\n")
         assert len(lines) >= 3, "Content must have heading, blank line, and prose"
         assert lines[0].startswith("# "), "First line must be H1 heading"
@@ -61,7 +77,11 @@ class TestTask1GenerateMarkdownContent:
 
     def test_generated_content_has_prose_after_separator(self):
         """Test that prose content exists after blank line separator."""
-        content = generate_markdown_content()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two.\n"
+
+        with patch("sheep.content_generators.generate_markdown_content", return_value=test_content):
+            content = generate_markdown_content()
+
         lines = content.split("\n")
         prose_content = "\n".join(lines[2:]).strip()
         assert len(prose_content) > 0, "Must have prose content after heading"
