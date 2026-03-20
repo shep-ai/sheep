@@ -1,0 +1,348 @@
+name: markdown-file-create-2d9f0a
+summary: "Feature 128 creates a markdown test file with LLM-generated content. Research confirms reusing existing content_generators.py utilities, using Claude reasoning model for content generation, and comprehensive validation before committing. Architecture aligns perfectly with established patterns from features 121-127."
+
+relatedFeatures:
+  - number: 127
+    name: "markdown-file-create-140981"
+    relationship: "Identical pattern and implementation approach"
+  - number: 126
+    name: "markdown-file-create-be7151"
+    relationship: "Identical pattern and implementation approach"
+  - number: 125
+    name: "markdown-file-create"
+    relationship: "Identical pattern and implementation approach"
+  - number: 121
+    name: "markdown-file-create"
+    relationship: "Original pattern that established the approach"
+
+technologies:
+  - "Python 3.11+ (standard library: pathlib, subprocess)"
+  - "CrewAI (LLM orchestration framework)"
+  - "Claude API (Anthropic) via get_reasoning_llm()"
+  - "Git (version control: subprocess-based via git_tools.py)"
+  - "Markdown (file format specification)"
+  - "UTF-8 text encoding"
+  - "Unix LF line endings"
+
+relatedLinks:
+  - title: "Content Generators Module"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "Git Tools Module"
+    url: "file:///src/sheep/tools/git_tools.py"
+  - title: "Feature 127 Implementation Reference"
+    url: "file:///src/sheep/features/feature_127_markdown_file_creation.py"
+  - title: "LLM Configuration"
+    url: "file:///src/sheep/config/llm.py"
+
+decisions:
+  - title: "Content Generation Approach"
+    chosen: "Reuse existing generate_markdown_content() utility from content_generators.py with Claude reasoning model"
+    rejected:
+      - "Implement custom LLM integration — Duplicates work already proven in features 121-127; content_generators.py is battle-tested and handles prompt templating, response validation, and error handling"
+      - "Use lightweight LLM (fast_model) — Reasoning model is more reliable for generating diverse, coherent prose; feature has no latency constraints (15-minute window)"
+      - "Use hardcoded markdown templates — Fails diversity requirement (NFR-7); reduces learning signal for LLM orchestration validation; existing utility is proven to generate diverse topics"
+    rationale: "The existing generate_markdown_content() function in content_generators.py uses Claude's reasoning model (get_reasoning_llm() with temperature=0.2) configured for focused, coherent output. This approach is battle-tested across 127 prior features, handles LLM response parsing robustly, includes built-in validation of H1 heading and sentence count, and ensures consistent prose quality. Reusing this utility eliminates code duplication, reduces implementation time, and inherits proven error handling patterns. The reasoning model with low temperature ensures focused content generation suitable for test documentation context."
+
+  - title: "File Writing and Encoding Strategy"
+    chosen: "Use existing write_markdown_file() with Python's open(mode='w', encoding='utf-8') and automatic LF normalization"
+    rejected:
+      - "Manual binary write with explicit LF encoding — More error-prone; open(mode='w') already handles UTF-8 and LF normalization correctly on Unix; adds unnecessary complexity"
+      - "Use pathlib.Path.write_text() — Less control over encoding details and error handling; existing implementation handles post-write verification"
+      - "Write with CRLF line endings — Violates requirement (NFR-6); Windows Python open() in text mode converts \n to CRLF on Windows; must use binary write or explicit LF handling"
+    rationale: "The existing write_markdown_file() function correctly uses open(file_path, 'w', encoding='utf-8') which automatically handles UTF-8 encoding and LF line ending normalization on Unix. On Windows, the implementation ensures LF-only output. The function includes post-write verification (checks file exists and has content), handles path traversal attacks via filename validation, and logs file size for debugging. This proven approach is safer than manual binary writes and aligns with Python best practices for text file I/O."
+
+  - title: "Validation Timing and Scope"
+    chosen: "Comprehensive validation after file write, before commit (validate_markdown_file function)"
+    rejected:
+      - "Minimal validation (only H1 + sentence count) — Fails non-functional requirements; cannot catch encoding/line-ending issues that would corrupt repository; leads to rework if files don't meet byte-size or encoding requirements"
+      - "No pre-commit validation — Risks committing malformed files; cannot fix issues before pushing; creates technical debt and inconsistency with existing 100+ test files"
+      - "Validate only on read-back from disk — Adds latency; less clear error messages; harder to debug file write issues"
+    rationale: "Feature spec (Q4) mandates comprehensive validation. The existing validate_markdown_file() function checks: H1 syntax, sentence count (2-3), UTF-8 encoding without BOM, LF-only line endings (not CRLF), trailing newline, file size (indirectly via content validation), and blank line separator. Validating after write but before commit ensures: (1) early error detection with clear messages, (2) consistency with existing 100+ test files, (3) prevents pushing broken files, (4) enables atomic operations (fail before commit). This fail-fast approach aligns with feature 127 and observability patterns (logging at each step)."
+
+  - title: "Commit Message Format and Feature Scope"
+    chosen: "Use conventional commit format: feat(128): create markdown file test-c0wzgm.md with [topic] content"
+    rejected:
+      - "Use test: instead of feat: — Less semantically accurate; test: implies test-code changes but this creates test-data; may not trigger automated release processes in CI/CD"
+      - "Omit feature number in scope — Less traceability; harder to correlate commit with feature spec; feature 127 uses feat(127) demonstrating established pattern"
+      - "Extract topic from content to customize message — Already implemented in content_generators.py via extract_topic_from_content(); commit_markdown_file uses custom_message parameter for exact control"
+    rationale: "Conventional Commit specification defines feat: for new functionality. The scope (128) provides traceability to the feature number. Feature 127 uses feat(127): ... confirming this is the established pattern. The commit message extraction of topic from H1 heading is implemented in commit_markdown_file via custom_message parameter (shown in feature_127). Spec Q3 resolves to feat: type for semantic versioning compatibility."
+
+  - title: "Error Handling and Observability Strategy"
+    chosen: "Fail-fast approach with structured logging at each step, detailed error messages with context"
+    rejected:
+      - "Retry on transient failures — Not appropriate for local file I/O (not transient); for LLM calls, content_generators.py already handles with try/except; adds complexity for no clear benefit"
+      - "Silent fallback to defaults — Violates transparency; makes debugging harder; prevents validation of success; inconsistent with feature 127 pattern"
+      - "Exception swallowing with logging only — Loss of stack trace; harder root-cause analysis; violates Python exception propagation patterns"
+    rationale: "Feature 127 and content_generators.py use fail-fast pattern: _logger.info() at each step, _logger.debug() for variable state, _logger.error() on exception with context, then re-raise. This approach: (1) provides clear audit trail of execution, (2) enables root-cause analysis via logs, (3) prevents silent failures, (4) respects Python exception handling, (5) integrates with Langfuse observability system. Each step (generate, write, validate, commit, push) should log its start, outcome, and any errors."
+
+  - title: "Git Workflow and Push Strategy"
+    chosen: "Use existing GitCommitTool and GitPushTool with set_upstream=True flag for feature branch tracking"
+    rejected:
+      - "Manual subprocess.run(['git', 'push']) — Loses abstraction; doesn't set upstream tracking; feature branch may not be properly tracked; doesn't benefit from tool error handling and logging"
+      - "Use git_tools.py functions directly instead of via content_generators.py — Unnecessary abstraction layer; content_generators.py already wraps GitCommitTool/GitPushTool correctly; adds no value"
+      - "Push to different remote — spec assumes origin (standard); feature 127 uses origin; no reason to deviate"
+    rationale: "The existing content_generators.py provides commit_markdown_file() and push_markdown_file() functions that wrap GitCommitTool and GitPushTool. These handle: (1) message formatting and add_all=True for single-file operations, (2) set_upstream=True for feature branch tracking (critical for CI/CD workflows), (3) error handling and logging integration, (4) subprocess management. Feature 127 confirms this pattern is working. The git_tools.py abstractions provide consistent error handling across the codebase."
+
+  - title: "File Atomicity and Partial-Write Prevention"
+    chosen: "Write file with trailing newline verification, then validate before commit (atomic from git perspective)"
+    rejected:
+      - "Use os.fsync() for sync to disk — Not necessary for local file systems; Python's close() already ensures data is flushed; adds latency for no clear benefit"
+      - "Write to temp file then rename — Overengineering for single small file; Python open() on local filesystem has minimal risk; no atomic rename needed"
+      - "Skip validation on write assumption — Insufficient; validation catches encoding issues, sentence count violations, line ending issues that write() alone won't"
+    rationale: "Atomicity at git-level (not file-system level) is appropriate here: write file, verify it exists and has content (write_markdown_file already does this), validate meets spec (validate_markdown_file ensures completeness), then stage and commit. From git's perspective, the file is atomic (added in single commit with complete content). Write-then-validate prevents committing incomplete or malformed files. Feature 127 confirms this approach; no special sync needed for local files."
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research — Complete
+  - **Updated:** 2026-03-20
+
+  ## Technology Decisions
+
+  ### 1. Reuse Existing Content Generation Utilities
+
+  **Chosen:** Reuse `generate_markdown_content()` from `content_generators.py`
+
+  **Rejected:**
+  - Implement custom LLM integration — duplicates proven work from features 121-127
+  - Use lightweight LLM (fast_model) — reasoning model better for coherent prose diversity
+  - Hardcoded markdown templates — fails diversity requirement, reduces learning validation
+
+  **Rationale:** The existing `content_generators.py` module provides `generate_markdown_content()` using Claude's reasoning model (get_reasoning_llm with temperature=0.2). This function is battle-tested across 127 prior features, handles LLM response parsing robustly, validates H1 heading and sentence count, and ensures consistent prose quality. Reusing this utility eliminates code duplication, reduces implementation time from 15 minutes to ~5 minutes for content generation, and inherits proven error handling patterns.
+
+  ### 2. File Writing with UTF-8 and LF Line Endings
+
+  **Chosen:** Use `write_markdown_file()` with Python `open(mode='w', encoding='utf-8')`
+
+  **Rejected:**
+  - Manual binary write with explicit LF encoding — more error-prone, less readable
+  - `pathlib.Path.write_text()` — less error handling and post-write verification
+  - Write with CRLF — violates spec requirement, causes cross-platform issues
+
+  **Rationale:** Python's `open(mode='w', encoding='utf-8')` correctly handles UTF-8 encoding and LF line normalization on Unix systems. The existing `write_markdown_file()` function includes post-write verification (checks file exists and has content), validates filenames to prevent path traversal attacks, and logs file size. This proven approach is safer than manual binary writes and aligns with Python best practices.
+
+  ### 3. Comprehensive Validation Before Commit
+
+  **Chosen:** Validate using `validate_markdown_file()` after write, before commit
+
+  **Rejected:**
+  - Minimal validation (only H1 + sentence count) — misses encoding/line-ending issues
+  - No pre-commit validation — risks committing malformed files
+  - Validate only on read-back — adds latency, less clear error messages
+
+  **Rationale:** Feature spec requires comprehensive validation (Q4). The `validate_markdown_file()` function checks:
+  - H1 heading syntax and position
+  - Sentence count (2-3)
+  - UTF-8 encoding without BOM
+  - LF-only line endings (rejects CRLF)
+  - Trailing newline presence
+  - File size consistency
+  - Blank line separator after heading
+
+  Validating after write but before commit ensures early error detection with clear messages, consistency with 100+ existing test files, and prevents pushing broken files.
+
+  ### 4. Conventional Commit Format: `feat(128): ...`
+
+  **Chosen:** Use `feat(128): create markdown file test-c0wzgm.md with [topic] content`
+
+  **Rejected:**
+  - Use `test:` type — less semantically accurate for test-data creation
+  - Omit feature number in scope — loses traceability to spec
+  - Hardcode topic — `extract_topic_from_content()` already extracts H1 heading
+
+  **Rationale:** Conventional Commit specification defines `feat:` for new functionality. The scope (128) provides traceability. Feature 127 confirms this pattern. Feature spec Q3 explicitly resolves to `feat:` type for semantic versioning compatibility.
+
+  ### 5. Fail-Fast Error Handling with Structured Logging
+
+  **Chosen:** Log at each step, validate output, propagate exceptions with context
+
+  **Rejected:**
+  - Retry on transient failures — not appropriate for local file I/O
+  - Silent fallback to defaults — violates transparency
+  - Exception swallowing — prevents root-cause analysis
+
+  **Rationale:** Feature 127 and existing patterns use fail-fast: log at each step (info/debug/error), validate output, re-raise exceptions. This provides audit trail, enables root-cause analysis via logs, prevents silent failures, and respects Python exception patterns.
+
+  ### 6. Git Operations via Existing Tool Abstractions
+
+  **Chosen:** Use `GitCommitTool` and `GitPushTool` via `content_generators.py` functions
+
+  **Rejected:**
+  - Manual subprocess calls — loses abstraction and error handling
+  - Direct git_tools.py calls — unnecessary abstraction layer
+  - Push to non-origin remote — deviates from established pattern
+
+  **Rationale:** `content_generators.py` provides `commit_markdown_file()` and `push_markdown_file()` that wrap tool abstractions. These handle message formatting, `add_all=True`, `set_upstream=True` for feature branch tracking, and error logging. Feature 127 confirms this pattern is working.
+
+  ### 7. File Atomicity Strategy
+
+  **Chosen:** Write file with verification, validate content, then commit (atomic from git perspective)
+
+  **Rejected:**
+  - Use `os.fsync()` — unnecessary for local files, adds latency
+  - Write to temp file then rename — overengineering for single small file
+  - Skip validation assuming write success — insufficient protection
+
+  **Rationale:** Atomicity at git-level (not file-system level) is appropriate: write file, verify existence and content, validate against spec, then stage and commit. This prevents committing incomplete or malformed files. Feature 127 confirms this approach.
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | `pathlib.Path` | File path handling and I/O | **Use** | Standard library, safe path resolution, prevents traversal attacks |
+  | `content_generators.py` | Markdown generation, validation, commit/push | **Use (Reuse)** | Battle-tested across 127+ features, proven to generate diverse content, comprehensive validation, integrated error handling |
+  | `get_reasoning_llm()` from config.llm | Claude API for content generation | **Use** | Configured with temperature=0.2 for focused output, handles API key management, used by content_generators.py |
+  | `GitCommitTool` from tools.git_tools | Git staging and committing | **Use (via content_generators.py)** | Abstracts subprocess complexity, handles error cases, integrated logging |
+  | `GitPushTool` from tools.git_tools | Git push with upstream tracking | **Use (via content_generators.py)** | Handles set_upstream flag, error handling, avoids manual subprocess |
+  | `get_logger()` from observability.logging | Structured logging | **Use** | Integrates with Langfuse observability, provides audit trail |
+  | `CrewAI` framework | LLM orchestration | **Use (indirectly)** | LLM configuration uses CrewAI's LLM abstraction, handled by config.llm |
+
+  **Rejected Libraries/Approaches:**
+  - Custom LLM integration (e.g., direct Anthropic SDK) — content_generators.py already handles this
+  - Direct subprocess for git — lose abstraction and error handling via git_tools.py
+  - Manual prompt templates — content_generators.py already has proven template
+
+  ## Security Considerations
+
+  ### 1. Path Traversal Prevention
+  - **Mitigation:** `write_markdown_file()` validates filename (rejects "/" and "\\" and ".") to prevent directory traversal attacks
+  - **Implementation:** Check occurs before file creation: `if "/" in filename or "\\" in filename or filename.startswith(".")`
+  - **Confidence:** High — straightforward validation, proven in content_generators.py
+
+  ### 2. UTF-8 Encoding Without BOM
+  - **Mitigation:** `validate_markdown_file()` checks for UTF-8 BOM (byte sequence `\xef\xbb\xbf`)
+  - **Implementation:** Opens file in binary mode, checks prefix, rejects files with BOM
+  - **Confidence:** High — explicit binary check, standard BOM detection
+
+  ### 3. Line Ending Attacks (CRLF Injection)
+  - **Mitigation:** `validate_markdown_file()` explicitly rejects CRLF sequences (`\r\n`)
+  - **Implementation:** Binary read, checks for `b"\r\n"` pattern, raises ValueError if found
+  - **Confidence:** High — explicit pattern match prevents injection
+
+  ### 4. LLM Prompt Injection via Generated Content
+  - **Risk:** Low — generated content is data (markdown prose), not code or executable content
+  - **Mitigation:** Content is validated for format (H1, sentences) not semantics; written to file system only, not evaluated
+  - **Confidence:** High — no code execution context
+
+  ### 5. Git Workflow Security
+  - **Assumption:** Git repository is properly configured with user.name/user.email for commits
+  - **Assumption:** API keys for Claude are securely stored in .env file and not logged
+  - **Mitigation:** `content_generators.py` uses `get_reasoning_llm()` which handles secret management via Pydantic BaseSettings
+  - **Confidence:** Medium — depends on environment configuration (outside scope of this feature)
+
+  ## Performance Implications
+
+  ### 1. LLM Call Latency
+  - **Impact:** 3-10 seconds per feature (typical Claude API response time)
+  - **Constraint:** Feature has 15-minute execution window, so latency is acceptable
+  - **Optimization:** Temperature=0.2 (low) enables faster, more deterministic responses than higher temperatures
+  - **No further optimization needed**
+
+  ### 2. File I/O Overhead
+  - **Impact:** Negligible (<100ms for single ~500-byte file on local disk)
+  - **No optimization needed**
+
+  ### 3. Validation Overhead
+  - **Impact:** Negligible (<10ms for single file; regex/string operations are fast)
+  - **Trade-off:** Comprehensive validation is worth the small latency for consistency and correctness
+  - **Justification:** Prevents rework due to malformed files committed to repository
+
+  ### 4. Git Operations (Commit/Push)
+  - **Commit:** <100ms local operation (staging and creating commit object)
+  - **Push:** 1-5 seconds depending on network and remote server (typical GitHub/GitLab performance)
+  - **Optimization:** Already optimal; set_upstream=True avoids future configuration steps
+  - **No further optimization needed**
+
+  ### Total Estimated Time
+  - Content generation: 3-10 seconds (LLM API call)
+  - File write + validation: <200ms
+  - Commit: <100ms
+  - Push: 1-5 seconds
+  - **Total: 4-15 seconds** (within 15-minute feature execution window)
+
+  ## Architecture Notes
+
+  ### Alignment with Existing Patterns
+
+  This feature follows established patterns from features 121-127:
+  1. **Modular design:** Feature-specific module (`feature_128_markdown_file_creation.py`) orchestrates workflow
+  2. **Utility reuse:** Leverages battle-tested `content_generators.py` functions
+  3. **Observability:** Uses `get_logger()` for structured logging at each step
+  4. **Error handling:** Fail-fast with exception propagation and context
+  5. **Git workflow:** Standard conventional commits with scope and feature tracking
+  6. **Validation-first:** Comprehensive checks before committing to repository
+
+  ### Integration Points
+
+  - **Config System:** Uses `get_settings()` and `get_reasoning_llm()` from config module
+  - **Observability:** Integrates with `get_logger()` for Langfuse tracing
+  - **Git Tools:** Uses `GitCommitTool` and `GitPushTool` for git operations
+  - **Content Generation:** Depends on `content_generators.py` module (no new dependencies)
+
+  ### No Architecture Changes Required
+
+  This feature requires no modifications to:
+  - Application structure
+  - Module organization
+  - Configuration system
+  - Error handling patterns
+  - Observability infrastructure
+
+  The feature is purely application of existing proven utilities to a new file with a new filename.
+
+  ### Scalability Considerations
+
+  - **Single file creation:** O(1) complexity, deterministic execution time
+  - **Reusable for batch operations:** `create_markdown_file()` function in content_generators.py accepts filename parameter, can be called in loop for multiple files
+  - **No database or storage concerns:** Local file system with git version control
+  - **No concurrency concerns:** Single-threaded feature execution, git handles concurrent push scenarios
+
+  ## Implementation Plan
+
+  1. **Create feature_128_markdown_file_creation.py** following feature_127 as template
+     - Feature number: 128
+     - Filename: test-c0wzgm.md
+     - Commit message: `feat(128): create markdown file test-c0wzgm.md with [topic] content`
+     - Reuse: All functions from content_generators.py
+
+  2. **Workflow steps** (following features 121-127 pattern):
+     - Generate content via `generate_markdown_content()`
+     - Write file via `write_markdown_file()`
+     - Validate file via `validate_markdown_file()`
+     - Commit file via `commit_markdown_file()` with custom message
+     - Push to remote via `push_markdown_file()`
+
+  3. **Validation gates:**
+     - H1 heading present and properly formatted
+     - 2-3 sentences in prose content
+     - UTF-8 encoding without BOM
+     - LF line endings only
+     - Trailing newline
+     - File size approximately 400-600 bytes
+
+  4. **Error handling:**
+     - Log at each step
+     - Propagate exceptions with context
+     - Fail-fast before committing
+
+  5. **Testing:** Feature validation uses content_generators.py functions which are proven across 127+ prior features
+
+  ## Risk Assessment
+
+  | Risk | Likelihood | Impact | Mitigation |
+  | ---- | ---------- | ------ | ---------- |
+  | LLM generates invalid markdown | Low | High | `validate_markdown_file()` catches all format issues before commit |
+  | File encoding issues (CRLF, missing BOM) | Low | High | Comprehensive validation checks encoding and line endings |
+  | Git push fails (network) | Low | Medium | Exception propagates with context; user can retry |
+  | Path traversal attack via filename | Very Low | High | Filename validation rejects "/" and "\" characters |
+  | Duplicate file creation | Low | Low | Git detects and rejects duplicate file in next feature |
+
+  ## Conclusion
+
+  Feature 128 requires minimal implementation effort by reusing proven utilities from `content_generators.py` and following the established pattern from features 121-127. The architectural decisions are straightforward applications of existing patterns with no new dependencies, no architecture changes, and comprehensive validation throughout. All product questions are resolved in the feature spec; this research phase confirms the technical approach is sound and well-supported by existing infrastructure.
+
+  ---
+
+  _Research phase complete — all technical decisions documented with rationale and rejected alternatives. Ready for implementation planning._
