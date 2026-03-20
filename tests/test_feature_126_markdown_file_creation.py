@@ -375,14 +375,16 @@ class TestComprehensiveIntegration:
         5. Structured logging captures all major operations
         6. Complete workflow executes without errors or warnings
         """
-        # Mock the generate_markdown_content to return valid test content
+        # Mock the LLM to return valid test content
         # This allows the test to run without requiring ANTHROPIC_API_KEY
+        from unittest.mock import MagicMock
+
         test_content = "# Digital Transformation in Modern Enterprises\n\nDigital transformation represents a fundamental shift in how organizations operate and deliver value to customers in the modern economy. Companies across all industries are investing heavily in new technologies, processes, and business models to remain competitive. This comprehensive change requires leadership commitment and organizational culture shift to succeed.\n"
 
-        with patch(
-            "sheep.features.feature_126_markdown_file_creation.generate_markdown_content",
-            return_value=test_content,
-        ):
+        mock_llm = MagicMock()
+        mock_llm.call.return_value = {"content": test_content}
+
+        with patch("sheep.content_generators.get_reasoning_llm", return_value=mock_llm):
             # Call the feature function with the mocked LLM
             result = create_feature_126_markdown_file()
 
@@ -500,15 +502,15 @@ class TestComprehensiveIntegration:
 
         This test directly maps to the feature spec success criteria section.
         """
-        from unittest.mock import patch
+        from unittest.mock import patch, MagicMock
 
         # Valid test content for mocking
         test_content = "# Sustainable Business Practices and Corporate Responsibility\n\nSustainable business practices have become essential for long-term company success and stakeholder value creation. Organizations implementing environmental, social, and governance initiatives report improved brand reputation and operational efficiency. Leaders must balance profitability with responsibility to ensure positive impact on communities and the planet.\n"
 
-        with patch(
-            "sheep.features.feature_126_markdown_file_creation.generate_markdown_content",
-            return_value=test_content,
-        ):
+        mock_llm = MagicMock()
+        mock_llm.call.return_value = {"content": test_content}
+
+        with patch("sheep.content_generators.get_reasoning_llm", return_value=mock_llm):
             result = create_feature_126_markdown_file()
 
         filepath = Path(result["filepath"])
@@ -560,13 +562,14 @@ class TestComprehensiveIntegration:
         unexpected exceptions or warnings are raised.
         """
         import warnings
+        from unittest.mock import MagicMock
 
         test_content = "# Artificial Intelligence and Machine Learning Revolution\n\nArtificial intelligence and machine learning technologies are transforming industries from healthcare to finance by enabling faster decision-making and predictive analytics. Organizations implementing AI solutions report significant improvements in efficiency, customer satisfaction, and innovation capabilities. Strategic investment in AI talent and infrastructure is becoming increasingly critical for competitive advantage.\n"
 
-        with patch(
-            "sheep.features.feature_126_markdown_file_creation.generate_markdown_content",
-            return_value=test_content,
-        ), warnings.catch_warnings(record=True):
+        mock_llm = MagicMock()
+        mock_llm.call.return_value = {"content": test_content}
+
+        with patch("sheep.content_generators.get_reasoning_llm", return_value=mock_llm), warnings.catch_warnings(record=True):
             warnings.simplefilter("always")
             try:
                 result = create_feature_126_markdown_file()
