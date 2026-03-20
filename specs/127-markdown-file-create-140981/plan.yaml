@@ -1,0 +1,182 @@
+name: "markdown-file-create-140981"
+summary: >
+  This feature creates a single markdown file (test-xkd1zo.md) in the repository root
+  using the established pattern from features 121-126. The implementation leverages
+  the existing, production-tested content_generators.py module which provides complete
+  end-to-end orchestration: LLM-based markdown generation, comprehensive validation,
+  file I/O, and git workflow integration. No new infrastructure or dependencies required.
+
+relatedFeatures:
+  - number: 126
+    name: "markdown-file-create-be7151"
+    relationship: "Identical pattern using content_generators.py"
+  - number: 125
+    name: "markdown-file-create"
+    relationship: "Identical pattern using content_generators.py"
+  - number: 124
+    name: "markdown-file-creation-2b2edd"
+    relationship: "Identical pattern using content_generators.py"
+
+technologies:
+  - "Python 3.11+ (standard library, pathlib)"
+  - "Markdown (CommonMark format)"
+  - "Git (version control, staging, commits, push)"
+  - "CrewAI (LLM orchestration framework)"
+  - "Anthropic Claude API (content generation)"
+  - "src/sheep/content_generators.py (existing module)"
+  - "src/sheep/tools/git_tools.py (git integration)"
+
+relatedLinks:
+  - title: "Sheep Content Generators Module"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "Research: Technical Decisions and Architecture"
+    url: "file:///specs/127-markdown-file-create-140981/research.yaml"
+  - title: "Git Tools Integration"
+    url: "file:///src/sheep/tools/git_tools.py"
+
+phases:
+  - id: phase-1
+    name: "Core Implementation and Verification"
+    description: "Call the existing create_markdown_file() orchestration function to handle the complete workflow (content generation via LLM, file creation, validation, git staging, conventional commit, and push). Verify all success criteria are met: file existence, markdown format, encoding, line endings, git state."
+    parallel: false
+
+filesToCreate: []
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature implements the markdown file creation pattern established in features 121-126
+  and 100+ existing test files in the repository. The implementation consists of calling a
+  single orchestration function from the existing `content_generators.py` module, which
+  handles the complete workflow: content generation, validation, file writing, and git
+  integration.
+
+  ### Existing Production-Ready Infrastructure
+
+  The `src/sheep/content_generators.py` module provides the `create_markdown_file()` function
+  (lines 363-440) which orchestrates the complete workflow:
+
+  1. **Content Generation**: Calls `generate_markdown_content()` which uses CrewAI to invoke
+     Claude API with a hardcoded prompt template. The LLM auto-selects a topic (per spec
+     requirement) and generates H1 heading + 2-3 sentences of prose.
+
+  2. **File I/O**: Calls `write_markdown_file()` which uses `pathlib.Path` with explicit
+     `encoding="utf-8"` to ensure UTF-8 encoding on all platforms. Python's newline handling
+     produces LF on Unix/Linux systems.
+
+  3. **Validation**: Calls `validate_markdown_file()` which verifies:
+     - H1 heading exists and matches markdown syntax (`^# `)
+     - Exactly 2-3 sentences follow (sentence count via regex)
+     - File is UTF-8 encoded with no BOM
+     - Line endings are LF (not CRLF)
+     - File size is 400-600 bytes
+     - File ends with trailing newline
+
+  4. **Git Workflow**: Calls `commit_markdown_file()` and `push_markdown_file()` which
+     orchestrate GitCommitTool and GitPushTool from `git_tools.py`. Follows conventional
+     commit format with message: `feat(127): create markdown file test-xkd1zo.md with prose content`
+
+  5. **Return Value**: Returns a dict with keys `filepath`, `content`, `commit_message`, `push_result`
+
+  The function is idempotent, includes comprehensive error handling with specific exceptions,
+  and integrates with `sheep.observability.logging` for full visibility.
+
+  ### Why This Approach
+
+  - **No new code required**: The existing orchestration function is production-ready and
+    tested across 125+ features (features 121-126 plus 100+ existing test files)
+  - **Aligns with established patterns**: Features 121-126 use identical approach
+  - **Comprehensive validation**: Built-in validation prevents invalid files from entering git
+  - **Integrated logging and error handling**: Full observability for debugging
+  - **Spec compliance**: LLM auto-generated content, comprehensive validation, conventional commits
+  - **Risk reduction**: Avoids reimplementing proven abstractions
+
+  ## Key Design Decisions
+
+  ### Decision 1: Leverage Existing Orchestration Module vs. Custom Implementation
+
+  **Chosen**: Use existing `create_markdown_file()` function from `content_generators.py`
+
+  **Alternatives considered**:
+  - Implement custom code to manually call each step (generate → write → validate → commit → push)
+  - Use a simpler approach with hardcoded content
+
+  **Why this approach wins**: The spec explicitly requires LLM-based content generation with
+  auto-selected topic, comprehensive validation, and git workflow integration. The existing
+  module provides all of this with proven reliability across 100+ test files. Building custom
+  code would duplicate functionality, introduce testing overhead, and ignore the established
+  pattern from features 121-126. Using the existing module is the fastest, safest, and most
+  maintainable approach.
+
+  **Research reference**: Technical research (research.yaml) confirms the module fully satisfies
+  all requirements with no gaps. Features 121-126 follow this exact approach.
+
+  ### Decision 2: No Custom Validation Logic — Use Existing Validation
+
+  **Chosen**: Use existing `validate_markdown_file()` function from `content_generators.py`
+
+  **Why**: The module provides comprehensive validation that checks all success criteria:
+  H1 heading format, 2-3 sentence count, UTF-8 encoding with no BOM, LF line endings,
+  file size (400-600 bytes), and trailing newline. Validates per FR-6 and spec requirements.
+  No custom validation needed; ensures consistency with 100+ existing test files and the
+  established format.
+
+  ### Decision 3: Single Orchestration Entry Point vs. Split Workflow
+
+  **Chosen**: Call `create_markdown_file("test-xkd1zo.md")` once to orchestrate entire workflow
+
+  **Why**: The function handles all steps (generate, write, validate, commit, push) atomically.
+  Splitting into separate calls would complicate error handling, duplicate orchestration logic,
+  and lose the safety guarantees of atomic workflow. Single call is cleaner, safer, and
+  matches the pattern from features 121-126. Function already implements proper error handling
+  with specific exceptions (ValueError for validation failures, etc.).
+
+  ## Implementation Strategy
+
+  The implementation consists of a single phase with one primary task:
+
+  1. **Execute the orchestration function** with filename `"test-xkd1zo.md"`
+     - The function generates markdown content via LLM (Claude API via CrewAI)
+     - Content topic is auto-selected by the LLM (per spec requirement)
+     - File is written with UTF-8 encoding and LF line endings (platform-safe)
+     - Comprehensive validation ensures file meets all requirements before commit
+     - File is staged and committed with conventional commit message
+     - Commit is pushed to the feature branch `feat/127-markdown-file-create-140981`
+
+  2. **Verify all success criteria are met**
+     - File exists at repository root: `test-xkd1zo.md`
+     - File contains H1 heading and 2-3 sentences of prose
+     - File encoding is UTF-8 with no BOM
+     - File line endings are LF (not CRLF)
+     - File size is within 400-600 bytes
+     - Git index shows file is staged
+     - Git log shows commit with correct message exists
+     - Git remote tracking shows commit was pushed
+     - No existing files were modified (only new file created)
+
+  No intermediate steps needed; the orchestration function handles the full workflow with
+  built-in error handling and logging.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | **LLM API failure (quota, auth, connectivity)** | API errors are logged with context. Function raises exception with clear message. Caller can handle retries if needed. No fallback to hardcoded content (per FR-4 spec requirement). Research confirms Anthropic API configured via .env and config/llm.py. |
+  | **File already exists from prior run** | Filename \"test-xkd1zo.md\" is unique and specified in requirements. If file exists, git would show it as modified. Can be resolved via git reset if needed. Idempotency note: repeated calls would attempt to overwrite, but validation would flag format issues if LLM output differs. |
+  | **Validation failure prevents file creation** | Per FR-10, if validation fails, function raises ValueError and does not commit. Caller receives clear error message identifying the specific validation failure. Allows investigation and correction before retry. |
+  | **Git operation failure (SSH auth, permissions, network)** | GitCommitTool and GitPushTool wrap subprocess calls with error handling. SSH/auth issues surface with clear error messages. If push fails, commit remains local and can be retried. No data loss. |
+  | **File encoding/line-ending issues on Windows** | pathlib.Path with explicit `encoding=\"utf-8\"` ensures UTF-8 on all platforms. Python's write() with '\\n' produces LF on Unix/Linux. Validation confirms encoding and line endings before commit. Testing on CI/CD will surface any platform issues. |
+  | **Repository state conflicts or unexpected state** | Feature branch is pre-created and checked out. File creation uses unique filename. No branch switching or destructive git operations. Minimal surface area for conflicts. Idempotency means repeated calls are safe (git add is idempotent). |
+  | **LLM content quality (poor prose, formatting)** | Comprehensive validation catches formatting errors (sentence count, H1 format, size). If LLM produces poor prose, validation will reject unless it meets all criteria. Logging provides visibility into generated content. Rare edge case; existing 100+ test files show good LLM quality. |
+
+  ## Conclusion
+
+  The implementation is straightforward: call the existing `create_markdown_file()` function
+  with filename \"test-xkd1zo.md\" and verify the result meets all success criteria. The
+  orchestration function handles all complexity internally with comprehensive validation,
+  error handling, and logging. No custom code, new dependencies, or architectural changes
+  needed. The approach is proven across 100+ features and test files.
