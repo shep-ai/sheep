@@ -22,10 +22,13 @@ def validate_encoding(file_path: Path) -> None:
 
 
 def validate_line_endings(file_path: Path) -> None:
-    """Validate file uses Unix LF line endings, not Windows CRLF."""
+    """Validate file uses Unix LF line endings, not Windows CRLF or Mac CR."""
     binary_content = file_path.read_bytes()
     if b'\r\n' in binary_content:
         msg = "File contains Windows-style CRLF line endings; must use Unix LF"
+        raise ValidationError(msg)
+    if b'\r' in binary_content:
+        msg = "File contains Mac-style CR line endings; must use Unix LF"
         raise ValidationError(msg)
 
 
