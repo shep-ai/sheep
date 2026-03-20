@@ -1,0 +1,356 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-create-f71fcd
+summary: >
+  Technical research confirms the reusable Python script pattern established in create_markdown.py is the optimal approach. The implementation uses only Python standard library (pathlib, subprocess) with comprehensive validation for UTF-8 encoding, LF line endings, and markdown structure. No external dependencies or architectural changes are required.
+
+# Relationships
+relatedFeatures:
+  - "006-joke-markdown"
+  - "069-markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess, sys)"
+  - "Markdown (plain text format)"
+  - "Git (version control operations)"
+  - "UTF-8 encoding (no external libraries required)"
+
+relatedLinks:
+  - title: "Reference Implementation (create_markdown.py)"
+    url: "create_markdown.py"
+  - title: "Feature 006 - Joke Markdown Spec"
+    url: "specs/006-joke-markdown/spec.yaml"
+  - title: "Feature 069 - Markdown File Creation Spec"
+    url: "specs/069-markdown-file-creation/spec.yaml"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Approach"
+    chosen: "pathlib.Path with write_text()"
+    rejected:
+      - "os.open() + write() — lower-level, requires manual encoding handling, more verbose, error-prone"
+      - "open() built-in with context manager — works but requires explicit close, less convenient than pathlib"
+    rationale: >
+      pathlib.Path.write_text() is the modern Python standard for file creation and is used consistently in create_markdown.py. It automatically handles encoding, file closing, and provides clean API. The pattern is already established in this codebase and aligns with Python 3.6+ best practices.
+
+  - title: "Encoding and Line Ending Strategy"
+    chosen: "Explicit UTF-8 encoding with validation; hardcoded content with Unix LF endings"
+    rejected:
+      - "Manual platform-agnostic line ending handling — adds unnecessary complexity for a single-use markdown file"
+      - "Universal newlines mode — less transparent about what line endings are being written"
+    rationale: >
+      Explicit UTF-8 encoding with pathlib ensures no BOM is added and provides maximum control. Hardcoding the prose content with Unix LF endings (\n) bypasses platform-specific newline translation and matches repository conventions (LF everywhere). The validation layer in create_markdown.py verifies correct encoding and line endings after file creation.
+
+  - title: "Git Operations Implementation"
+    chosen: "subprocess.run() with git command-line interface"
+    rejected:
+      - "GitPython library — adds external dependency, increases complexity, not needed for simple add/commit/push operations"
+      - "pygit2 library — lower-level C binding, adds dependency, overkill for this use case"
+      - "Manual git file manipulation — dangerous and fragile, violates git integrity"
+    rationale: >
+      subprocess.run() with git commands is the approach used in create_markdown.py and is appropriate for orchestrating git operations. It requires no external dependencies, is transparent about what commands are being run, and integrates naturally with existing git workflows. The codebase prioritizes simplicity and uses standard library only.
+
+  - title: "Content Validation Strategy"
+    chosen: "Multi-layered validation after file creation: encoding, line endings, structure, size"
+    rejected:
+      - "No validation — risky, could silently create malformed files, violates spec non-functional requirements"
+      - "Minimal validation (only file exists) — misses encoding and structure errors"
+    rationale: >
+      Comprehensive validation follows the pattern in create_markdown.py and ensures all non-functional requirements are met: UTF-8 without BOM, LF line endings, correct markdown structure (H1 + blank line + prose), file size in expected range (300-600 bytes), and sentence count. This provides confidence that the created file meets all specifications and will render correctly on GitHub.
+
+  - title: "Error Handling Approach"
+    chosen: "Try-except wrapper with descriptive error messages, stderr output for failures"
+    rejected:
+      - "No error handling — silently fails or throws unhandled exceptions"
+      - "Minimal error handling (only catch FileNotFoundError) — misses git errors and validation errors"
+    rationale: >
+      Comprehensive error handling with try-except-finally ensures all exceptions (file I/O errors, validation failures, git command failures) are caught and reported with meaningful messages. The pattern in create_markdown.py demonstrates this approach. Return code 0 on success, 1 on failure enables integration with CI/CD systems.
+
+  - title: "Script Execution Model"
+    chosen: "Standalone Python script with __main__ guard, executed directly or via python -m"
+    rejected:
+      - "Inline shell script — less maintainable, harder to read, requires shell quoting gymnastics"
+      - "Integrated into larger codebase — violates this project's architecture (Sheep platform artifacts are standalone)"
+    rationale: >
+      The Sheep platform architecture treats each feature implementation as an artifact. Standalone Python scripts with main() entry points and __main__ guard are idiomatic, testable, and match established patterns. This enables reuse for similar features and maintains consistency across the codebase.
+
+# Open questions (resolved by research)
+openQuestions:
+  - question: "Should prose content be hardcoded or generated dynamically?"
+    resolved: true
+    options:
+      - option: "Hardcoded prose content"
+        description: >
+          Include 2-3 sentences of specific, meaningful prose directly in the script. Deterministic, matches reference implementation (create_markdown.py), allows manual review of exact content.
+        selected: true
+      - option: "Template-based prose with placeholders"
+        description: >
+          Store prose as a template with variable substitution. Adds unnecessary complexity for a single-use feature, increases chance of bugs in template rendering.
+        selected: false
+      - option: "Randomly generated sentences"
+        description: >
+          Use sentence generation or random selection from templates. Over-engineered for a simple feature, makes testing harder, violates principle of deterministic creation.
+        selected: false
+    selectionRationale: >
+      Hardcoded prose is the established pattern in create_markdown.py. It provides clarity, determinism, and allows reviewers to see exactly what content will be created. The feature spec allows "any topic" so any reasonable prose is acceptable. This aligns with the principle that simple tasks should have simple solutions.
+    answer: "Hardcoded prose content"
+
+  - title: "Validation: strict checks or permissive?"
+    resolved: true
+    options:
+      - option: "Strict validation with all checks"
+        description: >
+          Validate encoding, line endings, structure, size, and sentence count. Matches create_markdown.py pattern. Ensures high quality output and catches subtle issues early.
+        selected: true
+      - option: "Minimal validation (file exists only)"
+        description: >
+          Check that file was created and is readable. Less assurance of correctness, could miss encoding or structure problems.
+        selected: false
+      - option: "No validation"
+        description: >
+          Trust that pathlib.write_text() works correctly. Risky, violates NFR-7 and NFR-8 which require validation and error handling.
+        selected: false
+    selectionRationale: >
+      Strict multi-layered validation is required by the non-functional requirements (NFR-7: follow established pattern including validation, NFR-8: error handling). The create_markdown.py reference demonstrates this. Validation catches real issues (e.g., if platform encoding is not UTF-8, if sys.platform adds CRLF, if content is malformed).
+    answer: "Strict validation with all checks"
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-20
+  - **Status:** Complete
+
+  ## Summary
+
+  Feature 126 is a straightforward content-creation task following the established pattern in create_markdown.py. Research confirms that:
+
+  1. **No new architectural decisions** are needed — this feature reuses the proven pattern
+  2. **Python standard library only** — pathlib for file I/O, subprocess for git operations
+  3. **Comprehensive validation** is required and already modeled in the reference implementation
+  4. **No external dependencies** — the codebase intentionally avoids framework dependencies for simple tasks
+  5. **Security is simple** — no user input, no code generation, no injection vectors
+
+  ## Technology Decisions
+
+  ### 1. File I/O: pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path(filename).write_text(content, encoding='utf-8')`
+
+  **Rejected:**
+  - `os.open()` + `os.write()` — requires manual encoding handling, more verbose
+  - `open()` built-in — requires explicit file.close(), less convenient
+
+  **Rationale:** pathlib is the modern Python standard (3.4+) for filesystem operations. The pattern is established in create_markdown.py. Advantages:
+  - Automatic encoding handling (UTF-8 explicit)
+  - Automatic file closing
+  - Clean, readable API
+  - Already proven in this codebase
+
+  ### 2. Encoding: UTF-8 without BOM
+
+  **Chosen:** Explicit `encoding='utf-8'` in write_text() call
+
+  **Rejected:**
+  - Default encoding (platform-dependent) — risky, could add BOM on Windows
+  - Manual encode/decode with error checking — unnecessary complexity
+
+  **Rationale:** pathlib.write_text() with explicit UTF-8 encoding:
+  - Never produces BOM (Python's UTF-8 codec excludes BOM by default)
+  - Deterministic across platforms (Windows, Linux, macOS)
+  - Validated post-creation by reading bytes and checking for `\xef\xbb\xbf`
+
+  ### 3. Line Endings: Unix LF Only
+
+  **Chosen:** Hardcoded prose with Unix LF (`\n`) line endings
+
+  **Rejected:**
+  - `os.linesep` or universal newlines mode — platform-dependent, Windows adds CRLF
+  - Manual .replace() — unnecessary if content is pre-formatted
+
+  **Rationale:** Repository conventions require Unix LF line endings. Hardcoding `\n` in the Python string:
+  - Bypasses platform-specific newline translation
+  - Is validated post-creation: `assert b'\r\n' not in binary_content`
+  - Matches create_markdown.py pattern
+
+  ### 4. Git Operations: subprocess.run()
+
+  **Chosen:** `subprocess.run(['git', 'add', filename], check=True)` and similar for commit/push
+
+  **Rejected:**
+  - GitPython or pygit2 — external dependencies (not allowed per spec)
+  - Manual .git directory manipulation — fragile, violates git integrity
+  - Shell command string — less safe than list-based subprocess call
+
+  **Rationale:**
+  - Subprocess with list-based arguments prevents shell injection
+  - No external dependencies required (Python standard library)
+  - Transparent — easy to audit what commands are being run
+  - Established pattern in create_markdown.py
+  - `check=True` raises CalledProcessError on non-zero exit
+
+  ### 5. Content Validation: Multi-Layered
+
+  **Chosen:** Validate encoding, line endings, structure, size, and sentence count
+
+  **Rejected:**
+  - No validation — violates NFR-7 and NFR-8
+  - Minimal validation (only file exists) — misses structural problems
+
+  **Rationale:** Comprehensive validation ensures:
+  - UTF-8 encoding without BOM: `assert not binary_content.startswith(b'\xef\xbb\xbf')`
+  - Unix LF only: `assert b'\r\n' not in binary_content`
+  - File size 300-600 bytes: matches 2-3 sentences of prose
+  - Structure: H1 heading, blank line, prose, sentences
+  - Detects subtle platform-specific issues before pushing to git
+
+  ### 6. Error Handling: Try-Except with Descriptive Messages
+
+  **Chosen:** Catch all exceptions in main(), report to stderr, return exit code
+
+  **Rejected:**
+  - No error handling — silent failures
+  - Only catch specific exceptions — misses git failures or validation errors
+
+  **Rationale:**
+  - Try-except-finally ensures cleanup even on failure
+  - sys.stderr output for errors enables CI/CD error detection
+  - Exit code 0 (success) vs 1 (failure) is standard convention
+  - Descriptive error messages aid debugging
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | Filesystem operations | **Use** | Modern, clean API for file creation and reading. No external dependency. |
+  | subprocess (stdlib) | Execute git commands | **Use** | Standard way to orchestrate external commands safely. No external dependency. |
+  | sys (stdlib) | Exit codes, stderr output | **Use** | Standard library, required for proper error reporting. |
+  | GitPython | Git operations via Python API | **Reject** | External dependency not allowed; subprocess is sufficient and more transparent. |
+  | pygit2 | Low-level git bindings | **Reject** | External dependency; overkill for simple add/commit/push operations. |
+
+  ## Security Considerations
+
+  ### 1. No User Input
+
+  **Risk Level:** Minimal
+
+  **Analysis:** Content is hardcoded. No user-supplied text, command-line arguments, or environment variables are used in content creation. No injection vectors.
+
+  ### 2. Subprocess Safety
+
+  **Risk Level:** Low
+
+  **Analysis:** git commands are passed as list (not shell string), preventing shell injection. The commands are simple and fixed:
+  - `git add test-8bcjbe.md`
+  - `git commit --no-verify -m "..."`
+  - `git push -u origin HEAD`
+
+  No variable substitution in command strings.
+
+  ### 3. File Operations
+
+  **Risk Level:** Very Low
+
+  **Analysis:**
+  - Creating a file in repo root is intentional and specified
+  - pathlib.write_text() raises PermissionError if insufficient permissions
+  - No recursive directory traversal, no path manipulation
+
+  ### 4. Git State
+
+  **Risk Level:** Low
+
+  **Analysis:**
+  - `--no-verify` flag skips pre-commit hooks (intentional for test features)
+  - Commit message is hardcoded, no variable substitution
+  - Push to origin HEAD is safe (current branch)
+
+  ### 5. Encoding Attacks
+
+  **Risk Level:** Minimal
+
+  **Analysis:** UTF-8 encoding without BOM prevents null-byte injection or encoding-based attacks. Validation confirms no BOM is present.
+
+  ## Performance Implications
+
+  ### File Creation
+
+  **Impact:** Negligible
+
+  - pathlib.write_text() is highly optimized for simple text files
+  - ~500 bytes of prose is written in sub-millisecond time
+  - No significant I/O overhead for file validation (read_text, read_bytes)
+
+  ### Git Operations
+
+  **Impact:** Negligible
+
+  - git add: ~5-50ms depending on repository size
+  - git commit: ~10-50ms (fast for single-file commits)
+  - git push: ~100-500ms (network dependent)
+  - Total expected time: <2 seconds (meets NFR-6)
+
+  ### Memory
+
+  **Impact:** Minimal
+
+  - Python process memory: ~10-15MB base
+  - File content in memory: <1KB
+  - No streaming or memory-intensive operations
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Platform
+
+  This feature follows the established Sheep platform patterns:
+
+  1. **Artifact-Based Design:** Each feature produces an artifact (markdown file) in repo root
+  2. **Python Automation:** File creation and git operations are automated via Python script
+  3. **Standalone Scripts:** Not integrated into a larger codebase; standalone executable
+  4. **Deterministic Execution:** No randomness, no external state dependence
+  5. **Test-Friendly:** Validation layer enables automated verification
+
+  ### Reusability
+
+  The script pattern is intentionally reusable for similar features:
+  - Other markdown files can use the same create_markdown.py template
+  - Validation logic is generic (applies to any prose markdown file)
+  - Git operations are standard across all features
+
+  ### Code Organization
+
+  Follows create_markdown.py structure:
+  ```
+  1. Imports (pathlib, subprocess, sys)
+  2. Constants (PROSE_CONTENT, FILENAME)
+  3. Helper functions (create_markdown_file, validate_file, stage_and_commit, push_to_remote)
+  4. Main function (orchestrates all steps)
+  5. __main__ guard and error handling
+  ```
+
+  This organization is clear, testable, and maintainable.
+
+  ## Related Work & References
+
+  - **Feature 006 (joke-markdown):** Simple markdown creation, established filename conventions
+  - **Feature 069 (markdown-file-creation):** Reference implementation in create_markdown.py
+  - **Spec Format:** YAML with conventional commit messages, git workflow
+  - **Validation Pattern:** Multi-layered checks established in similar features
+
+  ## Risk Assessment
+
+  | Risk | Severity | Mitigation |
+  | ---- | -------- | ---------- |
+  | File already exists | Low | Overwrite with new content (spec requirement FR-9) |
+  | Git failure (uncommitted state) | Low | Pre-check via `git status`, error handling catches git errors |
+  | Encoding mismatch | Low | Explicit UTF-8, validation confirms no BOM |
+  | Platform-specific line endings | Low | Hardcoded LF, validation confirms no CRLF |
+  | Insufficient permissions | Very Low | pathlib.write_text() raises PermissionError (caught and reported) |
+
+  ## Conclusion
+
+  Feature 126 implementation should follow the create_markdown.py pattern exactly. No architectural changes, no new dependencies, no novel technical decisions required. The pattern is proven, tested, and integrated into the Sheep platform workflows.
+
+  **Recommendation:** Proceed with implementation using the established reusable Python script pattern.
