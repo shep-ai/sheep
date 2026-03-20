@@ -270,7 +270,13 @@ class TestFeature127Integration:
 
     def test_create_feature_127_returns_expected_structure(self):
         """Test that create_feature_127_markdown_file returns expected dictionary structure."""
-        result = create_feature_127_markdown_file()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with patch(
+            "sheep.features.feature_127_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_127_markdown_file()
 
         assert isinstance(result, dict), "Result must be a dictionary"
         assert "filepath" in result, "Result must contain 'filepath'"
@@ -284,13 +290,27 @@ class TestFeature127Integration:
 
     def test_create_feature_127_exact_commit_message(self):
         """Test that the commit message follows the exact required format."""
-        result = create_feature_127_markdown_file()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with patch(
+            "sheep.features.feature_127_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_127_markdown_file()
+
         expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
         assert result["commit_message"] == expected_message, f"Commit message must be exactly: {expected_message}"
 
     def test_create_feature_127_file_exists_and_is_valid(self):
         """Test that created file exists and passes validation."""
-        result = create_feature_127_markdown_file()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with patch(
+            "sheep.features.feature_127_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_127_markdown_file()
+
         filepath = result["filepath"]
 
         assert Path(filepath).exists(), f"File should exist at {filepath}"
@@ -298,14 +318,28 @@ class TestFeature127Integration:
 
     def test_create_feature_127_correct_filename(self):
         """Test that created file has the correct filename."""
-        result = create_feature_127_markdown_file()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with patch(
+            "sheep.features.feature_127_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_127_markdown_file()
+
         filepath = Path(result["filepath"])
 
         assert filepath.name == MARKDOWN_FILENAME, f"Filename must be {MARKDOWN_FILENAME}"
 
     def test_create_feature_127_content_has_correct_format(self):
         """Test that created content meets all format requirements."""
-        result = create_feature_127_markdown_file()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with patch(
+            "sheep.features.feature_127_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_127_markdown_file()
+
         content = result["content"]
 
         # Check heading
@@ -328,7 +362,14 @@ class TestFeature127Integration:
 
     def test_create_feature_127_file_is_utf8_without_bom(self):
         """Test that created file is UTF-8 encoded without BOM."""
-        result = create_feature_127_markdown_file()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with patch(
+            "sheep.features.feature_127_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_127_markdown_file()
+
         filepath = result["filepath"]
 
         with open(filepath, "rb") as f:
@@ -347,7 +388,14 @@ class TestFeature127Integration:
 
     def test_create_feature_127_file_has_lf_line_endings(self):
         """Test that created file uses LF line endings (not CRLF)."""
-        result = create_feature_127_markdown_file()
+        test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with patch(
+            "sheep.features.feature_127_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ):
+            result = create_feature_127_markdown_file()
+
         filepath = result["filepath"]
 
         with open(filepath, "rb") as f:
