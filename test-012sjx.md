@@ -1,3 +1,3 @@
-# Test Topic for Feature 126
+# Test Topic
 
-This is test sentence number one providing meaningful content. This is test sentence number two giving more information. This is test sentence number three completing the thought.
+This is test sentence one. This is test sentence two.

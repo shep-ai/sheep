@@ -335,7 +335,7 @@ class TestFeature126Integration:
         """Test that created content meets all format requirements."""
         from unittest.mock import MagicMock
 
-        test_content = "# Test Topic for Feature 126\n\nThis is test sentence number one providing meaningful content. This is test sentence number two giving more information. This is test sentence number three completing the thought.\n"
+        test_content = "# Sustainable Development and Environmental Innovation\n\nSustainable development represents the most pressing challenge for modern society, requiring integration of environmental stewardship with economic growth and social development across all sectors. Organizations worldwide are recognizing that long-term success depends on adopting innovative practices that minimize environmental impact while maximizing value for stakeholders and communities. Strategic investment in green technologies and circular economy principles is becoming increasingly essential for competitive advantage and meaningful positive impact on our planet.\n"
         mock_llm = MagicMock()
         mock_llm.call.return_value = {"content": test_content}
 
