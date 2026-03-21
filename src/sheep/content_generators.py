@@ -366,12 +366,8 @@ def commit_markdown_file(
             commit_message = custom_message
             _logger.debug(f"Using custom commit message: {commit_message}")
         else:
-            # Extract topic from content for commit message
-            topic = extract_topic_from_content(content)
-            _logger.debug(f"Extracted topic: {topic}")
-
-            # Format commit message: "feat: Create test-9veux3.md markdown file with [topic] content"
-            commit_message = f"feat: Create {filename} markdown file with {topic} content"
+            # Format commit message: "feat(145): create markdown file test-5dl5yi.md with prose content"
+            commit_message = f"feat(145): create markdown file {filename} with prose content"
 
         _logger.debug(f"Commit message: {commit_message}")
 
@@ -475,10 +471,8 @@ def create_markdown_file(
         commit_result = commit_markdown_file(filepath, content, repo_path)
         _logger.debug(f"Commit result: {commit_result}")
 
-        # Extract commit message from the result for return value
-        # GitCommitTool returns "Committed: {message}\n{stdout}"
-        topic = extract_topic_from_content(content)
-        commit_message = f"feat: Create {filename} markdown file with {topic} content"
+        # Construct commit message for return value (matches what was committed)
+        commit_message = f"feat(145): create markdown file {filename} with prose content"
 
         # Step 5: Push to remote
         _logger.info("Step 5: Pushing to remote repository")
