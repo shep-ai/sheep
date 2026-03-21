@@ -146,6 +146,66 @@ def write_markdown_file(content: str, filename: str) -> str:
         raise
 
 
+def validate_file_properties(filepath: str) -> bool:
+    """
+    Validate that a file meets encoding and line ending requirements.
+
+    Checks for:
+    - File exists and is readable
+    - UTF-8 encoding with no BOM (Byte Order Mark)
+    - Unix LF line endings (not CRLF)
+
+    This function validates file properties only, not content or structure.
+    It uses efficient binary read to check encoding/line endings.
+
+    Args:
+        filepath: Path to the file to validate.
+
+    Returns:
+        True if file passes all property validation checks.
+
+    Raises:
+        ValueError: If file fails any validation check with descriptive message.
+    """
+    path = Path(filepath)
+
+    if not path.exists():
+        raise ValueError(f"File does not exist: {filepath}")
+
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {filepath}")
+
+    _logger.info(f"Validating file properties: {filepath}")
+
+    try:
+        # Read file as binary to check encoding and line endings
+        with open(path, "rb") as f:
+            binary_content = f.read()
+
+        # Check for UTF-8 BOM (should not be present)
+        if binary_content.startswith(b"\xef\xbb\xbf"):
+            raise ValueError("File has UTF-8 BOM (should not be present)")
+
+        # Check for CRLF line endings (should use LF instead)
+        if b"\r\n" in binary_content:
+            raise ValueError("File uses CRLF line endings (should use LF)")
+
+        # Verify the file is valid UTF-8
+        try:
+            binary_content.decode("utf-8")
+        except UnicodeDecodeError as e:
+            raise ValueError(f"File is not valid UTF-8: {e}")
+
+        _logger.info(f"File properties validation passed: {filepath}")
+        return True
+
+    except ValueError:
+        raise
+    except Exception as e:
+        _logger.error(f"Unexpected error during property validation: {e}")
+        raise ValueError(f"Error validating file properties: {e}")
+
+
 def validate_markdown_file(filepath: str) -> bool:
     """
     Validate that a markdown file meets all non-functional requirements.
