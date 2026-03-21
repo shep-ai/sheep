@@ -1,0 +1,190 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-content-file-138"
+summary: >
+  Feature 138 creates a single markdown file called test-ubgyho.md at the repository root,
+  demonstrating the platform's core capability for reliable file creation and git workflow
+  integration. The implementation follows the established pattern from features 101-137,
+  orchestrating five existing utility functions (generate, write, validate, commit, push)
+  with detailed structured logging and strict validation. The feature module is self-contained,
+  reproducible, and independently testable.
+
+# Relationships
+relatedFeatures:
+  - "feature_137_markdown_file_creation"
+  - "feature_127_markdown_file_creation"
+  - "feature_101_markdown_file_creation"
+
+technologies:
+  - "Python 3.11+ (type hints, pathlib)"
+  - "CrewAI (LLM orchestration via existing utilities)"
+  - "GitPython (via existing GitCommitTool and GitPushTool)"
+  - "Anthropic Claude API (via existing content_generators)"
+  - "structlog (existing structured logging framework)"
+
+relatedLinks:
+  - title: "Content Generators Module (all utilities exist)"
+    url: "file://./src/sheep/content_generators.py"
+  - title: "Feature 137 Implementation Reference"
+    url: "file://./src/sheep/features/feature_137_markdown_file_creation.py"
+  - title: "Feature 127 Implementation Reference"
+    url: "file://./src/sheep/features/feature_127_markdown_file_creation.py"
+  - title: "Git Tools and Commit/Push Operations"
+    url: "file://./src/sheep/tools/git_tools.py"
+  - title: "LLM Configuration and Factory"
+    url: "file://./src/sheep/config/llm.py"
+  - title: "Structured Logging Configuration"
+    url: "file://./src/sheep/observability/logging.py"
+
+# Structured implementation phases
+phases:
+  - id: "phase-1"
+    name: "Feature Module Implementation"
+    description: "Create the feature module (feature_138_markdown_file_creation.py) following the established pattern from features 101-137. Implement the orchestration function that calls five existing utility functions in sequence (generate, write, validate, commit, push). Add structured logging at each step and error handling that propagates exceptions with diagnostic context."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Testing & Validation"
+    description: "Write unit tests with mocked content_generators functions to verify correct orchestration and error handling. Write integration tests to validate the full workflow (file creation, git staging, commit, and push). Verify that the created file meets all specification requirements (UTF-8 encoding, LF line endings, proper structure, trailing newline)."
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - "src/sheep/features/feature_138_markdown_file_creation.py"
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  Feature 138 is a straightforward orchestration task that follows the established pattern from
+  features 101-137. The feature module imports five utility functions from `content_generators.py`
+  and calls them in sequence with proper error handling and structured logging:
+
+  1. **generate_markdown_content()** — Call the Claude API (via CrewAI LLM) to generate an H1
+     title and 2-3 sentences of prose about any topic
+  2. **write_markdown_file()** — Write the generated content to `test-ubgyho.md` at the
+     repository root with UTF-8 encoding (no BOM) and LF line endings
+  3. **validate_markdown_file()** — Verify the file meets all structural requirements (H1 heading,
+     2-3 sentences, UTF-8 encoding, LF line endings, trailing newline)
+  4. **commit_markdown_file()** — Stage the file with `git add` and commit with the message
+     "feat(138): Create test-ubgyho.md with markdown content"
+  5. **push_markdown_file()** — Push the commit to the remote repository with upstream tracking
+
+  The feature module is self-contained (~50-60 lines), with no dependencies on orchestrator
+  functions from content_generators.py. This design choice maintains consistency with features
+  101-137 and ensures each feature is independently auditable and testable.
+
+  ## Key Design Decisions
+
+  ### Decision 1: Duplicate Orchestration Logic (not Thin Wrapper)
+
+  **Chosen:** Create a self-contained orchestration function that calls utility functions
+  directly, following the pattern from features 101-137.
+
+  **Rejected Alternatives:**
+  - Thin wrapper around a shared orchestrator function — breaks consistency with existing features
+  - Base class factory pattern — premature abstraction for a fixed, deterministic pattern
+
+  **Rationale:** The research phase found that features 101-137 consistently duplicate the
+  orchestration logic within each feature module rather than using a shared orchestrator. This
+  approach keeps each feature module self-contained and independently auditable, maintains
+  consistent structure across the 38+ feature series (critical for repeatability and automated
+  validation), avoids import chain complexity (single level: feature_module → utility_functions),
+  simplifies testing and error diagnosis (no shared state or dependencies), and aligns with the
+  series philosophy: validate reliability through repetition, not abstraction.
+
+  ### Decision 2: Fixed Commit Message Pattern
+
+  **Chosen:** Use a fixed commit message string: `"feat(138): Create test-ubgyho.md with markdown content"`
+
+  **Rejected Alternatives:**
+  - Dynamic topic extraction from generated content — contradicts spec requirement for consistency
+  - Parameterized topic input — adds unnecessary complexity and variability
+
+  **Rationale:** The specification explicitly resolves this question with "Strict fixed pattern".
+  Using a fixed commit message ensures deterministic, reproducible output across runs (critical
+  for automated validation), maintains consistency across the series (features 101-137 all use
+  fixed patterns), simplifies git log parsing in CI/CD pipelines, follows conventional commit
+  format (action-focused, not metadata-heavy), and keeps the topic of generated content separate
+  from the commit message (the action is file creation, not content).
+
+  ### Decision 3: Exception Propagation (not Wrapping or Retrying)
+
+  **Chosen:** Propagate exceptions to the caller with structured logging at the failure point.
+
+  **Rejected Alternatives:**
+  - Wrap exceptions in custom feature-specific classes — unnecessary abstraction
+  - Implement retry logic — contradicts spec requirement to "fail immediately"
+
+  **Rationale:** The specification explicitly answers "Fail immediately". Propagating exceptions
+  provides clear diagnostic information about where failure occurred (generation, validation, or
+  git), uses standard exception types (ValueError for validation, OSError for file I/O, subprocess
+  errors for git), allows the caller/test framework to handle failures appropriately, simplifies
+  code (minimal try-except overhead, only at boundaries), and ensures each failure point has
+  structured logging to aid diagnosis without catching/swallowing the exception.
+
+  ### Decision 4: Detailed Structured Logging
+
+  **Chosen:** Log at INFO level for task entry/completion and DEBUG level for detailed state,
+  following the pattern used in content_generators.py.
+
+  **Rejected Alternatives:**
+  - Minimal logging (only errors and final success) — loses visibility into the orchestration flow
+  - AgentLogger (thinking/action/tool_call) — overly complex for deterministic, linear orchestration
+
+  **Rationale:** The content_generators.py module uses structlog throughout (_logger.info,
+  _logger.debug). Feature module should continue this logging chain for observability. Detailed
+  logs at each step (generate → write → validate → commit → push) enable quick diagnosis of
+  failures without re-executing the entire pipeline. This matches the logging approach from
+  features 101 and 127 exactly.
+
+  ### Decision 5: Flexible File Path Resolution
+
+  **Chosen:** Accept optional `repo_path` parameter (defaults to `str(Path.cwd())`).
+
+  **Rejected Alternatives:**
+  - Hard-coded to current working directory — reduces flexibility for tests and CI/CD
+  - Auto-detect git root via subprocess — unnecessary subprocess call
+
+  **Rationale:** This maintains consistency with content_generators function signatures (all
+  accept repo_path), allows flexible test execution from any working directory, simplifies git
+  operations with explicit path passing, and aligns with GitCommitTool and GitPushTool expectations.
+
+  ## Implementation Strategy
+
+  **Phase 1: Feature Module Implementation**
+
+  Create `src/sheep/features/feature_138_markdown_file_creation.py` with module metadata
+  (FEATURE_NUMBER=138, MARKDOWN_FILENAME="test-ubgyho.md"), imports from content_generators
+  and config, main function signature, five-step orchestration with logging and error propagation,
+  return dictionary with filepath/content/commit_message/push_result, and `if __name__ == "__main__":`
+  guard for script execution. This produces a ~50-60 line module following the established pattern.
+
+  **Phase 2: Testing & Validation**
+
+  Write unit tests with mocked content_generators functions to verify correct orchestration and
+  error handling. Write integration tests executing the full workflow and validating file structure.
+  Verify that the created file meets all specification requirements (UTF-8, LF line endings,
+  proper structure, trailing newline). Verify git state (file is staged, committed, and pushed).
+
+  **Why This Order:** Phase 1 (module implementation) comes first because the feature module is
+  the core deliverable. Creating it first allows Phase 2 testing to directly test the actual
+  implementation. The orchestration pattern is linear and sequential (no parallel work possible),
+  so there are no opportunities for parallelization.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | API failure (Claude API timeout or error) | Spec requires fail-immediately behavior. Feature propagates exception with structured logging. Retry logic is explicitly NOT implemented per spec. Caller can handle the error or retry at a higher level. |
+  | File validation failure (encoding, structure, etc.) | Strict validation per spec catches errors at validation step. Clear error message logs the specific validation failure. Feature fails loudly with exception propagation. |
+  | Git operations failure (permissions, network, etc.) | GitCommitTool and GitPushTool already handle subprocess error propagation. Feature logs each git operation with structured logging. Failures are clear and diagnostic. |
+  | Inconsistency with existing features (101-137) | Implementation explicitly follows the pattern visible in feature_127 and feature_101. Code review can verify consistency. Tests verify the structure matches expectations. |
+  | File already exists in repository | Repository is fresh (created for this feature). File test-ubgyho.md should not exist. If it does, write_markdown_file() will overwrite it. This is acceptable for a deterministic, repeatable test. |
+  | Encoding or line ending issues | Feature uses content_generators.write_markdown_file() which explicitly handles UTF-8 encoding and LF line endings. Feature validates the result with validate_markdown_file(). Double validation ensures compliance. |
