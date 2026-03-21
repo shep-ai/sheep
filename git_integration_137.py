@@ -124,21 +124,21 @@ def main() -> int:
 
         print(f"Staging file: {filename}")
         stage_file(filename)
-        print(f"✓ File staged with git add\n")
+        print(f"[OK] File staged with git add\n")
 
         print(f"Committing with message: {message}")
         commit_file(filename, message)
-        print(f"✓ File committed\n")
+        print(f"[OK] File committed\n")
 
         print(f"Pushing to origin ({branch})")
         push_file(branch)
-        print(f"✓ Changes pushed to remote origin\n")
+        print(f"[OK] Changes pushed to remote origin\n")
 
-        print("✓ Phase 3 complete: File staged, committed, and pushed")
+        print("[OK] Phase 3 complete: File staged, committed, and pushed")
         return 0
 
     except Exception as e:
-        print(f"\n✗ Error: {e}", file=sys.stderr)
+        print(f"\n[ERROR] {e}", file=sys.stderr)
         return 1
 
 
