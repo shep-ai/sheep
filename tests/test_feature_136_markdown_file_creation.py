@@ -174,7 +174,8 @@ class TestTask3ValidateMarkdownFile:
 
                 content = "# Valid Heading\n\nThis is sentence one. This is sentence two.\n"
                 filepath = Path(tmpdir) / "valid.md"
-                filepath.write_text(content, encoding="utf-8")
+                with open(filepath, "w", encoding="utf-8", newline="") as f:
+                    f.write(content)
 
                 result = validate_markdown_file(str(filepath))
                 assert result is True, "Validation should return True"
@@ -190,7 +191,8 @@ class TestTask3ValidateMarkdownFile:
 
                 content = "## Not H1\n\nThis is sentence. This is another sentence.\n"
                 filepath = Path(tmpdir) / "no_h1.md"
-                filepath.write_text(content, encoding="utf-8")
+                with open(filepath, "w", encoding="utf-8", newline="") as f:
+                    f.write(content)
 
                 with pytest.raises(ValueError, match="H1 heading"):
                     validate_markdown_file(str(filepath))
@@ -238,14 +240,16 @@ class TestTask3ValidateMarkdownFile:
 
                 content_too_few = "# Heading\n\nOne sentence.\n"
                 filepath = Path(tmpdir) / "too_few.md"
-                filepath.write_text(content_too_few, encoding="utf-8")
+                with open(filepath, "w", encoding="utf-8", newline="") as f:
+                    f.write(content_too_few)
 
                 with pytest.raises(ValueError, match="sentences"):
                     validate_markdown_file(str(filepath))
 
                 content_too_many = "# Heading\n\nOne. Two. Three. Four.\n"
                 filepath2 = Path(tmpdir) / "too_many.md"
-                filepath2.write_text(content_too_many, encoding="utf-8")
+                with open(filepath2, "w", encoding="utf-8", newline="") as f:
+                    f.write(content_too_many)
 
                 with pytest.raises(ValueError, match="sentences"):
                     validate_markdown_file(str(filepath2))
@@ -277,7 +281,8 @@ class TestTask3ValidateMarkdownFile:
 
                 content = "# Heading\nNo blank line. Still no separator.\n"
                 filepath = Path(tmpdir) / "no_separator.md"
-                filepath.write_text(content, encoding="utf-8")
+                with open(filepath, "w", encoding="utf-8", newline="") as f:
+                    f.write(content)
 
                 with pytest.raises(ValueError, match="blank"):
                     validate_markdown_file(str(filepath))
