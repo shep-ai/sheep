@@ -6,9 +6,10 @@ userQuery: >
   create a single markdown file called test-c12y8b.md with a title and 2-3 sentences about anything
 summary: >
   Create a markdown file in the repository root with the exact filename test-c12y8b.md.
-  The file requires an H1 heading as the title and 2-3 sentences of prose content. This is a
-  straightforward file creation task following the established pattern from 146 preceding features.
-phase: "Analysis"
+  The file requires an H1 heading as the title and 2-3 sentences of coherent prose content, following
+  the established pattern from features 001-146. The feature will generate content via Claude LLM,
+  validate markdown structure and encoding, commit with a conventional message, and push to the feature branch.
+phase: "Requirements"
 sizeEstimate: "S"
 
 relatedFeatures:
@@ -32,106 +33,119 @@ relatedLinks:
   - title: "Sheep README"
     url: "https://github.com/example/sheep/blob/main/README.md"
 
-openQuestions: []
+openQuestions:
+  - question: "Should we use LLM-generated content for creative variety or predetermined template content for determinism?"
+    resolved: true
+    options:
+      - option: "LLM-generated creative content"
+        description: "Use Claude API to generate unique H1 title and 2-3 sentence prose. Provides variety and follows the pattern from feature 146. Trade-off: slight latency from API call, depends on external LLM availability."
+        selected: true
+      - option: "Predetermined template content"
+        description: "Use a fixed template (e.g., 'Example Title' with sample sentences). Deterministic and fast. Trade-off: all generated files would have identical or very similar content, breaks pattern from prior 146 features."
+        selected: false
+    selectionRationale: "LLM-generated content is recommended because it matches the established pattern from feature 146 and provides meaningful variety while the latency cost is negligible (< 5s) for this use case. The API dependency already exists and is reliably configured."
+    answer: "LLM-generated creative content"
+
+  - question: "Should validation be comprehensive (all structure/encoding/line-ending checks) or minimal (just check file exists)?"
+    resolved: true
+    options:
+      - option: "Comprehensive validation"
+        description: "Check H1 heading presence, blank line separator, 2-3 sentence count, UTF-8 encoding without BOM, Unix LF line endings, trailing newline, and minimum 50 bytes. Matches established pattern and catches edge cases early."
+        selected: true
+      - option: "Minimal validation"
+        description: "Only verify file exists and contains some content. Faster, simpler. Trade-off: could miss encoding issues, line-ending problems, or malformed markdown."
+        selected: false
+    selectionRationale: "Comprehensive validation is recommended because features 001-146 all use this validation level and it's already implemented in content_generators.py. It provides confidence that the deliverable meets specification and catches subtle issues (encoding/line-ending differences) that would fail in CI/CD."
+    answer: "Comprehensive validation"
+
+  - question: "Should error handling retry on LLM/git failures or fail immediately with clear error messages?"
+    resolved: true
+    options:
+      - option: "Fail immediately with clear errors"
+        description: "Let exceptions surface with meaningful error context. Simplest implementation, operator can retry. Trade-off: no resilience to transient API failures."
+        selected: true
+      - option: "Retry with exponential backoff"
+        description: "Retry LLM and git operations up to 3x with exponential backoff. More resilient to transient failures. Trade-off: adds complexity, slower failure path (up to 30s), harder to debug."
+        selected: false
+    selectionRationale: "Fail immediately is recommended because this is a straightforward orchestration feature that runs in a controlled environment (not user-facing). The error can be easily re-run by operator. Complexity of retry logic is not justified for this use case, and immediate failures are easier to debug than transient retry scenarios."
+    answer: "Fail immediately with clear errors"
+
+  - question: "What level of test coverage should the feature have?"
+    resolved: true
+    options:
+      - option: "Comprehensive coverage matching feature 146"
+        description: "Unit tests for generation, validation tests for markdown structure, git operation tests for commit/push, integration tests. ~100 lines of test code. Matches established pattern and catches regressions."
+        selected: true
+      - option: "Minimal happy-path tests only"
+        description: "Test that feature creates file, minimal validation. ~30 lines of code. Fast to write but misses error cases."
+        selected: false
+    selectionRationale: "Comprehensive coverage is recommended because feature_146 established this as the team standard, and comprehensive tests have caught bugs in prior features. The investment is small (1-2 hours) relative to the confidence gain, and regression detection is important for a repeated pattern."
+    answer: "Comprehensive coverage matching feature 146"
 
 content: |
   ## Problem Statement
 
-  The user requires creation of a single markdown file with the exact filename `test-c12y8b.md`.
+  The user requires creation of a single markdown file with the exact filename `test-c12y8b.md` in the repository root.
   The file must contain:
   - An H1 markdown heading (title about any topic)
   - A blank line (separator)
   - 2-3 sentences of coherent prose content
 
-  This follows the established pattern from features 001-146, which all involve similar markdown
-  file creation tasks. No code modifications to existing modules are required; this is purely
-  a new markdown artifact to be created, validated, committed, and pushed to the feature branch.
+  This follows the established pattern from features 001-146, which all involve similar markdown file creation tasks.
+  The feature must generate meaningful content, validate it meets markdown specifications and encoding standards,
+  commit the change with a conventional commit message, and push to the feature branch.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] File `test-c12y8b.md` is created in repository root
+  - [ ] File contains exactly one H1 heading (format: `# Title`)
+  - [ ] File contains a blank line separating heading from body
+  - [ ] File contains 2-3 sentences of coherent prose (validated by period count)
+  - [ ] File is UTF-8 encoded without BOM
+  - [ ] File uses Unix LF line endings (not CRLF)
+  - [ ] File ends with a trailing newline (POSIX convention)
+  - [ ] File content is at least 50 bytes
+  - [ ] File is staged and committed with message: "feat(147): create markdown file test-c12y8b.md with prose content"
+  - [ ] Commit is pushed to feature branch `feat/147-markdown-file-creation-23e4a7`
+  - [ ] No existing files in the repository are modified
+  - [ ] All unit tests pass for the feature
+  - [ ] All validation tests pass (markdown structure, encoding, line endings)
+  - [ ] All git operation tests pass (commit/push workflows)
 
-  The Sheep repository is organized as follows:
+  ## Functional Requirements
 
-  ```
-  sheep/
-  ├── src/sheep/
-  │   ├── agents/                 # CrewAI agent definitions
-  │   ├── config/                 # Settings and LLM factory
-  │   ├── features/               # Feature implementations (feature_XXX_markdown_file_creation.py)
-  │   ├── flows/                  # Orchestration flows
-  │   ├── tools/                  # Git and file operation tools
-  │   ├── observability/          # Logging and Langfuse integration
-  │   └── content_generators.py   # Markdown generation utilities
-  ├── specs/                      # Feature specifications (this file)
-  ├── tests/                      # Test suites for validation
-  └── pyproject.toml              # Python project configuration
-  ```
+  - **FR-1**: The system must create exactly one markdown file named `test-c12y8b.md` in the repository root directory
+  - **FR-2**: The markdown file must contain an H1 heading (e.g., `# My Title`) as the first line
+  - **FR-3**: The markdown file must contain a blank line immediately following the H1 heading
+  - **FR-4**: The markdown file must contain 2-3 sentences of coherent, meaningful prose content after the blank line
+  - **FR-5**: The system must validate the generated markdown file against the specification (structure, encoding, line endings, trailing newline)
+  - **FR-6**: The system must stage the created file and commit it with a conventional commit message: `feat(147): create markdown file test-c12y8b.md with prose content`
+  - **FR-7**: The system must push the commit to the remote repository on the feature branch `feat/147-markdown-file-creation-23e4a7`
+  - **FR-8**: The system must use Claude LLM via the configured LLM factory to generate the H1 title and prose content
+  - **FR-9**: The system must leverage existing `content_generators.py` utility functions (generate, write, validate, commit, push)
+  - **FR-10**: The system must not modify any existing files in the repository
 
-  The repository follows a pattern where each completed feature (001-146+) creates:
-  1. A markdown file in the repo root (e.g., test-h875yn.md)
-  2. A feature implementation module (e.g., feature_146_markdown_file_creation.py)
-  3. Tests validating the implementation
-  4. A git commit with conventional message format
+  ## Non-Functional Requirements
 
-  ### Architecture Patterns
+  - **NFR-1 (Performance)**: Feature execution must complete within 30 seconds, including LLM content generation, file I/O, validation, and git operations
+  - **NFR-2 (Encoding)**: Generated file must use UTF-8 encoding without BOM (Byte Order Mark)
+  - **NFR-3 (Line Endings)**: Generated file must use Unix LF line endings (U+000A), not Windows CRLF (U+000D U+000A)
+  - **NFR-4 (POSIX Compliance)**: Generated file must end with a trailing newline character per POSIX convention
+  - **NFR-5 (Consistency)**: Feature implementation must follow the established pattern from features 001-146 (same orchestration flow, utility reuse, commit format)
+  - **NFR-6 (Code Reusability)**: Feature must reuse existing functions from `content_generators.py` module rather than duplicating functionality
+  - **NFR-7 (Error Handling)**: Feature must fail fast with clear, actionable error messages (not retry on transient failures)
+  - **NFR-8 (Logging)**: Feature must use structured logging with `get_logger()` from `sheep.observability.logging` module
+  - **NFR-9 (Testability)**: Feature must have comprehensive test coverage matching feature_146 standard (unit, validation, and git operation tests)
+  - **NFR-10 (Maintainability)**: Feature code must be concise (~15 lines of orchestration code) by reusing existing utilities
 
-  **Orchestration Pattern**: CrewAI flow-based orchestration separates:
-  - Flows: Define execution structure and control paths (e.g., code_implementation.py)
-  - Agents: Autonomous AI decision-making with specialized roles (e.g., code_agents.py)
-  - Tools: Reusable operations for git, file operations, web access
+  ## Product Questions & AI Recommendations
 
-  **Feature Implementation Pattern**: Each feature module follows a consistent 5-step workflow:
-  1. **Generate Content**: Use Claude via LLM factory to generate markdown (H1 + 2-3 sentences)
-  2. **Write File**: Save to repository root with UTF-8 encoding (no BOM)
-  3. **Validate**: Verify markdown structure, encoding, line endings, and trailing newline
-  4. **Commit**: Stage file and create conventional commit message
-  5. **Push**: Push to remote repository with upstream tracking
-
-  **Content Generation**: The `content_generators.py` module provides:
-  - `generate_markdown_content()`: LLM-based generation with validation
-  - `write_markdown_file()`: File I/O with encoding/safety checks
-  - `validate_markdown_file()`: Comprehensive validation (syntax, encoding, line endings)
-  - `commit_markdown_file()`: Git staging with conventional messages
-  - `push_markdown_file()`: Push with upstream tracking
-  - `create_markdown_file()`: End-to-end orchestration
-
-  **Validation Requirements**:
-  - H1 heading must be present and at start of file (format: `# Title`)
-  - Blank line must follow heading (line separator)
-  - 2-3 sentences of prose content (validated by counting periods)
-  - UTF-8 encoding without BOM
-  - Unix LF line endings (not CRLF)
-  - Trailing newline at file end (POSIX convention)
-  - Minimum 50 bytes of content
-
-  ### Relevant Technologies
-
-  **CrewAI Framework**: Multi-agent orchestration library
-  - Provides Flow class for defining execution structure
-  - Agent class for specialized AI personalities
-  - Tool decorator for integrating external capabilities
-  - Built on top of LangChain
-
-  **Anthropic Claude API**: LLM for content generation
-  - Accessed via `get_reasoning_llm()` from config/llm.py
-  - Supports structured markdown generation with prompt templates
-  - Used for creative content (titles, prose sentences)
-
-  **GitPython**: Git operations
-  - Abstracts git commands (add, commit, push)
-  - Used via GitCommitTool and GitPushTool wrappers
-  - Handles remote upstream tracking
-
-  **Pydantic**: Configuration and validation
-  - Settings management via pydantic-settings
-  - BaseModel for structured data
-  - Used throughout for type safety and validation
-
-  **Langfuse**: Observability and tracing
-  - Optional integration for execution monitoring
-  - Configured via environment variables
-  - Provides full trace of agent decisions and API calls
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should content be LLM-generated for variety or use a predetermined template? | LLM-generated creative content | Matches feature 146 pattern, provides variety, negligible latency cost, LLM dependency already reliable |
+  | 2 | Should validation be comprehensive or minimal? | Comprehensive validation (all checks) | Established pattern from 001-146, catches edge cases early, confidence in deliverable quality |
+  | 3 | Should error handling retry on failures or fail immediately? | Fail immediately with clear errors | Straightforward use case, operator can easily retry, simpler debugging than transient retry scenarios |
+  | 4 | What test coverage level should we target? | Comprehensive coverage matching feature 146 | Team standard, catches regressions, small investment (1-2 hours) relative to confidence gained |
 
   ## Affected Areas
 
@@ -150,18 +164,17 @@ content: |
   **Runtime Dependencies**:
   - Python 3.11+ (from pyproject.toml)
   - CrewAI >= 0.86.0 (already installed)
-  - Anthropic API access (ANTHROPIC_API_KEY or similar LLM provider)
+  - Anthropic API access (ANTHROPIC_API_KEY configured)
   - GitPython >= 3.1.0 (already installed)
   - Valid git repository with remote configured
 
   **Existing Code Dependencies**:
-  - `sheep.content_generators`: Functions for generate, write, validate, commit, push
-  - `sheep.config.llm`: get_reasoning_llm() factory
-  - `sheep.observability.logging`: Structured logging with get_logger()
-  - `sheep.tools`: GitCommitTool, GitPushTool for git operations
+  - `sheep.content_generators`: Functions for generate_markdown_content(), write_markdown_file(), validate_markdown_file(), commit_markdown_file(), push_markdown_file()
+  - `sheep.config.llm`: get_reasoning_llm() factory for LLM access
+  - `sheep.observability.logging`: get_logger() for structured logging
+  - `sheep.tools`: GitCommitTool and GitPushTool for git operations
 
-  **No External API Dependencies**: The feature does not require any additional external APIs
-  beyond the LLM provider already configured for the project.
+  **No New External Dependencies**: The feature does not require any new external APIs or packages beyond what is already configured for the project.
 
   ## Implementation Approach
 
@@ -174,9 +187,9 @@ content: |
      - Implement `create_feature_147_markdown_file()` orchestration function
 
   2. **Reuse existing utilities** from `content_generators.py`:
-     - Call `generate_markdown_content()` to create H1 + 2-3 sentences
+     - Call `generate_markdown_content()` to create H1 + 2-3 sentences via LLM
      - Call `write_markdown_file(content, "test-c12y8b.md")`
-     - Call `validate_markdown_file(filepath)`
+     - Call `validate_markdown_file(filepath)` for comprehensive validation
      - Call `commit_markdown_file()` with custom commit message
      - Call `push_markdown_file()` for remote push
 
@@ -209,4 +222,4 @@ content: |
 
   ---
 
-  _Analysis completed by architect — ready for implementation phase_
+  _Requirements phase completed — ready for implementation planning_
