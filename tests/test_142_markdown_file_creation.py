@@ -124,3 +124,124 @@ class TestMarkdownFileValidation:
 
         # Check file size
         assert self.MIN_SIZE <= file_size <= self.MAX_SIZE
+
+
+class TestGitOperations:
+    """Tests for task-3: Implement git add/commit/push workflow."""
+
+    def test_git_add_stages_file(self, tmp_path, monkeypatch):
+        """Test that git add command is called with correct file path."""
+        from unittest.mock import patch, MagicMock
+        import subprocess
+
+        monkeypatch.chdir(tmp_path)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            from feature_142_git_integration import stage_file
+
+            stage_file("test-hqbiuy.md")
+
+            # Verify git add was called with correct arguments
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ["git", "add", "test-hqbiuy.md"]
+
+    def test_git_commit_with_conventional_message(self, tmp_path, monkeypatch):
+        """Test that git commit uses conventional commit message format."""
+        from unittest.mock import patch, MagicMock
+
+        monkeypatch.chdir(tmp_path)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            from feature_142_git_integration import create_commit
+
+            create_commit("feat(142): Create markdown file test-hqbiuy.md with specification")
+
+            # Verify git commit was called with correct message format
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert "feat(142)" in call_args[0][0][3]
+            assert "test-hqbiuy.md" in call_args[0][0][3]
+
+    def test_git_push_targets_correct_branch(self, tmp_path, monkeypatch):
+        """Test that git push targets feature branch."""
+        from unittest.mock import patch, MagicMock
+
+        monkeypatch.chdir(tmp_path)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            from feature_142_git_integration import push_to_remote
+
+            push_to_remote("feat/markdown-file-creation-b65b0e")
+
+            # Verify git push targets correct branch
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert "feat/markdown-file-creation-b65b0e" in call_args[0][0]
+
+    def test_git_command_failure_raises_error(self, tmp_path, monkeypatch):
+        """Test that git command failure raises RuntimeError."""
+        from unittest.mock import patch, MagicMock
+        import subprocess
+
+        monkeypatch.chdir(tmp_path)
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=1, stderr="error: something went wrong"
+            )
+            from feature_142_git_integration import stage_file
+
+            with pytest.raises(RuntimeError):
+                stage_file("test-hqbiuy.md")
+
+
+class TestOrchestration:
+    """Tests for task-4: Create main orchestration script."""
+
+    def test_orchestration_calls_all_steps(self, tmp_path, monkeypatch):
+        """Test that orchestration script calls all steps in order."""
+        from unittest.mock import patch, MagicMock, call
+
+        monkeypatch.chdir(tmp_path)
+
+        # Create a dummy test file
+        test_file = tmp_path / "test-hqbiuy.md"
+        test_file.write_text(
+            "# The Importance of Clear Documentation\n\nClear documentation is essential for the success of any software project, enabling developers to understand code functionality and usage patterns effectively. Well-structured markdown files serve as a bridge between implementation and comprehension, making complex systems accessible to teams of all skill levels. By maintaining comprehensive documentation alongside source code, we ensure that knowledge is preserved and shared across time and team changes.\n",
+            encoding="utf-8",
+            newline="\n",
+        )
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            from feature_142_orchestration import main
+
+            main()
+
+            # Verify all git operations were called
+            assert mock_run.call_count >= 3  # add, commit, push
+            call_args_list = [call[0][0] for call in mock_run.call_args_list]
+            assert any("add" in args for args in call_args_list)
+            assert any("commit" in args for args in call_args_list)
+            assert any("push" in args for args in call_args_list)
+
+    def test_orchestration_handles_validation_failure(self, tmp_path, monkeypatch):
+        """Test that orchestration stops git operations if validation fails."""
+        from unittest.mock import patch, MagicMock
+
+        monkeypatch.chdir(tmp_path)
+
+        # Create invalid file (missing trailing newline)
+        test_file = tmp_path / "test-hqbiuy.md"
+        test_file.write_bytes(b"# Invalid\n\nNo trailing newline")
+
+        with patch("subprocess.run") as mock_run:
+            from feature_142_orchestration import main
+
+            # Should fail and not attempt git operations
+            result = main()
+            assert result is False or result == 1
