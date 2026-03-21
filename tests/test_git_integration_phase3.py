@@ -114,15 +114,16 @@ class TestCommitMarkdownFile:
                     cwd=repo_path,
                 )
 
-                assert "feat:" in log_result.stdout
+                assert "feat(145):" in log_result.stdout
                 assert "test.md" in log_result.stdout
+                assert "prose content" in log_result.stdout
                 assert result  # Should return some result
 
             finally:
                 os.chdir(original_cwd)
 
-    def test_extracts_topic_from_content(self):
-        """Test that topic is extracted from H1 heading for commit message."""
+    def test_uses_standardized_commit_message_format(self):
+        """Test that commit message uses standardized format: feat(145): create markdown file ... with prose content."""
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_path = Path(tmpdir)
 
@@ -174,7 +175,7 @@ class TestCommitMarkdownFile:
 
                 commit_markdown_file(str(test_file), content, str(repo_path))
 
-                # Verify commit message contains extracted topic
+                # Verify commit message uses standardized format
                 log_result = subprocess.run(
                     ["git", "log", "-1", "--format=%B"],
                     capture_output=True,
@@ -183,7 +184,9 @@ class TestCommitMarkdownFile:
                     cwd=repo_path,
                 )
 
-                assert "Important Discovery" in log_result.stdout
+                assert "feat(145):" in log_result.stdout
+                assert "create markdown file" in log_result.stdout
+                assert "with prose content" in log_result.stdout
 
             finally:
                 os.chdir(original_cwd)
