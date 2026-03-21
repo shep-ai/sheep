@@ -10,8 +10,9 @@ Tests cover the main tasks:
 
 import os
 import tempfile
+import warnings
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -30,7 +31,7 @@ from sheep.features.feature_140_markdown_file_creation import (
 class TestTask1GenerateMarkdownContent:
     """Tests for task 1: Generate markdown content via LLM."""
 
-    def test_generated_content_has_h1_heading(self):
+    def test_generated_content_has_h1_heading(self) -> None:
         """Test that generated content contains exactly one H1 heading."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two.\n"
 
@@ -39,7 +40,7 @@ class TestTask1GenerateMarkdownContent:
 
         assert content.lstrip().startswith("# "), "Content must start with H1 heading"
 
-    def test_generated_content_has_2_to_3_sentences(self):
+    def test_generated_content_has_2_to_3_sentences(self) -> None:
         """Test that generated content contains exactly 2-3 sentences."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
 
@@ -51,7 +52,7 @@ class TestTask1GenerateMarkdownContent:
             sentence_count >= 2 and sentence_count <= 3
         ), f"Content must have 2-3 sentences, found {sentence_count}"
 
-    def test_generated_content_size_is_reasonable(self):
+    def test_generated_content_size_is_reasonable(self) -> None:
         """Test that generated content size is within reasonable bounds."""
         test_content = "# Digital Transformation in Modern Enterprises\n\nDigital transformation represents a fundamental shift in how organizations operate and deliver value to customers in the modern economy. Companies across all industries are investing heavily in new technologies, processes, and business models to remain competitive. This comprehensive change requires leadership commitment and organizational culture shift to succeed.\n"
 
@@ -63,7 +64,7 @@ class TestTask1GenerateMarkdownContent:
             200 <= size <= 800
         ), f"Content size {size} bytes is outside typical range (200-800 bytes)"
 
-    def test_generated_content_has_blank_line_separator(self):
+    def test_generated_content_has_blank_line_separator(self) -> None:
         """Test that generated content has blank line after heading."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two.\n"
 
@@ -75,7 +76,7 @@ class TestTask1GenerateMarkdownContent:
         assert lines[0].startswith("# "), "First line must be H1 heading"
         assert lines[1] == "", "Second line must be blank separator"
 
-    def test_generated_content_has_prose_after_separator(self):
+    def test_generated_content_has_prose_after_separator(self) -> None:
         """Test that prose content exists after blank line separator."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two.\n"
 
@@ -90,7 +91,7 @@ class TestTask1GenerateMarkdownContent:
 class TestTask2WriteMarkdownFile:
     """Tests for task 2: Write markdown file to disk."""
 
-    def test_write_markdown_file_creates_file(self):
+    def test_write_markdown_file_creates_file(self) -> None:
         """Test that write_markdown_file creates a file at the correct path."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -106,7 +107,7 @@ class TestTask2WriteMarkdownFile:
             finally:
                 os.chdir(original_cwd)
 
-    def test_write_markdown_file_contains_exact_content(self):
+    def test_write_markdown_file_contains_exact_content(self) -> None:
         """Test that written file contains exactly the provided content."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -123,7 +124,7 @@ class TestTask2WriteMarkdownFile:
             finally:
                 os.chdir(original_cwd)
 
-    def test_write_markdown_file_is_utf8_encoded(self):
+    def test_write_markdown_file_is_utf8_encoded(self) -> None:
         """Test that written file is UTF-8 encoded without BOM."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -148,7 +149,7 @@ class TestTask2WriteMarkdownFile:
             finally:
                 os.chdir(original_cwd)
 
-    def test_write_markdown_file_rejects_path_traversal(self):
+    def test_write_markdown_file_rejects_path_traversal(self) -> None:
         """Test that write_markdown_file rejects unsafe filenames."""
         content = "# Test\n\nContent.\n"
 
@@ -165,7 +166,7 @@ class TestTask2WriteMarkdownFile:
 class TestTask3ValidateMarkdownFile:
     """Tests for task 3: Validate markdown file format."""
 
-    def test_validate_accepts_valid_markdown_file(self):
+    def test_validate_accepts_valid_markdown_file(self) -> None:
         """Test that validate_markdown_file passes for properly formatted file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -182,7 +183,7 @@ class TestTask3ValidateMarkdownFile:
             finally:
                 os.chdir(original_cwd)
 
-    def test_validate_rejects_file_without_h1_heading(self):
+    def test_validate_rejects_file_without_h1_heading(self) -> None:
         """Test that validate_markdown_file rejects file without H1 heading."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -199,7 +200,7 @@ class TestTask3ValidateMarkdownFile:
             finally:
                 os.chdir(original_cwd)
 
-    def test_validate_rejects_file_with_utf8_bom(self):
+    def test_validate_rejects_file_with_utf8_bom(self) -> None:
         """Test that validate_markdown_file rejects file with UTF-8 BOM."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -215,7 +216,7 @@ class TestTask3ValidateMarkdownFile:
             finally:
                 os.chdir(original_cwd)
 
-    def test_validate_rejects_file_with_crlf_line_endings(self):
+    def test_validate_rejects_file_with_crlf_line_endings(self) -> None:
         """Test that validate_markdown_file rejects file with CRLF line endings."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -231,7 +232,7 @@ class TestTask3ValidateMarkdownFile:
             finally:
                 os.chdir(original_cwd)
 
-    def test_validate_rejects_file_with_wrong_sentence_count(self):
+    def test_validate_rejects_file_with_wrong_sentence_count(self) -> None:
         """Test that validate_markdown_file rejects file with wrong sentence count."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -256,7 +257,7 @@ class TestTask3ValidateMarkdownFile:
             finally:
                 os.chdir(original_cwd)
 
-    def test_validate_rejects_file_without_trailing_newline(self):
+    def test_validate_rejects_file_without_trailing_newline(self) -> None:
         """Test that validate_markdown_file rejects file without trailing newline."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -272,7 +273,7 @@ class TestTask3ValidateMarkdownFile:
             finally:
                 os.chdir(original_cwd)
 
-    def test_validate_rejects_file_without_blank_separator(self):
+    def test_validate_rejects_file_without_blank_separator(self) -> None:
         """Test that validate_markdown_file rejects file without blank line after heading."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
@@ -293,7 +294,7 @@ class TestTask3ValidateMarkdownFile:
 class TestFeature140Integration:
     """Integration tests for the complete feature 140 workflow."""
 
-    def test_create_feature_140_returns_expected_structure(self):
+    def test_create_feature_140_returns_expected_structure(self) -> None:
         """Test that create_feature_140_markdown_file returns expected dictionary structure."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
 
@@ -313,7 +314,7 @@ class TestFeature140Integration:
         assert f"feat({FEATURE_NUMBER})" in result["commit_message"], "Commit message must include feature number"
         assert MARKDOWN_FILENAME in result["commit_message"], "Commit message must include filename"
 
-    def test_create_feature_140_exact_commit_message(self):
+    def test_create_feature_140_exact_commit_message(self) -> None:
         """Test that the commit message follows the exact required format."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
 
@@ -326,7 +327,7 @@ class TestFeature140Integration:
         expected_message = f"feat({FEATURE_NUMBER}): Create {MARKDOWN_FILENAME}"
         assert result["commit_message"] == expected_message, f"Commit message must be exactly: {expected_message}"
 
-    def test_create_feature_140_file_exists_and_is_valid(self):
+    def test_create_feature_140_file_exists_and_is_valid(self) -> None:
         """Test that created file exists and passes validation."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
 
@@ -341,7 +342,7 @@ class TestFeature140Integration:
         assert Path(filepath).exists(), f"File should exist at {filepath}"
         assert validate_markdown_file(filepath) is True, "File should pass validation"
 
-    def test_create_feature_140_correct_filename(self):
+    def test_create_feature_140_correct_filename(self) -> None:
         """Test that created file has the correct filename."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
 
@@ -355,7 +356,7 @@ class TestFeature140Integration:
 
         assert filepath.name == MARKDOWN_FILENAME, f"Filename must be {MARKDOWN_FILENAME}"
 
-    def test_create_feature_140_content_has_correct_format(self):
+    def test_create_feature_140_content_has_correct_format(self) -> None:
         """Test that created content meets all format requirements."""
         test_content = "# Digital Transformation in Modern Enterprises\n\nDigital transformation represents a fundamental shift in how organizations operate and deliver value to customers in the modern economy. Companies across all industries are investing heavily in new technologies, processes, and business models to remain competitive. This comprehensive change requires leadership commitment and organizational culture shift to succeed.\n"
 
@@ -385,7 +386,7 @@ class TestFeature140Integration:
         # Check for trailing newline
         assert content.endswith("\n"), "Content must end with newline"
 
-    def test_create_feature_140_file_is_utf8_without_bom(self):
+    def test_create_feature_140_file_is_utf8_without_bom(self) -> None:
         """Test that created file is UTF-8 encoded without BOM."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
 
@@ -411,7 +412,7 @@ class TestFeature140Integration:
         except UnicodeDecodeError:
             pytest.fail("File is not valid UTF-8")
 
-    def test_create_feature_140_file_has_lf_line_endings(self):
+    def test_create_feature_140_file_has_lf_line_endings(self) -> None:
         """Test that created file uses LF line endings (not CRLF)."""
         test_content = "# Test Heading\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
 
@@ -432,7 +433,7 @@ class TestFeature140Integration:
         # Should contain LF
         assert b"\n" in binary_content, "File should contain LF line endings"
 
-    def test_feature_140_module_metadata(self):
+    def test_feature_140_module_metadata(self) -> None:
         """Test that feature 140 module has correct metadata."""
         assert FEATURE_NUMBER == 140, "Feature number must be 140"
         assert MARKDOWN_FILENAME == "test-66cdt5.md", "Filename must be test-66cdt5.md"
@@ -441,7 +442,9 @@ class TestFeature140Integration:
 class TestComprehensiveIntegration:
     """Comprehensive end-to-end integration test for complete feature workflow."""
 
-    def test_complete_feature_workflow_end_to_end(self, monkeypatch, caplog):
+    def test_complete_feature_workflow_end_to_end(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """
         Test complete feature 140 workflow: generate -> write -> validate -> commit -> push.
 
@@ -567,14 +570,14 @@ class TestComprehensiveIntegration:
             f"Prose should have at least 20 words, has {word_count}"
         )
 
-    def test_complete_workflow_matches_spec_criteria(self, monkeypatch):
+    def test_complete_workflow_matches_spec_criteria(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """
         Verify complete workflow matches all success criteria from specification.
 
         This test directly maps to the feature spec success criteria section.
         """
-        from unittest.mock import patch
-
         # Valid test content for mocking
         test_content = "# Sustainable Business Practices and Corporate Responsibility\n\nSustainable business practices have become essential for long-term company success and stakeholder value creation. Organizations implementing environmental, social, and governance initiatives report improved brand reputation and operational efficiency. Leaders must balance profitability with responsibility to ensure positive impact on communities and the planet.\n"
 
@@ -587,7 +590,7 @@ class TestComprehensiveIntegration:
         filepath = Path(result["filepath"])
 
         # Success Criteria Verification
-        success_criteria = {
+        success_criteria: dict[str, bool] = {
             "File test-66cdt5.md is created at repository root": filepath.name
             == MARKDOWN_FILENAME,
             "File contains H1 markdown heading as title": result["content"].startswith(
@@ -625,15 +628,15 @@ class TestComprehensiveIntegration:
             f"Not all success criteria met: {[k for k, v in success_criteria.items() if not v]}"
         )
 
-    def test_complete_workflow_no_errors_or_warnings(self, monkeypatch):
+    def test_complete_workflow_no_errors_or_warnings(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """
         Test that complete workflow executes without errors or warnings.
 
         This verifies that all operations complete successfully and no
         unexpected exceptions or warnings are raised.
         """
-        import warnings
-
         test_content = "# Artificial Intelligence and Machine Learning Revolution\n\nArtificial intelligence and machine learning technologies are transforming industries from healthcare to finance by enabling faster decision-making and predictive analytics. Organizations implementing AI solutions report significant improvements in efficiency, customer satisfaction, and innovation capabilities. Strategic investment in AI talent and infrastructure is becoming increasingly critical for competitive advantage.\n"
 
         with patch(
@@ -656,7 +659,7 @@ class TestComprehensiveIntegration:
         # Should not raise any exceptions
         # (previous try/except block catches them)
 
-    def test_integration_uses_correct_feature_metadata(self):
+    def test_integration_uses_correct_feature_metadata(self) -> None:
         """Verify that integration test uses correct feature metadata."""
         # Feature number should be 140
         assert FEATURE_NUMBER == 140, "Feature number must be 140"
