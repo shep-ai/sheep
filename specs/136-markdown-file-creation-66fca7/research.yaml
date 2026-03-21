@@ -1,0 +1,380 @@
+name: markdown-file-creation-66fca7
+summary: >
+  Feature 136 is a simple, repetitive file creation task that verifies the Sheep
+  platform's ability to reliably automate markdown file creation and standard git
+  workflows. Technical implementation uses Python's pathlib for file I/O,
+  subprocess for git CLI integration, and predefined content templates to ensure
+  consistency with previous test features (125-135). No external dependencies or
+  architectural changes required.
+
+relatedFeatures:
+  - "135: Create markdown file test-f5y71k.md"
+  - "134: Create markdown file with completion status documentation"
+  - "133: Create markdown file test-dd91rz.md with specification"
+  - "132: Create markdown file test-fz0c6t.md"
+  - "131: Create markdown file test-qoqhm7.md"
+
+technologies:
+  - "Python (3.7+)"
+  - "pathlib (Python standard library)"
+  - "subprocess (Python standard library)"
+  - "Git (CLI)"
+  - "Markdown (CommonMark specification)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Markdown CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Git official documentation"
+    url: "https://git-scm.com/doc"
+
+decisions:
+  - title: "File I/O Implementation: pathlib vs os.path"
+    chosen: "Use pathlib.Path for file creation and I/O"
+    rejected:
+      - "os.path string manipulation — less object-oriented, more verbose for path operations, legacy approach compared to pathlib"
+      - "open() with string paths — works but loses the benefits of path object abstraction, less Pythonic for modern code"
+    rationale: >
+      pathlib.Path is the recommended modern approach in Python 3.7+, is already
+      listed in the feature spec's technologies, and provides a cleaner, more
+      intuitive API for file operations. pathlib.Path.write_text() handles encoding
+      specification (UTF-8) and file writing in a single operation, reducing
+      boilerplate. This approach is consistent with Python best practices and
+      aligns with the spec's requirement to use pathlib. pathlib is part of the
+      Python standard library (no external dependencies).
+
+  - title: "Content Generation: Templated vs Dynamic"
+    chosen: "Use predefined prose template with topic of implementation agent's choice"
+    rejected:
+      - "Fully dynamic content generation (e.g., AI-generated or random) — introduces inconsistency, harder to validate, more complex, and the feature goal is validating file creation not content generation"
+      - "Hardcoded static content across all features — violates the spec's recommendation that agents have creative freedom in topic choice; becomes repetitive"
+    rationale: >
+      Predefined template structure (H1 title + 2-3 sentences) combined with
+      creative topic choice balances simplicity with flexibility. The spec explicitly
+      states agents can choose any topic, and previous features (125-135) demonstrate
+      this works well. The template ensures format compliance (H1 + prose separation)
+      while allowing coherent, meaningful content. This is simpler to implement and
+      validate than dynamic generation, and aligns with the established pattern.
+
+  - title: "Git Integration: subprocess vs GitPython library"
+    chosen: "Use subprocess to execute git CLI commands"
+    rejected:
+      - "GitPython library (PyGit2) — adds external dependency, violates NFR-5 requirement for 'only Python standard library', overkill for simple git add/commit/push operations"
+      - "Direct git file system manipulation — bypasses git integrity checks, introduces fragility and maintenance burden, not recommended by spec"
+    rationale: >
+      The spec explicitly requires using \"standard git CLI commands or existing
+      git abstraction in Sheep platform\" and mandates \"no external dependencies\"
+      (NFR-5). subprocess is part of Python's standard library and directly invokes
+      git, which is the platform-standard approach. This keeps the implementation
+      lightweight, maintainable, and consistent with how the Sheep platform
+      handles git operations across other features.
+
+  - title: "File Encoding: UTF-8 specification method"
+    chosen: "Explicitly specify encoding=\"utf-8\" in pathlib.Path.write_text()"
+    rejected:
+      - "Rely on system default encoding — system encoding is locale-dependent and may not be UTF-8 on all platforms; risks BOM insertion on Windows; spec explicitly requires UTF-8 without BOM"
+      - "Use io.open() with explicit encoding — more verbose than pathlib, adds unnecessary complexity for simple use case"
+    rationale: >
+      pathlib.Path.write_text(content, encoding=\"utf-8\") is explicit, portable,
+      and guaranteed to produce UTF-8 without BOM (Python's UTF-8 codec does not
+      add BOM by default). This directly satisfies the spec requirement (FR-6) and
+      is the cleanest approach. Explicit encoding specification is a best practice
+      for cross-platform file handling.
+
+openQuestions:
+  - question: "Should git operations handle local platform line endings (CRLF vs LF)?"
+    resolved: true
+    options:
+      - option: "Rely on repository's git config (recommended)"
+        description: "Let git handle line ending conversion via .gitattributes and core.autocrlf settings. This respects the repository's existing line ending policy and is transparent to the implementation."
+        selected: true
+      - option: "Force Unix line endings (LF) in markdown files"
+        description: "Explicitly use LF line endings. Requires additional logic to normalize content before writing. Violates principle of deferring to repo configuration."
+        selected: false
+      - option: "Use platform-specific line endings"
+        description: "Write content with os.linesep. Leads to inconsistency across platforms and makes git diffs noisy. Not recommended."
+        selected: false
+    selectionRationale: >
+      Repository-level git configuration (inherited from features 125-135) already
+      handles line ending normalization. The implementation should create the file
+      with Python's default line ending (\\n for Unix/macOS/modern Windows) and
+      trust git to apply the repository's line ending policy. This keeps the
+      implementation simple and respects the repository's existing configuration.
+
+  - question: "Should file creation be wrapped in error handling?"
+    resolved: true
+    options:
+      - option: "Minimal error handling — let exceptions bubble up (recommended)"
+        description: "File creation errors (disk full, permissions denied, path issues) are caught and reported by the platform. This keeps implementation focused on the happy path and lets the test suite handle validation."
+        selected: true
+      - option: "Comprehensive error handling with fallbacks"
+        description: "Catch FileNotFoundError, PermissionError, etc., and handle each case. Adds complexity and duplicates error handling that the test suite/platform will perform anyway."
+        selected: false
+      - option: "Validation before write (check path, permissions, etc.)"
+        description: "Pre-check conditions before writing. Introduces race conditions (check-then-act) and adds unnecessary complexity for a simple operation."
+        selected: false
+    selectionRationale: >
+      The Sheep platform (test suite and surrounding infrastructure) is responsible
+      for validating the feature works correctly. The implementation agent should
+      focus on the straightforward task: create the file and commit it. Exceptions
+      will propagate and be caught by the test suite, which is the appropriate
+      place for comprehensive validation. Minimal error handling keeps the code
+      simple and maintainable.
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-21
+  - **Confidence:** High (straightforward file creation task)
+
+  ## Architecture Overview
+
+  Feature 136 is a simple file creation task that:
+  1. Creates a markdown file (test-znbtx9.md) in the repository root
+  2. Writes an H1 heading and 2-3 sentences of prose content
+  3. Stages the file and creates a git commit
+  4. Pushes the commit to the feature branch
+
+  This is part of a validation suite (features 125+) that tests the Sheep platform's
+  ability to reliably execute repetitive automation tasks. No code changes,
+  architectural modifications, or test framework updates are needed.
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation
+
+  **Chosen:** `pathlib.Path` with `write_text()` method
+
+  **Rejected:**
+  - `os.path` string manipulation — legacy approach, less Pythonic, more verbose
+  - `open()` with string paths — functional but loses path object benefits
+
+  **Rationale:**
+  pathlib is the modern, recommended approach for Python 3.7+ file operations.
+  It provides a clean, object-oriented API and handles encoding specification
+  elegantly. The spec already lists pathlib in its technologies, confirming this
+  is the expected approach. `pathlib.Path.write_text(content, encoding="utf-8")`
+  is a single-line operation that covers file creation, writing, and encoding in
+  one call.
+
+  **Implementation:**
+  ```python
+  from pathlib import Path
+
+  content = "# Title\n\nSentence 1. Sentence 2. Sentence 3."
+  Path("test-znbtx9.md").write_text(content, encoding="utf-8")
+  ```
+
+  ### 2. Content Generation Strategy
+
+  **Chosen:** Predefined prose template with topic of agent's choosing
+
+  **Rejected:**
+  - Fully dynamic/AI-generated content — introduces variability, harder to validate,
+    overkill for a file creation validation test
+  - Hardcoded identical content — reduces variety, less coherent across multiple
+    test features
+
+  **Rationale:**
+  The spec explicitly states "agents can choose any topic" and allows creative
+  freedom. Previous test features (125-135) use varied topics successfully. A
+  template structure (H1 + 2-3 sentences) ensures format compliance while allowing
+  meaningful, coherent content. This balances simplicity with flexibility and
+  aligns with the established pattern.
+
+  **Example content structure:**
+  ```
+  # [Title chosen by implementation agent]
+
+  [Sentence 1]. [Sentence 2]. [Sentence 3].
+  ```
+
+  ### 3. Git Integration Method
+
+  **Chosen:** `subprocess` module to invoke git CLI commands
+
+  **Rejected:**
+  - GitPython/PyGit2 library — external dependency violates NFR-5 (Python stdlib only),
+    overkill for simple operations
+  - Direct file system manipulation of .git — unsafe, bypasses git integrity checks
+
+  **Rationale:**
+  The spec requires "standard git CLI commands or existing git abstraction in Sheep
+  platform" and mandates no external dependencies (NFR-5). subprocess is part of
+  Python's standard library and is the lightweight, portable way to invoke git.
+  This approach is consistent with how the Sheep platform handles git operations
+  across features 125-135.
+
+  **Implementation:**
+  ```python
+  import subprocess
+
+  subprocess.run(["git", "add", "test-znbtx9.md"], check=True)
+  subprocess.run(["git", "commit", "-m", "feat(136): Create markdown file test-znbtx9.md"], check=True)
+  subprocess.run(["git", "push"], check=True)
+  ```
+
+  ### 4. File Encoding
+
+  **Chosen:** Explicit `encoding="utf-8"` parameter in pathlib
+
+  **Rejected:**
+  - Rely on system default — locale-dependent, may not be UTF-8, risks BOM on Windows
+  - Use `io.open()` — more verbose, unnecessary complexity
+
+  **Rationale:**
+  The spec requires UTF-8 without BOM (FR-6). pathlib.Path.write_text(encoding="utf-8")
+  is explicit, portable, and guaranteed to produce correct output. Python's UTF-8
+  codec does not insert BOM by default, satisfying the requirement. Explicit
+  encoding is a best practice for cross-platform file handling.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  |--------------|---------|----------|-----------|
+  | pathlib (stdlib) | File path operations and I/O | **Use** | Modern, standard approach; already in spec; clean API for write_text() |
+  | subprocess (stdlib) | Git CLI invocation | **Use** | Lightweight, no external deps; standard approach in Sheep platform |
+  | GitPython | Alternative git integration | **Reject** | External dependency violates NFR-5; overkill for simple operations |
+  | io (stdlib) | Lower-level file I/O | **Reject** | More verbose than pathlib; no advantage for this use case |
+
+  ## Security Considerations
+
+  **Input/Output Safety:**
+  - File path is hardcoded (`test-znbtx9.md`), not user-supplied → no path traversal risk
+  - File creation in repository root is intentional and authorized by spec → no security issue
+  - UTF-8 encoding is safe; no risk of encoding attacks
+  - Content is generated by implementation agent; no untrusted input
+
+  **Git Operations:**
+  - All git commands are invoked via subprocess with hardcoded arguments (no user
+    input concatenated into commands) → no injection risk
+  - git add/commit/push are standard operations; no elevated privileges needed
+  - Branch name (feat/136-markdown-file-creation-66fca7) is set at platform level,
+    not by this feature → no spoofing risk
+
+  **File System Safety:**
+  - File creation doesn't modify .gitignore or other configuration → no side effects
+  - File is created only in repository root → no unexpected directory creation
+  - UTF-8 encoding without BOM is safe across all platforms
+
+  **Conclusion:** No security vulnerabilities identified. This is a simple,
+  deterministic task with no user input, no privilege escalation, and no unsafe
+  operations.
+
+  ## Performance Considerations
+
+  **Execution Time:**
+  - File I/O: negligible (single write operation, ~100-300 bytes)
+  - subprocess calls: dominated by git command startup time (~50-200ms per command),
+    but this is unavoidable and expected
+  - Total expected time: <1 second for feature 136 (consistent with 125-135)
+
+  **Resource Usage:**
+  - Memory: minimal (single string in memory, no buffering or streaming needed)
+  - Disk: ~200 bytes added to repository
+  - No temporary files, no caching, no optimization needed
+
+  **Scalability:**
+  - This feature is not performance-sensitive; it's a one-off task
+  - However, the pattern is scalable: features 125+ repeat this successfully with
+    no performance issues across dozens of iterations
+
+  **Conclusion:** No performance optimizations needed. Implementation is simple and
+  efficient for the task scope.
+
+  ## Architecture Notes
+
+  **Fit into Existing Codebase:**
+  This feature follows the established pattern from features 125-135:
+  - Simple, self-contained file creation task
+  - Uses only Python stdlib (no new dependencies)
+  - Standard git workflow (add → commit → push)
+  - No code changes or architectural modifications
+  - Integrates with Sheep platform's execution model (agent runs, creates file,
+    performs git ops, test suite validates)
+
+  **No Integration Points:**
+  - No API changes
+  - No schema modifications
+  - No configuration updates needed
+  - No existing code modification required
+  - No interaction with other platform components beyond subprocess git invocation
+
+  **Consistency with Previous Features:**
+  Features 125-135 demonstrate this pattern works reliably:
+  - Each creates a test-*.md file in repository root
+  - Each uses H1 title + prose format
+  - Each follows conventional commit message format
+  - Each pushes to a feature branch
+  - All complete successfully and validate correctly
+
+  ## Implementation Approach
+
+  **Pseudocode:**
+  ```
+  1. Generate prose content (H1 title + 2-3 sentences)
+  2. Write content to test-znbtx9.md using pathlib with UTF-8 encoding
+  3. Invoke git add test-znbtx9.md via subprocess
+  4. Invoke git commit with conventional message via subprocess
+  5. Invoke git push via subprocess
+  6. Done (test suite validates file format and git state)
+  ```
+
+  **Key Decisions Applied:**
+  - Use pathlib.Path.write_text() for file creation
+  - Hardcode file name and commit message per spec
+  - Allow agent creative freedom in prose content
+  - Use subprocess for all git operations
+  - No additional error handling; let exceptions bubble up
+  - Trust repository's .gitattributes for line ending handling
+
+  ## Dependencies Summary
+
+  **Required:** None external
+  - Python 3.7+ (standard library: pathlib, subprocess)
+  - Git CLI (invoked via subprocess, must be in PATH)
+
+  **Inherited from Sheep Platform:**
+  - Feature spec and requirement definition
+  - Test validation suite
+  - Git repository and git configuration
+
+  **No New Dependencies to Add:**
+  This feature introduces zero new external dependencies, consistent with
+  NFR-5 requirement.
+
+  ## Related Features & Patterns
+
+  This feature is one of 12+ identical file creation tests (125-135+) that form a
+  validation suite:
+  - 135: test-f5y71k.md
+  - 134: completion status documentation
+  - 133: test-dd91rz.md
+  - 132: test-fz0c6t.md
+  - 131: test-qoqhm7.md
+  - ...and 8+ earlier features
+
+  All follow the same pattern; this implementation is consistent with prior art.
+
+  ## Validation & Testing
+
+  Post-implementation validation (performed by test suite):
+  - [ ] File test-znbtx9.md exists in repository root
+  - [ ] File contains exactly one H1 heading
+  - [ ] File contains 2-3 sentences of prose
+  - [ ] File is UTF-8 encoded without BOM
+  - [ ] File is staged in git index
+  - [ ] Commit message follows conventional format
+  - [ ] Commit is on feature branch feat/136-markdown-file-creation-66fca7
+  - [ ] No other files created or modified
+
+  Implementation agent does not validate; test suite does. See feature spec for
+  complete success criteria.
+
+  ---
+
+  _Research completed 2026-03-21. Implementation ready to proceed._
