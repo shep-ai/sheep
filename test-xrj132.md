@@ -1,5 +1,5 @@
-# Quiet Observations
+# Small Daily Wins
 
-Rain can make a city feel slower, even when everyone is still rushing somewhere.  
-The same streets look different under gray skies, as if the buildings are taking a breath.  
-Sometimes a change in weather is enough to make ordinary moments feel brand new.
+Learning one useful thing each day is a quiet way to build confidence over time.  
+Tiny improvements often look insignificant at first, but they compound faster than expected.  
+By the end of a month, those small wins can completely change how a difficult task feels.
