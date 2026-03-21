@@ -28,7 +28,7 @@ Testing and automation are fundamental to building reliable software systems. By
 
 FILENAME = "test-dd91rz.md"
 COMMIT_MESSAGE = "feat(133): Create markdown file test-dd91rz.md"
-FEATURE_BRANCH = "feat/133-markdown-file-creation-a3e3e2"
+FEATURE_BRANCH = "feat/markdown-file-creation-a3e3e2"
 
 
 def create_file():
