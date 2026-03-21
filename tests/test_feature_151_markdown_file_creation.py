@@ -475,3 +475,389 @@ class TestEndToEndIntegration:
 
         finally:
             os.chdir(original_cwd)
+
+
+class TestGitCommitIntegration:
+    """Integration tests for git commit operations (Task task-5)."""
+
+    def test_commit_creates_git_commit_with_feature_message(self, tmp_path):
+        """Test that git commit is created with feature-specific message."""
+        import os
+        import subprocess
+        from sheep.features.feature_151_markdown_file_creation import (
+            create_feature_151_markdown_file,
+            COMMIT_MESSAGE,
+        )
+
+        # Initialize a git repo in temp directory
+        os.chdir(tmp_path)
+        subprocess.run(["git", "init"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            check=True,
+            capture_output=True,
+        )
+
+        # Create an initial commit so we have a branch
+        Path("README.md").write_text("# Test Repo\n")
+        subprocess.run(["git", "add", "README.md"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "initial commit"],
+            check=True,
+            capture_output=True,
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            # Execute the feature (mocking only the generate function)
+            from unittest.mock import patch
+
+            with patch(
+                "sheep.features.feature_151_markdown_file_creation.generate_markdown_content"
+            ) as mock_generate, patch(
+                "sheep.features.feature_151_markdown_file_creation.push_markdown_file"
+            ) as mock_push:
+                mock_generate.return_value = "# Test\n\nSentence one. Sentence two. Sentence three.\n"
+                mock_push.return_value = {"status": "pushed"}
+
+                result = create_feature_151_markdown_file()
+
+            # Verify commit message in git log
+            log_result = subprocess.run(
+                ["git", "log", "--oneline", "-n", "1"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            assert "feat(151)" in log_result.stdout
+            assert "test-co5v8p.md" in log_result.stdout
+
+            # Verify exact commit message
+            full_log = subprocess.run(
+                ["git", "log", "-1", "--pretty=%B"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            assert COMMIT_MESSAGE in full_log.stdout
+
+        finally:
+            os.chdir(original_cwd)
+
+    def test_commit_message_matches_specification_exactly(self, tmp_path):
+        """Test that commit message matches specification exactly."""
+        import os
+        import subprocess
+        from sheep.features.feature_151_markdown_file_creation import (
+            COMMIT_MESSAGE,
+        )
+
+        os.chdir(tmp_path)
+        subprocess.run(["git", "init"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            check=True,
+            capture_output=True,
+        )
+
+        # Create initial commit
+        Path("README.md").write_text("# Test Repo\n")
+        subprocess.run(["git", "add", "README.md"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "initial commit"],
+            check=True,
+            capture_output=True,
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            from unittest.mock import patch
+            from sheep.features.feature_151_markdown_file_creation import (
+                create_feature_151_markdown_file,
+            )
+
+            with patch(
+                "sheep.features.feature_151_markdown_file_creation.generate_markdown_content"
+            ) as mock_generate, patch(
+                "sheep.features.feature_151_markdown_file_creation.push_markdown_file"
+            ) as mock_push:
+                mock_generate.return_value = "# Exactly\n\nOne. Two. Three.\n"
+                mock_push.return_value = {"status": "pushed"}
+
+                create_feature_151_markdown_file()
+
+            # Get the exact commit message
+            log_result = subprocess.run(
+                ["git", "log", "-1", "--pretty=%B"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            # The commit message should be exactly as specified
+            assert (
+                log_result.stdout.strip()
+                == "feat(151): create markdown file test-co5v8p.md with prose content"
+            )
+
+        finally:
+            os.chdir(original_cwd)
+
+    def test_file_is_staged_in_git(self, tmp_path):
+        """Test that file is staged (git add) before commit."""
+        import os
+        import subprocess
+        from sheep.features.feature_151_markdown_file_creation import (
+            MARKDOWN_FILENAME,
+        )
+
+        os.chdir(tmp_path)
+        subprocess.run(["git", "init"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            check=True,
+            capture_output=True,
+        )
+
+        # Create initial commit
+        Path("README.md").write_text("# Test Repo\n")
+        subprocess.run(["git", "add", "README.md"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "initial commit"],
+            check=True,
+            capture_output=True,
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            from unittest.mock import patch
+            from sheep.features.feature_151_markdown_file_creation import (
+                create_feature_151_markdown_file,
+            )
+
+            with patch(
+                "sheep.features.feature_151_markdown_file_creation.generate_markdown_content"
+            ) as mock_generate, patch(
+                "sheep.features.feature_151_markdown_file_creation.push_markdown_file"
+            ) as mock_push:
+                mock_generate.return_value = "# Heading\n\nOne. Two. Three.\n"
+                mock_push.return_value = {"status": "pushed"}
+
+                create_feature_151_markdown_file()
+
+            # After commit, git status should show no unstaged changes
+            status_result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            # The file should be committed (no output) or only show untracked files
+            assert MARKDOWN_FILENAME not in status_result.stdout or status_result.stdout.startswith(
+                "??"
+            )
+
+            # Verify the file was actually staged and committed
+            ls_result = subprocess.run(
+                ["git", "ls-tree", "-r", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            assert MARKDOWN_FILENAME in ls_result.stdout
+
+        finally:
+            os.chdir(original_cwd)
+
+
+class TestGitPushIntegration:
+    """Integration tests for git push operations (Task task-6)."""
+
+    def test_push_creates_commit_on_remote_origin(self, tmp_path):
+        """Test that commit is pushed to remote origin."""
+        import os
+        import subprocess
+        from pathlib import Path as PathlibPath
+        from unittest.mock import patch, MagicMock
+
+        # Create a "remote" bare repository
+        remote_dir = tmp_path / "remote"
+        remote_dir.mkdir()
+        subprocess.run(
+            ["git", "init", "--bare"],
+            cwd=remote_dir,
+            check=True,
+            capture_output=True,
+        )
+
+        # Create a local repository
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+        os.chdir(local_dir)
+
+        subprocess.run(["git", "init"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            check=True,
+            capture_output=True,
+        )
+
+        # Add remote
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(remote_dir)],
+            check=True,
+            capture_output=True,
+        )
+
+        # Create initial commit
+        PathlibPath("README.md").write_text("# Test Repo\n")
+        subprocess.run(["git", "add", "README.md"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "initial commit"],
+            check=True,
+            capture_output=True,
+        )
+
+        # Push initial commit
+        subprocess.run(
+            ["git", "push", "-u", "origin", "master"],
+            check=True,
+            capture_output=True,
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            from sheep.features.feature_151_markdown_file_creation import (
+                create_feature_151_markdown_file,
+            )
+
+            with patch(
+                "sheep.features.feature_151_markdown_file_creation.generate_markdown_content"
+            ) as mock_generate:
+                mock_generate.return_value = "# Topic\n\nFirst. Second. Third.\n"
+
+                result = create_feature_151_markdown_file()
+
+            # Verify commit exists on remote
+            remote_log = subprocess.run(
+                ["git", "log", "--oneline", "origin/master"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            assert "feat(151)" in remote_log.stdout
+            assert "test-co5v8p.md" in remote_log.stdout
+
+        finally:
+            os.chdir(original_cwd)
+
+    def test_push_maintains_commit_consistency(self, tmp_path):
+        """Test that local and remote commits are identical after push."""
+        import os
+        import subprocess
+        from pathlib import Path as PathlibPath
+
+        # Create a "remote" bare repository
+        remote_dir = tmp_path / "remote"
+        remote_dir.mkdir()
+        subprocess.run(
+            ["git", "init", "--bare"],
+            cwd=remote_dir,
+            check=True,
+            capture_output=True,
+        )
+
+        # Create a local repository
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+        os.chdir(local_dir)
+
+        subprocess.run(["git", "init"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            check=True,
+            capture_output=True,
+        )
+
+        # Add remote
+        subprocess.run(
+            ["git", "remote", "add", "origin", str(remote_dir)],
+            check=True,
+            capture_output=True,
+        )
+
+        # Create initial commit
+        PathlibPath("README.md").write_text("# Test Repo\n")
+        subprocess.run(["git", "add", "README.md"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "initial commit"],
+            check=True,
+            capture_output=True,
+        )
+
+        # Push initial commit
+        subprocess.run(
+            ["git", "push", "-u", "origin", "master"],
+            check=True,
+            capture_output=True,
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            from unittest.mock import patch
+            from sheep.features.feature_151_markdown_file_creation import (
+                create_feature_151_markdown_file,
+            )
+
+            with patch(
+                "sheep.features.feature_151_markdown_file_creation.generate_markdown_content"
+            ) as mock_generate:
+                mock_generate.return_value = "# Science\n\nOne fact. Two facts. Three facts.\n"
+
+                create_feature_151_markdown_file()
+
+            # Get the local HEAD commit hash
+            local_head = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+            # Get the remote HEAD commit hash
+            remote_head = subprocess.run(
+                ["git", "rev-parse", "origin/master"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+            # They should be identical
+            assert local_head == remote_head
+
+        finally:
+            os.chdir(original_cwd)
