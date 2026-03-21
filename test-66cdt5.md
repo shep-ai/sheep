@@ -1,3 +1,3 @@
-# Test Markdown File
+# Test Heading
 
-This is the first sentence about feature 140. This is the second sentence providing more information.
+This is test sentence one. This is test sentence two. This is test sentence three.
