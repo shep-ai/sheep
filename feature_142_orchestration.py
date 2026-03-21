@@ -144,18 +144,18 @@ def stage_file(filename: str) -> bool:
     Returns:
         True if successful, False otherwise
     """
-    try:
-        result = subprocess.run(
-            ["git", "add", filename],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+    result = subprocess.run(
+        ["git", "add", filename],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode == 0:
         print(f"[OK] Staged file in git: {filename}")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"[FAIL] git add failed: {e.stderr}")
-        return False
+
+    print(f"[FAIL] git add failed: {result.stderr}")
+    return False
 
 
 def create_commit(message: str) -> bool:
@@ -165,20 +165,27 @@ def create_commit(message: str) -> bool:
         message: Commit message
 
     Returns:
-        True if successful, False otherwise
+        True if successful, False otherwise. Returns True if nothing to commit
+        (file already committed), as this is not an error condition.
     """
-    try:
-        result = subprocess.run(
-            ["git", "commit", "-m", message],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+    result = subprocess.run(
+        ["git", "commit", "-m", message],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode == 0:
         print(f"[OK] Committed with message: {message}")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"[FAIL] git commit failed: {e.stderr}")
-        return False
+
+    # Check if error is "nothing to commit" (file already committed)
+    combined_output = (result.stdout + result.stderr).lower()
+    if "nothing to commit" in combined_output or "nothing added to commit" in combined_output:
+        print("[OK] File already committed (nothing new to commit)")
+        return True
+
+    print(f"[FAIL] git commit failed: {result.stderr}")
+    return False
 
 
 def push_to_remote(branch_name: str) -> bool:
@@ -190,18 +197,18 @@ def push_to_remote(branch_name: str) -> bool:
     Returns:
         True if successful, False otherwise
     """
-    try:
-        result = subprocess.run(
-            ["git", "push", "-u", "origin", branch_name],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+    result = subprocess.run(
+        ["git", "push", "-u", "origin", branch_name],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode == 0:
         print(f"[OK] Pushed to remote branch: {branch_name}")
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"[FAIL] git push failed: {e.stderr}")
-        return False
+
+    print(f"[FAIL] git push failed: {result.stderr}")
+    return False
 
 
 def main() -> int:
