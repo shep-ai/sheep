@@ -139,22 +139,29 @@ class TestTask3GitStageAndCommit:
 
     def test_commit_follows_conventional_commits_format(self) -> None:
         """Test that feature 136 commit message follows Conventional Commits specification."""
+        # Search specifically for commits mentioning test-k8bid7.md (our feature file)
         result = subprocess.run(
-            ["git", "log", "--all", "--grep", "Create markdown file test-k8bid7.md", "--pretty=format:%s"],
+            ["git", "log", "--all", "--pretty=format:%s", "--", self.FEATURE_FILENAME],
             capture_output=True,
             text=True,
             check=True,
         )
 
         messages = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
-        assert len(messages) > 0, "Should find feature 136 commit"
-        msg = messages[0]
+        # Find the feat(136) commit (not test(136))
+        feat_msg = None
+        for msg in messages:
+            if msg.startswith("feat(136)"):
+                feat_msg = msg
+                break
+
+        assert feat_msg is not None, f"Should find feature 136 feat() commit for {self.FEATURE_FILENAME}, got: {messages}"
 
         # Should start with feat(NUMBER):
-        assert msg.startswith("feat("), "Commit must start with 'feat('"
-        assert "136" in msg, "Commit must include feature number 136"
-        assert ":" in msg, "Commit must have colon separator"
-        assert self.FEATURE_FILENAME in msg, "Commit message must include filename"
+        assert feat_msg.startswith("feat("), "Commit must start with 'feat('"
+        assert "136" in feat_msg, "Commit must include feature number 136"
+        assert ":" in feat_msg, "Commit must have colon separator"
+        assert self.FEATURE_FILENAME in feat_msg, "Commit message must include filename"
 
 
 class TestTask4GitPush:
