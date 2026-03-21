@@ -1,0 +1,3 @@
+# Automated File Creation in Practice
+
+Automated file creation is a fundamental capability for development platforms seeking to demonstrate reliable code generation and git workflow integration. The Sheep platform uses simple markdown file creation as a repeatable test pattern that validates core automation capabilities across hundreds of feature iterations. This approach provides measurable evidence of platform reliability and consistency.
