@@ -13,13 +13,7 @@ from 145 preceding features (001-145). The file is created with:
 
 from pathlib import Path
 
-from sheep.content_generators import (
-    commit_markdown_file,
-    generate_markdown_content,
-    push_markdown_file,
-    validate_markdown_file,
-    write_markdown_file,
-)
+from sheep.content_generators import create_markdown_file
 from sheep.observability.logging import get_logger
 
 _logger = get_logger(__name__)
@@ -35,7 +29,8 @@ def create_feature_146_markdown_file(repo_path: str | None = None) -> dict[str, 
     """
     Create markdown file for feature 146.
 
-    Orchestrates the complete workflow:
+    Uses the sheep.content_generators.create_markdown_file() orchestrator to handle
+    the complete workflow:
     1. Generate valid markdown content (H1 heading + 2-3 sentences)
     2. Write file to repository root with UTF-8 encoding
     3. Validate file meets all specification requirements
@@ -65,44 +60,18 @@ def create_feature_146_markdown_file(repo_path: str | None = None) -> dict[str, 
     )
 
     try:
-        # Task 1: Generate valid markdown content
-        _logger.info("Task 1: Generating markdown content")
-        content = generate_markdown_content()
-        _logger.debug(f"Generated {len(content)} bytes of content")
-
-        # Task 2: Write file to disk with proper encoding
-        _logger.info("Task 2: Writing markdown file to disk")
-        filepath = write_markdown_file(content, MARKDOWN_FILENAME)
-        _logger.debug(f"File written to: {filepath}")
-
-        # Task 3: Validate file meets all specification requirements
-        _logger.info("Task 3: Validating markdown file")
-        validate_markdown_file(filepath)
-        _logger.info("File validation passed")
-
-        # Task 4: Stage and commit file with exact conventional message
-        _logger.info("Task 4: Staging and committing file")
-        _logger.debug(f"Using commit message: {COMMIT_MESSAGE}")
-        commit_result = commit_markdown_file(
-            filepath, content, repo_path, custom_message=COMMIT_MESSAGE
+        # Call the orchestrator with custom commit message for feature 146
+        result = create_markdown_file(
+            filename=MARKDOWN_FILENAME,
+            repo_path=repo_path,
+            custom_message=COMMIT_MESSAGE,
         )
-        _logger.debug(f"Commit result: {commit_result}")
-
-        # Task 5: Push to remote repository
-        _logger.info("Task 5: Pushing to remote repository")
-        push_result = push_markdown_file(repo_path)
-        _logger.debug(f"Push result: {push_result}")
 
         _logger.info(
             f"Successfully created and published feature {FEATURE_NUMBER}: {MARKDOWN_FILENAME}"
         )
 
-        return {
-            "filepath": filepath,
-            "content": content,
-            "commit_message": COMMIT_MESSAGE,
-            "push_result": push_result,
-        }
+        return result
 
     except Exception as e:
         _logger.error(f"Failed to create feature {FEATURE_NUMBER}: {e}")

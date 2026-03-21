@@ -39,75 +39,55 @@ class TestFeature146MarkdownFileCreation:
         assert MARKDOWN_FILENAME == "test-vqya6w.md"
         assert COMMIT_MESSAGE == "feat(146): create markdown file test-vqya6w.md with prose content"
 
-    @patch("sheep.features.feature_146_markdown_file_creation.push_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.write_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.generate_markdown_content")
-    def test_orchestration_calls_all_steps(
-        self,
-        mock_generate,
-        mock_write,
-        mock_validate,
-        mock_commit,
-        mock_push,
-    ):
-        """Test that the orchestration calls all steps in the correct order."""
+    @patch("sheep.features.feature_146_markdown_file_creation.create_markdown_file")
+    def test_orchestration_calls_orchestrator(self, mock_create_markdown_file):
+        """Test that the feature function calls the orchestrator with correct parameters."""
         from sheep.features.feature_146_markdown_file_creation import (
             create_feature_146_markdown_file,
+            MARKDOWN_FILENAME,
+            COMMIT_MESSAGE,
         )
 
-        # Setup mock returns
-        mock_content = "# Test Title\n\nFirst sentence. Second sentence. Third.\n"
-        mock_generate.return_value = mock_content
-        mock_write.return_value = "/repo/test-vqya6w.md"
-        mock_validate.return_value = True
-        mock_commit.return_value = "Committed successfully"
-        mock_push.return_value = "Pushed successfully"
+        # Setup mock return value
+        mock_result = {
+            "filepath": "/repo/test-vqya6w.md",
+            "content": "# Test Title\n\nFirst sentence. Second sentence. Third.\n",
+            "commit_message": COMMIT_MESSAGE,
+            "push_result": "Pushed successfully",
+        }
+        mock_create_markdown_file.return_value = mock_result
 
-        # Call the function
+        # Call the function with a repo path
         result = create_feature_146_markdown_file("/test/repo")
 
-        # Verify all functions were called
-        mock_generate.assert_called_once()
-        mock_write.assert_called_once_with(mock_content, "test-vqya6w.md")
-        mock_validate.assert_called_once()
-        mock_commit.assert_called_once()
-        mock_push.assert_called_once()
+        # Verify the orchestrator was called with correct parameters
+        mock_create_markdown_file.assert_called_once_with(
+            filename=MARKDOWN_FILENAME,
+            repo_path="/test/repo",
+            custom_message=COMMIT_MESSAGE,
+        )
 
-        # Verify the return value structure
-        assert "filepath" in result
-        assert "content" in result
-        assert "commit_message" in result
-        assert "push_result" in result
+        # Verify the return value
+        assert result == mock_result
 
-    @patch("sheep.features.feature_146_markdown_file_creation.push_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.write_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.generate_markdown_content")
-    def test_returns_correct_dict_structure(
-        self,
-        mock_generate,
-        mock_write,
-        mock_validate,
-        mock_commit,
-        mock_push,
-    ):
+    @patch("sheep.features.feature_146_markdown_file_creation.create_markdown_file")
+    def test_returns_correct_dict_structure(self, mock_create_markdown_file):
         """Test that the function returns the correct dictionary structure."""
         from sheep.features.feature_146_markdown_file_creation import (
             create_feature_146_markdown_file,
             COMMIT_MESSAGE,
         )
 
-        # Setup mock returns
+        # Setup mock return value
         mock_content = "# Test Title\n\nFirst sentence. Second sentence. Third.\n"
         mock_filepath = "/repo/test-vqya6w.md"
-        mock_generate.return_value = mock_content
-        mock_write.return_value = mock_filepath
-        mock_validate.return_value = True
-        mock_commit.return_value = "Committed"
-        mock_push.return_value = "Pushed"
+        mock_result = {
+            "filepath": mock_filepath,
+            "content": mock_content,
+            "commit_message": COMMIT_MESSAGE,
+            "push_result": "Pushed",
+        }
+        mock_create_markdown_file.return_value = mock_result
 
         # Call the function
         result = create_feature_146_markdown_file()
@@ -118,107 +98,73 @@ class TestFeature146MarkdownFileCreation:
         assert result["commit_message"] == COMMIT_MESSAGE
         assert result["push_result"] == "Pushed"
 
-    @patch("sheep.features.feature_146_markdown_file_creation.push_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.write_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.generate_markdown_content")
-    def test_uses_exact_commit_message(
-        self,
-        mock_generate,
-        mock_write,
-        mock_validate,
-        mock_commit,
-        mock_push,
-    ):
+    @patch("sheep.features.feature_146_markdown_file_creation.create_markdown_file")
+    def test_uses_exact_commit_message(self, mock_create_markdown_file):
         """Test that the exact commit message from spec is used."""
         from sheep.features.feature_146_markdown_file_creation import (
             create_feature_146_markdown_file,
+            COMMIT_MESSAGE,
         )
 
-        # Setup mocks
-        mock_content = "# Test\n\nSentence. Sentence. Sentence.\n"
-        mock_generate.return_value = mock_content
-        mock_write.return_value = "/repo/test-vqya6w.md"
-        mock_validate.return_value = True
-        mock_commit.return_value = "Committed"
-        mock_push.return_value = "Pushed"
+        # Setup mock return value
+        mock_result = {
+            "filepath": "/repo/test-vqya6w.md",
+            "content": "# Test\n\nSentence. Sentence. Sentence.\n",
+            "commit_message": COMMIT_MESSAGE,
+            "push_result": "Pushed",
+        }
+        mock_create_markdown_file.return_value = mock_result
 
         # Call the function
         create_feature_146_markdown_file()
 
-        # Verify the commit message is exactly as specified
-        call_args = mock_commit.call_args
+        # Verify the orchestrator was called with the correct custom message
+        call_args = mock_create_markdown_file.call_args
         assert call_args is not None
         assert (
             call_args.kwargs["custom_message"]
             == "feat(146): create markdown file test-vqya6w.md with prose content"
         )
 
-    @patch("sheep.features.feature_146_markdown_file_creation.push_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.write_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.generate_markdown_content")
-    def test_handles_exception_in_generate(
-        self,
-        mock_generate,
-        mock_write,
-        mock_validate,
-        mock_commit,
-        mock_push,
-    ):
-        """Test that exceptions in generate step are properly raised."""
+    @patch("sheep.features.feature_146_markdown_file_creation.create_markdown_file")
+    def test_handles_exception_from_orchestrator(self, mock_create_markdown_file):
+        """Test that exceptions from orchestrator are properly raised."""
         from sheep.features.feature_146_markdown_file_creation import (
             create_feature_146_markdown_file,
         )
 
         # Setup mock to raise exception
-        mock_generate.side_effect = ValueError("LLM generation failed")
+        mock_create_markdown_file.side_effect = ValueError("LLM generation failed")
 
-        # Verify exception is raised
+        # Verify exception is raised and propagated
         with pytest.raises(ValueError, match="LLM generation failed"):
             create_feature_146_markdown_file()
 
-        # Verify subsequent steps were not called
-        mock_write.assert_not_called()
-        mock_validate.assert_not_called()
-        mock_commit.assert_not_called()
-        mock_push.assert_not_called()
-
-    @patch("sheep.features.feature_146_markdown_file_creation.push_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.write_markdown_file")
-    @patch("sheep.features.feature_146_markdown_file_creation.generate_markdown_content")
-    def test_repo_path_defaults_to_cwd(
-        self,
-        mock_generate,
-        mock_write,
-        mock_validate,
-        mock_commit,
-        mock_push,
-    ):
-        """Test that repo_path defaults to current working directory."""
+    @patch("sheep.features.feature_146_markdown_file_creation.create_markdown_file")
+    def test_repo_path_defaults_to_cwd(self, mock_create_markdown_file):
+        """Test that repo_path defaults to current working directory when not provided."""
         from sheep.features.feature_146_markdown_file_creation import (
             create_feature_146_markdown_file,
+            COMMIT_MESSAGE,
+            MARKDOWN_FILENAME,
         )
 
-        # Setup mocks
-        mock_content = "# Test\n\nSentence. Sentence. Sentence.\n"
-        mock_generate.return_value = mock_content
-        mock_write.return_value = "/repo/test-vqya6w.md"
-        mock_validate.return_value = True
-        mock_commit.return_value = "Committed"
-        mock_push.return_value = "Pushed"
+        # Setup mock return value
+        mock_result = {
+            "filepath": "/repo/test-vqya6w.md",
+            "content": "# Test\n\nSentence. Sentence. Sentence.\n",
+            "commit_message": COMMIT_MESSAGE,
+            "push_result": "Pushed",
+        }
+        mock_create_markdown_file.return_value = mock_result
 
-        # Call without repo_path
+        # Call without repo_path (should default to cwd)
         create_feature_146_markdown_file()
 
-        # Verify commit was called with str(Path.cwd())
-        call_args = mock_commit.call_args
+        # Verify orchestrator was called with cwd as repo_path
+        call_args = mock_create_markdown_file.call_args
         assert call_args is not None
-        assert call_args[0][2] == str(Path.cwd())
+        assert call_args.kwargs["repo_path"] == str(Path.cwd())
 
 
 class TestFileCreation:
