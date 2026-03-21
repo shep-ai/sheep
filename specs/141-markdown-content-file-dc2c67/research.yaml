@@ -1,0 +1,468 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-content-file-dc2c67"
+summary: >
+  Feature 141 implements a straightforward markdown file creation feature following the established
+  Sheep platform pattern from 140+ preceding features. Implementation uses existing, proven utilities
+  (LLM content generation, file I/O, validation, git operations) without requiring new dependencies
+  or architectural changes. Primary technical work involves orchestration of existing functions into
+  a feature-specific module (50-80 LOC).
+
+relatedFeatures:
+  - "feature_138_markdown_file_creation.py"
+  - "feature_101_markdown_file_creation.py"
+
+technologies:
+  - "Python 3.9+"
+  - "CrewAI framework (LLM abstraction layer)"
+  - "Claude API (reasoning LLM for content generation)"
+  - "pathlib (file path handling)"
+  - "structlog (structured logging)"
+  - "Git (version control via GitCommitTool and GitPushTool)"
+
+relatedLinks:
+  - title: "Content Generators Module"
+    url: "src/sheep/content_generators.py"
+  - title: "Feature 138 Implementation (Template)"
+    url: "src/sheep/features/feature_138_markdown_file_creation.py"
+  - title: "Feature 101 Implementation (Reference)"
+    url: "src/sheep/features/feature_101_markdown_file_creation.py"
+  - title: "LLM Configuration"
+    url: "src/sheep/config/llm.py"
+  - title: "Logging Configuration"
+    url: "src/sheep/observability/logging.py"
+
+decisions:
+  - title: "Content Generation Method"
+    chosen: "Generate via Claude LLM using existing get_reasoning_llm() utility"
+    rejected:
+      - "Predefined template approach — breaks consistency with 140+ established features, produces identical output"
+      - "Use fast_llm instead of reasoning_llm — reasoning model optimized for prose, fast_llm for cost"
+    rationale: >
+      The Sheep platform has established a consistent pattern across 140+ features using
+      generate_markdown_content() utility from content_generators.py. This utility already
+      encapsulates LLM selection, prompt engineering, response parsing, and validation.
+      Reusing it ensures consistency, reliability, and avoids new dependencies. The
+      reasoning_llm (temperature 0.2) is configured for consistent, quality output.
+
+  - title: "File Encoding and Line Endings"
+    chosen: "UTF-8 encoding without BOM, Unix LF line endings (handled by Python file I/O)"
+    rejected:
+      - "CRLF line endings — rejected by validation layer, not idiomatic for Git repositories"
+      - "Manual encoding specification — Python's UTF-8 default is standard and sufficient"
+    rationale: >
+      The existing write_markdown_file() utility uses Python's standard UTF-8 file writing
+      via pathlib.Path. This approach is platform-agnostic, idiomatic, and validated by
+      the validation layer which checks for proper encoding and LF line endings.
+      No custom encoding logic is needed.
+
+  - title: "Validation Scope"
+    chosen: "Basic validation (file existence, UTF-8 encoding, H1 heading, 2-3 sentences, trailing newline)"
+    rejected:
+      - "Comprehensive validation (readability, word count, grammar) — exceeds spec, adds dependencies"
+      - "Minimal validation (only file exists) — insufficient for content generation errors"
+    rationale: >
+      The existing validate_markdown_file() function implements basic validation that maps
+      directly to spec requirements. This is lightweight (<100ms), requires no external
+      dependencies, and follows the established pattern from 140+ features. Comprehensive
+      validation adds complexity without addressing actual spec requirements.
+
+  - title: "Module Organization and Orchestration"
+    chosen: "Create feature_141_markdown_file_creation.py following exact pattern from features 101-140"
+    rejected:
+      - "Inline in __init__.py — reduces modularity, breaks established convention"
+      - "Generic wrapper in content_generators.py — pollutes general-purpose utilities module"
+    rationale: >
+      The established pattern across 140+ features is one module per feature at
+      src/sheep/features/feature_<N>_markdown_file_creation.py. This makes features
+      easily discoverable and maintainable. Each module is a thin orchestration layer
+      (50-80 LOC) composing utilities with feature-specific metadata (number, filename,
+      commit message). This pattern is proven and documented across prior commits.
+
+  - title: "Logging Strategy"
+    chosen: "Structured logging via sheep.observability.logging.get_logger() with INFO/DEBUG/ERROR levels"
+    rejected:
+      - "No logging — reduces debuggability and breaks consistency with 140+ features"
+      - "Print statements — unstructured, less queryable, violates observability standards"
+    rationale: >
+      All existing features (101-140) use structlog via get_logger(__name__) with consistent
+      INFO-level messages at orchestration steps and DEBUG-level details. This integrates
+      with the platform's observability infrastructure and enables structured filtering/aggregation.
+      Logging occurs at: step entry, content generation, file write, validation, commit, push.
+
+  - title: "Git Operations Implementation"
+    chosen: "Compose existing GitCommitTool and GitPushTool via content_generators wrappers"
+    rejected:
+      - "Implement custom git wrappers — spec says use existing functions without modification"
+      - "Shell-based git commands — existing tools provide abstraction and error handling"
+    rationale: >
+      The content_generators.py module provides commit_markdown_file() and push_markdown_file()
+      which wrap GitCommitTool and GitPushTool with error handling and conventions. Feature 141
+      will call these wrappers directly, following the pattern from features 101-140.
+      This avoids code duplication and maintains established architecture.
+
+  - title: "Error Handling Strategy"
+    chosen: "Raise exceptions with descriptive messages; allow utilities to handle low-level errors"
+    rejected:
+      - "Catch and suppress errors — would hide failures"
+      - "Implement custom error recovery — errors indicate spec violation, should be reported"
+    rationale: >
+      All existing features (101-140) follow a simple pattern: orchestrate utilities, catch
+      exceptions at feature function level, log and re-raise. The utilities themselves already
+      implement proper error checking. This keeps feature code simple while maintaining reliability.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research (Completed)
+  - **Updated:** 2026-03-21
+  - **Recommendation:** Proceed to implementation using established patterns from features 001-140
+
+  ## Technology Decisions
+
+  ### 1. Content Generation: Claude LLM via CrewAI
+
+  **Chosen:** Use the existing `generate_markdown_content()` utility which internally calls
+  `get_reasoning_llm()` from the CrewAI framework.
+
+  **Rejected:**
+  - Hardcoded/template-based content — Breaks 140+ feature pattern; produces identical output
+  - Fine-tuned LLM models — Unnecessary complexity; reasoning_llm already configured for prose
+  - Custom prompt engineering — Existing MARKDOWN_GENERATION_PROMPT is proven; reuse it
+
+  **Rationale:**
+  The Sheep platform has established a consistent pattern across 140+ features using Claude API
+  through CrewAI. The `generate_markdown_content()` function in content_generators.py encapsulates:
+  - LLM selection via `get_reasoning_llm()` (temperature 0.2 for consistency)
+  - Prompt engineering (the MARKDOWN_GENERATION_PROMPT template)
+  - Response parsing and validation
+  - UTF-8 encoding with trailing newline normalization
+
+  This utility is battle-tested across 140+ features and requires zero customization for feature 141.
+  Reusing it ensures consistency, reduces implementation effort, and maintains the pattern that
+  content is dynamically generated for uniqueness and contextual appropriateness.
+
+  ### 2. File Encoding: UTF-8 Without BOM, Unix LF Line Endings
+
+  **Chosen:** Python's default UTF-8 text mode file writing via `pathlib.Path` (handled by
+  `write_markdown_file`)
+
+  **Rejected:**
+  - Windows CRLF line endings — The validation layer explicitly rejects CRLF; Git repositories use LF
+  - UTF-8-SIG (BOM) — Validation layer checks for and rejects UTF-8 BOM as invalid
+  - Manual encoding/decoding — Python's text mode handles encoding transparently and idiomatically
+
+  **Rationale:**
+  The existing `write_markdown_file()` function uses Python's standard file I/O with UTF-8 encoding.
+  This approach is:
+  - Platform-agnostic (Python normalizes line endings on Windows internally in text mode)
+  - Idiomatic Python (standard library, no third-party encoding libraries needed)
+  - Validated by the existing validation layer, which checks for no BOM and LF line endings
+
+  No custom encoding logic is required. The platform standard is UTF-8 with LF line endings,
+  and Python's default text mode handles this correctly across all platforms.
+
+  ### 3. Validation: Basic Validation (Spec Requirements Only)
+
+  **Chosen:** Compose the existing `validate_markdown_file()` utility, which checks:
+  - File exists and is a regular file
+  - UTF-8 encoding (rejects BOM)
+  - H1 heading at start of file
+  - Blank line separator after heading
+  - 2-3 sentences in prose content (counted by periods)
+  - Trailing newline (Unix convention)
+  - LF line endings (rejects CRLF)
+
+  **Rejected:**
+  - Comprehensive validation (readability, word count, grammar checks) — Adds dependencies,
+    increases latency, exceeds spec scope
+  - Minimal validation (only file exists) — Insufficient to catch content generation errors
+
+  **Rationale:**
+  The basic validation set maps directly to the spec's success criteria and functional requirements:
+  - FR-2: H1 heading
+  - FR-3: 2-3 sentences
+  - FR-6: UTF-8 encoding
+  - FR-7: Specification compliance
+
+  The existing `validate_markdown_file()` in content_generators.py implements this comprehensively
+  and completes in under 100ms (NFR-7). Adding readability scoring or grammar checks would:
+  - Introduce external dependencies (none currently in requirements)
+  - Slow validation unnecessarily
+  - Exceed the spec's scope
+
+  The pattern from 140+ features uses basic validation; it's proven and sufficient.
+
+  ### 4. Module Organization: Feature-Specific Orchestration Module
+
+  **Chosen:** Create `src/sheep/features/feature_141_markdown_file_creation.py` following the exact
+  pattern from features 101-140.
+
+  **Rejected:**
+  - Generic reusable function in content_generators.py — Would pollute general-purpose utilities
+  - Inline in features/__init__.py — Reduces modularity and discoverability
+  - Single orchestration function for all features — Feature-specific metadata would be awkward
+
+  **Rationale:**
+  The Sheep platform has established a clear convention: each feature is a standalone module at
+  `src/sheep/features/feature_<N>_<description>.py` that orchestrates utilities specific to that
+  feature. This organization:
+  - Makes features easily discoverable and referenceable (e.g., "See feature_101 for an example")
+  - Separates feature-specific concerns (numbering, filenames, commit messages) from general utilities
+  - Keeps each feature module small (50-80 LOC), focused, and maintainable
+  - Enables feature documentation to be co-located with implementation
+
+  Features 001-140 follow this pattern consistently. Feature 141 will too.
+
+  ### 5. Logging: Structured Logging via structlog
+
+  **Chosen:** Use `sheep.observability.logging.get_logger(__name__)` with structured logging at:
+  - Feature entry (INFO)
+  - Each orchestration step (INFO: "Task N: ...")
+  - Detailed results (DEBUG: content size, file path, commit hash)
+  - Errors (ERROR with context)
+  - Feature completion (INFO)
+
+  **Rejected:**
+  - No logging — Reduces debuggability; existing features all use logging
+  - Print statements — Unstructured, harder to aggregate and query in production
+
+  **Rationale:**
+  The Sheep platform uses structlog (configured in sheep/observability/logging.py) for structured,
+  queryable logging. All existing features (101-140) follow the same pattern with logging at entry,
+  each orchestration step, and error exit. This integrates with the platform's observability
+  infrastructure and follows the established pattern.
+
+  ### 6. Git Operations: Compose Existing Tool Wrappers
+
+  **Chosen:** Call `commit_markdown_file()` and `push_markdown_file()` from content_generators.py,
+  which in turn call GitCommitTool and GitPushTool.
+
+  **Rejected:**
+  - Implement custom git wrappers — Duplicates existing utilities; spec says use existing functions
+  - Shell subprocess commands — No abstraction or error handling; existing tools provide this
+
+  **Rationale:**
+  The content_generators.py module already provides `commit_markdown_file()` and `push_markdown_file()`
+  which wrap the Git tools with error handling and conventions. These utilities:
+  - Handle commit message formatting (conventional commits)
+  - Manage git staging and repository paths
+  - Handle push with upstream tracking
+  - Include error logging and exception propagation
+
+  Feature 141 orchestrates these utilities in the same way as features 101-140.
+  No custom git code is needed.
+
+  ### 7. Error Handling: Exception Propagation with Context Logging
+
+  **Chosen:** Catch all exceptions at the feature function level, log with context, and re-raise.
+  Allow utilities to handle low-level errors (validation failures, file I/O, git failures).
+
+  **Rejected:**
+  - Suppress errors — Hides failures; validation must pass before commit
+  - Implement custom error recovery (retries, fallbacks) — Feature code should not hide failures
+  - Granular try-catch per utility — Adds complexity; orchestration layer can be simpler
+
+  **Rationale:**
+  The pattern from all existing features (101-140) is a single try-catch wrapping the entire
+  orchestration, with logging at entry and error exit. This keeps feature code simple while ensuring:
+  - All errors are logged (important for observability)
+  - Errors propagate (caller decides how to handle)
+  - No false recovery attempts (if validation fails, the feature failed)
+
+  ---
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | `pathlib.Path` | Cross-platform file path handling | Use (via utilities) | Standard library; existing utilities use it |
+  | `structlog` | Structured logging | Use (via get_logger) | Already integrated in platform |
+  | `CrewAI` | LLM abstraction/calling | Use (via get_reasoning_llm) | Already in requirements.txt; proven across 140+ features |
+  | `Claude API` | LLM provider | Use (via CrewAI) | Already configured (.env); reasoning_model setting specifies Claude |
+  | Git | Version control operations | Use (via tool wrappers) | Already integrated in platform |
+  | `sheep.tools.GitCommitTool` | Git staging and committing | Use (via wrappers) | Existing abstraction; used by all features |
+  | `sheep.tools.GitPushTool` | Git push operations | Use (via wrappers) | Existing abstraction; used by all features |
+
+  **No new external dependencies required.** Feature 141 uses only existing, proven libraries
+  and utilities already in the platform's requirements and configuration.
+
+  ---
+
+  ## Security Considerations
+
+  ### 1. LLM Prompt Injection
+
+  **Risk:** Claude API could be misused to generate unsafe content via prompt injection.
+
+  **Mitigation:**
+  - The MARKDOWN_GENERATION_PROMPT is a fixed template in content_generators.py; no user input injected
+  - The LLM is asked to generate markdown content only; no instructions for code execution or file deletion
+  - Generated content is validated for format (H1 heading, sentence count); semantic validation not required
+  - Even if LLM generates unexpected content, it's validated and isolated to a .md file
+
+  **Assessment:** Low risk. The prompt is simple, user input is not dynamic, and output is constrained.
+
+  ### 2. File Path Traversal
+
+  **Risk:** Filename parameter could include path traversal sequences (../, ..\) to write outside repo root.
+
+  **Mitigation:**
+  - The `write_markdown_file()` utility validates the filename parameter:
+    ```
+    if "/" in filename or "\\" in filename or filename.startswith("."):
+        raise ValueError(f"Invalid filename: {filename}")
+    ```
+  - Feature 141 uses hardcoded filename (test-vnytef.md) from spec; no dynamic input
+  - File is written to Path.cwd() (repo root) only
+
+  **Assessment:** Low risk. The filename is hardcoded, and the utility validates against traversal.
+
+  ### 3. UTF-8 Encoding and Line Ending Attacks
+
+  **Risk:** Specially crafted UTF-8 sequences or line endings could cause issues in downstream tooling.
+
+  **Mitigation:**
+  - LLM generates natural prose; unlikely to output invalid UTF-8 sequences
+  - Validation layer checks for UTF-8 validity and rejects CRLF, requiring LF
+  - File is a simple markdown document to be reviewed in version control
+
+  **Assessment:** Negligible risk. Content is generated by a language model trained on valid text;
+  validation layer enforces format standards.
+
+  ### 4. Git Push Authorization
+
+  **Risk:** Feature pushes to remote repository; unauthorized push could expose or corrupt repo.
+
+  **Mitigation:**
+  - Feature uses existing GitPushTool, which uses local git configuration (auth via SSH keys, credentials)
+  - Feature pushes to current repository's origin remote (no dynamic remote URL)
+  - Push is to feature branch, not main; merge to main requires PR review
+
+  **Assessment:** Low risk. Git authentication is handled by platform's git configuration;
+  feature doesn't introduce new authorization mechanisms.
+
+  ---
+
+  ## Performance Implications
+
+  ### 1. LLM API Latency
+
+  **Expected latency:** 1-5 seconds (one Claude API call for content generation)
+
+  **Optimization:** None needed. Platform tolerates this latency across 140+ features.
+  The reasoning_llm has temperature 0.2, optimized for consistent responses.
+
+  **Notes:**
+  - One API call per feature execution
+  - Response is small (~400-600 bytes); no streaming needed
+  - Sequential orchestration is fine for this scale
+
+  ### 2. File I/O Latency
+
+  **Expected latency:** <100ms (file write, validation read)
+
+  **Optimization:** None needed. Local file I/O is negligible; validation uses single file read.
+
+  ### 3. Git Operations Latency
+
+  **Expected latency:** 1-5 seconds (git add, commit, push over network)
+
+  **Optimization:** None needed. Feature is not performance-critical; user waits for complete execution.
+
+  ### 4. Total Feature Execution Time
+
+  **Expected time:** 5-15 seconds (LLM + file I/O + git operations)
+
+  **Size estimate alignment:** ✅ S (30-60 minutes) — Refers to development time, not execution time.
+  Feature 141 is trivial to implement (50-80 LOC) because it reuses existing utilities.
+
+  ### 5. Validation Performance
+
+  **Expected validation time:** <100ms (single file read, format checks)
+
+  **Optimization:** Not needed; validation is lightweight and required by spec.
+
+  **Notes:**
+  - No external API calls during validation
+  - No regex or complex parsing; simple string operations
+  - Single file read; no repeated I/O
+
+  ---
+
+  ## Architecture Notes
+
+  ### Codebase Integration
+
+  **Feature 141 integrates seamlessly into the existing Sheep platform architecture:**
+
+  1. **Orchestration Layer** — Feature 141 is a thin orchestration module that composes utilities
+     from content_generators.py, following the pattern of features 001-140.
+
+  2. **Utility Reuse** — All core functionality already exists:
+     - `generate_markdown_content()` — LLM-based content generation with validation
+     - `write_markdown_file()` — File I/O with path safety checks
+     - `validate_markdown_file()` — Format and encoding validation
+     - `commit_markdown_file()` — Git staging and commit via GitCommitTool
+     - `push_markdown_file()` — Git push via GitPushTool
+     - `get_logger()` — Structured logging via structlog
+
+  3. **Dependencies** — Feature 141 depends only on:
+     - `sheep.content_generators` (utilities module)
+     - `sheep.observability.logging` (logging module)
+     - `pathlib` (standard library)
+     - `crewai` and Claude API (already in requirements; configured in sheep.config.llm)
+
+  4. **No Architectural Changes** — Feature 141 does not require:
+     - New database models or schema changes
+     - New API endpoints
+     - New configuration parameters
+     - New external dependencies
+
+  5. **Testing Strategy** — Feature 141 can be tested by:
+     - Running the feature module and verifying the markdown file is created
+     - Checking git log to confirm commit was pushed
+     - Validating file content (H1 heading, sentence count)
+     - Existing test patterns from features 001-140 apply directly
+
+  ### Relationship to Existing Code
+
+  **Feature 138 Implementation:** Feature 141 uses feature_138 as a direct template.
+  The implementation is nearly identical, differing only in:
+  - FEATURE_NUMBER (138 → 141)
+  - FEATURE_NAME (different uuid, naming convention same)
+  - MARKDOWN_FILENAME (test-ubgyho.md → test-vnytef.md, from spec)
+
+  **Content Generators Module:** Feature 141 depends on content_generators.py for 100% of actual
+  work (content generation, file I/O, validation, git operations). Feature module is purely orchestration.
+
+  **Logging Integration:** Feature 141 uses same structlog configuration as all existing features.
+  No new logging setup required.
+
+  ### Pattern Consistency
+
+  Per NFR-1, implementation will follow established pattern from features 001-140 without deviation.
+  This means:
+  - One feature per module (feature_141_markdown_file_creation.py)
+  - Feature metadata (FEATURE_NUMBER, FEATURE_NAME, MARKDOWN_FILENAME) as module constants
+  - Function named `create_feature_141_markdown_file(repo_path: str | None = None) -> dict[str, str]`
+  - Orchestrate: generate → write → validate → commit → push
+  - Structured logging at each step
+  - Single try-catch with error logging
+
+  No deviations are needed or expected.
+
+  ---
+
+  ## Conclusion
+
+  Feature 141 is architecturally trivial: it composes existing utilities without introducing new
+  dependencies, architectural changes, or novel implementation patterns. The established pattern
+  from features 001-140 provides a proven template. Implementation effort is minimal (50-80 LOC),
+  execution time is acceptable (5-15 seconds), and all success criteria can be met using existing
+  infrastructure.
+
+  **Recommendation:** Proceed to implementation phase using feature_138 as the direct template.
