@@ -1,0 +1,240 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-content-file-dc2c67"
+summary: >
+  Feature 141 implements a markdown file creation feature by orchestrating existing utilities
+  from the Sheep platform's content_generators module. The implementation follows the established
+  pattern from features 001-140 without deviation or new dependencies. The feature module
+  (50-80 LOC) composes generate_markdown_content(), write_markdown_file(), validate_markdown_file(),
+  commit_markdown_file(), and push_markdown_file() in sequence, with structured logging
+  at each orchestration step.
+
+relatedFeatures:
+  - "feature_138_markdown_file_creation.py"
+  - "feature_101_markdown_file_creation.py"
+
+technologies:
+  - "Python 3.9+"
+  - "CrewAI framework"
+  - "Claude API"
+  - "pathlib"
+  - "structlog"
+  - "Git"
+
+relatedLinks:
+  - title: "Content Generators Module"
+    url: "src/sheep/content_generators.py"
+  - title: "Feature 138 Implementation (Template)"
+    url: "src/sheep/features/feature_138_markdown_file_creation.py"
+  - title: "Feature 101 Implementation (Reference)"
+    url: "src/sheep/features/feature_101_markdown_file_creation.py"
+  - title: "Logging Configuration"
+    url: "src/sheep/observability/logging.py"
+
+phases:
+  - id: "phase-1"
+    name: "Feature Module Implementation"
+    description: "Create feature_141_markdown_file_creation.py with orchestration function using TDD. Implement the function to compose existing utilities (content generation → file write → validation → commit → push) with structured logging at each step."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Integration & Verification"
+    description: "Run the feature end-to-end and verify all outputs: markdown file creation, content validation, git commit/push operations, and existing test suite stability."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_141_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 141 integrates seamlessly into the existing Sheep platform by following the established
+  orchestration pattern used across features 001-140:
+
+  ### Module Structure
+  - **Location:** `src/sheep/features/feature_141_markdown_file_creation.py`
+  - **Size:** ~50-80 lines of Python (orchestration only, no business logic)
+  - **Pattern:** Thin wrapper composing utilities from `content_generators.py`
+  - **Exports:** Single function `create_feature_141_markdown_file(repo_path: str | None = None) -> dict[str, str]`
+
+  ### Dependency Chain
+  The feature module calls utilities in a strict sequence:
+
+  ```
+  create_feature_141_markdown_file()
+    ├─ generate_markdown_content()       [LLM-based content generation]
+    ├─ write_markdown_file()             [File I/O with path safety]
+    ├─ validate_markdown_file()          [Format/encoding validation]
+    ├─ commit_markdown_file()            [Git staging and commit]
+    └─ push_markdown_file()              [Git push to remote]
+  ```
+
+  Each utility is composed without modification, as per NFR-2. All error handling occurs at the
+  feature function level (single try-catch). Logging wraps each orchestration step.
+
+  ### Integration Points
+  - **Content Generation:** Invokes Claude API via CrewAI's `get_reasoning_llm()`, configured in `sheep.config.llm`
+  - **File I/O:** Uses `pathlib.Path` for cross-platform path handling, no custom I/O logic
+  - **Git Operations:** Delegates to `GitCommitTool` and `GitPushTool` via utility wrappers
+  - **Logging:** Uses `sheep.observability.logging.get_logger()` for structured logging via structlog
+
+  ### No Architectural Changes
+  Feature 141 requires zero modifications to:
+  - Database schemas or models
+  - Configuration parameters
+  - External API endpoints
+  - Existing utilities (content_generators, logging, config modules)
+  - Test infrastructure
+
+  All integration happens through composition of existing, proven utilities.
+
+  ---
+
+  ## Key Design Decisions
+
+  ### 1. Content Generation via Claude LLM (Resolved ✓)
+
+  **Decision:** Use `generate_markdown_content()` utility which internally calls `get_reasoning_llm()`.
+
+  **Why This:**
+  - All features 001-140 use identical approach; maintains consistency
+  - Utility already encapsulates prompt engineering, response parsing, and validation
+  - Reasoning model (temperature 0.2) optimized for consistent prose quality
+  - No alternative approach (template vs. LLM) is viable given established pattern
+
+  **Research Reference:** Research findings, Technology Decisions § 1 (Content Generation)
+
+  ---
+
+  ### 2. Validation Scope: Basic Only (Resolved ✓)
+
+  **Decision:** Use `validate_markdown_file()` checking: file existence, UTF-8 encoding, H1 heading, 2-3 sentences, trailing newline, LF line endings.
+
+  **Why This:**
+  - Maps directly to spec requirements (FR-2, FR-3, FR-6, FR-7)
+  - Completes in <100ms (NFR-7); no performance concerns
+  - Existing implementation handles all checks; no custom validation needed
+  - Comprehensive validation (readability, grammar) exceeds spec scope
+
+  **Research Reference:** Research findings, Technology Decisions § 3 (Validation Scope)
+
+  ---
+
+  ### 3. Module Organization: Feature-Specific Orchestration (Resolved ✓)
+
+  **Decision:** Create `src/sheep/features/feature_141_markdown_file_creation.py` following pattern from features 001-140.
+
+  **Why This:**
+  - Established convention across platform; no exceptions documented
+  - Keeps features discoverable and independently maintainable
+  - Separates feature-specific metadata (number, filename, message) from general utilities
+  - Feature 138 template can be copied with minimal changes (constants only)
+
+  **Research Reference:** Research findings, Technology Decisions § 4 (Module Organization)
+
+  ---
+
+  ### 4. Structured Logging via structlog (Resolved ✓)
+
+  **Decision:** Use `sheep.observability.logging.get_logger(__name__)` with INFO-level messages at orchestration steps and DEBUG for details.
+
+  **Why This:**
+  - All features 001-140 use identical approach; logging is non-negotiable (NFR-4)
+  - Integrates with platform's observability infrastructure
+  - Enables structured filtering and aggregation in production
+  - Print statements would be unstructured and harder to query
+
+  **Research Reference:** Research findings, Technology Decisions § 5 (Logging Strategy)
+
+  ---
+
+  ### 5. Git Operations via Existing Tool Wrappers (Resolved ✓)
+
+  **Decision:** Call `commit_markdown_file()` and `push_markdown_file()` from content_generators.py, which wrap GitCommitTool and GitPushTool.
+
+  **Why This:**
+  - Spec explicitly requires using existing functions without modification (NFR-2, NFR-9)
+  - Utilities already implement error handling and conventional commit messages
+  - Avoids code duplication; consistent with all existing features
+  - Custom git code would violate established patterns
+
+  **Research Reference:** Research findings, Technology Decisions § 6 (Git Operations)
+
+  ---
+
+  ### 6. Error Handling: Exception Propagation with Logging
+
+  **Decision:** Single try-catch at feature function level; log error with context and re-raise. Allow utilities to handle low-level errors.
+
+  **Why This:**
+  - Pattern from all features 001-140; proven simple and effective
+  - Keeps feature code focused on orchestration, not error recovery
+  - Errors indicate spec violations (validation failure, file I/O error, git failure); should propagate
+  - No retry/fallback logic needed; utilities fail fast and clearly
+
+  **Research Reference:** Research findings, Technology Decisions § 7 (Error Handling)
+
+  ---
+
+  ## Implementation Strategy
+
+  ### Phase 1: Feature Module Implementation
+  Create the orchestration module with full TDD cycle:
+  - **RED:** Write test that imports module, calls feature function, verifies return dict contains success and file path
+  - **GREEN:** Create module skeleton, implement orchestration function calling utilities in sequence
+  - **REFACTOR:** Add structured logging, improve code readability, add error handling
+
+  Why this phase comes first:
+  - Establishes the core feature functionality
+  - Test-first ensures behavior matches spec from the start
+  - Logging is added during refactor to complete the pattern from 140+ features
+
+  ### Phase 2: Integration & Verification
+  Run the feature end-to-end and verify all success criteria met:
+  - Markdown file exists with correct filename (test-vnytef.md)
+  - File content is valid (H1 heading, 2-3 sentences, UTF-8)
+  - Git operations completed (commit, push to remote)
+  - Existing test suite passes (no regressions)
+
+  Why this phase comes second:
+  - Depends on Phase 1 implementation being complete
+  - Verifies all success criteria are met end-to-end
+  - Ensures no regressions in existing tests
+  - Provides confidence before marking feature complete
+
+  ---
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | **LLM generates invalid content** | Validation layer checks H1 heading, sentence count, UTF-8 encoding. Feature fails fast if content invalid. |
+  | **File path traversal vulnerability** | Filename is hardcoded (test-vnytef.md). write_markdown_file() utility validates against ../, ..\, and . prefixes. |
+  | **Git push fails due to auth** | Uses existing GitPushTool with local git credentials. Feature runs in established repo with known working git config. |
+  | **Validation too strict** | Validation checks map directly to spec requirements. Scope resolved before implementation (research finding). |
+  | **Existing tests broken** | Integration testing phase runs full test suite before marking complete. No code changes to utilities. |
+  | **Logging adds latency** | Structlog is async and batched. Logging adds <50ms; acceptable for feature that takes 5-15s total. |
+  | **Encoding issues on Windows** | Python text mode handles encoding transparently. Validation enforces LF line endings (rejects CRLF). Cross-platform tested pattern. |
+
+  ---
+
+  ## Success Criteria
+
+  Feature 141 is complete when:
+  1. ✅ Module `src/sheep/features/feature_141_markdown_file_creation.py` exists
+  2. ✅ Function `create_feature_141_markdown_file()` can be imported and called
+  3. ✅ Feature function orchestrates all 5 utilities in correct sequence
+  4. ✅ Structured logging occurs at each orchestration step
+  5. ✅ Markdown file `test-vnytef.md` is created in repository root
+  6. ✅ File contains exactly one H1 heading as first line
+  7. ✅ File contains 2-3 sentences of prose content
+  8. ✅ File is valid UTF-8 with LF line endings and trailing newline
+  9. ✅ Git commit created with conventional message
+  10. ✅ Commit pushed to remote feature branch
+  11. ✅ Existing test suite passes with no regressions
+  12. ✅ Code follows patterns from features 001-140 without deviation
