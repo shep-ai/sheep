@@ -27,6 +27,8 @@ Testing and automation are fundamental to building reliable software systems. By
 """
 
 FILENAME = "test-dd91rz.md"
+COMMIT_MESSAGE = "feat(133): Create markdown file test-dd91rz.md"
+FEATURE_BRANCH = "feat/133-markdown-file-creation-a3e3e2"
 
 
 def create_file():
@@ -82,6 +84,48 @@ def validate_file_size(file_path, min_bytes=400, max_bytes=600):
     return size_bytes
 
 
+def git_add(filename):
+    """
+    Stage the file in git using 'git add'.
+
+    Args:
+        filename: Name of the file to stage
+
+    Raises:
+        subprocess.CalledProcessError: If git add command fails
+    """
+    subprocess.run(['git', 'add', filename], check=True)
+    print(f"✓ Staged file in git: {filename}")
+
+
+def git_commit(message):
+    """
+    Commit the staged file with a conventional commit message.
+
+    Args:
+        message: Commit message following conventional commits format
+
+    Raises:
+        subprocess.CalledProcessError: If git commit command fails
+    """
+    subprocess.run(['git', 'commit', '-m', message], check=True)
+    print(f"✓ Committed with message: {message}")
+
+
+def git_push(branch_name):
+    """
+    Push the commit to the remote feature branch.
+
+    Args:
+        branch_name: The feature branch name to push to
+
+    Raises:
+        subprocess.CalledProcessError: If git push command fails
+    """
+    subprocess.run(['git', 'push', '-u', 'origin', branch_name], check=True)
+    print(f"✓ Pushed to remote branch: {branch_name}")
+
+
 def main():
     """Main entry point."""
     try:
@@ -92,8 +136,27 @@ def main():
         validate_file_size(file_path)
 
         print("✓ All validations passed - file is ready for git integration")
-    except (OSError, ValueError) as e:
-        print(f"✗ Error: {e}", file=sys.stderr)
+
+        # Phase 2: Git integration (add, commit, push)
+        print("\nStarting git workflow...")
+        git_add(FILENAME)
+        git_commit(COMMIT_MESSAGE)
+        git_push(FEATURE_BRANCH)
+
+        print("\n✓ All operations completed successfully!")
+
+    except OSError as e:
+        print(f"✗ File I/O Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"✗ Validation Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Git Command Error: Command failed with exit code {e.returncode}", file=sys.stderr)
+        print(f"  Command: {' '.join(e.cmd)}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"✗ Unexpected Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
