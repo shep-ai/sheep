@@ -6,7 +6,7 @@ userQuery: >
   create a single markdown file called test-rtj7cz.md with a title and 2-3 sentences about anything
 summary: >
   Create a single markdown file named test-rtj7cz.md at the repository root with a markdown H1 heading as title and exactly 2-3 sentences of prose content. This continues the established pattern from 144 existing test files (features 001-144). Implementation includes markdown content generation via LLM, file creation using Python pathlib, UTF-8 encoding validation, git staging with conventional commit message, and pushing to the feature branch. This is a minimal, well-understood feature with zero impact on application source code.
-phase: "Analysis"
+phase: "Requirements"
 sizeEstimate: "S"
 
 relatedFeatures:
@@ -36,7 +36,51 @@ relatedLinks:
   - title: "CommonMark Markdown Specification"
     url: "https://spec.commonmark.org/"
 
-openQuestions: []
+openQuestions:
+  - question: "Should the implementation reuse existing content_generators utilities or create custom logic?"
+    resolved: true
+    options:
+      - option: "Reuse existing utilities"
+        description: "Use proven content_generators functions (generate_markdown_content, write_markdown_file, validate_markdown_file, commit_markdown_file, push_markdown_file) that have been tested across 144+ features. Ensures consistency, reduces implementation time, maintains established patterns, and leverages battle-tested code."
+        selected: true
+      - option: "Create custom logic"
+        description: "Implement content generation and file operations from scratch. Provides full control over the implementation but duplicates existing utilities, increases development time, and risks introducing inconsistencies with prior features."
+        selected: false
+      - option: "Mix approaches"
+        description: "Use some existing utilities and implement custom logic for other aspects. Could optimize for specific needs but introduces inconsistency and complexity, making maintenance harder."
+        selected: false
+    selectionRationale: "Reusing existing utilities is strongly recommended because: (1) they are proven across 144+ identical features with consistent results; (2) implementation time is 2-3 minutes vs 10+ minutes for custom code; (3) it maintains consistency with the established pattern that downstream automation likely depends on; (4) the utilities already handle edge cases (encoding, line endings, validation) that custom code would need to duplicate; (5) reduces risk of introducing bugs or deviations from the specification."
+    answer: "Reuse existing utilities"
+
+  - question: "Should file validation be comprehensive or minimal?"
+    resolved: true
+    options:
+      - option: "Comprehensive validation"
+        description: "Use the existing validate_markdown_file() function to check format (H1 heading present and correctly formatted), encoding (UTF-8 without BOM), line endings (Unix LF only), and file size (400-600 byte guideline). Catches all errors and ensures consistency with 144+ prior files."
+        selected: true
+      - option: "Minimal validation"
+        description: "Only check that the file exists and is readable. Fastest approach but may allow malformed markdown or encoding issues to pass through, risking inconsistency with prior features."
+        selected: false
+      - option: "No validation"
+        description: "Trust the generation and write operations to produce correct output. Simplest but provides no safety net if something goes wrong, and offers no feedback on file integrity."
+        selected: false
+    selectionRationale: "Comprehensive validation is recommended because: (1) the validate_markdown_file() utility already exists and is proven in 144+ features; (2) it ensures consistency with the established pattern and quality baseline; (3) it provides early feedback on issues (e.g., encoding problems, malformed markdown) that could otherwise go unnoticed; (4) validation adds only 1-2 minutes to implementation time; (5) catch-early approach reduces downstream debugging and rework; (6) 144+ prior files have all been validated, so this feature should maintain the same standard."
+    answer: "Comprehensive validation"
+
+  - question: "How should the feature handle errors (file already exists, API failures, git push issues)?"
+    resolved: true
+    options:
+      - option: "Fail fast with descriptive error messages"
+        description: "Stop execution on any error and provide clear, actionable error messages. Makes debugging easy and prevents partial/corrupted state, but stops on first issue without retries."
+        selected: true
+      - option: "Retry on transient failures"
+        description: "Automatically retry API calls and git operations on network/transient errors up to N times before failing. More robust but adds complexity and may hide persistent issues."
+        selected: false
+      - option: "Follow established pattern from features 001-144"
+        description: "Use the same error handling approach (likely fail-fast with descriptive messages based on code inspection) that has proven reliable across 144+ prior features."
+        selected: false
+    selectionRationale: "Fail fast with descriptive error messages is recommended because: (1) it matches the established pattern from features 001-144 (based on production track record); (2) it is simple to implement and understand; (3) it prevents partial or corrupted state that could require cleanup; (4) descriptive messages enable quick diagnosis and fix; (5) this feature has no complex retry logic in prior implementations, so retries would introduce new patterns; (6) for a single, fast operation (10-15 minutes), retry complexity is not justified; (7) if the operation fails, manual review of the feature branch and error state is preferable to silent retries."
+    answer: "Fail fast with descriptive error messages"
 
 content: |
   ## Problem Statement
@@ -44,6 +88,52 @@ content: |
   The Sheep automated implementation platform requires the ability to create simple test markdown files following an established pattern. This feature creates a single test markdown file (`test-rtj7cz.md`) at the repository root with a title and prose content, demonstrating automated file creation and git integration.
 
   This is a continuation of the markdown-file-creation pattern established in features 001-144, with 144 identical test files already existing in the repository. The pattern is foundational to the Sheep project's test suite and serves as a minimal unit of work for validating the automated implementation system.
+
+  ## Functional Requirements
+
+  - **FR-1**: Create markdown file named `test-rtj7cz.md` at the repository root directory
+  - **FR-2**: Generate a markdown H1 heading using Claude LLM via the content_generators.generate_markdown_content() utility
+  - **FR-3**: Generate exactly 2-3 sentences of prose content using Claude LLM via the content_generators.generate_markdown_content() utility
+  - **FR-4**: Write generated content to disk with UTF-8 encoding and no Byte Order Mark (BOM) using content_generators.write_markdown_file()
+  - **FR-5**: Validate generated markdown file format, encoding, and line endings using content_generators.validate_markdown_file()
+  - **FR-6**: Stage the created file in git using content_generators.commit_markdown_file() (internally calls git add)
+  - **FR-7**: Create a git commit with conventional commit message format: "feat(145): create markdown file test-rtj7cz.md with prose content" using content_generators.commit_markdown_file()
+  - **FR-8**: Push changes to remote origin with upstream tracking using content_generators.push_markdown_file()
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: File encoding must be UTF-8 without Byte Order Mark (BOM)
+  - **NFR-2**: File line endings must use Unix-style LF (`\n`), not Windows CRLF (`\r\n`)
+  - **NFR-3**: Implementation must reuse proven utilities from the `sheep.content_generators` module without creating custom logic
+  - **NFR-4**: Implementation must follow the established pattern from features 001-144 to maintain consistency with prior test files
+  - **NFR-5**: File size should be approximately 400-600 bytes, consistent with prior test files
+  - **NFR-6**: All operations must be fully automated with no manual steps required after invocation
+  - **NFR-7**: Implementation must complete within 10-15 minutes of actual development work
+  - **NFR-8**: Feature must have zero impact on application source code, agents, or existing functionality
+  - **NFR-9**: Errors must include descriptive messages that enable quick diagnosis and fix
+  - **NFR-10**: Generated prose content must be coherent, grammatically correct, and substantive (no placeholder or generic text)
+
+  ## Success Criteria
+
+  - [ ] File `test-rtj7cz.md` exists in the repository root directory
+  - [ ] File contains exactly one markdown H1 heading (`#`) as the title on the first line
+  - [ ] File contains exactly 2-3 sentences of prose content after the heading, separated by a blank line
+  - [ ] File is encoded as UTF-8 without BOM (Byte Order Mark)
+  - [ ] File uses Unix-style LF line endings (`\n`), not Windows CRLF
+  - [ ] File size is within the guideline range of 400-600 bytes
+  - [ ] Prose content follows the exact format: `# Heading\n\n<2-3 sentences>`
+  - [ ] File is staged in git (verified via `git status`)
+  - [ ] Git commit exists with exact message: `feat(145): create markdown file test-rtj7cz.md with prose content`
+  - [ ] Commit is on the feature branch `feat/145-markdown-file-creation-adecc5`
+  - [ ] Changes have been pushed to remote origin (verified via `git log origin/feat/145-markdown-file-creation-adecc5`)
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should implementation reuse existing content_generators utilities? | Reuse existing utilities | Proven across 144+ features, 2-3 min implementation time, maintains consistency, reduces risk |
+  | 2 | Should file validation be comprehensive or minimal? | Comprehensive validation | Catches all errors, ensures consistency with 144+ prior files, adds only 1-2 min, catch-early reduces debugging |
+  | 3 | How should errors be handled? | Fail fast with descriptive messages | Simple to implement, prevents partial/corrupted state, enables quick diagnosis, matches established pattern |
 
   ## Codebase Analysis
 
@@ -152,20 +242,6 @@ content: |
   - Zero impact on application source code or architecture
   - All required utilities already exist and are stable
 
-  ## Success Criteria
-
-  - [ ] File `test-rtj7cz.md` exists in the repository root directory
-  - [ ] File contains exactly one markdown H1 heading (`#`) as the title on the first line
-  - [ ] File contains exactly 2-3 sentences of prose content after the heading, separated by a blank line
-  - [ ] File is encoded as UTF-8 without BOM (Byte Order Mark)
-  - [ ] File uses Unix-style LF line endings (`\n`), not Windows CRLF
-  - [ ] File size is typically 400-600 bytes (guideline based on 144 prior features)
-  - [ ] Prose content follows the format: `# Heading\n\n<2-3 sentences>`
-  - [ ] File is staged in git (`git add test-rtj7cz.md`)
-  - [ ] Git commit exists with message: `feat(145): create markdown file test-rtj7cz.md with prose content`
-  - [ ] Commit is on the feature branch `feat/145-markdown-file-creation-adecc5`
-  - [ ] Changes have been pushed to remote origin
-
   ---
 
-  _Analysis phase complete — specification ready for implementation_
+  _Requirements phase complete — specification ready for implementation_
