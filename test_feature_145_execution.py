@@ -66,7 +66,7 @@ def test_feature_145_execution():
             300 <= file_size <= 700
         ), f"File size should be roughly 300-700 bytes, got {file_size}"
 
-        print("✓ Feature 145 execution test passed")
+        print("[PASS] Feature 145 execution test passed")
         print(f"  File created: {filepath}")
         print(f"  File size: {file_size} bytes")
         print(f"  Content preview: {file_content[:80]}...")
