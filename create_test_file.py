@@ -11,6 +11,7 @@ Phase 2 (Git Integration & Delivery): Git workflow (add, commit, push)
 
 from pathlib import Path
 import sys
+import subprocess
 
 
 def create_file() -> None:
@@ -111,12 +112,47 @@ def validate_file() -> bool:
     return True
 
 
+def git_operations() -> None:
+    """
+    Stage, commit, and push the markdown file using git.
+
+    Uses subprocess.run() with list-based arguments to safely execute git commands.
+    Commit message follows Conventional Commits specification:
+    'feat(155): create markdown file test-1k8ri0.md with prose content'
+
+    Raises:
+        subprocess.CalledProcessError: If any git command fails (via check=True)
+    """
+    commit_message = "feat(155): create markdown file test-1k8ri0.md with prose content"
+
+    # Stage the file: git add test-1k8ri0.md
+    # Using list-based arguments prevents shell injection attacks
+    print("Staging file with 'git add test-1k8ri0.md'...")
+    subprocess.run(["git", "add", "test-1k8ri0.md"], check=True)
+    print("✓ File staged successfully")
+
+    # Commit the file with conventional commit message
+    print(f"Committing with message: {commit_message}")
+    subprocess.run(["git", "commit", "-m", commit_message], check=True)
+    print("✓ File committed successfully")
+
+    # Push to remote on feature branch
+    print("Pushing to remote with 'git push -u origin HEAD'...")
+    subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+    print("✓ File pushed successfully")
+
+
 def main() -> int:
-    """Execute file creation and validation. Exit with code 0 on success, 1 on failure."""
+    """Execute file creation, validation, and git integration. Exit with code 0 on success, 1 on failure."""
     try:
         create_file()
         validate_file()
-        print("\n✓ Phase 1 (Core Implementation) complete - file is ready for git integration")
+        print("\n✓ Phase 1 (Core Implementation) complete")
+
+        print("\nPhase 2 (Git Integration & Delivery)...")
+        git_operations()
+
+        print("\n✓ All phases complete - feature 155 delivered successfully")
         return 0
     except Exception as e:
         print(f"✗ Error: {e}", file=sys.stderr)
