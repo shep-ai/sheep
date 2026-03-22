@@ -1,6 +1,7 @@
 """Tests for Phase 1: Script Setup & Content Definition for feature 157."""
 
 from pathlib import Path
+from unittest.mock import patch
 
 
 class TestPhase1ScriptSetup:
@@ -104,10 +105,18 @@ class TestPhase1ScriptSetup:
         assert hasattr(create_test_19idn1, "HEADING")
         assert hasattr(create_test_19idn1, "PROSE")
 
-    def test_main_can_be_called(self):
+    @patch("create_test_19idn1.git_push")
+    @patch("create_test_19idn1.git_commit")
+    @patch("create_test_19idn1.git_stage_file")
+    def test_main_can_be_called(self, mock_stage, mock_commit, mock_push):
         """Test that main() function can be called and returns an integer."""
         import create_test_19idn1
 
+        # Mock the git functions to avoid actual git operations
+        mock_stage.return_value = True
+        mock_commit.return_value = True
+        mock_push.return_value = True
+
         result = create_test_19idn1.main()
         assert isinstance(result, int), "main() should return an integer exit code"
-        assert result == 0, "main() should return 0 for successful setup phase"
+        assert result == 0, "main() should return 0 for successful integration"

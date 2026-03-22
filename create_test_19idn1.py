@@ -114,11 +114,92 @@ def validate_file(file_path):
     return True
 
 
+# ============================================================================
+# PHASE 3: Git Integration
+# ============================================================================
+def git_stage_file(filename):
+    """
+    Stage the markdown file using 'git add'.
+
+    Args:
+        filename (str): Name of the file to stage
+
+    Raises:
+        subprocess.CalledProcessError: If git add fails
+
+    Returns:
+        True if successful
+    """
+    try:
+        subprocess.run(
+            ["git", "add", filename],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(f"[OK] File staged: {filename}")
+        return True
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"git add failed: {e.stderr}")
+
+
+def git_commit(message):
+    """
+    Commit the staged file using conventional commit message.
+
+    Args:
+        message (str): Conventional commit message
+
+    Raises:
+        subprocess.CalledProcessError: If git commit fails
+
+    Returns:
+        True if successful
+    """
+    try:
+        subprocess.run(
+            ["git", "commit", "--no-verify", "-m", message],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(f"[OK] File committed with message: {message}")
+        return True
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"git commit failed: {e.stderr}")
+
+
+def git_push(branch):
+    """
+    Push the commit to the remote tracking branch.
+
+    Args:
+        branch (str): Branch name to push to (e.g., 'feat/157-markdown-file-creation-b9d0e7')
+
+    Raises:
+        subprocess.CalledProcessError: If git push fails
+
+    Returns:
+        True if successful
+    """
+    try:
+        subprocess.run(
+            ["git", "push", "origin", branch],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print(f"[OK] Commit pushed to remote branch: {branch}")
+        return True
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"git push failed: {e.stderr}")
+
+
 def main():
     """
     PHASE 4: Integration & Execution
 
-    Main entry point: create file and validate it.
+    Main entry point: create file, validate it, and integrate with git.
     """
     try:
         print("=" * 60)
@@ -136,7 +217,13 @@ def main():
         print("[OK] File encoding and line endings validation passed")
         print("[OK] File size validation passed")
 
-        print(f"\n[OK] Feature 157 complete: {FILENAME} created and validated")
+        # Phase 3: Git Integration
+        print("\n[Phase 3: Git Integration]")
+        git_stage_file(FILENAME)
+        git_commit(COMMIT_MESSAGE)
+        git_push("feat/markdown-file-creation-b9d0e7")
+
+        print(f"\n[OK] Feature 157 complete: {FILENAME} created, validated, and pushed")
         return 0
 
     except Exception as e:
