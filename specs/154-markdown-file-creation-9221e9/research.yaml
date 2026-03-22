@@ -1,0 +1,382 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-9221e9"
+summary: >
+  Technical research for feature 154: Create a markdown file (test-fdr055.md) following the
+  established pattern from 150+ existing test files. Implementation uses pathlib for file I/O,
+  subprocess for git operations, and hard-coded prose content. No new dependencies required;
+  all tools are Python standard library or already in pyproject.toml.
+
+# Relationships
+relatedFeatures:
+  - number: 153
+    name: "markdown-file-creation"
+  - number: 152
+    name: "markdown-file-creation"
+  - number: 151
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (project requirement)"
+  - "pathlib (Python standard library)"
+  - "subprocess (Python standard library)"
+  - "Git (version control)"
+  - "Markdown (file format)"
+  - "UTF-8 encoding"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "CommonMark Markdown specification"
+    url: "https://spec.commonmark.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Implementation Approach"
+    chosen: "Use pathlib.Path with write_bytes() for explicit encoding and line ending control"
+    rejected:
+      - "Use os.open()/os.write() — Lower-level, verbose, more error-prone; pathlib is modern Python best practice"
+      - "Use open() with context manager — Functionally equivalent but less concise; pathlib is preferred in modern Python 3.11+"
+      - "Use external libraries — Unnecessary complexity; pathlib suffices and adds no dependencies"
+    rationale: >
+      pathlib.Path is explicitly required by NFR-5. It provides a clean, object-oriented interface
+      for file operations in Python 3.11+. Using write_bytes() with explicit encoding ensures
+      UTF-8 encoding without BOM (NFR-1) and Unix LF line endings (NFR-2). This approach is
+      deterministic, platform-independent, and aligns with the established pattern from 150+ existing
+      test files. The write_bytes() method prevents any platform-dependent line ending translation.
+
+  - title: "Git Operations Implementation"
+    chosen: "Use subprocess.run() with git command-line interface"
+    rejected:
+      - "Use GitPython library (already in dependencies) — While available, subprocess is simpler for single operations; avoids additional abstraction layer"
+      - "Use shell script with git commands — Less portable, harder to handle errors; subprocess is more Pythonic"
+      - "Implement git operations manually — Unnecessary complexity; git CLI is sufficient and proven"
+    rationale: >
+      subprocess.run() is the standard library approach for executing external commands. For simple
+      sequential operations (git add, commit, push), it is cleaner and more maintainable than GitPython.
+      Using check=True ensures strict error handling (any git failure raises CalledProcessError).
+      This approach is transparent — git commands are explicit and easy to debug. List-based subprocess
+      calls prevent shell injection attacks.
+
+  - title: "Prose Content Generation Strategy"
+    chosen: "Hard-code prose content as a human-written string"
+    rejected:
+      - "Generate prose dynamically — Violates FR-5 (readable, grammatically correct); creates quality variance; overkill for a test file"
+      - "Use placeholder string or Lorem Ipsum — Doesn't match established pattern; existing 150+ test files use meaningful prose"
+      - "Template-based content with substitution — Adds complexity without benefit; single markdown file is not a template"
+    rationale: >
+      FR-5 explicitly requires prose to be \"readable and grammatically correct\". Examination of existing
+      test files (test-ax8kga.md: \"The Power of Automated Systems\"; test-h8ylmx.md: \"Serverless Computing
+      Revolution\") confirms all use hand-written, meaningful prose. Hard-coding ensures consistent quality,
+      matches established pattern, ensures topic-content coherence (NFR-11), and keeps implementation simple.
+      Topic choice is completely unrestricted (NFR-8).
+
+  - title: "Line Ending and Encoding Control"
+    chosen: "Use pathlib.Path.write_bytes() with manual UTF-8 encoding and explicit LF construction"
+    rejected:
+      - "Use write_text() with platform defaults — Fails NFR-2; Windows may use CRLF; not deterministic"
+      - "Use write_text(newline='\\\\n') — newline parameter not guaranteed to prevent line ending translation in all contexts"
+      - "Rely on git autocrlf configuration — Too fragile; spec requires explicit compliance; better to ensure file is correct at creation"
+    rationale: >
+      Explicit byte construction eliminates platform-dependent behavior. write_bytes() with
+      content.encode('utf-8') produces clean UTF-8 bytes. Using '\\n' in Python strings generates LF bytes.
+      This guarantees UTF-8 without BOM (NFR-1) and Unix LF line endings (NFR-2), regardless of platform.
+      Simple, deterministic, and verifiable. No reliance on OS defaults or git configuration.
+
+  - title: "Validation and Verification Strategy"
+    chosen: "Implement basic format validation (file exists, size check, structure check)"
+    rejected:
+      - "Full CommonMark spec validation — Overkill for simple 1-heading + 3-sentence file; adds unnecessary complexity"
+      - "No validation — Risky; could silently create malformed file; basic checks provide confidence with minimal code"
+      - "Cryptographic/hash-based validation — Unnecessary; we are validating structure, not cryptographic integrity"
+    rationale: >
+      Basic validation provides confidence without complexity: (1) File existence ensures write succeeded,
+      (2) Size check verifies file is in typical range (400-600 bytes, NFR-3 soft guideline), (3) Structure
+      check confirms H1 heading, blank line, and prose content. This catches obvious errors while remaining
+      simple and maintainable. Full CommonMark validation is not required by spec.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should implementation use an automation script or manual commands?"
+    resolved: true
+    options:
+      - option: "Standalone Python script"
+        description: >
+          Write a self-contained Python script (.py file) that creates the markdown file,
+          handles git operations, and validates output. Reusable, testable, version-controlled.
+        selected: true
+      - option: "Shell script with git and echo commands"
+        description: >
+          Use bash/shell scripting with echo and git commands. Simpler syntax but less
+          portable, harder to handle errors, less maintainable in a Python project.
+        selected: false
+      - option: "Manual one-off commands in terminal"
+        description: >
+          Execute commands manually. Fastest for this instance but not reproducible,
+          not version-controlled, error-prone.
+        selected: false
+    selectionRationale: >
+      A standalone Python script is appropriate because: (1) This is a Python project,
+      (2) Sheep is an automated implementation system — automation should be code-first,
+      (3) Python script is reusable for similar features (pattern recurs across 150+ files),
+      (4) Error handling and validation are easier in Python, (5) Version control of implementation
+      code is important for reproducibility.
+
+  - question: "Should git operations error-checking be strict or permissive?"
+    resolved: true
+    options:
+      - option: "Strict error-checking (exit on any git command failure)"
+        description: >
+          Raise exceptions if git add, commit, or push fails. Ensures atomicity and prevents
+          partial success. Safer but may fail on transient network issues.
+        selected: true
+      - option: "Permissive with logging (log errors but continue)"
+        description: >
+          Log git command failures but continue execution. More resilient to network issues
+          but risks inconsistent repository state.
+        selected: false
+      - option: "No error handling (assume git succeeds)"
+        description: >
+          Do not check git command exit codes. Fastest but dangerous; could silently fail
+          and create inconsistent state.
+        selected: false
+    selectionRationale: >
+      Strict error-checking is required because: (1) Spec explicitly requires all steps:
+      file creation, git add, commit, AND push (FR-6 through FR-9), (2) Partial completion
+      (file created but not pushed) violates requirements and leaves repo inconsistent,
+      (3) Strict errors surface problems immediately for the automated system to handle,
+      (4) Test feature with clear success criteria — no benefit to permissive handling.
+      Failures should be surfaced so the feature can be retried.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-22
+  - **Requirement Clarity:** Complete — all product decisions resolved in feature spec
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation: pathlib.Path
+
+  **Chosen:** Use `pathlib.Path` with `.write_bytes()` for file creation with explicit encoding control
+
+  **Rejected:**
+  - `os.open()` and manual byte operations — Unnecessarily low-level; pathlib is the modern standard
+  - `open()` with context manager — Functionally equivalent; pathlib is more object-oriented and preferred in Python 3.11+
+  - External file I/O libraries — Would add dependencies (violates NFR-9)
+
+  **Rationale:**
+  pathlib is explicitly mandated by NFR-5. Using `.write_bytes()` with manual construction ensures:
+  - UTF-8 encoding without BOM: `content.encode('utf-8')` produces clean UTF-8 bytes
+  - Unix LF line endings: Python string `'\\n'` becomes LF byte (0x0A) in UTF-8
+  - Platform independence: No reliance on OS-specific line ending defaults
+
+  This approach is deterministic and aligns with the established pattern from 150+ existing test files.
+
+  ### 2. Git Operations: subprocess.run()
+
+  **Chosen:** Use Python's `subprocess.run()` to execute git commands
+
+  **Rejected:**
+  - GitPython library — While in dependencies, it is unnecessarily abstract for three simple operations
+  - Shell script — Less portable, harder to manage output and error codes
+  - Manual low-level git operations — Overkill; git CLI is available and proven
+
+  **Rationale:**
+  `subprocess.run()` is the Python standard library tool for external command execution. For sequential
+  git operations, it is simpler and more transparent than GitPython. Using list-based invocation prevents
+  shell injection. Example:
+  ```python
+  subprocess.run(["git", "add", "test-fdr055.md"], check=True)
+  subprocess.run(["git", "commit", "-m", "feat(154): create markdown file test-fdr055.md with prose content"], check=True)
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  ```
+  The `check=True` flag enforces strict error handling (open question 2).
+
+  ### 3. Prose Content: Hard-Coded Human-Written Text
+
+  **Chosen:** Write prose content as a hard-coded string (human-authored)
+
+  **Rejected:**
+  - Generated/dynamic content — Risks violating FR-5 (grammatically correct); excessive for a test file
+  - Lorem Ipsum or placeholders — Contradicts established pattern; existing test files use meaningful prose
+  - Template-based with variable substitution — Adds complexity without proportional benefit
+
+  **Rationale:**
+  Examination of existing test files confirms all use hand-written, meaningful prose:
+  - test-ax8kga.md: \"The Power of Automated Systems\" with 3 sentences on software automation
+  - test-h8ylmx.md: \"Serverless Computing Revolution\" with 3 sentences on serverless architecture
+
+  Hard-coding ensures: consistent quality (FR-5), topic coherence (NFR-11), reproducibility, and simplicity.
+  Topic choice is completely unrestricted (NFR-8).
+
+  ### 4. Line Ending and Encoding: Explicit byte construction
+
+  **Chosen:** Use `.write_bytes()` with explicit UTF-8 encoding and LF construction
+
+  **Rejected:**
+  - `.write_text()` with platform defaults — Fails NFR-2; Windows may use CRLF
+  - `.write_text(newline='\\n')` — Not guaranteed to prevent line ending translation in all contexts
+  - Relying on `git autocrlf` — Too fragile; better to ensure file correctness at creation
+
+  **Rationale:**
+  Explicit byte construction eliminates platform-dependent behavior:
+  ```python
+  content = \"# Heading\\n\\nProse here.\"
+  Path(\"test-fdr055.md\").write_bytes(content.encode('utf-8'))
+  ```
+  This guarantees:
+  - UTF-8 encoding without BOM (NFR-1)
+  - Unix LF line endings (NFR-2)
+  - Platform independence
+  Simple, deterministic, and verifiable.
+
+  ### 5. Validation: Basic Format Checks
+
+  **Chosen:** Implement basic validation (file existence, size, structure)
+
+  **Rejected:**
+  - Full CommonMark specification validation — Overkill; would require additional tools
+  - No validation — Risky; could silently produce malformed output
+  - Cryptographic or hash-based checks — Unnecessary; we are validating structure
+
+  **Rationale:**
+  Basic validation with minimal complexity catches obvious errors:
+  1. **File exists:** `Path(\"test-fdr055.md\").exists()` — confirms write succeeded
+  2. **Size check:** File is typically 400-600 bytes (NFR-3, soft guideline)
+  3. **Structure check:** H1 heading, blank line, prose present
+
+  Example validation:
+  ```python
+  path = Path(\"test-fdr055.md\")
+  assert path.exists(), \"File not created\"
+  content = path.read_text(encoding='utf-8')
+  assert content.startswith(\"# \"), \"Missing H1 heading\"
+  assert \"\\n\\n\" in content, \"Missing blank line\"
+  size = path.stat().st_size
+  assert 300 < size < 800, f\"Size {size} outside typical range\"
+  ```
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | pathlib | File I/O operations | Use (required by NFR-5) | Standard library; explicit requirement; modern Python best practice |
+  | subprocess | Execute git commands | Use (standard library) | Simple, transparent; no new dependencies; git CLI is idiomatic |
+  | GitPython | Alternative git interface | Reject | Already in dependencies; unnecessary; subprocess suffices |
+  | os module | Alternative file I/O | Reject | Less object-oriented; pathlib is preferred in Python 3.11+ |
+  | tempfile | Temporary file handling | Not needed | No temporary files required |
+  | Markdown libraries | CommonMark validation | Not needed | Basic structure validation sufficient |
+
+  ## Security Considerations
+
+  **File Creation (Low Risk):**
+  - Creating a markdown file in the repository root is safe; no command injection or path traversal risk
+  - File is created by the Python process with inherited permissions; no privilege escalation
+  - Content is hard-coded (not user-input), eliminating injection vectors
+
+  **Git Operations (Low Risk):**
+  - Git commands use list-based subprocess invocation (`[\"git\", \"add\", ...]`), not shell strings
+  - This prevents shell injection attacks (no shell interpreting the command)
+  - Commit message is hard-coded (not user-input), safe from injection
+  - `check=True` ensures command failures are caught and reported
+
+  **No Authentication Secrets:**
+  - Prose content is public (no credentials, API keys, or sensitive data)
+  - Git operations use existing repo credentials (assumed to be securely configured)
+  - No new network connections or external API calls
+
+  **Mitigation:** Use list-based subprocess calls throughout (never `shell=True`).
+
+  ## Performance Considerations
+
+  **File Creation (Negligible):**
+  - Single file write operation (~400-600 bytes) — extremely fast (< 1ms)
+  - No I/O loops or batch operations; simple synchronous write
+  - No performance optimization needed
+
+  **Git Operations (Minimal):**
+  - `git add`: Stages single file (instant)
+  - `git commit`: Creates commit object (instant for small repo)
+  - `git push`: Network operation (typically 1-5 seconds depending on remote latency)
+  - Overall time: dominated by network latency of `git push`
+
+  **No Caching or Optimization Needed:**
+  - Feature is simple, one-time operation; no repeated calls or batch processing
+  - No database queries, network I/O beyond git push, or heavy computation
+  - Sequential operation is appropriate and required
+
+  **Scalability Note:**
+  This feature is not designed to scale — single-file operation. If system scales to create multiple
+  test files, future work could implement batch processing and parallel git operations.
+
+  ## Architecture Notes
+
+  ### Fit Within Existing Codebase
+
+  This feature fits the established pattern of the Sheep platform:
+  - **Minimal isolated changes:** Single file creation at repository root
+  - **No source code dependencies:** Does not import or depend on `/src/sheep/` modules
+  - **Standard library only:** Uses Python built-ins; no new dependencies (adheres to NFR-9)
+  - **Git integration:** Follows conventional commit pattern from features 151-153
+  - **Clear success criteria:** Testable, verifiable file creation and git workflow
+
+  ### Pattern Consistency
+
+  The 150+ existing test files demonstrate a proven, repeatable pattern:
+  ```
+  # Title Heading
+
+  Prose sentence one. Prose sentence two. Prose sentence three.
+  ```
+
+  This feature implementation replicates this pattern:
+  - Same file naming convention (`test-*.md`)
+  - Same content structure (H1 + prose)
+  - Same git workflow (add → commit → push)
+  - Same topic freedom (diverse subjects across existing files)
+
+  ### Automation Platform Alignment
+
+  The Sheep platform automates code implementation. This feature demonstrates:
+  - **File I/O automation:** Creating files programmatically
+  - **Git automation:** Staging, committing, and pushing in sequence
+  - **Repeatable implementation:** Script can be adapted for future markdown-file-creation features
+  - **Error handling:** Strict validation ensures failures surface clearly
+
+  Aligns with the platform's core mission of automating human-manual tasks.
+
+  ## Implementation Approach
+
+  **File creation pseudo-code:**
+  ```python
+  from pathlib import Path
+  import subprocess
+
+  # Define content with human-written prose
+  title = \"Topic Title Here\"
+  prose = \"First sentence about topic. Second sentence with detail. Third sentence with conclusion.\"
+  content = f\"# {title}\\n\\n{prose}\\n\"
+
+  # Write file (UTF-8, LF line endings)
+  path = Path(\"test-fdr055.md\")
+  path.write_bytes(content.encode('utf-8'))
+
+  # Validate structure
+  assert path.exists() and 300 < path.stat().st_size < 800
+
+  # Git workflow with strict error handling
+  subprocess.run([\"git\", \"add\", \"test-fdr055.md\"], check=True)
+  subprocess.run([\"git\", \"commit\", \"-m\", \"feat(154): create markdown file test-fdr055.md with prose content\"], check=True)
+  subprocess.run([\"git\", \"push\", \"-u\", \"origin\", \"HEAD\"], check=True)
+  ```
+
+  ---
+
+  _Research phase complete — technical decisions documented, libraries evaluated, security and
+  performance implications assessed. Ready for implementation planning and execution._
