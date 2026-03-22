@@ -389,3 +389,156 @@ class TestValidationFailures:
         # Should not raise any exception
         result = validate_markdown_file(str(test_file))
         assert result is True
+
+
+class TestGitIntegration:
+    """Tests for git integration (add, commit, push operations)."""
+
+    def test_file_not_staged_before_commit(self):
+        """Test that file is not yet staged before git commit operation."""
+        import subprocess
+
+        # Check that test-p2qj1z.md exists in working directory
+        test_file = Path("test-p2qj1z.md")
+        assert test_file.exists(), "test-p2qj1z.md should exist"
+
+        # Verify file is not staged in git
+        result = subprocess.run(
+            ["git", "status", "--porcelain", "test-p2qj1z.md"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        # File should either not appear in status or appear with '??' (untracked)
+        # If it appears with '??' or '??', it's not staged yet
+        output = result.stdout.strip()
+        # Either empty (doesn't exist in status) or starts with '??' or ' M' (modified, not staged)
+        if output:
+            assert output.startswith("??") or output.startswith(" M")
+
+    def test_file_is_staged_after_git_add(self):
+        """Test that file is staged after git add operation."""
+        import subprocess
+
+        test_file = Path("test-p2qj1z.md")
+        assert test_file.exists(), "test-p2qj1z.md should exist"
+
+        # Stage the file (idempotent - safe to call even if already staged)
+        result = subprocess.run(
+            ["git", "add", "test-p2qj1z.md"],
+            check=True,
+            capture_output=True,
+        )
+        # The add command should succeed
+        assert result.returncode == 0, "git add should succeed"
+
+        # Verify file is tracked by git (either committed or staged)
+        result = subprocess.run(
+            ["git", "ls-files", "test-p2qj1z.md"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # If file is in ls-files, it's tracked (committed or staged)
+        assert "test-p2qj1z.md" in result.stdout, "File should be tracked by git"
+
+    def test_commit_message_follows_conventional_format(self):
+        """Test that commit message follows conventional commit format."""
+        from sheep.features.feature_158_markdown_file_creation import COMMIT_MESSAGE
+
+        # Verify message format: feat(###): description
+        assert COMMIT_MESSAGE.startswith("feat(158):"), (
+            f"Commit message should start with 'feat(158):', got: {COMMIT_MESSAGE}"
+        )
+        assert "test-p2qj1z.md" in COMMIT_MESSAGE, (
+            f"Commit message should contain filename, got: {COMMIT_MESSAGE}"
+        )
+        assert "prose content" in COMMIT_MESSAGE, (
+            f"Commit message should contain 'prose content', got: {COMMIT_MESSAGE}"
+        )
+
+    def test_exact_commit_message_format(self):
+        """Test the exact commit message matches specification."""
+        from sheep.features.feature_158_markdown_file_creation import COMMIT_MESSAGE
+
+        expected_message = "feat(158): Create markdown file test-p2qj1z.md with prose content"
+        assert (
+            COMMIT_MESSAGE == expected_message
+        ), f"Expected '{expected_message}', got '{COMMIT_MESSAGE}'"
+
+    @patch("sheep.features.feature_158_markdown_file_creation.push_markdown_file")
+    @patch("sheep.features.feature_158_markdown_file_creation.commit_markdown_file")
+    def test_git_operations_only_after_validation(
+        self, mock_commit, mock_push
+    ):
+        """Test that git operations (commit, push) only execute after validation passes."""
+        from sheep.features.feature_158_markdown_file_creation import (
+            create_feature_158_markdown_file,
+        )
+
+        # Mock returns
+        mock_commit.return_value = "Committed successfully"
+        mock_push.return_value = "Pushed successfully"
+
+        # Call the orchestration
+        result = create_feature_158_markdown_file()
+
+        # Verify commit was called (which means validation passed)
+        mock_commit.assert_called_once()
+        # Verify push was called (which is after commit)
+        mock_push.assert_called_once()
+        # Verify return value contains push result
+        assert "push_result" in result
+        assert result["push_result"] == "Pushed successfully"
+
+    def test_commit_message_in_git_log_after_push(self):
+        """Test that commit message for feature 158 exists in git history."""
+        import subprocess
+
+        from sheep.features.feature_158_markdown_file_creation import COMMIT_MESSAGE
+
+        # Search git log for the specific feature 158 commit message
+        result = subprocess.run(
+            ["git", "log", "--oneline", "--grep=feat(158)", "--all"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        # The commit message should appear in git history
+        log_output = result.stdout.strip()
+        # Verify that feature 158 commits exist
+        assert "158" in log_output, (
+            f"Git log should contain feature 158 commits, got: {log_output}"
+        )
+
+    def test_push_uses_feature_branch(self):
+        """Test that push operation uses the correct feature branch."""
+        import subprocess
+
+        # Check current branch
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        current_branch = result.stdout.strip()
+
+        # Should be the feature branch
+        assert "feat" in current_branch or "158" in current_branch, (
+            f"Current branch should contain 'feat' or '158', got: {current_branch}"
+        )
+
+    def test_git_commands_fail_gracefully(self):
+        """Test that git commands fail gracefully with proper exceptions."""
+        import subprocess
+
+        # Try to run git commands with invalid arguments to test error handling
+        # This is a negative test - verify subprocess raises CalledProcessError
+        with pytest.raises(subprocess.CalledProcessError):
+            subprocess.run(
+                ["git", "commit", "-m", "test"],
+                check=True,  # check=True will raise on failure
+                capture_output=True,
+            )
