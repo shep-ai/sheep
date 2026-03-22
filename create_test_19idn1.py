@@ -26,63 +26,122 @@ PROSE = (
 
 def create_markdown_file():
     """
-    PHASE 2: File Creation & Validation (stub for future implementation)
+    PHASE 2: File Creation & Validation
 
     Creates test-19idn1.md in repository root with proper markdown structure.
+    Uses pathlib.Path.write_text() with explicit UTF-8 encoding and Unix LF line endings.
     """
-    pass
+    file_path = Path(FILENAME)
+
+    # Combine heading and prose content
+    full_content = f"{HEADING}\n\n{PROSE}"
+
+    # Write file with explicit UTF-8 encoding and Unix LF line endings
+    # newline='\n' enforces Unix-style line endings (not Windows CRLF)
+    file_path.write_text(full_content, encoding='utf-8', newline='\n')
+
+    return file_path
 
 
 def validate_structure(content):
     """
-    PHASE 2: File Creation & Validation (stub for future implementation)
+    PHASE 2: File Creation & Validation
 
     Validates markdown structure: H1 heading, blank line, 2-3 sentences.
     """
-    pass
+    lines = content.strip().split('\n')
+
+    # Check for H1 heading on first line
+    if not lines[0].startswith('# '):
+        raise ValueError(f"First line should be H1 heading (starting with '# '), got: {lines[0]}")
+
+    # Check for blank line separator
+    if len(lines) < 2 or lines[1] != '':
+        raise ValueError("Second line should be blank (blank line separator)")
+
+    # Count sentences in prose section (count periods)
+    prose_section = '\n'.join(lines[2:])
+    sentence_count = prose_section.count('.')
+    if not (2 <= sentence_count <= 3):
+        raise ValueError(f"Expected 2-3 sentences, found {sentence_count}")
 
 
 def validate_encoding_and_line_endings(binary_content):
     """
-    PHASE 2: File Creation & Validation (stub for future implementation)
+    PHASE 2: File Creation & Validation
 
     Validates UTF-8 encoding (no BOM) and Unix LF line endings.
     """
-    pass
+    # Verify UTF-8 encoding (no BOM)
+    if binary_content.startswith(b'\xef\xbb\xbf'):
+        raise ValueError("File has UTF-8 BOM (should not have BOM)")
+
+    # Verify Unix-style LF line endings (not Windows CRLF)
+    if b'\r\n' in binary_content:
+        raise ValueError("File uses Windows CRLF line endings (should use Unix LF)")
 
 
 def validate_file_size(binary_content):
     """
-    PHASE 2: File Creation & Validation (stub for future implementation)
+    PHASE 2: File Creation & Validation
 
     Validates file size is within 400-600 byte range.
     """
-    pass
+    file_size = len(binary_content)
+    if not (400 <= file_size <= 600):
+        raise ValueError(f"File size {file_size} bytes is outside expected range (400-600)")
 
 
 def validate_file(file_path):
     """
-    PHASE 2: File Creation & Validation (stub for future implementation)
+    PHASE 2: File Creation & Validation
 
-    Integrates all validation checks.
+    Integrates all validation checks: encoding, line endings, file size, and structure.
     """
-    pass
+    # Read file content in both binary and text modes
+    binary_content = file_path.read_bytes()
+    text_content = file_path.read_text(encoding='utf-8')
+
+    # Validate encoding and line endings
+    validate_encoding_and_line_endings(binary_content)
+
+    # Validate file size
+    validate_file_size(binary_content)
+
+    # Validate structure
+    validate_structure(text_content)
+
+    return True
 
 
 def main():
     """
-    PHASE 4: Integration & Execution (stub for future implementation)
+    PHASE 4: Integration & Execution
 
-    Main entry point: coordinate all phases.
+    Main entry point: create file and validate it.
     """
-    print("=" * 60)
-    print("Feature 157: Markdown File Creation - Phase 1")
-    print("=" * 60)
-    print("\n[Phase 1 Complete: Script Setup & Content Definition]")
-    print(f"Heading: {HEADING}")
-    print(f"Prose length: {len(PROSE)} characters")
-    print("\n[Waiting for Phase 2: File Creation & Validation]")
-    return 0
+    try:
+        print("=" * 60)
+        print("Feature 157: Markdown File Creation")
+        print("=" * 60)
+
+        # Phase 2: Create file
+        print("\n[Phase 2: File Creation & Validation]")
+        file_path = create_markdown_file()
+        print(f"[OK] Created file: {FILENAME}")
+
+        # Phase 2: Validate file
+        validate_file(file_path)
+        print("[OK] File structure validation passed")
+        print("[OK] File encoding and line endings validation passed")
+        print("[OK] File size validation passed")
+
+        print(f"\n[OK] Feature 157 complete: {FILENAME} created and validated")
+        return 0
+
+    except Exception as e:
+        print(f"[ERROR] {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
