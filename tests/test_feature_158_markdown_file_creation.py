@@ -268,3 +268,124 @@ class TestFileCreation:
         file_size = test_file.stat().st_size
         # 300-600 bytes is a guideline, not strict
         assert 100 < file_size < 1000
+
+
+class TestValidationFailures:
+    """Tests for validation failure scenarios."""
+
+    def test_validation_rejects_file_with_crlf_line_endings(self, tmp_path):
+        """Test that validation rejects file with CRLF line endings."""
+        from sheep.content_generators import validate_markdown_file
+
+        test_file = tmp_path / "test-invalid.md"
+        # Create content with CRLF line endings
+        content = "# Test Title\r\n\r\nFirst sentence. Second sentence. Third sentence.\r\n"
+        test_file.write_bytes(content.encode("utf-8"))
+
+        with pytest.raises(ValueError, match="CRLF line endings"):
+            validate_markdown_file(str(test_file))
+
+    def test_validation_rejects_file_with_utf8_bom(self, tmp_path):
+        """Test that validation rejects file with UTF-8 BOM."""
+        from sheep.content_generators import validate_markdown_file
+
+        test_file = tmp_path / "test-invalid.md"
+        # Create content with UTF-8 BOM
+        content = b"\xef\xbb\xbf# Test Title\n\nFirst sentence. Second sentence. Third sentence.\n"
+        test_file.write_bytes(content)
+
+        with pytest.raises(ValueError, match="UTF-8 BOM"):
+            validate_markdown_file(str(test_file))
+
+    def test_validation_rejects_file_without_h1_heading(self, tmp_path):
+        """Test that validation rejects file without H1 heading."""
+        from sheep.content_generators import validate_markdown_file
+
+        test_file = tmp_path / "test-invalid.md"
+        # Create content without H1 heading
+        content = "## Wrong Heading Level\n\nFirst sentence. Second sentence. Third sentence.\n"
+        test_file.write_text(content, encoding="utf-8")
+
+        with pytest.raises(ValueError, match="H1 heading"):
+            validate_markdown_file(str(test_file))
+
+    def test_validation_rejects_file_without_blank_line_separator(self, tmp_path):
+        """Test that validation rejects file without blank line after heading."""
+        from sheep.content_generators import validate_markdown_file
+
+        test_file = tmp_path / "test-invalid.md"
+        # Create content without blank line separator
+        content = "# Test Title\nFirst sentence. Second sentence. Third sentence.\n"
+        test_file.write_text(content, encoding="utf-8")
+
+        with pytest.raises(ValueError, match="blank"):
+            validate_markdown_file(str(test_file))
+
+    def test_validation_rejects_file_with_too_few_sentences(self, tmp_path):
+        """Test that validation rejects file with fewer than 2 sentences."""
+        from sheep.content_generators import validate_markdown_file
+
+        test_file = tmp_path / "test-invalid.md"
+        # Create content with only 1 sentence
+        content = "# Test Title\n\nFirst sentence only.\n"
+        test_file.write_text(content, encoding="utf-8")
+
+        with pytest.raises(ValueError, match="2-3 sentences"):
+            validate_markdown_file(str(test_file))
+
+    def test_validation_rejects_file_with_too_many_sentences(self, tmp_path):
+        """Test that validation rejects file with more than 3 sentences."""
+        from sheep.content_generators import validate_markdown_file
+
+        test_file = tmp_path / "test-invalid.md"
+        # Create content with 4 sentences
+        content = "# Test Title\n\nFirst sentence. Second sentence. Third sentence. Fourth sentence.\n"
+        test_file.write_text(content, encoding="utf-8")
+
+        with pytest.raises(ValueError, match="2-3 sentences"):
+            validate_markdown_file(str(test_file))
+
+    def test_validation_rejects_file_without_trailing_newline(self, tmp_path):
+        """Test that validation rejects file without trailing newline."""
+        from sheep.content_generators import validate_markdown_file
+
+        test_file = tmp_path / "test-invalid.md"
+        # Create content without trailing newline
+        content = "# Test Title\n\nFirst sentence. Second sentence. Third sentence."
+        test_file.write_bytes(content.encode("utf-8"))
+
+        with pytest.raises(ValueError, match="trailing newline"):
+            validate_markdown_file(str(test_file))
+
+    def test_validation_rejects_nonexistent_file(self, tmp_path):
+        """Test that validation rejects nonexistent file."""
+        from sheep.content_generators import validate_markdown_file
+
+        nonexistent_file = str(tmp_path / "nonexistent.md")
+
+        with pytest.raises(OSError, match="does not exist"):
+            validate_markdown_file(nonexistent_file)
+
+    def test_validation_rejects_non_utf8_file(self, tmp_path):
+        """Test that validation rejects file with non-UTF-8 encoding."""
+        from sheep.content_generators import validate_markdown_file
+
+        test_file = tmp_path / "test-invalid.md"
+        # Create content with invalid UTF-8 (using Latin-1 that's not valid UTF-8)
+        content = b"# Test Title\n\nFirst sentence. Second sentence. \xff Third sentence.\n"
+        test_file.write_bytes(content)
+
+        with pytest.raises(ValueError, match="not valid UTF-8"):
+            validate_markdown_file(str(test_file))
+
+    def test_validation_succeeds_with_valid_file(self, tmp_path):
+        """Test that validation succeeds with valid file."""
+        from sheep.content_generators import validate_markdown_file
+
+        test_file = tmp_path / "test-valid.md"
+        content = "# Understanding Resilience\n\nResilience is the ability to bounce back from adversity and challenges. It is built through experience, learning, and perseverance. Strong resilience enables us to face difficulties with confidence and determination.\n"
+        test_file.write_text(content, encoding="utf-8")
+
+        # Should not raise any exception
+        result = validate_markdown_file(str(test_file))
+        assert result is True
