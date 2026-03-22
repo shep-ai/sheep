@@ -479,3 +479,169 @@ class TestEndToEndIntegration:
 
         finally:
             os.chdir(original_cwd)
+
+
+class TestGitIntegration:
+    """Tests for git integration and verification (Phase 3)."""
+
+    def test_git_commit_message_exact_match(self):
+        """Test that git commit message matches exactly the specification requirement."""
+        import subprocess
+
+        # Run git log to get the latest commit message
+        result = subprocess.run(
+            ["git", "log", "-1", "--pretty=format:%s"],
+            capture_output=True,
+            text=True,
+            cwd="/home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-f8484e",
+        )
+
+        commit_message = result.stdout.strip()
+        expected_message = "feat(168): Create markdown file test-ssvpxa.md with prose content"
+
+        assert (
+            commit_message == expected_message
+        ), f"Commit message mismatch: '{commit_message}' != '{expected_message}'"
+
+    def test_working_directory_is_clean(self):
+        """Test that working directory is clean (no modified, staged, or untracked files)."""
+        import subprocess
+
+        # Run git status to check for uncommitted changes
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            cwd="/home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-f8484e",
+        )
+
+        output = result.stdout.strip()
+
+        # Filter out spec files (which are expected to be untracked)
+        lines = [line for line in output.split("\n") if line and not "specs/" in line]
+
+        assert (
+            len(lines) == 0
+        ), f"Working directory is not clean. Uncommitted changes: {lines}"
+
+    def test_upstream_tracking_is_set(self):
+        """Test that branch has upstream tracking set (branch -v shows tracking)."""
+        import subprocess
+
+        # Run git branch -v to check upstream tracking
+        result = subprocess.run(
+            ["git", "branch", "-v"],
+            capture_output=True,
+            text=True,
+            cwd="/home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-f8484e",
+        )
+
+        output = result.stdout.strip()
+
+        # Look for the current branch (should show 'feat/markdown-file-creation-f8484e')
+        # and verify it has '[origin/...' indicating upstream tracking
+        lines = output.split("\n")
+        current_branch_line = [line for line in lines if line.startswith("*")][0]
+
+        assert (
+            "origin/feat/markdown-file-creation-f8484e" in current_branch_line
+        ), f"Upstream tracking not set: {current_branch_line}"
+
+    def test_commit_is_on_feature_branch(self):
+        """Test that commit exists on the feature branch."""
+        import subprocess
+
+        # Get current branch name
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd="/home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-f8484e",
+        )
+
+        current_branch = result.stdout.strip()
+
+        assert (
+            current_branch == "feat/markdown-file-creation-f8484e"
+        ), f"Not on feature branch. Current: {current_branch}"
+
+    def test_file_is_in_commit(self):
+        """Test that test-ssvpxa.md file is included in the latest commit."""
+        import subprocess
+
+        # Run git show to list files in the latest commit
+        result = subprocess.run(
+            ["git", "show", "--pretty=format:''", "--name-only", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd="/home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-f8484e",
+        )
+
+        files_in_commit = result.stdout.strip().split("\n")
+        files_in_commit = [f for f in files_in_commit if f]  # Remove empty strings
+
+        assert (
+            "test-ssvpxa.md" in files_in_commit
+        ), f"File not in commit. Files: {files_in_commit}"
+
+    def test_commit_parent_is_previous_commit(self):
+        """Test that commit has proper parent (linear history)."""
+        import subprocess
+
+        # Get current commit
+        result = subprocess.run(
+            ["git", "log", "-1", "--pretty=format:%H"],
+            capture_output=True,
+            text=True,
+            cwd="/home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-f8484e",
+        )
+
+        current_commit = result.stdout.strip()
+
+        # Get parent commit
+        result_parent = subprocess.run(
+            ["git", "log", "-1", "--pretty=format:%P", current_commit],
+            capture_output=True,
+            text=True,
+            cwd="/home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-f8484e",
+        )
+
+        parent_commit = result_parent.stdout.strip()
+
+        # Verify parent exists and is not empty
+        assert parent_commit != "", "Current commit has no parent (not normal linear history)"
+
+        # Count number of parents (should be 1 for linear history, not a merge commit)
+        parent_count = len(parent_commit.split())
+        assert (
+            parent_count == 1
+        ), f"Commit has {parent_count} parents (expected 1). Not linear history."
+
+    def test_file_exists_at_repository_root(self):
+        """Test that test-ssvpxa.md exists at repository root."""
+        from pathlib import Path
+
+        repo_path = Path(
+            "/home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-f8484e"
+        )
+        file_path = repo_path / "test-ssvpxa.md"
+
+        assert file_path.exists(), f"File does not exist at {file_path}"
+
+    def test_file_is_committed_not_untracked(self):
+        """Test that file is committed (not untracked)."""
+        import subprocess
+
+        # Run git ls-files to check if file is tracked
+        result = subprocess.run(
+            ["git", "ls-files"],
+            capture_output=True,
+            text=True,
+            cwd="/home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-f8484e",
+        )
+
+        tracked_files = result.stdout.strip().split("\n")
+
+        assert (
+            "test-ssvpxa.md" in tracked_files
+        ), f"File is not tracked in git. Tracked files: {tracked_files[:5]}..."
