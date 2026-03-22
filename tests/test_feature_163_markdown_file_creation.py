@@ -1,7 +1,9 @@
 """Tests for feature 163: Creating markdown file test-i7ts4s.md with title and prose content."""
 
+import inspect
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 
@@ -21,7 +23,6 @@ class TestFeature163MarkdownFileCreation:
         from sheep.features.feature_163_markdown_file_creation import (
             create_feature_163_markdown_file,
         )
-        import inspect
 
         sig = inspect.signature(create_feature_163_markdown_file)
         assert "repo_path" in sig.parameters
@@ -30,9 +31,9 @@ class TestFeature163MarkdownFileCreation:
     def test_feature_constants(self):
         """Test that feature constants are defined correctly."""
         from sheep.features.feature_163_markdown_file_creation import (
+            COMMIT_MESSAGE,
             FEATURE_NUMBER,
             MARKDOWN_FILENAME,
-            COMMIT_MESSAGE,
         )
 
         assert FEATURE_NUMBER == 163
@@ -96,8 +97,8 @@ class TestFeature163MarkdownFileCreation:
     ):
         """Test that the function returns the correct dictionary structure."""
         from sheep.features.feature_163_markdown_file_creation import (
-            create_feature_163_markdown_file,
             COMMIT_MESSAGE,
+            create_feature_163_markdown_file,
         )
 
         # Setup mock returns
@@ -326,9 +327,10 @@ class TestEndToEndIntegration:
     ):
         """Test end-to-end creation of markdown file with valid format."""
         import os
+
         from sheep.features.feature_163_markdown_file_creation import (
-            create_feature_163_markdown_file,
             MARKDOWN_FILENAME,
+            create_feature_163_markdown_file,
         )
 
         # Setup mocks
@@ -389,6 +391,7 @@ class TestEndToEndIntegration:
     ):
         """Test that generated content has correct markdown structure."""
         import os
+
         from sheep.features.feature_163_markdown_file_creation import (
             create_feature_163_markdown_file,
         )
@@ -437,10 +440,11 @@ class TestEndToEndIntegration:
     ):
         """Test that file is created with correct name and commit message."""
         import os
+
         from sheep.features.feature_163_markdown_file_creation import (
-            create_feature_163_markdown_file,
-            MARKDOWN_FILENAME,
             COMMIT_MESSAGE,
+            MARKDOWN_FILENAME,
+            create_feature_163_markdown_file,
         )
 
         # Setup mocks
