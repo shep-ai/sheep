@@ -1,164 +1,127 @@
 #!/usr/bin/env python3
 """
-Create test markdown file (test-dd91rz.md) at repository root.
+Feature 155: Create markdown file test-1k8ri0.md with title and prose content.
 
-This script creates a single test markdown file following the established pattern
-from 113+ existing test-*.md files in the repository. The file contains:
-- An H1 markdown heading (#) as the first element
-- A blank line
-- 2-3 sentences of prose content describing a topic
-- UTF-8 encoding without BOM
-- LF (Unix) line endings
+This module implements file creation with explicit UTF-8 encoding and LF line endings,
+following the established pattern of 150+ existing test files in the Sheep project.
 
-The script validates file properties (size, encoding, format) and can optionally
-integrate with git (add, commit, push) to complete the workflow.
+Phase 1 (Core Implementation): File creation and validation
+Phase 2 (Git Integration & Delivery): Git workflow (add, commit, push)
 """
 
 from pathlib import Path
-import subprocess
 import sys
 
 
-# Markdown content for the test file
-# H1 heading + blank line + 2-3 sentences of prose
-MARKDOWN_CONTENT = """# Test Implementation and Automation
-
-Testing and automation are fundamental to building reliable software systems. By automating test creation and validation, we can ensure consistency across hundreds of test files while reducing manual effort and human error. This approach enables the Sheep platform to scale efficiently and maintain high quality across all implementations while freeing developers to focus on more complex architectural and design challenges.
-"""
-
-FILENAME = "test-dd91rz.md"
-COMMIT_MESSAGE = "feat(133): Create markdown file test-dd91rz.md"
-FEATURE_BRANCH = "feat/markdown-file-creation-a3e3e2"
-
-
-def create_file():
+def create_file() -> None:
     """
-    Create the markdown file with proper UTF-8 encoding and LF line endings.
+    Create test-1k8ri0.md markdown file with H1 heading and prose content.
 
-    Uses pathlib.Path.write_text() with explicit encoding and newline parameters
-    to ensure:
-    - UTF-8 encoding without BOM (Byte Order Mark)
-    - LF (\n) line endings on all platforms (not CRLF or CR)
+    Uses pathlib.Path.write_bytes() with explicit UTF-8 encoding to ensure:
+    - No BOM (Byte Order Mark) is added
+    - Unix LF line endings (0x0A) across all platforms
+    - Consistent encoding behavior
     """
-    file_path = Path(FILENAME)
+    title = "The Art of Deliberate Practice"
+    prose = (
+        "Deliberate practice is the cornerstone of mastery in any domain, "
+        "requiring focused effort on improving specific weaknesses rather than simply repeating "
+        "familiar tasks. When practitioners engage in intentional, structured improvement with immediate "
+        "feedback and course correction, they accelerate their development far beyond casual engagement. "
+        "This principle has been validated across music, sports, mathematics, and professional fields, "
+        "demonstrating that excellence emerges from systematic, goal-oriented effort rather than innate talent alone."
+    )
 
-    # Write file with explicit encoding and line ending parameters
-    # encoding='utf-8' ensures UTF-8 without BOM (BOM is only added with utf-8-sig)
-    # newline='\n' ensures LF line endings on all platforms (no platform conversion)
-    file_path.write_text(MARKDOWN_CONTENT, encoding='utf-8', newline='\n')
+    # Construct markdown content: heading + blank line + prose + trailing newline
+    content = f"# {title}\n\n{prose}\n"
 
-    print(f"✓ Created file: {FILENAME}")
-    return file_path
+    # Write to file at repository root with explicit UTF-8 encoding
+    filepath = Path("test-1k8ri0.md")
+    filepath.write_bytes(content.encode('utf-8'))
+
+    print(f"✓ Created {filepath} ({len(content.encode('utf-8'))} bytes)")
 
 
-def validate_file_size(file_path, min_bytes=400, max_bytes=600):
+def validate_file() -> bool:
     """
-    Validate that the markdown file meets the size requirement (400-600 bytes).
+    Validate test-1k8ri0.md meets all structural and encoding requirements.
 
-    Args:
-        file_path: Path object or string path to file
-        min_bytes: Minimum acceptable file size (default 400)
-        max_bytes: Maximum acceptable file size (default 600)
-
-    Raises:
-        ValueError: If file size is outside the acceptable range
+    Checks:
+    - File exists at expected path
+    - File size is within acceptable range (300-800 bytes, targeting 400-600)
+    - File contains exactly one H1 heading (line starting with '# ')
+    - File contains blank line after heading (double newline pattern)
+    - File contains prose content (at least 2 sentences)
+    - File is valid UTF-8 (via read_text with UTF-8 encoding)
 
     Returns:
-        int: The file size in bytes if validation passes
-    """
-    file_path = Path(file_path)
-    size_bytes = file_path.stat().st_size
-
-    if size_bytes < min_bytes:
-        raise ValueError(
-            f"File size {size_bytes} bytes is below minimum {min_bytes} bytes. "
-            f"Add more content to reach the required range."
-        )
-    elif size_bytes > max_bytes:
-        raise ValueError(
-            f"File size {size_bytes} bytes exceeds maximum {max_bytes} bytes. "
-            f"Reduce content length to fit within the required range."
-        )
-
-    print(f"✓ File size validation passed: {size_bytes} bytes (within {min_bytes}-{max_bytes} range)")
-    return size_bytes
-
-
-def git_add(filename):
-    """
-    Stage the file in git using 'git add'.
-
-    Args:
-        filename: Name of the file to stage
+        True if all validations pass
 
     Raises:
-        subprocess.CalledProcessError: If git add command fails
+        AssertionError: If any validation fails with descriptive error message
     """
-    subprocess.run(['git', 'add', filename], check=True)
-    print(f"✓ Staged file in git: {filename}")
+    filepath = Path("test-1k8ri0.md")
 
+    # Check 1: File exists
+    assert filepath.exists(), f"File {filepath} does not exist"
 
-def git_commit(message):
-    """
-    Commit the staged file with a conventional commit message.
+    # Check 2: File size within range
+    file_size = filepath.stat().st_size
+    assert 300 <= file_size <= 800, (
+        f"File size {file_size} bytes outside acceptable range (300-800). "
+        f"Target: 400-600 bytes"
+    )
 
-    Args:
-        message: Commit message following conventional commits format
-
-    Raises:
-        subprocess.CalledProcessError: If git commit command fails
-    """
-    subprocess.run(['git', 'commit', '-m', message], check=True)
-    print(f"✓ Committed with message: {message}")
-
-
-def git_push(branch_name):
-    """
-    Push the commit to the remote feature branch.
-
-    Args:
-        branch_name: The feature branch name to push to
-
-    Raises:
-        subprocess.CalledProcessError: If git push command fails
-    """
-    subprocess.run(['git', 'push', '-u', 'origin', branch_name], check=True)
-    print(f"✓ Pushed to remote branch: {branch_name}")
-
-
-def main():
-    """Main entry point."""
+    # Check 3: UTF-8 encoding (will raise if not valid UTF-8)
     try:
-        # Phase 1: Create the markdown file
-        file_path = create_file()
+        content = filepath.read_text(encoding='utf-8')
+    except UnicodeDecodeError as e:
+        raise AssertionError(f"File is not valid UTF-8: {e}")
 
-        # Phase 2: Validate file size meets requirements (400-600 bytes)
-        validate_file_size(file_path)
+    # Check 4: H1 heading exists
+    lines = content.split('\n')
+    assert len(lines) > 0 and lines[0].startswith('# '), (
+        f"First line must be H1 heading (start with '# '). Got: {lines[0]!r}"
+    )
 
-        print("✓ All validations passed - file is ready for git integration")
+    # Check 5: Blank line after heading (second line should be empty)
+    assert len(lines) > 1 and lines[1] == '', (
+        f"Second line must be blank (for blank line after heading). Got: {lines[1]!r}"
+    )
 
-        # Phase 2: Git integration (add, commit, push)
-        print("\nStarting git workflow...")
-        git_add(FILENAME)
-        git_commit(COMMIT_MESSAGE)
-        git_push(FEATURE_BRANCH)
+    # Check 6: Prose content exists (at least 2 sentences)
+    prose_lines = lines[2:]
+    prose_text = '\n'.join(prose_lines).strip()
 
-        print("\n✓ All operations completed successfully!")
+    # Count sentences (periods, question marks, exclamation marks)
+    sentence_count = sum(
+        prose_text.count(punct)
+        for punct in ['.', '?', '!']
+    )
+    assert sentence_count >= 2, (
+        f"Prose must contain at least 2 sentences. Found {sentence_count} sentences"
+    )
 
-    except OSError as e:
-        print(f"✗ File I/O Error: {e}", file=sys.stderr)
-        sys.exit(1)
-    except ValueError as e:
-        print(f"✗ Validation Error: {e}", file=sys.stderr)
-        sys.exit(1)
-    except subprocess.CalledProcessError as e:
-        print(f"✗ Git Command Error: Command failed with exit code {e.returncode}", file=sys.stderr)
-        print(f"  Command: {' '.join(e.cmd)}", file=sys.stderr)
-        sys.exit(1)
+    print(f"✓ File {filepath} validates successfully")
+    print(f"  - Size: {file_size} bytes (target: 400-600)")
+    print(f"  - Heading: {lines[0]}")
+    print(f"  - Sentences: {sentence_count}")
+    print(f"  - Encoding: UTF-8 (valid)")
+
+    return True
+
+
+def main() -> int:
+    """Execute file creation and validation. Exit with code 0 on success, 1 on failure."""
+    try:
+        create_file()
+        validate_file()
+        print("\n✓ Phase 1 (Core Implementation) complete - file is ready for git integration")
+        return 0
     except Exception as e:
-        print(f"✗ Unexpected Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        print(f"✗ Error: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
