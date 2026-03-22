@@ -1,0 +1,397 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-834788"
+summary: >
+  Technical research for Feature 164: Creating a markdown file with H1 heading and 2-3 sentences of prose.
+  The feature leverages existing content generation, file I/O, and git operation infrastructure from content_generators.py
+  following the established pattern from 163+ preceding features. No new dependencies or architectural changes required—
+  implementation is a straightforward orchestration of validated helper functions with strict validation and fail-fast error handling.
+
+relatedFeatures:
+  - "163: markdown-file-creation (immediately preceding reference implementation)"
+  - "162: markdown-file-creation (reference implementation with identical pattern)"
+  - "069: markdown-file-creation (first markdown-file-creation feature — established the pattern)"
+
+technologies:
+  - "Python 3.11+ (type hints, Path, pathlib)"
+  - "CrewAI (LLM orchestration framework, already installed)"
+  - "Claude API (via CrewAI LLM interface for content generation)"
+  - "GitPython (git operations via CrewAI tools)"
+  - "Pydantic (data validation in git tools)"
+  - "sheep.observability.logging (structured logging)"
+  - "sheep.content_generators (helper functions for content generation, file I/O, validation, git operations)"
+  - "sheep.config.llm (LLM factory functions)"
+
+relatedLinks:
+  - title: "Feature 163 Implementation (Immediate Precedent)"
+    url: "file:///src/sheep/features/feature_163_markdown_file_creation.py"
+  - title: "Feature 163 Research (Technical Analysis Template)"
+    url: "file:///specs/163-markdown-file-creation-938025/research.yaml"
+  - title: "Content Generators Module (Infrastructure)"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "CrewAI Framework Documentation"
+    url: "https://docs.crewai.com"
+  - title: "GitPython Documentation"
+    url: "https://gitpython.readthedocs.io"
+
+decisions:
+  - title: "Content Generation Approach"
+    chosen: "Use Claude API via content_generators.generate_markdown_content()"
+    rejected:
+      - "Hard-code prose content as a static string — Contradicts established pattern from Feature 163 and specification requirement; eliminates content variety; simpler but reduces value of using LLM capabilities."
+      - "Use external content API beyond Claude — Adds complexity, requires new dependency, contradicts specification which mandates Claude API, increases latency and cost."
+    rationale: >
+      Using Claude API via the existing generate_markdown_content() function is the clear choice because:
+      (1) It matches the spec requirement which explicitly states \"Content must be generated using Claude API\"
+      (2) Feature 163 (and all 162+ preceding features) establish this pattern as the baseline approach
+      (3) The helper function is already implemented, tested, and available in content_generators.py
+      (4) It provides content variety and leverages LLM capabilities as intended by the project
+      (5) It maintains consistency with the architectural vision across all 164+ features
+      The LLM generates an H1 heading and 2-3 sentences via the MARKDOWN_GENERATION_PROMPT already defined in content_generators.py.
+      This approach is proven by Feature 163's working implementation and ensures quality prose content.
+
+  - title: "File I/O and Encoding Strategy"
+    chosen: "Use content_generators.write_markdown_file() for all file operations with UTF-8 encoding and LF line endings"
+    rejected:
+      - "Write files directly with Python open() and manage encoding manually — Duplicates existing code in content_generators.py, risks encoding errors or platform-specific line endings (CRLF on Windows), violates DRY principle and breaks established pattern."
+      - "Use pathlib.Path.write_text() with manual encoding parameters — Similar to above: duplicates existing infrastructure, no added value, increases testing burden."
+    rationale: >
+      The content_generators.write_markdown_file() function provides exactly what's needed:
+      (1) Writes to repository root with Path.cwd() ensuring consistent location
+      (2) Uses UTF-8 encoding with proper handling (no BOM, Unix LF line endings)
+      (3) Validates file was created and contains content (prevents silent failures)
+      (4) Already tested across Features 157-163 with proven reliability
+      (5) Returns the filepath for downstream operations
+      This function enforces platform-independent line endings (LF only, no CRLF) which is required by specification.
+      No custom implementation needed; leverage existing, tested infrastructure.
+
+  - title: "Validation Strategy"
+    chosen: "Use content_generators.validate_markdown_file() with strict format enforcement and fail-fast error handling"
+    rejected:
+      - "Implement custom lightweight validation (e.g., just check file exists) — Risks committing invalid markdown that doesn't meet specification; violates validation requirements; fails to catch format errors early."
+      - "Skip validation entirely and let git operations handle errors — Violates specification, allows invalid files into repository, no early error detection, creates bad commits."
+    rationale: >
+      Strict validation before commit is the right choice because:
+      (1) It matches the specification requirement which mandates validation before commit
+      (2) content_generators.validate_markdown_file() enforces all format requirements:
+          - H1 heading check (# prefix)
+          - Blank line separator after heading
+          - 2-3 sentence prose content (validated by period count)
+          - UTF-8 encoding with no BOM
+          - Unix LF line endings (no CRLF)
+          - Trailing newline
+      (3) Prevents invalid files from being committed (protects repository integrity)
+      (4) Provides clear error messages for debugging
+      (5) Already proven across 163+ preceding features
+      This function will raise ValueError with descriptive message if any requirement unmet, enabling clean fail-fast behavior.
+
+  - title: "Error Handling Approach"
+    chosen: "Fail fast on any error; let exceptions propagate to caller without recovery attempts"
+    rejected:
+      - "Attempt recovery (e.g., regenerate content on validation failure) — More complex error handling, higher latency if retried, masks underlying issues, contradicts specification."
+      - "Log errors and continue as if succeeded — Allows silent failures, corrupts state, produces invalid output, violates specification success criteria."
+    rationale: >
+      Fail-fast error handling is correct because:
+      (1) It allows upstream decision-making: caller can decide whether to retry or fix the root cause
+      (2) It prevents masking of underlying issues (encoding problems, LLM failures, file system issues)
+      (3) It simplifies error handling logic (no complex retry loops or backoff)
+      (4) It maintains clear contract: function either succeeds completely or raises an exception
+      The implementation catches broad Exception in the try-except to log errors, then re-raises for caller to handle.
+      This is exactly what Feature 163 does and is the proven approach across all preceding features.
+
+  - title: "Git Operation Integration"
+    chosen: "Use existing helper functions from content_generators.py: commit_markdown_file() and push_markdown_file()"
+    rejected:
+      - "Implement git operations directly using GitPython or subprocess — Duplicates existing code in content_generators.py, risks implementation differences, doesn't leverage proven/tested infrastructure, violates DRY principle."
+      - "Use CrewAI GitCommitTool and GitPushTool directly — Bypasses content_generators abstractions, duplicates logic already in helper functions, increases implementation complexity."
+    rationale: >
+      Using the existing helper functions is the clear choice because:
+      (1) content_generators.commit_markdown_file() already implements:
+          - Stage with add_all=True
+          - Commit with custom message parameter (allows exact format control)
+          - Uses GitCommitTool internally (CrewAI integration already handled)
+          - Returns commit result for logging
+      (2) content_generators.push_markdown_file() already implements:
+          - Push to origin remote (default)
+          - set_upstream=True for feature branch tracking
+          - Uses GitPushTool internally
+          - Returns push result for return value
+      (3) Both functions include logging at INFO and DEBUG levels
+      (4) Both have been tested across 163+ preceding features with proven reliability
+      No value in reimplementing these; the abstraction is appropriate and tested.
+
+  - title: "Module Organization and Exports"
+    chosen: "Create feature_164_markdown_file_creation.py with function create_feature_164_markdown_file(); export from features/__init__.py"
+    rejected:
+      - "Inline feature code in __init__.py or a shared utility — Breaks modularity, makes __init__.py difficult to maintain with 164+ features, violates established pattern, reduces code clarity."
+      - "Use a generic feature factory or registry — Adds unnecessary abstraction layer, increases complexity, contradicts established one-module-per-feature pattern used across codebase."
+    rationale: >
+      Following the established module pattern is correct because:
+      (1) Every feature (001-163) uses one module per feature: feature_N_markdown_file_creation.py
+      (2) This pattern is clear, scalable, and consistent across 163+ existing features
+      (3) Each module contains exactly what's needed:
+          - Docstring explaining purpose and workflow
+          - Feature metadata as module-level constants (FEATURE_NUMBER, MARKDOWN_FILENAME, COMMIT_MESSAGE)
+          - One public function: create_feature_164_markdown_file(repo_path: str | None = None)
+          - One return type: dict[str, str] with keys: filepath, content, commit_message, push_result
+      (4) Module is then exported from features/__init__.py for public API access
+      (5) This makes testing, discovery, and maintenance straightforward
+      Implementation should mirror Feature 163 structure exactly, substituting Feature 164 identifiers.
+
+  - title: "Logging Strategy"
+    chosen: "Use sheep.observability.logging.get_logger() with INFO level for major steps and DEBUG level for details"
+    rejected:
+      - "Use print() statements instead of structured logging — Loses structured log context, harder to filter/search logs, doesn't integrate with observability infrastructure, unprofessional for production code."
+      - "Omit logging entirely — Reduces debuggability, makes it hard to trace execution flow, violates specification requirement for structured logging."
+    rationale: >
+      Structured logging via get_logger() is correct because:
+      (1) It's required by specification
+      (2) It matches the logging pattern in Feature 163:
+          - INFO level for orchestration steps: content generation, file write, validation, commit, push
+          - DEBUG level for details: content size, filepath, commit message, push result
+          - ERROR level with exception context if something fails
+      (3) It integrates with the platform's observability infrastructure (logs can be indexed, searched, analyzed)
+      (4) It provides context (module name via __name__, log level, timestamp) automatically
+      The pattern: _logger = get_logger(__name__) at module top, then _logger.info/debug/error throughout.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-22
+  - **Status:** Complete - All technical decisions documented; ready for implementation
+  - **Precedent:** Feature 163 (identical pattern, just different filename and feature number)
+
+  ## Technology Stack Overview
+
+  Feature 164 uses the exact same technology stack as Features 001-163:
+
+  - **Python 3.11+:** Type hints, pathlib.Path, standard library utilities
+  - **CrewAI:** LLM orchestration framework (already installed)
+  - **Claude API:** Content generation via CrewAI's LLM interface
+  - **GitPython:** Git operations (used indirectly via CrewAI tools)
+  - **Pydantic:** Data validation models (used in CrewAI tools)
+  - **sheep.observability.logging:** Structured logging infrastructure
+  - **sheep.content_generators:** Reusable helper functions (5 functions needed)
+  - **sheep.config.llm:** LLM configuration and factory functions
+
+  **No new dependencies required.** All technologies are already installed and proven across 163+ preceding features.
+
+  ---
+
+  ## Technology Decisions Summary
+
+  ### Decision 1: Content Generation
+  **Chosen:** Use `content_generators.generate_markdown_content()` which calls Claude API via CrewAI's LLM interface.
+  **Rationale:** Specification requires Claude API. Feature 163 establishes this as the proven pattern. The helper function is already implemented, tested, and proven across 163+ features.
+
+  ### Decision 2: File I/O Strategy
+  **Chosen:** Use `content_generators.write_markdown_file()` for all file operations.
+  **Rationale:** Provides UTF-8 encoding with no BOM, Unix LF line endings, file validation, and tested across 163+ features.
+
+  ### Decision 3: Validation Strategy
+  **Chosen:** Use `content_generators.validate_markdown_file()` with strict format enforcement.
+  **Rationale:** Specification mandates validation before commit. Enforces H1 heading, blank line, 2-3 sentences, UTF-8, LF, trailing newline.
+
+  ### Decision 4: Error Handling
+  **Chosen:** Fail fast on any error; let exceptions propagate without recovery attempts.
+  **Rationale:** Allows caller decision-making, prevents masking issues, simplifies logic, maintains clear execution contract.
+
+  ### Decision 5: Git Operations
+  **Chosen:** Use existing helpers: `commit_markdown_file()` and `push_markdown_file()`.
+  **Rationale:** Provides abstraction, tested across 163+ features, custom messaging support, upstream tracking.
+
+  ### Decision 6: Module Organization
+  **Chosen:** Create `feature_164_markdown_file_creation.py` with function `create_feature_164_markdown_file()`.
+  **Rationale:** One-module-per-feature pattern established across 163+ features; clear, scalable, maintainable.
+
+  ### Decision 7: Logging Strategy
+  **Chosen:** Use `sheep.observability.logging.get_logger()` with INFO for steps, DEBUG for details.
+  **Rationale:** Specification requirement. Integrates with platform observability. Proven pattern from Feature 163.
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Rationale |
+  | ------- | ------- | -------- | --------- |
+  | CrewAI | LLM orchestration | **Use** (already installed) | Provides abstraction layer for Claude API |
+  | Claude API | Content generation | **Use** (via CrewAI) | Required by specification |
+  | GitPython | Git operations | **Use** (via CrewAI tools) | Underlying implementation for git tools |
+  | Pydantic | Data validation | **Use** (already installed) | Used in CrewAI tools |
+  | pathlib.Path | File system ops | **Use** | Standard library; cross-platform paths |
+  | sheep.observability.logging | Structured logging | **Use** (required) | Integration with platform observability |
+  | sheep.content_generators | Helper functions | **Use** (required) | All needed functions already implemented |
+  | sheep.config.llm | LLM factory functions | **Use** (required) | Claude API configuration and access |
+
+  **Conclusion:** No new dependencies required. All libraries already installed and proven across 163+ features.
+
+  ---
+
+  ## Security Considerations
+
+  ### API Key Management
+  - Claude API keys managed by CrewAI and sheep.config.llm modules
+  - API keys read from environment variables via Pydantic SecretStr (prevents accidental logging)
+  - Feature code does not handle API keys directly
+  - No credentials stored in code or committed to repository
+
+  ### File Path Security
+  - `write_markdown_file()` validates filename against path traversal attacks
+  - Checks: "/" and "\\" not in filename, filename doesn't start with "."
+  - Files created only in repository root (Path.cwd()), not arbitrary locations
+  - Path validated before all file operations
+
+  ### Content Injection Prevention
+  - Markdown content generated by Claude API; no user input in feature code
+  - File content validated before commit (structure validation, encoding checks)
+  - Git commit message is hardcoded constant COMMIT_MESSAGE
+  - Git operations use CrewAI tools (subprocess.run with list args, no shell=True)
+
+  ### Encoding Security
+  - UTF-8 encoding enforced (no BOM, no other encodings)
+  - LF line endings enforced (no CRLF which can cause version control issues)
+  - Validation ensures file bytes match expected encoding before accepting file
+  - Prevents binary files or malformed encodings from being committed
+
+  ### Reproducibility and Auditability
+  - All operations logged with timestamps and structured context
+  - Git commits follow conventional commit format (feat(164): ...)
+  - File creation is reproducible
+  - All operations are idempotent if file exists and is valid
+
+  ---
+
+  ## Performance Analysis
+
+  ### Execution Time Breakdown
+  - **Content Generation:** ~2-5 seconds (Claude API call via CrewAI)
+  - **File I/O:** ~100-200 ms (write to disk, validation)
+  - **Git Operations:** ~500 ms - 1 second (commit + push)
+  - **Total Expected Time:** 3-7 seconds
+
+  ### Memory Usage
+  - Minimal footprint: ~300-600 bytes for generated markdown content
+  - No data structures or caching beyond what helpers provide
+  - No streaming or batch operations needed
+
+  ### API Usage
+  - One Claude API call for content generation
+  - Temperature 0.2 (reasoning model) = lower token usage
+  - Typical prompt + response: ~200-500 tokens
+
+  ### Optimization Notes
+  - No optimization needed; performance is not a constraint
+  - Helpers already implement efficient operations
+  - Validation uses efficient binary reads
+  - Git operations use subprocess.run with capture_output
+
+  ---
+
+  ## Architecture & Integration
+
+  ### Content Generation Pipeline
+  - Feature uses `sheep.content_generators.generate_markdown_content()`
+  - Calls `get_reasoning_llm()` from `sheep.config.llm`
+  - Creates CrewAI LLM instance configured for Claude API
+  - Integration is clean: feature doesn't know implementation details
+  - Pattern proven across Features 001-163
+
+  ### Module Structure
+  File: `src/sheep/features/feature_164_markdown_file_creation.py`
+  Constants: FEATURE_NUMBER (164), MARKDOWN_FILENAME (test-qmgc7d.md), COMMIT_MESSAGE
+  Function: `create_feature_164_markdown_file(repo_path: str | None = None)`
+
+  ### Orchestration Pattern (5 Tasks)
+  1. Content generation
+  2. File writing
+  3. Validation
+  4. Commit with custom message
+  5. Push with upstream tracking
+
+  ### Return Value
+  `dict[str, str]` with keys: filepath, content, commit_message, push_result
+
+  ### Error Handling Pattern
+  - Try-catch wrapping all tasks
+  - Errors logged at ERROR level with exception message
+  - Exception re-raised for caller to handle
+
+  ### Logging Pattern
+  - INFO level: major steps and success
+  - DEBUG level: operational details
+  - ERROR level: exceptions with context
+
+  ### No Architectural Changes Required
+  - Feature 164 requires NO changes to existing infrastructure
+  - All helpers already exist
+  - No new modules, classes, or dependencies required
+  - Only new file: `feature_164_markdown_file_creation.py`
+  - Only module change: add import/export in `features/__init__.py`
+  - Consistent with how Features 001-163 were added
+
+  ---
+
+  ## Implementation Reference
+
+  ### Reference Implementation: Feature 163
+  - Provides exact structure for Feature 164 (only filenames/numbers differ)
+  - Uses Claude API for content generation (matches specification)
+  - File: `src/sheep/features/feature_163_markdown_file_creation.py`
+  - ~110 lines of code with clear orchestration
+
+  ### Key Constants
+  - FEATURE_NUMBER = 164
+  - MARKDOWN_FILENAME = "test-qmgc7d.md"
+  - COMMIT_MESSAGE = "feat(164): Create markdown file test-qmgc7d.md with prose content"
+
+  ### Filename Validation
+  - Filename `test-qmgc7d.md` is specified in feature spec
+  - Must match exactly (no variation or derivation)
+  - Validation in `write_markdown_file()` ensures no path traversal
+
+  ---
+
+  ## Testing Strategy
+
+  ### Unit Tests
+  - Mirror Feature 163 test structure
+  - Mock all helpers: generate_markdown_content, write_markdown_file, validate_markdown_file, commit_markdown_file, push_markdown_file
+  - Test orchestration order: verify all 5 tasks called in sequence
+  - Test return value structure: verify dict contains filepath, content, commit_message, push_result
+  - Test error handling: mock helpers to raise exceptions, verify exception propagates
+
+  ### Integration Test
+  - Run feature end-to-end
+  - Verify file exists in repository root
+  - Verify file content matches specification (H1 heading + 2-3 sentences)
+  - Verify git commit was created with correct message
+  - Verify git push succeeded
+
+  ---
+
+  ## Summary
+
+  ### Why This Approach Is Optimal
+
+  1. **Proven:** Features 001-163 establish the pattern successfully
+  2. **Consistent:** Follows existing architecture without modifications
+  3. **Simple:** ~110 lines of code, mostly orchestration
+  4. **Reliable:** Leverages tested infrastructure, not custom implementations
+  5. **Scalable:** Pattern applies identically to Features 165+
+  6. **Well-Documented:** Clear docstrings, logs, error messages
+  7. **Secure:** No API keys, path traversal, or injection vulnerabilities
+  8. **Fast:** Implementation time ~10-15 minutes, runtime ~3-7 seconds
+  9. **Testable:** Unit and integration test patterns already established
+  10. **Compliant:** Meets all functional and non-functional requirements
+
+  ### No Unresolved Questions
+
+  All technical questions have been resolved through analysis of existing implementations (Features 001-163) and infrastructure. Implementation can proceed immediately following the Feature 163 template.
+
+  ---
+
+  _Research completed: 2026-03-22_
