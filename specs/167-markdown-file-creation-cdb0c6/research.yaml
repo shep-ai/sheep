@@ -1,0 +1,389 @@
+name: "markdown-file-creation-cdb0c6"
+summary: >
+  Feature 167 will follow the proven pattern from 166 prior markdown file creation features.
+  All required infrastructure (content generation, file I/O, validation, git operations, logging)
+  is already in place and generalized for reuse. No new dependencies, architectural changes, or
+  complex logic are needed. Implementation is straightforward copy-adapt pattern requiring ~1-1.5 hours.
+
+relatedFeatures:
+  - "feature-166-markdown-file-creation"
+  - "feature-165-markdown-file-creation"
+  - "feature-164-markdown-file-creation"
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI 0.86.0+ (LLM orchestration)"
+  - "Anthropic Claude (content generation via CrewAI)"
+  - "GitPython 3.1.0+ (git operations)"
+  - "Pydantic 2.0+ (data validation)"
+  - "structlog 24.0.0+ (structured logging)"
+  - "Pathlib (path operations)"
+  - "UTF-8 text encoding"
+  - "Unix LF line endings"
+
+relatedLinks:
+  - title: "Sheep Platform Overview"
+    url: "https://github.com/anthropics/sheep/blob/main/README.md"
+  - title: "Feature 166 Implementation Reference"
+    url: "https://github.com/anthropics/sheep/blob/main/src/sheep/features/feature_166_markdown_file_creation.py"
+  - title: "Content Generators Utilities"
+    url: "https://github.com/anthropics/sheep/blob/main/src/sheep/content_generators.py"
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "Feature Module Structure"
+    chosen: "Copy established pattern from feature_166 with updated constants"
+    rejected:
+      - "Create new module from scratch — wastes time and introduces inconsistency with 166 proven features"
+      - "Use the generic create_markdown_file() utility directly — doesn't follow established feature module pattern and loses feature-specific metadata"
+    rationale: >
+      All 166 prior features follow an identical module structure with feature-specific metadata
+      (FEATURE_NUMBER, MARKDOWN_FILENAME, COMMIT_MESSAGE). This provides consistency, enables feature
+      tracking, and maintains observability. The pattern is minimal overhead (~20 lines of orchestration)
+      and has proven successful across the entire feature series. Copying feature_166 and updating
+      constants requires minimal effort while maintaining all established patterns and conventions.
+
+  - title: "Content Generation Strategy"
+    chosen: "Use existing generate_markdown_content() from content_generators module"
+    rejected:
+      - "Implement custom LLM prompt — existing prompt is well-tested and produces valid output"
+      - "Use alternative LLM service — CrewAI with Claude is already configured and integrated"
+    rationale: >
+      The existing generate_markdown_content() function uses CrewAI with Claude API and produces
+      H1 heading + 2-3 sentences reliably. The prompt is proven across 166 prior features with 100%
+      success rate. Creating custom prompts or switching LLM services would add unnecessary complexity,
+      risk, and deviation from established patterns. Reusing the existing infrastructure ensures
+      consistency and avoids reinventing proven solutions.
+
+  - title: "File I/O Implementation"
+    chosen: "Use existing write_markdown_file() and validate_markdown_file() utilities"
+    rejected:
+      - "Write custom file I/O code — existing utilities handle all requirements"
+      - "Use simpler open()/write() without validation — loses consistency with established patterns"
+    rationale: >
+      Existing utilities in content_generators.py already handle all file I/O requirements.
+      write_markdown_file() writes UTF-8 with LF line endings, validate_markdown_file() checks
+      encoding, line endings, H1 presence, sentence count, and file structure. These are
+      battle-tested across 166 features. Reusing them ensures consistency and eliminates
+      duplication while maintaining high code quality standards.
+
+  - title: "Git Integration Approach"
+    chosen: "Use existing commit_markdown_file() and push_markdown_file() with custom_message"
+    rejected:
+      - "Use GitPython directly — existing utilities already abstract this"
+      - "Create commit without custom message — would lose feature-specific metadata"
+    rationale: >
+      Existing utilities in content_generators.py provide abstraction over GitPython, handle
+      staging/committing/pushing, and support custom commit messages. The custom_message parameter
+      allows feature-specific messages following conventional commit format. This approach maintains
+      consistency with 166 prior features and ensures proper commit history tracking.
+
+  - title: "Logging Implementation"
+    chosen: "Use existing get_logger() from sheep.observability.logging with structlog"
+    rejected:
+      - "Use print() statements — loses structured logging benefits"
+      - "Implement custom logging — existing structlog setup provides rich context"
+    rationale: >
+      All features use structured logging via get_logger(). This provides rich contextual information,
+      consistent formatting, configurable log levels, and integration with observability tools.
+      Existing pattern in feature_166 demonstrates proper use of logger for all major operations.
+
+  - title: "Validation Strategy"
+    chosen: "Strict enforcement at three validation points with clear error messages"
+    rejected:
+      - "Warning-only validation — reduces consistency and allows invalid output"
+      - "No validation — loses quality assurance and consistency guarantees"
+    rationale: >
+      All 166 prior features enforce strict validation at three layers: content validation,
+      file property validation, and markdown structure validation. This three-layer approach
+      catches issues early, prevents invalid output from being committed, and maintains
+      consistency across the entire feature series.
+
+openQuestions:
+  - question: "Should the implementation strictly follow the feature_166 pattern?"
+    resolved: true
+    options:
+      - option: "Follow feature_166 pattern exactly"
+        description: >
+          Copy feature_166 module structure and update only the three constants.
+          Ensures maximum consistency and minimizes implementation risk.
+        selected: true
+      - option: "Adapt pattern with minor improvements"
+        description: >
+          Make small improvements to code structure while maintaining core pattern.
+          Risks introducing inconsistencies with 166 prior features.
+        selected: false
+      - option: "Use generic create_markdown_file() utility directly"
+        description: >
+          Skip feature module and call generic utility. Loses feature-specific metadata
+          and breaks consistency pattern.
+        selected: false
+    selectionRationale: >
+      Following the feature_166 pattern exactly is strongly recommended because all 166 prior
+      features use identical structure, ensuring consistency. Three constants are trivial to
+      update. Zero deviation minimizes risk. Pattern has proven reliable across entire feature
+      series. Consistency across 166 features is a critical advantage.
+
+  - question: "Should content generation include file size validation (300-600 bytes)?"
+    resolved: true
+    options:
+      - option: "Strict enforcement (fail if outside range)"
+        description: >
+          Validate file size after generation. Ensures consistent output.
+          Proven range has worked reliably across 166 features.
+        selected: true
+      - option: "Warning only (log but continue)"
+        description: >
+          Log warning if outside range but continue. Allows flexibility while
+          maintaining observability. May produce inconsistent output.
+        selected: false
+      - option: "No validation (treat as guidance)"
+        description: >
+          Omit validation. Simplest implementation but sacrifices consistency
+          and breaks established validation pattern.
+        selected: false
+    selectionRationale: >
+      Strict enforcement is recommended because all 166 prior features enforce this constraint,
+      the 300-600 byte range has proven appropriate and achievable, strict enforcement catches
+      issues early, and validation cost is minimal. This aligns with strict validation philosophy
+      applied consistently across all 166 features.
+
+  - question: "Should the feature module include a direct execution block?"
+    resolved: true
+    options:
+      - option: "Include if __name__ == '__main__' block"
+        description: >
+          Enable direct script execution for quick validation during development.
+          Follows pattern from all 166 prior features.
+        selected: true
+      - option: "Omit main block"
+        description: >
+          Skip main block and require test runner. Simpler code but deviates from
+          established patterns and reduces developer experience.
+        selected: false
+      - option: "Add main block with alternate invocation"
+        description: >
+          Include main block but use different invocation pattern. Adds complexity
+          and deviates from consistent pattern.
+        selected: false
+    selectionRationale: >
+      Including the main block is recommended because all 166 prior features include it,
+      it enables quick validation, supports ad-hoc testing and debugging, adds minimal overhead,
+      and improves developer experience. The pattern is proven and valuable across the entire
+      feature series.
+
+content: |
+  ## Architecture Overview
+
+  Feature 167 follows the proven pattern from 166 preceding features. No new infrastructure,
+  dependencies, or architectural changes are required. All necessary utilities (content generation,
+  file I/O, validation, git operations, logging) are already in place and proven reliable.
+
+  ### Codebase Architecture
+
+  The Sheep platform follows a layered architecture:
+
+  - **Feature Layer** (`src/sheep/features/`): Individual feature modules orchestrating workflows
+  - **Content Generation Layer** (`sheep.content_generators`): Reusable utilities for markdown operations
+  - **LLM Layer** (`sheep.config.llm`): LLM configuration via CrewAI
+  - **Git Layer** (`sheep.tools`): GitCommitTool and GitPushTool for version control
+  - **Logging Layer** (`sheep.observability.logging`): Structured logging via structlog
+  - **Configuration Layer** (`sheep.config.settings`): Application settings
+
+  This layered architecture enables reuse, testability, and consistency.
+
+  ### Feature 167 Implementation Pattern
+
+  Feature 167 follows the identical pattern from feature_166:
+
+  ```
+  Feature Module (feature_167_markdown_file_creation.py)
+    ├── Module Docstring
+    ├── Constants: FEATURE_NUMBER, MARKDOWN_FILENAME, COMMIT_MESSAGE
+    ├── Function: create_feature_167_markdown_file(repo_path=None) -> dict
+    │   └── Orchestrates workflow:
+    │       1. Generate markdown content (H1 + 2-3 sentences)
+    │       2. Write file to disk (UTF-8, LF line endings)
+    │       3. Validate file (encoding, line endings, structure, size)
+    │       4. Stage and commit with conventional message
+    │       5. Push to remote feature branch
+    ├── Error Handling: Try-except wrapper with structured logging
+    └── if __name__ == '__main__': Direct execution block
+  ```
+
+  All orchestration steps reuse generalized utilities from `sheep.content_generators`.
+
+  ## Technology Decisions
+
+  ### 1. Reuse Existing Content Generation
+
+  **Chosen:** Use `generate_markdown_content()` from `sheep.content_generators`
+
+  **Rationale:**
+  The existing function uses CrewAI with Anthropic Claude, proven across 166 features with
+  consistent reliable output. Creating custom logic would introduce risk and deviation from
+  established patterns. Reusing ensures consistency and leverages proven solutions.
+
+  ### 2. Reuse File I/O and Validation Utilities
+
+  **Chosen:** Use `write_markdown_file()` and `validate_markdown_file()` from utilities
+
+  **Rationale:**
+  Existing utilities handle all requirements: UTF-8 encoding, LF line endings, BOM detection,
+  structure validation, and file size checking. Battle-tested across 166 features. Reusing
+  eliminates duplication and maintains high code quality.
+
+  ### 3. Use Existing Git Integration Pattern
+
+  **Chosen:** Use `commit_markdown_file()` and `push_markdown_file()` with custom_message
+
+  **Rationale:**
+  Existing utilities abstract GitPython, ensure conventional commit format, and support
+  feature-specific commit messages. Maintains consistency with 166 prior features.
+
+  ### 4. Structured Logging
+
+  **Chosen:** Use `get_logger()` from `sheep.observability.logging`
+
+  **Rationale:**
+  All features use structured logging providing consistent formatting, configurable log levels,
+  and integration with observability tools. Existing implementation demonstrates best practices.
+
+  ### 5. Validation Three-Layer Approach
+
+  **Chosen:** Strict enforcement at three validation points
+
+  **Rationale:**
+  All 166 prior features enforce strict validation: content validation, file property validation,
+  and markdown structure validation. This catches issues early and prevents invalid output.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | CrewAI | LLM orchestration | Use (existing) | Already integrated; supports multiple providers |
+  | Claude | Content generation | Use (existing) | Configured in sheep.config.llm; generates coherent markdown |
+  | GitPython | Git operations | Use (existing) | Integrated via GitCommitTool and GitPushTool |
+  | Pydantic | Validation | Use (existing) | Used in configuration layer |
+  | structlog | Logging | Use (existing) | Configured in sheep.observability.logging |
+  | Pathlib | Path operations | Use (existing) | Used throughout codebase |
+  | Rich | Console formatting | Use (existing) | Integrated for logging output |
+
+  **Key Finding:** No new dependencies required. All necessary libraries are already integrated
+  and proven across 166 features.
+
+  ## Security Considerations
+
+  ### Input Validation
+
+  Content validation at generation and file write stages:
+  - `generate_markdown_content()` validates H1 heading and sentence structure
+  - `write_markdown_file()` validates filename safety (no path traversal)
+  - `validate_markdown_file()` performs comprehensive validation
+
+  **Risk Assessment:** LOW — All inputs from trusted sources (LLM, internal constants).
+
+  ### File System Security
+
+  Safe file operations with encoding validation:
+  - Filename safety check prevents path traversal
+  - Operations confined to repository root
+  - UTF-8 encoding validation
+  - BOM absence check
+
+  **Risk Assessment:** LOW — All operations confined to repository root with validated filenames.
+
+  ### Git Operations
+
+  Safe git operations via GitPython abstraction:
+  - Uses GitCommitTool and GitPushTool abstractions
+  - Feature-controlled commit messages (not user-supplied)
+  - Standard git authentication
+
+  **Risk Assessment:** LOW — Uses established tooling and standard authentication.
+
+  ### LLM API Security
+
+  Configured via environment variables with protected secrets:
+  - API keys managed via pydantic-settings with SecretStr
+  - Configuration isolated in settings module
+  - LLM requests are internal (no external input passed)
+
+  **Risk Assessment:** LOW — API keys are protected and managed securely.
+
+  ## Performance Considerations
+
+  ### Content Generation Latency
+
+  - Typical latency: 2-5 seconds (LLM API call)
+  - No caching needed (each feature generates unique content)
+  - Network-bound (dominates total latency)
+
+  ### File I/O Performance
+
+  - File write: <10ms (local disk I/O)
+  - Validation: <5ms (binary scan)
+  - Total: <20ms (negligible vs LLM latency)
+
+  ### Git Operations Performance
+
+  - Git commit: 50-100ms (local repository operations)
+  - Git push: 1-10 seconds (network-dependent)
+
+  ### Overall Workflow Latency
+
+  - Content generation: 2-5 seconds
+  - File write: <20ms
+  - Git commit: 50-100ms
+  - Git push: 1-10 seconds
+  - **Total: 3-15 seconds per feature**
+
+  **Assessment:** Acceptable. LLM latency dominates and is unavoidable. No optimizations needed.
+
+  ## Size Estimate Validation
+
+  **Estimate: S (Small - 1-1.5 hours)**
+
+  **Breakdown:**
+  - Module creation (copy feature_166): 10 minutes
+  - Update constants (FEATURE_NUMBER, MARKDOWN_FILENAME, COMMIT_MESSAGE): 5 minutes
+  - Code review and verification: 15 minutes
+  - Test creation (optional): 20-30 minutes
+  - Manual validation: 10 minutes
+  - **Total: 60-90 minutes**
+
+  **Rationale:**
+  - Pattern proven across 166 features
+  - All infrastructure exists
+  - No new dependencies
+  - Constants are trivial to update
+  - Reusing existing functions eliminates logic implementation
+  - Testing follows established patterns with minimal customization
+
+  ## Risk Assessment
+
+  **Overall Risk Level: VERY LOW**
+
+  **Key Factors:**
+  - Pattern proven across 166 prior features ✓
+  - All infrastructure already in place ✓
+  - No new dependencies ✓
+  - No architectural changes ✓
+  - Minimal custom logic needed ✓
+  - Comprehensive validation at multiple layers ✓
+  - Structured logging for observability ✓
+
+  **Potential Issues and Mitigations:**
+  1. **LLM API unavailability**: Retry logic in CrewAI, API key validation
+  2. **Git repository not initialized**: Validation in commit_markdown_file()
+  3. **Generated content invalid**: Three-layer validation catches early
+  4. **File write permissions**: Error handling with descriptive messages
+
+  **Conclusion:** Feature 167 follows proven patterns with very low implementation risk.
+
+  ---
+
+  _Research phase completed — ready for implementation_
