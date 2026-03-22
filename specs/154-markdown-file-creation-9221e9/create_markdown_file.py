@@ -124,7 +124,25 @@ def git_operations():
     Raises:
         subprocess.CalledProcessError: If any git command fails
     """
-    pass
+    # Stage the file using git add
+    # check=True ensures CalledProcessError is raised if git add fails
+    print("Staging file with git add...")
+    subprocess.run(["git", "add", "test-fdr055.md"], check=True)
+    print("✓ File staged")
+
+    # Commit the file with conventional commit message
+    # Message format: "feat(154): create markdown file test-fdr055.md with prose content"
+    commit_message = "feat(154): create markdown file test-fdr055.md with prose content"
+    print(f"Committing with message: {commit_message}")
+    subprocess.run(["git", "commit", "-m", commit_message], check=True)
+    print("✓ File committed")
+
+    # Push to remote origin using current branch
+    # The -u flag sets upstream tracking for the current branch
+    # HEAD refers to the current branch being worked on
+    print("Pushing to remote origin...")
+    subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+    print("✓ File pushed to remote")
 
 
 def main():
@@ -148,10 +166,19 @@ def main():
         validate_file(filepath)
         print("✓ File validation passed")
 
-        # Phase 3: Git operations (placeholder for now)
-        print("\nFile creation and validation complete!")
-        print("File is ready for git operations.")
+        # Phase 3: Git integration and execution
+        print("\nPerforming git operations...")
+        git_operations()
+
+        print("\n✓ Workflow complete!")
+        print("File has been created, validated, staged, committed, and pushed to remote.")
         sys.exit(0)
+
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Git command failed: {e}", file=sys.stderr)
+        print(f"Command: {e.cmd}", file=sys.stderr)
+        print(f"Return code: {e.returncode}", file=sys.stderr)
+        sys.exit(1)
 
     except Exception as e:
         print(f"✗ Error: {e}", file=sys.stderr)
