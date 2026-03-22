@@ -33,9 +33,16 @@ def test_llm_settings_providers():
     """Test that LLM settings correctly identify available providers."""
     from sheep.config.settings import LLMSettings
 
-    # No providers configured
-    settings = LLMSettings()
-    assert settings.get_available_providers() == []
+    # No providers configured — clear any API keys from the environment (including CI/agent injection)
+    env_keys = [
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "GOOGLE_API_KEY",
+        "CURSOR_API_KEY",
+    ]
+    with patch.dict(os.environ, {k: "" for k in env_keys}, clear=False):
+        settings = LLMSettings()
+        assert settings.get_available_providers() == []
 
 
 def test_langfuse_settings_configured():
