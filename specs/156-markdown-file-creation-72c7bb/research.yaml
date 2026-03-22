@@ -1,0 +1,396 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-72c7bb
+summary: >
+  Technical analysis for markdown file creation feature 156. Recommends using Python pathlib for
+  file I/O with explicit UTF-8 encoding and LF line endings, subprocess for git operations (standard
+  library only per NFR-6), and hardcoded meaningful prose content. All decisions prioritize simplicity,
+  cross-platform compatibility, and alignment with established patterns from features 153-155.
+
+# Relationships
+relatedFeatures:
+  - number: 155
+    name: markdown-file-creation
+    relationship: "Identical implementation pattern and requirements"
+  - number: 154
+    name: markdown-file-creation
+    relationship: "Identical implementation pattern and requirements"
+  - number: 153
+    name: markdown-file-creation
+    relationship: "Identical implementation pattern and requirements"
+
+technologies:
+  - "Python pathlib (file I/O)"
+  - "Python subprocess (git operations)"
+  - "Python standard library (no external dependencies)"
+  - "Git command-line tool"
+  - "Markdown (file format)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "File Creation Method"
+    chosen: "Python pathlib.Path with explicit encoding and newline parameters"
+    rejected:
+      - "open() function — older style, less ergonomic API, requires explicit file handle management"
+      - "os.open() — lower-level interface, requires more boilerplate code, prone to encoding errors"
+    rationale: >
+      pathlib.Path.write_text() provides a modern, clean API that is part of Python standard library
+      since 3.4. It handles file encoding and newline parameters elegantly, ensuring cross-platform
+      compatibility. By setting encoding='utf-8' and newline='\n', we ensure NFR-1 (UTF-8 encoding)
+      and NFR-2 (LF line endings) are satisfied. This approach is used in features 153-155 and aligns
+      with Python best practices for file I/O in modern codebases.
+
+  - title: "Content Generation Strategy"
+    chosen: "Hardcoded meaningful prose content about a topic"
+    rejected:
+      - "Randomly generated content — violates spec requirement for 'meaningful' content, would require external library or complex generation logic"
+      - "External content API or library — adds network dependency, external package dependency, violates NFR-6 (standard library only), unnecessary complexity"
+    rationale: >
+      Spec explicitly requires 'meaningful, topic-based content' and allows flexibility in topic selection.
+      Hardcoding prose content about a single topic (e.g., technology, history, nature) is simplest,
+      meets the requirement, and matches the pattern of 150+ existing test files in the repository.
+      This approach has no dependencies, is deterministic, and is easy to validate. Related features
+      153-155 use this same pattern successfully.
+
+  - title: "Line Ending Handling Strategy"
+    chosen: "Explicitly set newline='\\n' parameter in pathlib.Path.write_text() call"
+    rejected:
+      - "Rely on platform default line endings — Windows uses CRLF by default, violating NFR-2 which requires LF (Unix-style) line endings. Current platform is Windows, so this would fail the requirement."
+      - "Post-process file after creation to convert line endings — adds unnecessary complexity, requires additional file I/O operation, violates DRY principle"
+    rationale: >
+      Python's pathlib.write_text() and open() both accept a newline parameter. Setting newline='\n'
+      tells Python to always use LF line endings regardless of platform. This is the correct approach
+      for a cross-platform tool that must produce consistent output. On Windows, this prevents the
+      automatic CRLF conversion that would normally occur. This directly satisfies NFR-2 and is the
+      simplest, most direct approach. Python documentation recommends this pattern for text files
+      that must use specific line endings.
+
+  - title: "Git Operations Approach"
+    chosen: "Use subprocess.run() to invoke git command-line tool"
+    rejected:
+      - "GitPython library — external package dependency, violates NFR-6 (Python standard library only), adds unnecessary complexity"
+      - "pygit2 library — requires libgit2 system dependency, violates NFR-6, overkill for simple add/commit/push operations"
+    rationale: >
+      NFR-6 explicitly requires using only Python standard library with no external dependencies.
+      subprocess.run() is part of the standard library and is the standard way to invoke external
+      programs from Python. For simple git workflows (add, commit, push), subprocess.run() is
+      straightforward and reliable. Features 153-155 use this same approach. Error handling is simple
+      via check=True and catching CalledProcessError. This approach is lightweight and maintains
+      the requirement of zero external dependencies.
+
+  - title: "Error Handling and Idempotency"
+    chosen: "Check if file exists; skip creation if present; explicitly handle git operation failures"
+    rejected:
+      - "Always fail if file exists — violates NFR-9 (idempotency requirement); would break if feature is run twice"
+      - "Always overwrite without checking — potentially destructive, not truly idempotent, could corrupt data if file was modified"
+    rationale: >
+      NFR-9 requires idempotency: 'Implementation MUST be idempotent — creating the file multiple
+      times should not cause errors'. The correct pattern is to check if the file exists using
+      Path.exists(), and if it does, verify it matches expectations (or skip creation). This allows
+      safe re-runs. For git operations, catch subprocess.CalledProcessError to detect failures and
+      report them clearly. This approach is defensive and production-ready, matching patterns from
+      features 153-155.
+
+  - title: "Git Push Failure Handling"
+    chosen: "Use git push with appropriate error handling; do not fail silently"
+    rejected:
+      - "Use git push -f (force push) — dangerous, can overwrite remote history, should never be default behavior"
+      - "Skip push entirely — violates functional requirements (FR-7), would break the workflow"
+    rationale: >
+      NFR-8 states 'Git operations MUST not fail if branch is already synchronized with remote'.
+      This is handled naturally by git push behavior: if the branch is up-to-date, push succeeds
+      with no-op status. If there are changes to push, they are pushed. If there are conflicts
+      (remote has commits not on local), push will fail — which is correct behavior and indicates
+      a real problem requiring user intervention. Do not use force push or suppress errors; instead,
+      report them clearly and let the user investigate.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should the implementation include a feature to validate the created markdown file against requirements?"
+    resolved: true
+    options:
+      - option: "Include validation logic in the creation script"
+        description: "After creating the file, validate it meets all requirements (file size 400-600 bytes, contains 2-3 sentences, valid UTF-8, LF line endings). Would add robustness and debugging capability. Adds ~20 lines of code."
+        selected: false
+      - option: "Use external pytest tests to validate the file"
+        description: "Create a separate pytest test suite that validates the created file. Separates concerns between implementation and validation. More testable and reusable. Standard Python practice."
+        selected: false
+      - option: "Skip validation in implementation; rely on manual inspection and git diff"
+        description: "Trust that correctly written code will produce correct output. Keep implementation minimal and simple. Users can inspect result via git diff. Matches features 153-155 pattern."
+        selected: true
+    selectionRationale: >
+      Features 153-155 use the 'skip validation' approach and it has been successful. This feature
+      is small (single file, 2-3 sentences) and the requirements are straightforward. Manual inspection
+      via git diff is sufficient. Adding validation logic would increase complexity without proportional
+      benefit for such a simple feature. Size estimate S (10-15 minutes) does not include validation
+      testing overhead. Keeping the implementation minimal aligns with the principle of avoiding
+      over-engineering as specified in the style guide.
+
+  - question: "Should the prose content be generated at runtime or hardcoded?"
+    resolved: true
+    options:
+      - option: "Generate content at runtime using simple templates or rules"
+        description: "Create prose dynamically based on templates or topic selection. Would allow variation and content freshness. Adds complexity and potential for non-meaningful content."
+        selected: false
+      - option: "Use external content API or library"
+        description: "Pull prose from an external API or library (e.g., Wikipedia, Lorem Ipsum variant). Adds external dependency, network calls, violates NFR-6."
+        selected: false
+      - option: "Hardcode meaningful prose about a specific topic"
+        description: "Write prose content directly in the script about a meaningful topic (tech, history, nature, etc.). Simplest approach, zero dependencies, matches features 153-155, meets 'meaningful' requirement."
+        selected: true
+    selectionRationale: >
+      Spec explicitly requires 'meaningful, topic-based content' and states this matches 150+
+      existing test files. Hardcoding is the simplest approach with zero dependencies and perfect
+      compliance with requirements. Supports idempotency (same output every time). Runtime generation
+      adds complexity without benefit. External APIs violate NFR-6. This approach has been validated
+      in features 153-155.
+
+  - question: "Should git push include the --set-upstream flag on first push?"
+    resolved: true
+    options:
+      - option: "Always use git push (no --set-upstream)"
+        description: "Simpler command, relies on branch already being tracked. Could fail if branch not set up. Requires pre-condition that branch is set up on remote."
+        selected: false
+      - option: "Always use git push --set-upstream origin <branch>"
+        description: "Explicitly sets upstream tracking, guarantees success even if not previously set up. More explicit and defensive. Slightly longer command."
+        selected: true
+      - option: "Check tracking status first, conditionally set upstream"
+        description: "Only use --set-upstream if needed. More complex, requires checking branch status. Premature optimization."
+        selected: false
+    selectionRationale: >
+      The feature branch `feat/156-markdown-file-creation-72c7bb` is pre-created and should already
+      exist on remote with tracking set up. However, using --set-upstream is idempotent (running it
+      on an already-tracked branch is a no-op) and makes the command more explicit and defensive.
+      This follows defensive programming practices and handles edge cases gracefully. Features 153-155
+      use explicit --set-upstream to ensure reliability.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-22
+  - **Status:** Complete
+
+  ## Summary
+
+  This feature implements the creation of a markdown test file `test-3byzeb.md` with a title and
+  2-3 sentences of meaningful prose content. This is the 156th instance of an identical pattern
+  established in features 063-155. Technical research recommends straightforward approaches using
+  Python standard library only, with no external dependencies, prioritizing simplicity and alignment
+  with established patterns.
+
+  ## Technology Decisions
+
+  ### 1. File Creation Method
+
+  **Chosen:** Python `pathlib.Path.write_text()` with explicit encoding and newline parameters
+
+  **Rejected:**
+  - `open()` function — older style, less ergonomic, requires manual file handle management
+  - `os.open()` — lower-level, more boilerplate, prone to encoding errors
+
+  **Rationale:**
+  pathlib provides a modern, clean API for file I/O. By using `Path('test-3byzeb.md').write_text(content, encoding='utf-8', newline='\n')`,
+  we satisfy NFR-1 (UTF-8 encoding) and NFR-2 (LF line endings) in a single, clear statement.
+  This approach is standard in modern Python and is used in features 153-155 successfully.
+
+  ### 2. Content Generation Strategy
+
+  **Chosen:** Hardcoded meaningful prose about a coherent topic
+
+  **Rejected:**
+  - Randomly generated content — fails to meet "meaningful" requirement, would need external library
+  - External API or library — adds network dependency, violates NFR-6 (standard library only)
+
+  **Rationale:**
+  The spec allows flexibility in topic selection and requires "meaningful, topic-based content".
+  Hardcoding prose about a single topic (e.g., "The Evolution of Artificial Intelligence",
+  "Mountain Ecosystems", "Ancient Roman Architecture") is the simplest approach with zero
+  dependencies. It is deterministic, testable, and aligns with the pattern of 150+ existing test files.
+  Content validation is straightforward: count sentences, verify UTF-8, check file size 400-600 bytes.
+
+  ### 3. Line Ending Strategy
+
+  **Chosen:** Explicitly set `newline='\n'` in pathlib.write_text() call
+
+  **Rejected:**
+  - Platform default line endings — Windows uses CRLF by default, violating NFR-2
+  - Post-processing to convert line endings — adds unnecessary I/O operation
+
+  **Rationale:**
+  Python's file I/O functions accept a `newline` parameter. Setting `newline='\n'` ensures LF
+  line endings on all platforms, regardless of OS defaults. On Windows (current platform), this
+  prevents automatic CRLF conversion. This is the recommended pattern in Python documentation
+  for cross-platform text files. Direct and simple.
+
+  ### 4. Git Operations
+
+  **Chosen:** `subprocess.run()` to invoke git command-line tool
+
+  **Rejected:**
+  - GitPython library — external dependency, violates NFR-6
+  - pygit2 library — requires system dependencies, violates NFR-6
+
+  **Rationale:**
+  NFR-6 mandates Python standard library only. `subprocess.run()` is standard library and is
+  the idiomatic way to invoke external programs from Python. For simple workflows (add, commit, push),
+  it is straightforward and reliable. Error handling via `check=True` and exception catching.
+  No additional complexity needed.
+
+  ### 5. Idempotency Pattern
+
+  **Chosen:** Check if file exists; skip creation if present; explicitly handle git failures
+
+  **Rejected:**
+  - Always fail if file exists — violates NFR-9 (idempotency), breaks on re-runs
+  - Always overwrite — potentially destructive, not truly idempotent
+
+  **Rationale:**
+  NFR-9 requires idempotency. The correct pattern is:
+  1. Check if file exists using `Path.exists()`
+  2. If exists, optionally verify content or skip creation
+  3. If not exists, create with content
+  4. Catch git operation exceptions and report errors clearly
+
+  This allows safe re-runs and is production-ready.
+
+  ### 6. Git Push Error Handling
+
+  **Chosen:** Use `git push --set-upstream origin <branch>` with explicit error handling
+
+  **Rejected:**
+  - `git push -f` (force push) — dangerous, can overwrite remote, never default
+  - Skip push entirely — violates FR-7
+
+  **Rationale:**
+  NFR-8 says "Git operations MUST not fail if branch is already synchronized with remote".
+  Using `--set-upstream` is idempotent (no-op if already set up) and makes the command explicit
+  and defensive. It handles the edge case of first push gracefully. If push fails for real reasons
+  (conflicts, network errors), the error should be reported to the user. Do not suppress errors.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O | Use (standard library) | Modern, clean API; no external dependencies; cross-platform |
+  | subprocess | Git commands | Use (standard library) | Standard way to invoke external programs; no dependencies |
+  | os | Path operations | Use (standard library) | For path operations if needed |
+  | External markdown libs | Syntax validation | Reject | Not needed; markdown is simple text; can validate manually |
+  | GitPython | Git operations | Reject | External dependency; violates NFR-6; subprocess is sufficient |
+  | pygit2 | Git operations | Reject | External + system dependencies; violates NFR-6 |
+  | random/faker | Content generation | Reject | Violates "meaningful" requirement; violates simplicity principle |
+  | requests/urllib | Content from API | Reject | External dependency; network dependency; violates NFR-6 |
+
+  ## Security Considerations
+
+  **Threat: Path Traversal/Injection**
+  - Risk: Low
+  - Mitigation: File path is hardcoded (`test-3byzeb.md`), no user input. No injection possible.
+
+  **Threat: Git Command Injection**
+  - Risk: Low
+  - Mitigation: Git operations use static branch name and commit message. No user input in git commands.
+    Using `subprocess.run()` with list arguments (not shell=True) prevents shell injection.
+
+  **Threat: File Encoding Attacks**
+  - Risk: Low
+  - Mitigation: Explicitly set UTF-8 encoding. UTF-8 is well-defined and safe. No binary data involved.
+
+  **Threat: Data Loss**
+  - Risk: Low (by design)
+  - Mitigation: File creation is additive only. Feature creates new file, does not modify existing files.
+    No data loss possible. Idempotency check prevents overwriting.
+
+  **Threat: Git History Manipulation**
+  - Risk: Low
+  - Mitigation: Feature uses standard git workflow (add, commit, push). No force push, no rebase.
+    Safe operations only.
+
+  **Summary:** No significant security risks. File path and git operations are static. No user input.
+  Implementation uses safe patterns from Python standard library.
+
+  ## Performance Considerations
+
+  **File Creation**
+  - Expected time: ~10-50ms
+  - Approach: Single pathlib.write_text() call
+  - Bottleneck: N/A (negligible)
+
+  **Git Operations**
+  - `git add`: ~100-200ms (index update)
+  - `git commit`: ~200-500ms (object creation, compression)
+  - `git push`: ~500ms-2s (network dependent)
+  - Total: ~1-3 seconds expected
+
+  **NFR-10 Compliance**
+  - Requirement: Complete in < 5 seconds
+  - Expected actual time: 1-3 seconds
+  - Margin: 2+ seconds buffer
+  - Status: ✓ Compliant
+
+  **Optimization Notes**
+  - No caching needed (single file, simple operation)
+  - No async needed (linear workflow, total time is already < 5 seconds)
+  - No connection pooling needed (single git push)
+  - Current approach is already optimal for this use case
+
+  ## Architecture Integration
+
+  **Repository Structure**
+  - File created at repository root: `test-3byzeb.md`
+  - Follows established pattern of 150+ test files
+  - No impact on existing directory structure
+  - No changes to `/src/sheep/` or other source directories
+
+  **Build/CI Integration**
+  - Feature creation is independent of build system
+  - Git workflow is standard (add, commit, push)
+  - No new dependencies to install
+  - No build or CI changes needed
+
+  **Testing Strategy**
+  - Manual inspection via `git diff` and `git show`
+  - Verify file exists, contains heading, contains 2-3 sentences
+  - Verify file size 400-600 bytes
+  - Verify commit message format
+  - Can be automated with pytest if needed (but not in scope for this feature)
+
+  **Related Features Pattern**
+  - Features 153, 154, 155 are identical patterns
+  - Implementation approach proven in 150+ existing test files
+  - No architectural novelty; straightforward pattern repetition
+
+  ## Implementation Checklist
+
+  - [ ] Create markdown file with pathlib using UTF-8 encoding and LF newlines
+  - [ ] File name: `test-3byzeb.md`
+  - [ ] Content: H1 heading + 2-3 sentences meaningful prose
+  - [ ] Git add with `git add test-3byzeb.md`
+  - [ ] Git commit with message: `feat(156): create markdown file test-3byzeb.md with title and prose content`
+  - [ ] Git push with `git push --set-upstream origin feat/156-markdown-file-creation-72c7bb`
+  - [ ] Verify file size 400-600 bytes
+  - [ ] Verify UTF-8 encoding
+  - [ ] Verify LF line endings
+  - [ ] Verify commit appears in `git log`
+
+  ## Conclusion
+
+  This feature has straightforward technical requirements with no architectural complexity.
+  Recommended approach uses only Python standard library (pathlib, subprocess), follows
+  established patterns from features 153-155, and maintains simplicity. All decisions prioritize
+  alignment with existing codebase patterns and NFR requirements. Implementation should be
+  straightforward and low-risk.
+
+  ---
+
+  _Research phase complete — all technical decisions documented with clear rationale and alternatives analyzed_
