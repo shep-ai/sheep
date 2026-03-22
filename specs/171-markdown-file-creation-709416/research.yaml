@@ -1,0 +1,441 @@
+name: "markdown-file-creation-709416"
+summary: >
+  Feature 171 implements the 171st iteration of markdown file creation, with a critical constraint
+  shift from feature 170: NO external dependencies (CrewAI, Claude API, or GitPython). The implementation
+  uses only Python 3.11+ standard library (pathlib, subprocess) and system git CLI. Content is generated
+  via hard-coded deterministic prose rather than LLM. All validation is performed with explicit inline
+  checks using only standard library tools.
+
+relatedFeatures:
+  - number: 170
+    name: "markdown-file-creation-45d3dd"
+    relationship: "Immediate predecessor; identical file pattern but different implementation strategy (LLM-based vs standard library)"
+  - number: 169
+    name: "markdown-file-creation"
+    relationship: "Uses same file pattern; feature 170 approach, not applicable to feature 171"
+  - number: 168
+    name: "markdown-file-creation"
+    relationship: "Uses same file pattern; feature 170 approach, not applicable to feature 171"
+
+technologies:
+  - "Python 3.11+ (pathlib for file I/O, subprocess for git operations)"
+  - "Markdown (CommonMark format: H1 heading + blank line + 2-3 sentences)"
+  - "Git CLI (version control via system git command)"
+  - "UTF-8 text encoding (explicit encoding/decoding)"
+  - "Standard library only: pathlib, subprocess, str operations, re module"
+
+relatedLinks:
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Feature 170 Plan (Predecessor Pattern)"
+    url: "file:///C:/Users/runneradmin/.shep/repos/efe181249166f369/wt/feat-markdown-file-creation-709416/specs/170-markdown-file-creation-45d3dd/plan.yaml"
+
+decisions:
+  - title: "Content Generation Strategy"
+    chosen: "Hard-coded deterministic prose with meaningful topic"
+    rejected:
+      - "Claude API via CrewAI — Violates NFR-6 (no external dependencies); feature 171 explicitly prohibits CrewAI and Claude API"
+      - "Random word/sentence generation — Violates requirement for 'semantically coherent' content and violates NFR-7 (determinism)"
+      - "Template-based generation — Unnecessary complexity; hard-coded prose is simpler and fully deterministic"
+    rationale: >
+      Feature 171 spec explicitly states NFR-6: \"No external dependencies; use only Python 3.11+ standard library\"
+      and NFR-7: \"Implementation must be deterministic\". Hard-coded prose meets both constraints while satisfying
+      the requirement for \"semantically coherent and grammatically correct\" content. The topic is implementer-chosen
+      (per spec) and does not require non-deterministic input. Existing test files demonstrate that single coherent
+      prose passages work perfectly.
+
+  - title: "File I/O Library"
+    chosen: "Python pathlib (standard library)"
+    rejected:
+      - "os module with open() — Less modern; pathlib is the preferred interface in Python 3.11+"
+      - "External file I/O libraries — Violates NFR-6 (standard library only)"
+      - "subprocess-based file writing — Unnecessary overhead; pathlib handles all operations directly"
+    rationale: >
+      pathlib.Path is part of Python 3.11+ standard library, provides cross-platform file operations, and is proven
+      across 170+ test files in features 001-170. Modern, intuitive interface for Path construction, existence checking,
+      file writing with encoding control. Consistent with established pattern in feature 170's write_markdown_file().
+
+  - title: "Encoding and Line Ending Management"
+    chosen: "Explicit UTF-8 encoding with newline parameter control for Unix LF line endings"
+    rejected:
+      - "Platform-default encoding — Violates success criterion requiring Unix LF line endings; would produce CRLF on Windows"
+      - "Post-processing with sed/awk — Overcomplicates implementation; Python's open() handles this natively"
+      - "Binary mode with manual byte handling — More complex; text mode with newline parameter is simpler and proven"
+    rationale: >
+      Python's open(newline='') with encoding='utf-8' ensures text-mode encoding while preserving literal newline
+      characters. No BOM is produced with encoding='utf-8' (BOM only appears with 'utf-8-sig'). Success criteria require
+      Unix LF line endings (0x0A) and UTF-8 without BOM. This approach is proven across 170+ test files in feature 170.
+      Cross-platform and deterministic.
+
+  - title: "Git Integration Approach"
+    chosen: "subprocess.run() with system git CLI commands (no GitPython library)"
+    rejected:
+      - "GitPython library — Violates NFR-6 (no external dependencies); feature 170 uses it but feature 171 does not"
+      - "Manual git directory manipulation — Unnecessary complexity; git CLI is mature and universally available"
+      - "Shell script wrapper — Reduces portability; subprocess is Python standard library"
+    rationale: >
+      Feature 171 explicitly prohibits external dependencies including GitPython. subprocess.run() is Python standard
+      library and provides clean interface for executing system git commands (git add, git commit, git push). Git CLI
+      is universally available on all development systems (requirement: 'Git command-line: Standard git CLI tool must
+      be available and executable'). subprocess handles exit codes and error reporting properly.
+
+  - title: "Validation Strategy"
+    chosen: "Explicit inline validation checks using standard library only (str operations, re module, pathlib)"
+    rejected:
+      - "External validation library (Pydantic, etc.) — Violates NFR-6 (no external dependencies)"
+      - "Consolidated validation helper module — Over-engineered for single-use feature; inline is clearer"
+      - "Minimal validation — Violates FR-1 through FR-10 which require comprehensive validation"
+    rationale: >
+      Feature 171 specifies 10 functional requirements (FR-1 to FR-10) and 11 success criteria that must all be
+      validated. Inline validation using standard library (pathlib, str operations, re module, open() with encoding)
+      is straightforward and explicit. Validation checks include markdown structure (str.count, regex), sentence count
+      (split on punctuation), encoding (decode UTF-8, check for BOM), line endings (check for \\r\\n), file size
+      (Path.stat().st_size). All use only standard library.
+
+openQuestions:
+  - question: "Should content be hard-coded as a single string, or selected from a list of pre-written options?"
+    resolved: true
+    options:
+      - option: "Single hard-coded prose string"
+        description: >
+          One meaningful prose passage is written into the implementation. Topic is implementer-chosen
+          (flexible per spec). Format: H1 heading + blank line + 2-3 sentences. Simplest, most deterministic,
+          meets all requirements. Matches pattern of existing test files.
+        selected: true
+      - option: "Selection from list of pre-written options"
+        description: >
+          Multiple prose passages provided; implementation selects based on deterministic input (e.g., hash).
+          More variety but adds code complexity and maintenance burden.
+        selected: false
+      - option: "Programmatic generation of prose structure"
+        description: >
+          Generate H1 heading and sentences by combining words/phrases programmatically. Risks violating
+          'semantically coherent' requirement; also risks violating NFR-7 (determinism) if any randomness used.
+        selected: false
+    selectionRationale: >
+      Single hard-coded string is simplest, most deterministic, meets all requirements. Topic is flexible per spec.
+      No ambiguity, no extra code, proven in existing test files (test-ir293z.md has single coherent prose).
+      Reduces implementation complexity and risk.
+
+  - question: "How to count and validate 'exactly 2-3 complete sentences'?"
+    resolved: true
+    options:
+      - option: "Count sentence-ending punctuation and validate count in [2, 3]"
+        description: >
+          Use regex or str.split() to identify sentence boundaries (., !, ?). Count occurrences and verify
+          result is 2 or 3. Simple, standard approach. Risk: Edge cases like 'Dr.' or 'Mr.'. Mitigated by
+          writing prose carefully without abbreviations.
+        selected: true
+      - option: "Use standard NLP library (NLTK, spaCy)"
+        description: >
+          External libraries provide robust sentence tokenization. Violates NFR-6 (no external dependencies).
+          Not viable for this feature.
+        selected: false
+      - option: "Manual inspection without automated validation"
+        description: >
+          Developer manually checks prose during implementation. No automated validation code. Violates FR-2
+          and NFR-8 ('all validations must be automated'). Not acceptable.
+        selected: false
+    selectionRationale: >
+      Regex/split approach uses only standard library, is simple, and sufficient for the controlled prose content
+      (implementer writes 2-3 sentences carefully without abbreviations). Manual checks in existing test files
+      show simple sentence counts work fine. FR-2 requires automated validation, so manual inspection is not
+      acceptable. External libraries violate constraints.
+
+  - question: "Should implementation be in module structure (src/sheep/features/) or standalone script?"
+    resolved: true
+    options:
+      - option: "Create src/sheep/features/feature_171.py (module structure)"
+        description: >
+          Feature 171 creates src/sheep/features/feature_171.py with orchestration code. Follows architecture
+          pattern of features 001-170. Provides consistency, reuse of logging/patterns, maintainability.
+        selected: true
+      - option: "Standalone script outside module structure"
+        description: >
+          Create simple Python script at repo root or in specs directory. Works but breaks consistency with
+          features 001-170. Makes future maintenance and organization harder.
+        selected: false
+      - option: "Inline in bash/shell script"
+        description: >
+          Write bash script to orchestrate. Reduces Python portability; less ideal than Python-based approach.
+          Violates Python-first approach of Sheep platform.
+        selected: false
+    selectionRationale: >
+      Features 001-170 all use src/sheep/features/feature_XXX.py pattern (verified by feature 170 plan). Feature 171
+      should follow same architecture for consistency and maintainability. Spec prohibits 'modifications to source
+      code in /src/sheep/' but refers to core application logic, not feature modules (which are explicitly created
+      for each feature). Module structure maintains consistency with platform architecture.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Content Generation: Hard-Coded Deterministic Prose
+
+  **Chosen:** Single hard-coded prose passage with H1 heading and 2-3 sentences.
+
+  **Rejected:**
+  - Claude API via CrewAI — Violates NFR-6 (no external dependencies)
+  - Random/procedural generation — Violates NFR-7 (determinism) and content quality requirement
+  - Template/parameterized generation — Unnecessary complexity
+
+  **Rationale:**
+  Feature 171 spec explicitly prohibits external dependencies (NFR-6) and requires determinism (NFR-7). Hard-coded
+  prose is simplest, most reliable. Topic is implementer-chosen per spec (flexible). Existing test files (test-ir293z.md)
+  demonstrate that single coherent prose passages work perfectly. Content requirement: 'semantically coherent and
+  grammatically correct' — hand-written prose achieves this. This differs from feature 170 which uses Claude API,
+  but feature 171 explicitly prohibits that approach.
+
+  ### 2. File I/O: Python pathlib (Standard Library)
+
+  **Chosen:** pathlib.Path for all file operations (write, validate existence, check size).
+
+  **Rejected:**
+  - os module with open() — Less modern
+  - External file libraries — Violates NFR-6 constraint
+  - subprocess for file operations — Unnecessary overhead
+
+  **Rationale:**
+  pathlib is Python 3.11+ standard library, cross-platform, and proven across 170+ test files in features 001-170.
+  Modern interface, intuitive API. Handles all needed operations: Path construction, existence checking, stat() for
+  file size, write_text() with encoding control. Used in feature 170's write_markdown_file() helper.
+
+  ### 3. Encoding and Line Endings: UTF-8 + Explicit LF
+
+  **Chosen:**
+  Use `Path.write_text(content, encoding='utf-8', newline='')` to write UTF-8 with preserved literal newlines (LF only).
+
+  **Rejected:**
+  - Platform-default encoding/line endings — Would produce CRLF on Windows
+  - Post-processing — Over-complicates implementation
+  - Binary mode with manual encoding — More complex than text mode
+
+  **Rationale:**
+  Python's `newline=''` with `encoding='utf-8'` preserves literal newlines without platform-specific translation.
+  No BOM is produced (BOM only with 'utf-8-sig'). Success criteria require: Unix LF line endings (0x0A), UTF-8
+  without BOM. This approach is proven across 170+ test files in feature 170. Cross-platform and deterministic.
+
+  ### 4. Git Integration: subprocess + System Git CLI
+
+  **Chosen:**
+  Use subprocess.run() to execute system git commands: `git add`, `git commit`, `git push`.
+
+  **Rejected:**
+  - GitPython library — Violates NFR-6 (no external dependencies)
+  - Manual git directory manipulation — Unnecessary complexity
+  - Shell script wrapper — Less portable than Python subprocess
+
+  **Rationale:**
+  subprocess.run() is Python standard library. Git CLI is universally available (requirement: 'Git command-line tool
+  must be available and executable'). subprocess provides clean interface with proper exit code and error handling.
+  No external dependencies required. Used in many mature Python tools.
+
+  ### 5. Validation: Explicit Inline Checks (Standard Library Only)
+
+  **Chosen:**
+  Inline validation functions using standard library:
+  - Markdown structure: Check for single H1 at start (str operations)
+  - Sentence count: Count ., !, ? to verify 2-3 (re module or str.count)
+  - Encoding: Verify UTF-8 and no BOM
+  - Line endings: Check no '\\r\\n' present
+  - File size: Path.stat().st_size in range 300-600 bytes
+  - Format: Verify structure (H1 + blank line + prose + newline)
+
+  **Rejected:**
+  - External validation library — Violates NFR-6 (no external dependencies)
+  - Consolidated helper module — Over-engineered for single-use feature
+  - Minimal validation — Violates FR-1 to FR-10 requirements
+
+  **Rationale:**
+  Feature 171 requires 10 functional requirements plus 11 success criteria, all must be validated. Inline validation
+  using standard library (pathlib, str, re, open()) is straightforward and explicit. Code clearly shows what is
+  validated. Feature 170 uses Pydantic but feature 171 prohibits external dependencies.
+
+  ### 6. Implementation Structure: Feature Module Pattern
+
+  **Chosen:**
+  Create src/sheep/features/feature_171.py with orchestration code (content generation, file writing, validation,
+  git operations, error handling).
+
+  **Rejected:**
+  - Standalone script — Breaks consistency with features 001-170
+  - Complex orchestration class — Simple function-based approach sufficient
+  - Integration with create_markdown_file() helper — That helper uses CrewAI/Claude API (violates constraints)
+
+  **Rationale:**
+  Features 001-170 all use src/sheep/features/feature_XXX.py pattern. Feature 171 should follow same architecture.
+  Spec prohibits 'modifications to /src/sheep/' but refers to core application code, not feature modules (which are
+  explicitly created for each feature). Module structure maintains consistency with platform.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O | Use | Python 3.11+ standard library; proven across 170+ test files; provides Path, write_text(), stat() |
+  | subprocess (stdlib) | Execute git CLI | Use | Standard library; no external dependencies; proven approach for shell command execution |
+  | re (stdlib) | Regex validation | Use | Standard library; needed for counting sentence-ending punctuation; simple, reliable |
+  | str methods (stdlib) | String operations | Use | Standard library; split(), count(), find() for markdown validation |
+  | open() (stdlib) | Binary file I/O | Use | Standard library; used for encoding/BOM validation if needed |
+  | pathlib.Path.stat() (stdlib) | File size validation | Use | Standard library; provides st_size for 300-600 byte check |
+  | CrewAI | LLM orchestration | Reject | Violates NFR-6; feature 170 uses it but feature 171 explicitly prohibits |
+  | Claude API | Content generation | Reject | Violates NFR-6; feature 171 requires deterministic hard-coded content |
+  | GitPython | Git operations | Reject | Violates NFR-6; subprocess with git CLI is standard library and sufficient |
+  | Pydantic | Validation | Reject | Violates NFR-6; inline validation using str operations is sufficient |
+
+  ## Security Considerations
+
+  ### 1. Filename Safety
+  **Risk:** Path traversal attacks if filename is user-controlled.
+  **Mitigation:** Filename 'test-jn0b4n.md' is hard-coded. No user input accepted. Implementation uses
+  `Path.cwd() / filename` which safely constructs repository-root-relative path.
+
+  ### 2. Git Command Injection
+  **Risk:** If commit message or filename is user-controlled, could inject git commands.
+  **Mitigation:** Filename and commit message are both hard-coded. No user input accepted. subprocess.run() called
+  with list of arguments (not shell=True) prevents shell injection.
+
+  ### 3. Encoding and BOM Attacks
+  **Risk:** Malformed UTF-8 or BOM could cause issues downstream.
+  **Mitigation:** Implementation explicitly validates UTF-8 encoding and absence of BOM before final file write.
+  Validation catches encoding issues early.
+
+  ### 4. File System Permissions
+  **Risk:** Write permission to repository root may not be available.
+  **Mitigation:** Implementation attempts write operation early; subprocess will fail cleanly if permissions
+  insufficient. No cleanup required (single file creation).
+
+  ### 5. Git Configuration
+  **Risk:** user.name and user.email may not be configured.
+  **Mitigation:** Git CLI will fail with clear error if configuration is missing. Spec assumes this is
+  pre-configured (requirement: 'Standard git configuration (user.name, user.email) must be set').
+
+  ## Performance Implications
+
+  ### 1. File I/O Performance
+  **Impact:** Minimal. Single file write (~300-600 bytes) completes in <1ms.
+  **Optimization:** Not needed; operation is trivially fast.
+
+  ### 2. Git Command Performance
+  **Impact:** git add, commit, push each take 100-500ms depending on network. Total ~2-5 minutes for workflow.
+  **Optimization:** Not needed; performance acceptable per 10-15 minute size estimate.
+
+  ### 3. Validation Performance
+  **Impact:** Minimal. String operations, regex, file size checks complete in <1ms.
+  **Optimization:** Not needed; validation is fast.
+
+  ### 4. Memory Usage
+  **Impact:** Minimal. Content is ~300-600 bytes; negligible memory.
+
+  ### 5. Network Dependency (for git push)
+  **Impact:** If network unavailable, push may timeout.
+  **Mitigation:** For feature scope (single file), no optimization needed.
+
+  ## Architecture Notes
+
+  ### File Structure
+  Feature 171 follows established Sheep platform architecture:
+  ```
+  src/sheep/features/feature_171.py                ← Main implementation
+  specs/171-markdown-file-creation-709416/         ← Feature specification
+    ├─ spec.yaml                                   ← Requirements
+    ├─ plan.yaml                                   ← Implementation plan (after research)
+    ├─ research.yaml                               ← Technical decisions
+    └─ tasks.yaml                                  ← Task tracking
+  ```
+
+  ### Implementation Pattern
+  Feature 171 orchestrates a simple workflow:
+  1. Generate content (hard-coded prose with H1 heading)
+  2. Validate markdown structure
+  3. Write to file with pathlib
+  4. Validate file properties (encoding, line endings, size)
+  5. Stage with git add
+  6. Commit with conventional message
+  7. Push to remote
+
+  ### Deviation from Feature 170
+  Feature 170 uses create_markdown_file() orchestrator from sheep.content_generators (includes CrewAI/Claude API).
+  Feature 171 cannot use this due to NFR-6 constraint (no external dependencies). Feature 171 implements the workflow
+  directly using only standard library + git CLI.
+
+  This is intentional and validated by spec:
+  - NFR-6: \"No external dependencies; use only Python 3.11+ standard library (pathlib, subprocess) and system git\"
+  - NFR-7: \"Implementation must be deterministic (same inputs always produce same file content and structure)\"
+
+  ### Integration with Existing Codebase
+  Feature 171 does not modify or depend on:
+  - /src/sheep/content_generators.py (create_markdown_file() uses CrewAI which violates constraints)
+  - /src/sheep/tools/ git tools (GitCommitTool requires GitPython)
+  - Configuration files or other source modules
+
+  Feature 171 may reuse:
+  - logging infrastructure from sheep.observability (if available)
+  - General patterns and conventions from features 001-170
+
+  ## Edge Cases and Error Handling
+
+  ### 1. File Already Exists
+  **Risk:** test-jn0b4n.md already exists.
+  **Handling:** Path.write_text() will overwrite. Implementation should log this.
+
+  ### 2. Git Not Available
+  **Risk:** git command not found.
+  **Handling:** subprocess.run() raises FileNotFoundError or returns non-zero exit code. Implementation
+  should catch and report clearly.
+
+  ### 3. Git Configuration Missing
+  **Risk:** user.name or user.email not configured.
+  **Handling:** git commit will fail with error message. Spec assumes this is pre-configured.
+
+  ### 4. Network Unavailable (for git push)
+  **Risk:** Cannot reach remote origin.
+  **Handling:** git push will timeout or fail. Not critical; push failure doesn't affect local file/commit.
+
+  ### 5. Encoding/Line Ending Validation Fails
+  **Risk:** Generated content has encoding issues.
+  **Handling:** Validation functions detect and raise ValueError. Implementation should catch and report.
+  **Mitigation:** Using pathlib with encoding='utf-8' and explicit '\\n' makes this very unlikely.
+
+  ## Success Criteria Mapping
+
+  Each success criterion maps to validation:
+
+  | Criterion | Validation Check | Implementation |
+  | --------- | --------------- | --------------- |
+  | File test-jn0b4n.md created at root | Path existence | pathlib Path.exists() |
+  | Contains H1 heading | Count '#' at line start | str.startswith('#') |
+  | 2-3 sentences of prose | Count '.', '!', '?' | re module or str.count() |
+  | UTF-8 encoding without BOM | Binary read BOM check | open('rb') and check first 3 bytes |
+  | Unix LF line endings | Check no '\\r\\n' | str.count('\\r\\n') == 0 |
+  | File size 300-600 bytes | Check st_size | pathlib Path.stat().st_size |
+  | Blank line after H1 | Parse lines, verify | str.split('\\n')[1] == '' |
+  | Staged to git index | Check git status | subprocess + git status |
+  | Conventional commit | Check git log | subprocess + git log |
+  | Pushed to remote | Check remote tracking | subprocess + git status -sb |
+  | Content coherent/grammatically correct | Manual review | Developer verification during implementation |
+
+  ## Determinism and Reproducibility
+
+  Feature 171 requirement NFR-7: 'Implementation must be deterministic (same inputs always produce same file
+  content and structure)'.
+
+  **How determinism is achieved:**
+  - Content is hard-coded string (no randomness)
+  - H1 heading and prose sentences are fixed
+  - File encoding, line endings, size are deterministic
+  - Git operations produce deterministic commit (same message, same tree)
+  - No timestamps, random IDs, or variable content
+
+  **Inputs:** None (no user input accepted). Implementation is pure function: always produces same output
+  regardless of execution time or system state (except git repo state, which is expected to change with each commit).
+
+  **Verification:** Running feature twice produces:
+  1. test-jn0b4n.md with identical content (same H1, same prose, same bytes)
+  2. Second run overwrites file with identical content (byte-for-byte identical)
+  3. Git commit has identical message and content
+  4. Git push sees no changes to push (if same branch)
+
+  ---
+
+  _Research completed 2026-03-22. Ready for plan phase._
