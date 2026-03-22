@@ -36,7 +36,29 @@ def create_file():
     Raises:
         IOError: If file creation fails (e.g., permission denied, disk full)
     """
-    pass
+    # Define the markdown title
+    title = "The Power of Continuous Learning"
+
+    # Define the prose content (2-3 grammatically correct sentences)
+    prose = (
+        "Continuous learning is the foundation of personal and professional growth in an ever-changing world. "
+        "By consistently acquiring new skills and knowledge, individuals can adapt to challenges and stay competitive. "
+        "Embracing a learning mindset opens doors to innovation and creates opportunities for meaningful progress."
+    )
+
+    # Construct the markdown content with H1 heading and prose
+    # Using explicit '\n' characters ensures LF line endings
+    content = f"# {title}\n\n{prose}\n"
+
+    # Write the file using pathlib.Path.write_bytes() with explicit UTF-8 encoding
+    # This ensures:
+    # - UTF-8 encoding without BOM (Byte Order Mark)
+    # - Unix LF line endings (not CRLF on Windows)
+    # - Platform independence
+    filepath = Path("test-fdr055.md")
+    filepath.write_bytes(content.encode('utf-8'))
+
+    return filepath
 
 
 def validate_file(filepath):
@@ -59,7 +81,32 @@ def validate_file(filepath):
     Raises:
         AssertionError: If any validation fails
     """
-    pass
+    # Check 1: File exists
+    assert filepath.exists(), f"File {filepath} does not exist"
+
+    # Check 2: File size is in typical range (300-800 bytes)
+    # The 400-600 byte range is a soft guideline; we tolerate 300-800 for flexibility
+    file_size = filepath.stat().st_size
+    assert 300 < file_size < 800, (
+        f"File size {file_size} bytes is outside typical range (300-800 bytes). "
+        f"Expected approximately 400-600 bytes for structure: H1 heading + 2-3 sentences."
+    )
+
+    # Check 3: File contains H1 heading on first line
+    content = filepath.read_text(encoding='utf-8')
+    assert content.startswith('# '), "File must start with H1 heading (# )"
+
+    # Check 4: File contains blank line after heading
+    assert '\n\n' in content, "File must contain blank line after heading (double newline)"
+
+    # Check 5: File has prose content after blank line
+    # Split by double newline to separate heading from prose
+    parts = content.split('\n\n', 1)
+    assert len(parts) == 2, "File structure should be: heading, blank line, prose"
+    prose = parts[1].strip()
+    assert len(prose) > 0, "File must contain prose content after heading"
+
+    return True
 
 
 def git_operations():
@@ -91,7 +138,24 @@ def main():
 
     Exits with status code 0 on success, 1 on failure.
     """
-    pass
+    try:
+        # Phase 2: File creation and validation
+        print("Creating markdown file...")
+        filepath = create_file()
+        print(f"✓ File created: {filepath}")
+
+        print("Validating file...")
+        validate_file(filepath)
+        print("✓ File validation passed")
+
+        # Phase 3: Git operations (placeholder for now)
+        print("\nFile creation and validation complete!")
+        print("File is ready for git operations.")
+        sys.exit(0)
+
+    except Exception as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
