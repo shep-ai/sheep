@@ -1,0 +1,287 @@
+name: "markdown-file-creation-b67b09"
+summary: >
+  Feature 168 implements markdown file creation following the proven pattern from 167 prior features.
+  The key addition is content generation retry logic (up to 2 retries on validation failure) and explicit
+  file size validation (300-600 bytes). Implementation reuses all existing infrastructure (LLM generation,
+  file I/O, git operations, logging) with zero new dependencies. The feature module follows the standard
+  orchestration pattern: copy feature_167 template, update 3 constants, add retry loop to main function.
+
+relatedFeatures:
+  - "167-markdown-file-creation-cdb0c6"
+  - "166-markdown-file-creation-2v7xkd"
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI (v0.86.0+) — LLM orchestration"
+  - "Anthropic Claude — Content generation via CrewAI"
+  - "GitPython (v3.1.0+) — Git repository operations"
+  - "Pydantic (v2.0+) — Data validation"
+  - "structlog — Structured logging"
+  - "Pathlib — File operations"
+
+relatedLinks:
+  - title: "Feature 167 Reference Implementation"
+    url: "https://github.com/anthropics/sheep/blob/main/src/sheep/features/feature_167_markdown_file_creation.py"
+  - title: "Content Generators Module"
+    url: "https://github.com/anthropics/sheep/blob/main/src/sheep/content_generators.py"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+
+phases:
+  - id: "phase-1"
+    name: "Module Creation and Setup"
+    description: "Create the feature module by copying feature_167 template and updating the three feature-specific constants (FEATURE_NUMBER, MARKDOWN_FILENAME, COMMIT_MESSAGE). This establishes the baseline module structure with all necessary imports and the if-name-main block for standalone execution."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Orchestration and Retry Logic"
+    description: "Implement the retry loop on content validation failure (up to 2 retries) and add explicit file size validation (300-600 bytes) before commit. This is the only custom logic that differs from feature_167; all other orchestration steps reuse existing utilities without modification."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Testing and Validation"
+    description: "Verify the feature module executes successfully in isolation, produces a correctly formatted markdown file, and successfully commits and pushes to git. Validate that retry logic works and file size validation catches violations."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_168_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 168 is the 168th iteration in a series of markdown file creation features that test and demonstrate
+  the Sheep platform's agentic capabilities. The implementation follows the proven orchestration pattern established
+  by feature_167 and all preceding features, with one key addition: retry logic on content validation failure.
+
+  ### Existing Infrastructure
+
+  All required infrastructure is already in place and proven across 167 prior features:
+
+  - **Content Generation** (`sheep.content_generators.generate_markdown_content`): Uses CrewAI to orchestrate
+    LLM-based markdown generation. Returns H1 heading + 2-3 sentences of prose.
+  - **Content Validation** (`sheep.content_generators._validate_markdown_content`): Ensures generated content
+    has exactly one H1 heading, 2-3 sentences, and minimum length. Raises ValueError if validation fails.
+  - **File I/O** (`sheep.content_generators.write_markdown_file`): Writes content to disk with UTF-8 encoding
+    and Unix LF line endings. Handles file truncation on existing files.
+  - **File Validation** (`sheep.content_generators.validate_markdown_file`): Verifies UTF-8 encoding (no BOM),
+    LF line endings, and content structure integrity.
+  - **Git Integration** (`sheep.content_generators.commit_markdown_file`, `push_markdown_file`): Stage files,
+    create conventional commits, and push to remote.
+  - **Logging** (`sheep.observability.logging.get_logger`): Structured logging via structlog for observability.
+  - **LLM Configuration** (`sheep.config.llm.get_reasoning_llm`): Returns configured CrewAI LLM instance
+    (Claude API via environment variables).
+
+  ### Feature Module Architecture
+
+  Feature 168's module follows this structure:
+
+  ```
+  feature_168_markdown_file_creation.py
+  ├── Module docstring (describing feature 168)
+  ├── Imports (copy from feature_167)
+  ├── Constants
+  │   ├── FEATURE_NUMBER = 168
+  │   ├── MARKDOWN_FILENAME = "test-oyiqcz.md"
+  │   └── COMMIT_MESSAGE = "feat(168): Create markdown file test-oyiqcz.md with prose content"
+  ├── Main function: create_feature_168_markdown_file(repo_path: str | None) -> dict[str, str]
+  │   ├── Task 1: Generate markdown content with retry loop (max 2 retries)
+  │   ├── Task 2: Write file to disk
+  │   ├── Task 3: Validate file properties (encoding, line endings, size)
+  │   ├── Task 4: Stage and commit with git
+  │   └── Task 5: Push to remote
+  └── if __name__ == "__main__": Standalone execution block
+  ```
+
+  ### Retry Loop Placement
+
+  The retry loop is implemented in the feature module's main orchestration function, not in shared utilities.
+  This approach:
+  - Localizes retry policy to feature 168 (different features may have different retry requirements)
+  - Keeps `generate_markdown_content()` and `_validate_markdown_content()` single-purpose
+  - Makes retry semantics explicit in the feature's code for clear debugging
+  - Maintains separation of concerns: generation is utility-level, orchestration is feature-level
+
+  **Retry Logic Structure:**
+  ```python
+  for attempt in range(1, 4):  # 1 initial + 2 retries = 3 total attempts
+      try:
+          _logger.info(f"Attempt {attempt}/3: Generating markdown content...")
+          content = generate_markdown_content()
+          break  # Success, exit retry loop
+      except ValueError as e:  # Validation failed
+          if attempt == 3:  # Last attempt
+              _logger.error(f"Content validation failed after 3 attempts: {e}")
+              raise
+          _logger.warning(f"Attempt {attempt}/3 failed: {e}. Retrying...")
+  ```
+
+  ### File Size Validation
+
+  File size validation (300-600 bytes) is implemented as an explicit checkpoint after file write but before
+  commit. This ensures:
+  - Size is validated against actual UTF-8 encoded bytes (not estimated from content length)
+  - Size violations are caught before committing to git history (prevents pollution)
+  - Explicit logging at this checkpoint aids debugging
+
+  **Size Validation Logic:**
+  ```python
+  file_path = repo_path / MARKDOWN_FILENAME
+  file_size = file_path.stat().st_size
+  if not (300 <= file_size <= 600):
+      raise ValueError(f"File size {file_size} bytes is outside 300-600 range")
+  _logger.info(f"File size validation passed: {file_size} bytes")
+  ```
+
+  If file size validation fails, the exception is caught in the main error handler (not retried).
+  Size violations indicate generation produced wrong-sized prose, and the file is deleted before error propagates.
+
+  ## Key Design Decisions
+
+  ### 1. Retry Logic in Feature Module Orchestration
+
+  **Decision:** Implement retry loop (max 2 retries) in `create_feature_168_markdown_file()`, not in shared utilities.
+
+  **Rationale (from research):**
+  - Feature module orchestration is the appropriate layer for workflow control logic
+  - Keeps retry policy localized to feature 168; different features may have different requirements
+  - Makes retry semantics explicit and visible in feature's code (aids debugging)
+  - Prevents polluting `generate_markdown_content()` or `_validate_markdown_content()` with feature-specific logic
+  - Matches established pattern for similar multi-step features
+
+  **Alternatives Considered:**
+  - Embed retries in `generate_markdown_content()` — Violates single-responsibility principle
+  - Add `@retry` decorator to main function — Less readable, harder to debug, no fine-grained control
+  - Implement in `content_generators.py` — Adds complexity to shared infrastructure
+
+  ### 2. File Size Validation as Explicit Checkpoint
+
+  **Decision:** Validate file size (300-600 bytes) after write but before commit as a separate validation step.
+
+  **Rationale (from research):**
+  - File size depends on UTF-8 encoding; can only be measured after write
+  - Explicit checkpoint catches violations before committing to git history
+  - Clear logging at this point aids debugging of generation/encoding issues
+  - Size is a critical spec requirement independent from content/encoding validation
+
+  **Alternatives Considered:**
+  - Skip early validation, only validate post-write — Would waste LLM tokens on invalid content
+  - Embed in `validate_markdown_file()` — Size check deserves its own checkpoint
+  - Check during generation — Impossible; don't know final UTF-8 size until encoding is applied
+
+  ### 3. Error Handling: Fail Fast with Detailed Logging
+
+  **Decision:** Fail immediately with detailed structured logging on validation/git errors; no rollback attempts.
+
+  **Rationale (from research):**
+  - Spec explicitly recommends fail-fast approach for git operation failures
+  - Simple implementation — no rollback logic to maintain or debug
+  - Clear error signal indicates workflow is incomplete
+  - Structured logs provide context (error type, operation phase, file/git state)
+  - Aligns with established codebase patterns
+
+  **Alternatives Considered:**
+  - Attempt rollback (delete file) on git failure — Adds complexity, can fail unexpectedly
+  - Retry git operations — Already handling retries at content generation level
+  - Continue silently on errors — Hides failures, violates spec requirement for explicit signals
+
+  ### 4. Module Pattern: Copy Feature_167 Template
+
+  **Decision:** Copy `feature_167_markdown_file_creation.py` as template, update 3 constants, add retry loop.
+
+  **Rationale (from research):**
+  - Maintains consistency across 168 features for maintainability
+  - Proven pattern with zero risk of missing required components
+  - Custom logic (retry loop) is cleanly isolated to feature 168
+  - Enables standalone execution and clear workflow visibility
+  - Faster implementation than writing from scratch
+
+  **Constants to Update:**
+  - `FEATURE_NUMBER = 168`
+  - `MARKDOWN_FILENAME = "test-oyiqcz.md"`
+  - `COMMIT_MESSAGE = "feat(168): Create markdown file test-oyiqcz.md with prose content"`
+
+  **Alternatives Considered:**
+  - Create minimal boilerplate — Smaller but diverges from 167-feature pattern
+  - Build generic `create_markdown_file()` in `content_generators.py` — Skips retry requirement
+  - Use CrewAI agents for orchestration — Over-engineered for simple file creation
+
+  ### 5. Logging Strategy: structlog INFO/DEBUG/ERROR
+
+  **Decision:** Use structlog with INFO for workflow boundaries, DEBUG for details, ERROR for failures.
+
+  **Rationale (from research):**
+  - Matches feature_167 and content_generators.py patterns
+  - Provides observability for platform monitoring and incident response
+  - Structured fields enable filtering and alerting
+  - DEBUG logs aid debugging without cluttering INFO streams
+
+  **Log Points:**
+  - INFO: Feature start, each task boundary, generation success, file write, size validation, commit/push
+  - DEBUG: Content byte count, retry attempt number, file size in bytes
+  - ERROR: Validation failures with full context (expected vs actual, file path, operation phase)
+
+  ### 6. No New Dependencies Required
+
+  **Decision:** Use only existing infrastructure; zero new external dependencies.
+
+  **Rationale (from research):**
+  - All required infrastructure is already integrated and proven across 167 features
+  - CrewAI, Claude API, GitPython, Pydantic, structlog all available
+  - Adding dependencies slows deployment, increases maintenance burden
+  - Feature 168 doesn't require capabilities that existing libraries lack
+
+  **Infrastructure Reuse:**
+  - Content generation: Existing `generate_markdown_content()` via CrewAI
+  - Validation: Existing `_validate_markdown_content()` and `validate_markdown_file()`
+  - File I/O: Existing `write_markdown_file()` with UTF-8 and LF handling
+  - Git: Existing `commit_markdown_file()` and `push_markdown_file()` via GitPython
+  - Logging: Existing `get_logger()` via structlog
+  - LLM config: Existing `get_reasoning_llm()` configured with API credentials
+
+  ## Implementation Strategy
+
+  Feature 168 is straightforward because all infrastructure is proven. Implementation follows three phases:
+
+  ### Phase 1: Module Creation and Setup
+  Create the feature module by copying feature_167's template. Update three constants and verify all imports
+  resolve. This establishes the baseline with no logic changes yet.
+
+  ### Phase 2: Orchestration and Retry Logic
+  Implement the custom orchestration logic: retry loop on content validation failure, and explicit file size
+  validation before commit. This is the only novel code; all other steps reuse existing utilities unchanged.
+
+  ### Phase 3: Testing and Validation
+  Verify the feature module executes successfully in isolation, produces a correctly formatted markdown file,
+  commits and pushes to git, and handles retry scenarios correctly. Validate that file size violations are caught.
+
+  ### Why This Order
+
+  1. **Module Setup First**: Baseline code must be in place before adding logic
+  2. **Orchestration Second**: Custom logic builds on baseline module structure
+  3. **Testing Last**: Only test after implementation is complete
+
+  This order prevents creating infrastructure that will change and be refactored multiple times.
+
+  ## Risk Mitigation
+
+  | Risk | Probability | Impact | Mitigation |
+  | ---- | ----------- | ------ | ---------- |
+  | Content generation fails validation all 3 times | Medium | Medium | Retry logic tested with mock validation failures. Log full error context to aid debugging. User can re-run after investigating LLM issues. |
+  | File size validation fails (generated prose is too long/short) | Low | Low | Explicit size check provides clear feedback. Retry loop may succeed on different generation. If persistent, indicates LLM output variability requiring prompt tuning. |
+  | Git commit/push fails (network, auth, or branch issues) | Medium | Medium | Fail-fast approach with detailed structured logging. File is created but not committed/pushed, giving user clear signal to investigate git state. Does not attempt rollback (keeps implementation simple). |
+  | UTF-8 encoding or line ending issues | Very Low | Low | Existing `validate_markdown_file()` catches encoding violations. LF line endings enforced by `write_markdown_file()`. Proven across 167 features. |
+  | Module imports fail (missing dependencies) | Very Low | High | All dependencies are existing infrastructure used in feature_167. Verified at code creation time. No new external packages. |
+  | Retry loop doesn't terminate (infinite retries) | Very Low | High | Loop has hard max of 3 attempts (1 initial + 2 retries). If all 3 fail, exception is raised (loop terminates). Off-by-one errors prevented by explicit range(1, 4). |
+  | File overwrite destroys important content | Low | High | FEATURE_REQUIREMENT: Feature is designed to create test-oyiqcz.md and overwrite existing content. Idempotent design means re-runs produce same result. This is intentional, not a bug. |
+
+  ### Testing Strategy for Risk Mitigation
+
+  Task 3 in tasks.yaml includes validation tests for:
+  - Mock content generation failure (triggers retry) — validates retry loop works
+  - Mock file size violation — validates size check catches violations
+  - Successful generation and commit — validates happy path works
+  - Verify file overwrite behavior — confirms idempotency
