@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Feature 155: Create markdown file test-1k8ri0.md with title and prose content.
+Feature 165: Create markdown file test-ewmber.md with title and prose content.
 
 This module implements file creation with explicit UTF-8 encoding and LF line endings,
-following the established pattern of 150+ existing test files in the Sheep project.
+following the established pattern of 170+ existing test files in the Sheep project.
 
 Phase 1 (Core Implementation): File creation and validation
 Phase 2 (Git Integration & Delivery): Git workflow (add, commit, push)
@@ -16,28 +16,28 @@ import subprocess
 
 def create_file() -> None:
     """
-    Create test-1k8ri0.md markdown file with H1 heading and prose content.
+    Create test-ewmber.md markdown file with H1 heading and prose content.
 
     Uses pathlib.Path.write_bytes() with explicit UTF-8 encoding to ensure:
     - No BOM (Byte Order Mark) is added
     - Unix LF line endings (0x0A) across all platforms
     - Consistent encoding behavior
     """
-    title = "The Art of Deliberate Practice"
+    title = "Adaptive Learning"
     prose = (
-        "Deliberate practice is the cornerstone of mastery in any domain, "
-        "requiring focused effort on improving specific weaknesses rather than simply repeating "
-        "familiar tasks. When practitioners engage in intentional, structured improvement with immediate "
-        "feedback and course correction, they accelerate their development far beyond casual engagement. "
-        "This principle has been validated across music, sports, mathematics, and professional fields, "
-        "demonstrating that excellence emerges from systematic, goal-oriented effort rather than innate talent alone."
+        "Adaptive learning systems adjust their approach based on individual learner needs and progress, "
+        "creating personalized educational experiences that respond dynamically to feedback and performance. "
+        "These systems recognize that each learner has unique strengths, weaknesses, and preferred learning styles, "
+        "and they tailor content difficulty and presentation to optimize comprehension and retention. "
+        "By continuously analyzing learner interactions and outcomes, adaptive systems enhance educational effectiveness "
+        "and make learning more efficient and engaging for students of all levels."
     )
 
     # Construct markdown content: heading + blank line + prose + trailing newline
     content = f"# {title}\n\n{prose}\n"
 
     # Write to file at repository root with explicit UTF-8 encoding
-    filepath = Path("test-1k8ri0.md")
+    filepath = Path("test-ewmber.md")
     filepath.write_bytes(content.encode('utf-8'))
 
     print(f"✓ Created {filepath} ({len(content.encode('utf-8'))} bytes)")
@@ -45,11 +45,11 @@ def create_file() -> None:
 
 def validate_file() -> bool:
     """
-    Validate test-1k8ri0.md meets all structural and encoding requirements.
+    Validate test-ewmber.md meets all structural and encoding requirements.
 
     Checks:
     - File exists at expected path
-    - File size is within acceptable range (300-800 bytes, targeting 400-600)
+    - File size is within acceptable range (300-600 bytes)
     - File contains exactly one H1 heading (line starting with '# ')
     - File contains blank line after heading (double newline pattern)
     - File contains prose content (at least 2 sentences)
@@ -61,16 +61,16 @@ def validate_file() -> bool:
     Raises:
         AssertionError: If any validation fails with descriptive error message
     """
-    filepath = Path("test-1k8ri0.md")
+    filepath = Path("test-ewmber.md")
 
     # Check 1: File exists
     assert filepath.exists(), f"File {filepath} does not exist"
 
     # Check 2: File size within range
     file_size = filepath.stat().st_size
-    assert 300 <= file_size <= 800, (
-        f"File size {file_size} bytes outside acceptable range (300-800). "
-        f"Target: 400-600 bytes"
+    assert 300 <= file_size <= 600, (
+        f"File size {file_size} bytes outside acceptable range (300-600). "
+        f"Target: 300-600 bytes"
     )
 
     # Check 3: UTF-8 encoding (will raise if not valid UTF-8)
@@ -104,7 +104,7 @@ def validate_file() -> bool:
     )
 
     print(f"✓ File {filepath} validates successfully")
-    print(f"  - Size: {file_size} bytes (target: 400-600)")
+    print(f"  - Size: {file_size} bytes (range: 300-600)")
     print(f"  - Heading: {lines[0]}")
     print(f"  - Sentences: {sentence_count}")
     print(f"  - Encoding: UTF-8 (valid)")
@@ -118,17 +118,17 @@ def git_operations() -> None:
 
     Uses subprocess.run() with list-based arguments to safely execute git commands.
     Commit message follows Conventional Commits specification:
-    'feat(155): create markdown file test-1k8ri0.md with prose content'
+    'feat(165): Create markdown file test-ewmber.md with prose content'
 
     Raises:
         subprocess.CalledProcessError: If any git command fails (via check=True)
     """
-    commit_message = "feat(155): create markdown file test-1k8ri0.md with prose content"
+    commit_message = "feat(165): Create markdown file test-ewmber.md with prose content"
 
-    # Stage the file: git add test-1k8ri0.md
+    # Stage the file: git add test-ewmber.md
     # Using list-based arguments prevents shell injection attacks
-    print("Staging file with 'git add test-1k8ri0.md'...")
-    subprocess.run(["git", "add", "test-1k8ri0.md"], check=True)
+    print("Staging file with 'git add test-ewmber.md'...")
+    subprocess.run(["git", "add", "test-ewmber.md"], check=True)
     print("✓ File staged successfully")
 
     # Commit the file with conventional commit message
@@ -152,7 +152,7 @@ def main() -> int:
         print("\nPhase 2 (Git Integration & Delivery)...")
         git_operations()
 
-        print("\n✓ All phases complete - feature 155 delivered successfully")
+        print("\n✓ All phases complete - feature 165 delivered successfully")
         return 0
     except Exception as e:
         print(f"✗ Error: {e}", file=sys.stderr)
