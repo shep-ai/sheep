@@ -8,7 +8,7 @@ from 170+ existing test files in the repository.
 from pathlib import Path
 
 
-def create_markdown_file():
+def create_markdown_file() -> Path:
     """
     Create test-9ehmdc.md at repository root with H1 heading and 2-3 sentences of prose.
 
