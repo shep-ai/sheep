@@ -62,21 +62,20 @@ Developing any skill requires consistent, deliberate practice over extended peri
     return content
 
 
-def validate_content_structure(content: str) -> None:
+def validate_markdown_structure(content: str) -> None:
     """
-    Validate markdown content structure and format requirements.
+    Validate markdown structure: H1 heading on first line, blank line separator.
 
-    Checks that content has proper markdown structure:
-    - Starts with H1 heading (# followed by space)
-    - Has blank line after heading
-    - Contains 2-3 sentences in prose
-    - Ends with newline
+    Checks:
+    - First line is H1 heading (# followed by space)
+    - H1 heading has title text
+    - Second line is blank (separator)
 
     Args:
         content: The markdown content string to validate.
 
     Raises:
-        ValueError: If content fails any validation check.
+        ValueError: If markdown structure is invalid.
     """
     if not content or not content.strip():
         raise ValueError("Content is empty")
@@ -99,7 +98,147 @@ def validate_content_structure(content: str) -> None:
     if lines[1] != '':
         raise ValueError(f"Second line must be blank (separator), got: {lines[1]!r}")
 
+
+def validate_sentence_count(content: str) -> None:
+    """
+    Validate that content contains exactly 2-3 complete sentences.
+
+    Counts sentence-ending punctuation (., !, ?) and verifies count is 2 or 3.
+
+    Args:
+        content: The text content to validate.
+
+    Raises:
+        ValueError: If sentence count is not 2-3.
+    """
+    if not content or not content.strip():
+        raise ValueError("Content is empty")
+
+    # Count sentence-ending punctuation
+    sentence_count = content.count('.') + content.count('!') + content.count('?')
+
+    if sentence_count < 2 or sentence_count > 3:
+        raise ValueError(
+            f"Content must have 2-3 sentences, found {sentence_count} (counted . ! ?)"
+        )
+
+
+def validate_encoding(filepath: str) -> None:
+    """
+    Validate file uses UTF-8 encoding without BOM.
+
+    Checks:
+    - File exists and is readable
+    - File starts with UTF-8 content (not BOM bytes)
+    - File can be decoded as UTF-8
+
+    Args:
+        filepath: Path to the file to validate.
+
+    Raises:
+        ValueError: If file has BOM or invalid UTF-8 encoding.
+    """
+    path = Path(filepath)
+
+    if not path.exists():
+        raise ValueError(f"File does not exist: {filepath}")
+
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {filepath}")
+
+    # Read file as binary to check encoding
+    try:
+        with open(path, 'rb') as f:
+            binary_content = f.read()
+    except IOError as e:
+        raise ValueError(f"Cannot read file: {e}")
+
+    # Check for UTF-8 BOM (should not be present)
+    if binary_content.startswith(b'\xef\xbb\xbf'):
+        raise ValueError("File has UTF-8 BOM (should not be present)")
+
+    # Verify the file is valid UTF-8
+    try:
+        binary_content.decode('utf-8')
+    except UnicodeDecodeError as e:
+        raise ValueError(f"File is not valid UTF-8: {e}")
+
+
+def validate_file_size(filepath: str) -> None:
+    """
+    Validate file size is within expected range (300-600 bytes inclusive).
+
+    Args:
+        filepath: Path to the file to validate.
+
+    Raises:
+        ValueError: If file size is outside 300-600 byte range.
+    """
+    path = Path(filepath)
+
+    if not path.exists():
+        raise ValueError(f"File does not exist: {filepath}")
+
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {filepath}")
+
+    file_size = path.stat().st_size
+    if file_size < 300 or file_size > 600:
+        raise ValueError(
+            f"File size {file_size} bytes is outside expected range 300-600"
+        )
+
+
+def validate_line_endings(filepath: str) -> None:
+    """
+    Validate file uses Unix LF line endings (not CRLF).
+
+    Args:
+        filepath: Path to the file to validate.
+
+    Raises:
+        ValueError: If file uses CRLF or other non-LF line endings.
+    """
+    path = Path(filepath)
+
+    if not path.exists():
+        raise ValueError(f"File does not exist: {filepath}")
+
+    if not path.is_file():
+        raise ValueError(f"Path is not a file: {filepath}")
+
+    # Read file as binary to check line endings
+    try:
+        with open(path, 'rb') as f:
+            binary_content = f.read()
+    except IOError as e:
+        raise ValueError(f"Cannot read file: {e}")
+
+    # Check for CRLF line endings (should use LF instead)
+    if b'\r\n' in binary_content:
+        raise ValueError("File uses CRLF line endings (should use LF)")
+
+
+def validate_content_structure(content: str) -> None:
+    """
+    Validate markdown content structure and format requirements.
+
+    Orchestrates all content validations:
+    - Markdown structure (H1 heading, blank line separator)
+    - Sentence count (2-3 sentences)
+    - Trailing newline
+
+    Args:
+        content: The markdown content string to validate.
+
+    Raises:
+        ValueError: If content fails any validation check.
+    """
+    # Validate markdown structure
+    validate_markdown_structure(content)
+
     # Get prose content (skip heading and blank line)
+    lines = content.split('\n')
     prose_lines = lines[2:]
 
     # Remove trailing empty lines
@@ -111,12 +250,8 @@ def validate_content_structure(content: str) -> None:
 
     prose_content = '\n'.join(prose_lines).strip()
 
-    # Validate sentence count by counting sentence-ending punctuation
-    sentence_count = prose_content.count('.') + prose_content.count('!') + prose_content.count('?')
-    if sentence_count < 2 or sentence_count > 3:
-        raise ValueError(
-            f"Content must have 2-3 sentences, found {sentence_count} (counted . ! ?)"
-        )
+    # Validate sentence count in prose
+    validate_sentence_count(prose_content)
 
     # Check for trailing newline
     if not content.endswith('\n'):
@@ -127,8 +262,7 @@ def validate_file_properties(filepath: str) -> None:
     """
     Validate file encoding and line ending properties.
 
-    Checks:
-    - File exists and is readable
+    Orchestrates all file property validations:
     - UTF-8 encoding with no BOM
     - Unix LF line endings (not CRLF)
     - File size in expected range (300-600 bytes)
@@ -139,41 +273,14 @@ def validate_file_properties(filepath: str) -> None:
     Raises:
         ValueError: If file fails any validation check.
     """
-    path = Path(filepath)
+    # Validate encoding (UTF-8 without BOM)
+    validate_encoding(filepath)
 
-    if not path.exists():
-        raise ValueError(f"File does not exist: {filepath}")
+    # Validate line endings (Unix LF only)
+    validate_line_endings(filepath)
 
-    if not path.is_file():
-        raise ValueError(f"Path is not a file: {filepath}")
-
-    # Read file as binary to check encoding and line endings
-    try:
-        with open(path, 'rb') as f:
-            binary_content = f.read()
-    except IOError as e:
-        raise ValueError(f"Cannot read file: {e}")
-
-    # Check for UTF-8 BOM (should not be present)
-    if binary_content.startswith(b'\xef\xbb\xbf'):
-        raise ValueError("File has UTF-8 BOM (should not be present)")
-
-    # Check for CRLF line endings (should use LF instead)
-    if b'\r\n' in binary_content:
-        raise ValueError("File uses CRLF line endings (should use LF)")
-
-    # Verify the file is valid UTF-8
-    try:
-        binary_content.decode('utf-8')
-    except UnicodeDecodeError as e:
-        raise ValueError(f"File is not valid UTF-8: {e}")
-
-    # Check file size (should be 300-600 bytes)
-    file_size = path.stat().st_size
-    if file_size < 300 or file_size > 600:
-        raise ValueError(
-            f"File size {file_size} bytes is outside expected range 300-600"
-        )
+    # Validate file size (300-600 bytes)
+    validate_file_size(filepath)
 
 
 def write_markdown_file(content: str, filename: str, repo_path: str | None = None) -> str:
