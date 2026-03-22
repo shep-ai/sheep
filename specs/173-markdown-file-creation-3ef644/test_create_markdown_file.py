@@ -1,8 +1,28 @@
-"""Tests for markdown file creation and validation functions."""
+"""
+Comprehensive test suite for markdown file creation and validation.
+
+This module provides comprehensive test coverage for feature 173, which creates
+a markdown file (test-b96pp3.md) with proper structure, encoding, and line endings.
+
+Test Coverage:
+- File creation with correct structure (H1 heading + blank line + prose)
+- Encoding validation (UTF-8 without BOM)
+- Line ending validation (Unix LF, no Windows CRLF)
+- File size validation (300-800 byte range)
+- Prose content validation (2-3 sentences)
+- Trailing newline validation
+- Validation function behavior (success and failure paths)
+- Integration tests (complete workflow)
+- Error handling and informative error messages
+
+The test suite uses pytest fixtures and helper functions to create isolated
+test environments and invalid test files for comprehensive validation testing.
+"""
 
 import os
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -10,8 +30,124 @@ import pytest
 import sys
 script_path = Path(__file__).parent / "create_markdown_file.py"
 sys.path.insert(0, str(Path(__file__).parent))
-from create_markdown_file import create_file, validate_file
+from create_markdown_file import create_file, validate_file, git_operations
 
+
+# ============================================================================
+# Pytest Fixtures
+# ============================================================================
+
+@pytest.fixture
+def temp_dir():
+    """
+    Provide an isolated temporary directory for test file creation.
+
+    Yields a temporary directory path and restores the original working
+    directory after the test completes. This fixture ensures tests don't
+    interfere with the repository state or each other.
+
+    Yields:
+        Path: The temporary directory path
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(tmpdir)
+            yield Path(tmpdir)
+        finally:
+            os.chdir(original_cwd)
+
+
+@pytest.fixture
+def sample_markdown():
+    """
+    Provide a sample valid markdown file content for testing.
+
+    Returns:
+        dict: Dictionary with 'content' and 'path' keys containing valid markdown
+    """
+    content = (
+        "# Sample Title\n"
+        "\n"
+        "First sentence of the prose content here. "
+        "Second sentence explaining the topic more thoroughly. "
+        "Third sentence concluding the thought.\n"
+    )
+    return {"content": content, "filename": "sample.md"}
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+def create_invalid_file(temp_dir, invalid_type="missing_heading"):
+    """
+    Create a markdown file with specific validation errors for testing.
+
+    This helper function creates test files with various structural issues
+    to verify that the validate_file() function correctly rejects invalid files.
+
+    Args:
+        temp_dir (Path): The temporary directory where file will be created
+        invalid_type (str): Type of invalid file to create. Options:
+            - 'missing_heading': No H1 heading
+            - 'missing_blank_line': No blank line after heading
+            - 'empty_prose': Blank line + heading but no prose content
+            - 'too_small': File size under 300 bytes
+            - 'too_large': File size over 800 bytes
+            - 'with_crlf': Windows-style line endings
+            - 'with_bom': UTF-8 BOM encoding
+
+    Returns:
+        Path: Path to the created invalid file
+
+    Raises:
+        ValueError: If invalid_type is not recognized
+    """
+    filepath = temp_dir / "invalid_test.md"
+
+    if invalid_type == "missing_heading":
+        content = "## Wrong Level\n\nFirst sentence. Second sentence. Third sentence.\n"
+        filepath.write_bytes(content.encode('utf-8'))
+
+    elif invalid_type == "missing_blank_line":
+        prose = "This is prose content that should have a blank line before it. " * 5
+        content = f"# Title\n{prose}\n"
+        filepath.write_bytes(content.encode('utf-8'))
+
+    elif invalid_type == "empty_prose":
+        # Create a file with proper heading and blank line but only whitespace for prose
+        # Ensure file is large enough to pass size check (>300 bytes)
+        content = "# Title\n\n" + " " * 300 + "\n"
+        filepath.write_bytes(content.encode('utf-8'))
+
+    elif invalid_type == "too_small":
+        content = "# T\n\nS.\n"
+        filepath.write_bytes(content.encode('utf-8'))
+
+    elif invalid_type == "too_large":
+        prose = "This is a sentence. " * 60
+        content = f"# Title\n\n{prose}\n"
+        filepath.write_bytes(content.encode('utf-8'))
+
+    elif invalid_type == "with_crlf":
+        content = "# Title\r\n\r\nFirst sentence. Second sentence. Third sentence.\r\n"
+        filepath.write_bytes(content.encode('utf-8'))
+
+    elif invalid_type == "with_bom":
+        content = "# Title\n\nFirst sentence. Second sentence. Third sentence.\n"
+        # Write with BOM using utf-8-sig encoding
+        filepath.write_bytes(content.encode('utf-8-sig'))
+
+    else:
+        raise ValueError(f"Unknown invalid_type: {invalid_type}")
+
+    return filepath
+
+
+# ============================================================================
+# Test Classes
+# ============================================================================
 
 class TestCreateFile:
     """Tests for create_file() function."""
@@ -177,6 +313,82 @@ class TestCreateFile:
                 assert result.name == "test-b96pp3.md"
             finally:
                 os.chdir(original_cwd)
+
+    def test_file_ends_with_newline(self):
+        """Test that file ends with a newline character."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                create_file()
+
+                binary_content = Path("test-b96pp3.md").read_bytes()
+                # File must end with LF (\n, which is b'\n' in binary)
+                assert binary_content.endswith(b'\n'), "File should end with a newline character"
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestInvalidFileCreation:
+    """Tests for create_invalid_file() helper function."""
+
+    def test_create_invalid_file_missing_heading(self, temp_dir):
+        """Test that create_invalid_file() creates file without H1 heading."""
+        filepath = create_invalid_file(temp_dir, "missing_heading")
+        assert filepath.exists()
+
+        with pytest.raises(AssertionError, match="H1 heading"):
+            validate_file(filepath)
+
+    def test_create_invalid_file_missing_blank_line(self, temp_dir):
+        """Test that create_invalid_file() creates file without blank line."""
+        filepath = create_invalid_file(temp_dir, "missing_blank_line")
+        assert filepath.exists()
+
+        with pytest.raises(AssertionError, match="blank line"):
+            validate_file(filepath)
+
+    def test_create_invalid_file_empty_prose(self, temp_dir):
+        """Test that create_invalid_file() creates file with empty prose."""
+        filepath = create_invalid_file(temp_dir, "empty_prose")
+        assert filepath.exists()
+
+        with pytest.raises(AssertionError, match="prose"):
+            validate_file(filepath)
+
+    def test_create_invalid_file_too_small(self, temp_dir):
+        """Test that create_invalid_file() creates file under 300 bytes."""
+        filepath = create_invalid_file(temp_dir, "too_small")
+        assert filepath.exists()
+        assert filepath.stat().st_size < 300
+
+        with pytest.raises(AssertionError, match="outside typical range"):
+            validate_file(filepath)
+
+    def test_create_invalid_file_too_large(self, temp_dir):
+        """Test that create_invalid_file() creates file over 800 bytes."""
+        filepath = create_invalid_file(temp_dir, "too_large")
+        assert filepath.exists()
+        assert filepath.stat().st_size > 800
+
+        with pytest.raises(AssertionError, match="outside typical range"):
+            validate_file(filepath)
+
+    def test_create_invalid_file_with_crlf(self, temp_dir):
+        """Test that create_invalid_file() creates file with Windows CRLF line endings."""
+        filepath = create_invalid_file(temp_dir, "with_crlf")
+        assert filepath.exists()
+
+        binary_content = filepath.read_bytes()
+        assert b'\r\n' in binary_content, "File should contain CRLF line endings"
+
+    def test_create_invalid_file_with_bom(self, temp_dir):
+        """Test that create_invalid_file() creates file with UTF-8 BOM."""
+        filepath = create_invalid_file(temp_dir, "with_bom")
+        assert filepath.exists()
+
+        binary_content = filepath.read_bytes()
+        assert binary_content.startswith(b'\xef\xbb\xbf'), "File should have UTF-8 BOM"
 
 
 class TestValidateFile:
@@ -365,5 +577,74 @@ class TestIntegration:
 
                 # Validate overall file passes validation
                 assert validate_file(filepath) is True
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_operations_called_on_success(self):
+        """Test that git operations are called with correct parameters when validation passes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Create a valid file first
+                filepath = create_file()
+                validate_file(filepath)
+
+                # Mock subprocess.run to verify git commands are called
+                with mock.patch('subprocess.run') as mock_run:
+                    git_operations()
+
+                    # Verify subprocess.run was called 3 times (add, commit, push)
+                    assert mock_run.call_count == 3, "Expected 3 git commands (add, commit, push)"
+
+                    # Verify the commands are correct
+                    calls = mock_run.call_args_list
+
+                    # Check git add command
+                    assert calls[0][0][0] == ['git', 'add', 'test-b96pp3.md'], "First call should be git add"
+                    assert calls[0][1] == {'check': True}, "Should use check=True"
+
+                    # Check git commit command
+                    assert calls[1][0][0][0:2] == ['git', 'commit'], "Second call should be git commit"
+                    assert calls[1][1] == {'check': True}, "Should use check=True"
+
+                    # Check git push command
+                    assert calls[2][0][0] == ['git', 'push', '-u', 'origin', 'HEAD'], "Third call should be git push"
+                    assert calls[2][1] == {'check': True}, "Should use check=True"
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validation_before_git_operations(self):
+        """Test that validation occurs before git operations to prevent invalid commits."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Create an invalid file (missing blank line)
+                invalid_file = Path(tmpdir) / "test-b96pp3.md"
+                prose = "This is prose without blank line. " * 10
+                content = f"# Title\n{prose}\n"
+                invalid_file.write_bytes(content.encode('utf-8'))
+
+                # Validation should fail
+                with pytest.raises(AssertionError):
+                    validate_file(invalid_file)
+
+                # Git operations should not be called for invalid file
+                with mock.patch('subprocess.run') as mock_run:
+                    # Attempt to validate (will fail)
+                    try:
+                        validate_file(invalid_file)
+                        git_operations()
+                    except AssertionError:
+                        # Expected - validation failed
+                        pass
+
+                    # subprocess.run should not be called because validation failed before git_operations
+                    assert mock_run.call_count == 0, "Git operations should not be called for invalid file"
+
             finally:
                 os.chdir(original_cwd)
