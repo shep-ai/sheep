@@ -537,9 +537,47 @@ def create_feature_171_markdown_file(repo_path: str | None = None) -> dict[str, 
         raise
 
 
+def main(repo_path: str | None = None) -> dict[str, str]:
+    """
+    Main orchestration function for feature 171.
+
+    This is the primary entry point that orchestrates the complete workflow:
+    1. Generate hard-coded markdown content with H1 heading and 2-3 sentences
+    2. Validate content structure, sentence count, and markdown format
+    3. Write validated content to file with UTF-8 encoding and Unix LF line endings
+    4. Validate file properties (encoding, line endings, file size)
+    5. Stage file to git index
+    6. Create git commit with conventional message format
+    7. Push commit to remote repository
+
+    Args:
+        repo_path: Path to git repository (defaults to current working directory).
+
+    Returns:
+        Dictionary containing:
+        - filepath: Full path to created markdown file
+        - content: Markdown content that was written
+        - commit_message: Conventional commit message used
+        - push_result: Output from git push command
+
+    Raises:
+        ValueError: If content validation fails
+        IOError: If file write operation fails
+        RuntimeError: If git operations fail
+
+    Example:
+        >>> result = main()
+        >>> print(result['filepath'])
+        /path/to/repo/test-jn0b4n.md
+        >>> print(result['commit_message'])
+        feat(171): Create markdown file test-jn0b4n.md with prose content
+    """
+    return create_feature_171_markdown_file(repo_path=repo_path)
+
+
 if __name__ == '__main__':
     """Execute feature 171 when run as a script."""
-    result = create_feature_171_markdown_file()
+    result = main()
     print("Feature 171 created successfully:")
     print(f"  File: {result['filepath']}")
     print(f"  Size: {len(result['content'])} bytes")
