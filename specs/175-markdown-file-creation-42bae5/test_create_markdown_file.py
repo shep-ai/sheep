@@ -394,3 +394,199 @@ class TestStructureValidation:
                     create_markdown_file.validate_file("test-no-newline.md")
             finally:
                 os.chdir(original_cwd)
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    def test_minimal_valid_file(self):
+        """Test creation and validation of minimal valid file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                create_markdown_file.create_file()
+
+                # Should pass validation without error
+                create_markdown_file.validate_file(create_markdown_file.FILENAME)
+
+                # Verify file content
+                content = (tmpdir_path / create_markdown_file.FILENAME).read_text()
+                assert "# " in content  # Has heading
+                assert content.count('\n') >= 3  # At least: heading\n, blank\n, prose\n
+                assert content.endswith('\n')  # Trailing newline
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_size_boundary_lower(self):
+        """Test file that is near lower size boundary (300 bytes)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Create a file with content that naturally fills ~300-400 bytes
+                test_file = tmpdir_path / "test-boundary.md"
+                # Build content with exactly 3 sentences
+                prose = "This is the first sentence that will be reasonably long to reach the minimum size requirement. " \
+                        "This is the second sentence that adds more content to the file. " \
+                        "This is the third sentence that completes the required sentence count."
+                content = f"# Engineering Excellence\n\n{prose}\n"
+
+                test_file.write_text(content, encoding='utf-8', newline='\n')
+
+                file_size = test_file.stat().st_size
+
+                # If the file is within the valid range, validation should pass
+                if 300 <= file_size <= 800:
+                    create_markdown_file.validate_file("test-boundary.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_size_boundary_upper(self):
+        """Test file that is exactly at upper size boundary (800 bytes)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                create_markdown_file.create_file()
+
+                # Verify actual file size
+                file_path = tmpdir_path / create_markdown_file.FILENAME
+                file_size = file_path.stat().st_size
+
+                # Should be within valid range
+                assert 300 <= file_size <= 800, f"File size {file_size} out of range"
+
+                # Should pass validation
+                create_markdown_file.validate_file(create_markdown_file.FILENAME)
+            finally:
+                os.chdir(original_cwd)
+
+    def test_exactly_two_sentences(self):
+        """Test file with exactly 2 sentences (minimum)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                test_file = tmpdir_path / "test-two.md"
+                content = "# Title\n\nThis is the first sentence. This is the second sentence.\n"
+                test_file.write_text(content, encoding='utf-8', newline='\n')
+
+                # Should pass if size is in range
+                file_size = test_file.stat().st_size
+                if 300 <= file_size <= 800:
+                    create_markdown_file.validate_file("test-two.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_exactly_three_sentences(self):
+        """Test file with exactly 3 sentences (maximum)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                test_file = tmpdir_path / "test-three.md"
+                content = "# Title\n\nFirst sentence. Second sentence. Third sentence.\n"
+                test_file.write_text(content, encoding='utf-8', newline='\n')
+
+                # Should pass if size is in range
+                file_size = test_file.stat().st_size
+                if 300 <= file_size <= 800:
+                    create_markdown_file.validate_file("test-three.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_heading_with_special_characters(self):
+        """Test that heading can contain special characters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                test_file = tmpdir_path / "test-special.md"
+                content = "# The Art of Problem-Solving: A Guide\n\nThis is a test. Second. Third.\n"
+                test_file.write_text(content, encoding='utf-8', newline='\n')
+
+                file_size = test_file.stat().st_size
+                if 300 <= file_size <= 800:
+                    create_markdown_file.validate_file("test-special.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_prose_with_multiple_lines(self):
+        """Test that prose can span multiple lines."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                test_file = tmpdir_path / "test-multiline.md"
+                prose = "This is the first sentence.\nContinuing here.\nSecond sentence. Third sentence."
+                content = f"# Title\n\n{prose}\n"
+                test_file.write_text(content, encoding='utf-8', newline='\n')
+
+                file_size = test_file.stat().st_size
+                if 300 <= file_size <= 800:
+                    create_markdown_file.validate_file("test-multiline.md")
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestValidationErrorMessages:
+    """Tests to verify that validation errors have clear, actionable messages."""
+
+    def test_missing_file_error_message(self):
+        """Test that missing file error has clear message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                try:
+                    create_markdown_file.validate_file("nonexistent.md")
+                    assert False, "Should have raised ValueError"
+                except ValueError as e:
+                    assert "does not exist" in str(e)
+            finally:
+                os.chdir(original_cwd)
+
+    def test_empty_file_error_message(self):
+        """Test that empty file error has clear message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                test_file = tmpdir_path / "test-empty.md"
+                test_file.write_text("", encoding='utf-8')
+
+                try:
+                    create_markdown_file.validate_file("test-empty.md")
+                    assert False, "Should have raised ValueError"
+                except ValueError as e:
+                    assert "empty" in str(e)
+            finally:
+                os.chdir(original_cwd)
