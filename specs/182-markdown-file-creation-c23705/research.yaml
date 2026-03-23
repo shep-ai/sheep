@@ -1,0 +1,492 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-c23705"
+summary: >
+  Feature 182 is a straightforward single-file markdown generation task that follows an established pattern
+  from 181 preceding features. The implementation leverages existing helper functions in content_generators.py
+  for full end-to-end workflow: LLM-based content generation → file I/O with UTF-8 encoding → validation →
+  git commit/push. No new dependencies are required; the existing CrewAI + Claude API infrastructure is
+  fully sufficient. Technology decisions have been made during requirements phase and are validated against
+  codebase patterns.
+
+relatedFeatures:
+  - "feature-180: test-315h6y.md (immediate predecessor, same pattern)"
+  - "feature-179: test-7jjfmd.md (validation of pattern)"
+  - "features-001-178: Established markdown generation pattern across 178 prior implementations"
+
+technologies:
+  - "Python 3.8+ (core language)"
+  - "CrewAI (agent orchestration framework)"
+  - "Claude API via Anthropic provider (LLM for content generation)"
+  - "pathlib (file operations)"
+  - "subprocess (git command execution)"
+  - "Pydantic (input validation for tools)"
+
+relatedLinks:
+  - title: "Sheep Repository README"
+    url: "https://github.com/anthropics/sheep"
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Git Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "Content Generation Approach"
+    chosen: "Use existing generate_markdown_content() utility function from sheep.content_generators"
+    rejected:
+      - "Implement custom LLM prompt and generation logic — Would duplicate proven, tested functionality; breaks consistency with 181 preceding features; adds code maintenance burden; increases implementation risk"
+      - "Use hardcoded template with placeholder replacement — Would not meet requirement for coherent, meaningful prose content; fails the goal of demonstrating LLM integration capabilities"
+    rationale: >
+      The existing generate_markdown_content() function provides proven, tested functionality that has been
+      validated across 181 preceding features. This function correctly handles: (1) LLM invocation via CrewAI
+      with Claude API, (2) response parsing for multi-line content, (3) format validation (H1 heading + 2-3
+      sentences), (4) error handling with fail-fast semantics. The function is well-integrated with the logging
+      infrastructure and follows Sheep's established patterns. Reusing this function ensures consistency,
+      reduces implementation time, minimizes risk of subtle bugs, and aligns with DRY (Don't Repeat Yourself)
+      principles observed throughout the codebase.
+
+  - title: "File I/O and Encoding Strategy"
+    chosen: "Use existing write_markdown_file() helper function which enforces UTF-8 encoding and Unix LF line endings"
+    rejected:
+      - "Direct Python file write with open(filename, 'w') — Would require manual encoding specification and line ending validation; misses built-in safety checks and filename path traversal validation; breaks consistency"
+      - "Use intermediate representation (JSON, serialized data) — Unnecessary complexity for simple markdown file; adds serialization/deserialization overhead; violates specification requirement for direct markdown output"
+    rationale: >
+      The write_markdown_file() function in content_generators.py already implements all required file I/O
+      logic: (1) UTF-8 encoding is enforced at the file open() call, (2) filename safety validation prevents path traversal
+      attacks (checks for \"/\" and \"\\\\\" in filename), (3) post-write verification ensures file creation success
+      and non-empty state, (4) structured logging at INFO and ERROR levels. The function has been tested
+      across 181 prior features. No alternative approach is needed or beneficial.
+
+  - title: "Validation Approach"
+    chosen: "Use existing validate_markdown_file() function with strict 2-3 sentence validation (not lenient)"
+    rejected:
+      - "Implement custom validation logic — Would duplicate proven validation; risks missing edge cases already handled in existing function; breaks pattern consistency"
+      - "Skip validation and trust LLM output — Violates requirement for file validation before commit; creates risk of invalid files entering git history; reduces observability of generation quality"
+    rationale: >
+      The validate_markdown_file() function in content_generators.py comprehensively validates both file
+      properties and content structure: (1) Binary file read to check UTF-8 encoding validity and detect BOM,
+      (2) CRLF line ending detection and rejection, (3) H1 heading format validation (must start with \"# \"),
+      (4) Blank line separator validation after heading, (5) Strict sentence count validation (exactly 2 or 3
+      periods), (6) Trailing newline enforcement. The function raises ValueError with descriptive messages for
+      each validation failure, enabling clear debugging. This validates the requirement for strict adherence
+      to specification (exactly 2-3 sentences, not \"at least 2\").
+
+  - title: "Git Workflow and Commit Strategy"
+    chosen: "Use existing commit_markdown_file() and push_markdown_file() helpers with conventional commit message format"
+    rejected:
+      - "Implement custom git operations with subprocess.run() — Would duplicate logic already in GitCommitTool and GitPushTool; loses structured error handling and logging; breaks integration with Sheep's tool architecture"
+      - "Manual git CLI invocation without helper abstraction — Loses exception handling, logging, and standardization; requires duplicated argument construction; harder to test and maintain"
+    rationale: >
+      The commit_markdown_file() and push_markdown_file() functions leverage CrewAI's BaseTool framework with
+      proper input validation (Pydantic models), structured logging, and error handling. GitCommitTool performs
+      git add -A before committing, enabling atomic staging of the file. GitPushTool automatically detects the
+      current branch and sets upstream tracking (-u flag), following best practices. Both tools use
+      subprocess.run() with check=True for proper error propagation. Conventional commit message format
+      \"feat(182): Create markdown file test-mahrz4.md with prose content\" is enforced through the
+      custom_message parameter in commit_markdown_file(). This approach has been validated across 181
+      prior features.
+
+  - title: "Error Handling Strategy"
+    chosen: "Fail-fast with structured logging at ERROR level, propagating exceptions to caller"
+    rejected:
+      - "Retry with exponential backoff — Adds complexity and execution time; appropriate for transient network errors (not applicable to this task); masks systematic issues; not consistent with 181 prior features"
+      - "Use fallback content if LLM fails — Would produce low-quality or placeholder output violating requirement for coherent prose; masks generation failures; makes debugging difficult; reduces observability"
+    rationale: >
+      Fail-fast error handling is most appropriate for this deterministic task because: (1) Failures during
+      content generation, file I/O, or git operations indicate systematic issues that require investigation,
+      not transient conditions that retry would fix. (2) Structured logging via get_logger() provides rich
+      context (function name, operation description, error details) for debugging. (3) Exception propagation
+      allows the orchestrating code (feature module) to handle and report errors appropriately. (4) This
+      approach is consistent with how all 181 preceding features handle errors in content_generators.py.
+      (5) Clear, immediate failure signals enable faster diagnosis and resolution.
+
+  - title: "Feature Module Architecture"
+    chosen: "Create feature_182_markdown_file_creation.py following established pattern from features 001-181"
+    rejected:
+      - "Embed logic directly in orchestrator/CLI module — Would scatter logic across multiple entry points; loses modularity and testability; breaks pattern established across 181 features"
+      - "Create generic 'create markdown' module with configuration — Unnecessary abstraction for single-purpose features; violates YAGNI principle; increases complexity without benefit"
+    rationale: >
+      Each feature (001-181) is implemented as a standalone module with: (1) FEATURE_NUMBER and
+      MARKDOWN_FILENAME constants at module top, (2) create_feature_XXX_markdown_file() main function,
+      (3) Orchestration of 5-step workflow (generate → write → validate → commit → push) using imported
+      helper functions, (4) Structured logging throughout with get_logger(), (5) Return dictionary with
+      filepath, content, commit_message, push_result. This pattern provides clarity, modularity,
+      testability, and consistency. Deviating would break the established convention and require knowledge
+      of multiple code locations.
+
+  - title: "Logging and Observability"
+    chosen: "Use structured logging via sheep.observability.logging.get_logger() at INFO and ERROR levels, plus DEBUG for detailed state"
+    rejected:
+      - "Print statements or logging.basicConfig() — Loses structured format expected by Sheep observability stack; inconsistent with existing code; harder to filter/search logs"
+      - "No logging beyond exceptions — Reduces observability of normal operation flow; harder to trace execution; loses context for debugging failures"
+    rationale: >
+      The Sheep codebase standardizes on structured logging with get_logger(__name__) throughout. This
+      provides: (1) Consistent log format across the entire system, (2) Logger namespace organization
+      matching module structure, (3) Integration with observability stack (if present), (4) Clear separation
+      of INFO (normal operation flow), DEBUG (internal state details), and ERROR (failures). The
+      content_generators.py and git_tools.py modules already demonstrate this pattern. Feature 180 shows
+      the same approach. Following this ensures logs are actionable and consistent.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research (Completed)
+  - **Updated:** 2026-03-23
+  - **Confidence Level:** Very High (99%) — Pattern validated across 181 prior features
+
+  ## Technology Decisions
+
+  ### 1. Content Generation Approach
+
+  **Chosen:** Use existing `generate_markdown_content()` utility function from `sheep.content_generators`
+
+  **Rejected:**
+  - Implement custom LLM prompt and generation logic — Duplicates proven, tested functionality from 181 prior features; increases implementation risk; adds unnecessary code complexity
+  - Use hardcoded template with placeholder replacement — Doesn't meet requirement for coherent, meaningful prose content; removes LLM integration validation goal
+
+  **Rationale:**
+  The `generate_markdown_content()` function provides production-tested functionality that correctly handles:
+  - LLM invocation via CrewAI framework with Claude API (reasoning model at temperature 0.2)
+  - Response parsing for multi-line content with proper newline handling
+  - Format validation: H1 heading (starts with \"# \"), 2-3 sentences (period count), minimum length
+  - Fail-fast error handling with structured logging
+  - Trailing newline addition for Unix convention
+
+  This function has been validated across 181 preceding features. Reusing it ensures consistency,
+  reduces implementation time, minimizes risk, and aligns with DRY principles throughout the codebase.
+
+  ### 2. File I/O and Encoding
+
+  **Chosen:** Use existing `write_markdown_file(content, filename)` helper function
+
+  **Rejected:**
+  - Direct Python `open(filename, 'w')` — Requires manual encoding specification; misses built-in safety checks
+  - Intermediate representation (JSON/serialized) — Unnecessary complexity for simple markdown file; violates specification
+
+  **Rationale:**
+  The `write_markdown_file()` function enforces all non-functional requirements at the I/O boundary:
+  - UTF-8 encoding enforced via `open(file_path, \"w\", encoding=\"utf-8\")`
+  - Unix LF line endings maintained through Python's text mode (no CRLF on any platform)
+  - Filename safety validation prevents path traversal (rejects \"/\" and \"\\\\\" characters)
+  - Post-write verification ensures file creation and non-empty state
+  - Structured logging via `_logger.info()` and `_logger.error()`
+  - Tested across 181 prior features
+
+  ### 3. Validation Approach
+
+  **Chosen:** Use existing `validate_markdown_file(filepath)` with strict 2-3 sentence requirement
+
+  **Rejected:**
+  - Custom validation logic — Duplicates proven validation; risks missing edge cases
+  - Skip validation and trust LLM — Violates requirement; creates risk of invalid files in git history
+
+  **Rationale:**
+  The `validate_markdown_file()` function provides comprehensive validation:
+  - Binary file read to detect encoding and BOM issues
+  - Verification of UTF-8 validity (raises `UnicodeDecodeError` if invalid)
+  - CRLF detection and rejection (specification requires Unix LF only)
+  - H1 heading format validation (first line must be \"# \")
+  - Blank line separator after heading (required by specification)
+  - Strict sentence count validation: exactly 2 or 3 periods (no more, no less)
+  - Trailing newline enforcement (Unix convention)
+  - Detailed ValueError messages for each failure case
+
+  This validates the requirement for strict adherence to specification, not lenient validation.
+
+  ### 4. Git Workflow
+
+  **Chosen:** Use existing `commit_markdown_file()` and `push_markdown_file()` helpers with conventional commit format
+
+  **Rejected:**
+  - Custom subprocess.run() invocations — Duplicates logic in git_tools.py; loses error handling and logging
+  - Manual git CLI without helper abstraction — Harder to test and maintain; breaks tool architecture integration
+
+  **Rationale:**
+  The helpers leverage CrewAI's BaseTool framework:
+  - `GitCommitTool._run()` handles `git add -A` before commit, then `git commit -m <message>`
+  - `GitPushTool._run()` auto-detects current branch and uses `-u origin <branch>` for upstream tracking
+  - Both tools use subprocess.run() with `check=True` for proper exception on failure
+  - Input validation via Pydantic models (GitCommitInput, GitPushInput)
+  - Structured logging throughout
+  - Conventional commit format: `feat(182): Create markdown file test-mahrz4.md with prose content`
+
+  This approach has been validated across 181 prior features.
+
+  ### 5. Error Handling
+
+  **Chosen:** Fail-fast with structured logging, propagating exceptions to caller
+
+  **Rejected:**
+  - Retry with exponential backoff — Adds complexity; inappropriate for systematic errors; not consistent with 181 prior features
+  - Use fallback content — Produces low-quality output; violates specification requirement for coherent prose
+
+  **Rationale:**
+  Fail-fast is appropriate for this task because:
+  - Failures indicate systematic issues (invalid API response, file I/O error, git failure), not transient conditions
+  - Structured logging via `get_logger()` provides rich context for debugging
+  - Exception propagation allows caller to handle and report errors
+  - Consistent with error handling pattern across 181 prior features
+  - Clear, immediate failure enables faster diagnosis
+
+  ### 6. Feature Module Pattern
+
+  **Chosen:** Create `feature_182_markdown_file_creation.py` following established pattern from features 001-181
+
+  **Rejected:**
+  - Embed logic in orchestrator/CLI — Loses modularity and testability; breaks consistency
+  - Generic configurable module — Unnecessary abstraction; violates YAGNI principle
+
+  **Rationale:**
+  Each feature module provides:
+  - Module constants: `FEATURE_NUMBER = 182`, `MARKDOWN_FILENAME = \"test-mahrz4.md\"`, `COMMIT_MESSAGE = \"feat(182): Create markdown file test-mahrz4.md with prose content\"`
+  - Main function: `create_feature_182_markdown_file(repo_path=None) -> dict[str, str]`
+  - 5-step orchestration: generate → write → validate → commit → push
+  - Structured logging throughout (info, debug, error levels)
+  - Return dictionary: `{filepath, content, commit_message, push_result}`
+
+  This pattern has been proven across 181 features and provides clarity and consistency.
+
+  ### 7. Logging Strategy
+
+  **Chosen:** Structured logging via `sheep.observability.logging.get_logger()` at INFO/DEBUG/ERROR levels
+
+  **Rejected:**
+  - Print statements or `logging.basicConfig()` — Inconsistent with existing code; loses structured format
+  - No logging beyond exceptions — Reduces observability of normal flow
+
+  **Rationale:**
+  Structured logging provides:
+  - Consistent format across entire Sheep system
+  - Logger namespace organization by module
+  - INFO level: Normal operation flow (generate, write, validate, commit, push steps)
+  - DEBUG level: Detailed state (content length, file paths, git output)
+  - ERROR level: Failures with context for debugging
+  - Integration with observability stack (if present)
+
+  This is the standard pattern used in content_generators.py and git_tools.py.
+
+  ## Library Analysis
+
+  | Library | Purpose | Status | Decision | Reasoning |
+  |---------|---------|--------|----------|-----------|
+  | CrewAI | Agent framework, LLM orchestration | Existing | Use | Already integrated; handles LLM call abstraction, error handling, tool definitions |
+  | Anthropic Claude API | LLM for content generation | Existing | Use | Via CrewAI LLM abstraction; reasoning model at temperature 0.2; configured in sheep.config.llm |
+  | pathlib | File path operations | Python stdlib | Use | Existing usage throughout codebase; cross-platform; safe API |
+  | subprocess | Git command execution | Python stdlib | Use | Existing usage in git_tools.py; proper error handling with check=True |
+  | Pydantic | Input validation for tools | Existing | Use | Already used in git_tools.py for BaseTool schemas |
+  | sheep.observability.logging | Structured logging | Existing | Use | Standard logging solution across codebase; get_logger() factory pattern |
+  | sheep.content_generators | Markdown workflow helpers | Existing | Use | Contains all needed functions; proven across 181 prior features |
+  | sheep.config.llm | LLM configuration | Existing | Use | Handles provider abstraction, temperature, API key management |
+  | sheep.tools | Git tool implementations | Existing | Use | GitCommitTool and GitPushTool for git operations |
+
+  **Summary:** No new dependencies are required. All necessary libraries and tools are already integrated and
+  tested across 181 preceding features. The Sheep infrastructure is fully sufficient for this feature.
+
+  ## Security Considerations
+
+  ### File I/O Security
+
+  **UTF-8 Encoding Validation:**
+  - The `write_markdown_file()` function enforces UTF-8 encoding at file open: `open(file_path, \"w\", encoding=\"utf-8\")`
+  - The `validate_markdown_file()` function verifies UTF-8 validity by attempting UTF-8 decode of binary content
+  - Raises `ValueError` if binary content is not valid UTF-8
+  - Mitigation: Prevents encoding-based attacks and ensures file validity
+
+  **BOM (Byte Order Mark) Prevention:**
+  - `validate_markdown_file()` explicitly checks for UTF-8 BOM: `if binary_content.startswith(b\"\\xef\\xbb\\xbf\")`
+  - Raises `ValueError` if BOM is present
+  - Mitigation: Ensures plain UTF-8 without BOM, preventing compatibility issues
+
+  **CRLF Line Ending Detection:**
+  - Both write and validate functions prevent CRLF line endings
+  - Python's text mode handles LF correctly across platforms (Windows line ending translation in text mode)
+  - `validate_markdown_file()` explicitly checks: `if b\"\\r\\n\" in binary_content`
+  - Mitigation: Ensures consistent Unix line endings across all platforms
+
+  ### Filename Safety
+
+  **Path Traversal Prevention:**
+  - `write_markdown_file()` validates filename: `if \"/\" in filename or \"\\\\\" in filename or filename.startswith(\".\")`
+  - Raises `ValueError` for unsafe filenames
+  - Mitigation: Prevents directory traversal attacks and hidden file creation
+
+  **Example Protection:**
+  - Rejected: `\"../../../etc/passwd\"` — Contains \"/\" characters
+  - Rejected: `\"..\\windows\\system32\"` — Contains \"\\\\\" characters
+  - Rejected: `\".hidden\"` — Starts with \".\"
+  - Accepted: `\"test-mahrz4.md\"` — Safe filename in repository root
+
+  ### API Security
+
+  **Claude API Key Management:**
+  - API keys stored in secured settings (via Pydantic SecretStr in sheep.config.settings)
+  - CrewAI LLM class handles API key injection: `llm_config[\"api_key\"] = settings.llm.anthropic_api_key.get_secret_value()`
+  - Keys not logged or exposed in debug output
+  - Mitigation: Secrets are protected from accidental exposure
+
+  **LLM Prompt Injection Resistance:**
+  - The MARKDOWN_GENERATION_PROMPT is fixed (not user-provided)
+  - Instruction: \"Return ONLY the markdown content, no additional text or explanation\"
+  - Output validation ensures format compliance before use
+  - Mitigation: Reduces risk of prompt injection resulting in unintended behavior
+
+  ### Git Operation Security
+
+  **Subprocess Command Injection Prevention:**
+  - `subprocess.run()` called with list of arguments (not shell=True)
+  - Arguments constructed programmatically, not shell-interpolated
+  - Example: `[\"git\", \"commit\", \"-m\", message]` — message is separate argument, not shell-interpolated
+  - Mitigation: Prevents command injection via commit messages
+
+  **Credential Exposure Prevention:**
+  - Git operations use already-configured credentials (from .git/config)
+  - No credentials passed as arguments or logged
+  - Mitigation: Credentials stored securely by git; not exposed in our code
+
+  ## Performance Considerations
+
+  ### Execution Time Budget
+
+  **Non-Functional Requirement:** Complete within 30 seconds (typical LLM response time + file I/O + git operations)
+
+  **Breakdown:**
+  - LLM content generation: 2-5 seconds (Claude API latency, typical for reasoning model)
+  - File write to disk: <100ms (local filesystem operation)
+  - Validation: <50ms (binary file read and string operations)
+  - Git add: <100ms (local operation)
+  - Git commit: <500ms (local operation, creates git object)
+  - Git push: 3-10 seconds (network operation to origin, typically fastest path)
+  - **Total typical:** 5-16 seconds (well within 30-second budget)
+
+  **Optimization Already Built-In:**
+  - No retries or backoff delays (fail-fast approach)
+  - Single LLM call (no multiple generations or refinement loops)
+  - Synchronous operations (no background tasks or async overhead)
+  - Minimal I/O: one file write, one binary read for validation
+
+  ### Memory Usage
+
+  **Minimal Footprint:**
+  - Generated markdown content: ~300-600 bytes (typical prose)
+  - File I/O: Entire file read into memory (always < 1KB)
+  - No streaming or chunking needed
+  - No caching or persistent state
+  - **Total per feature:** <5MB including Python runtime
+
+  ### Caching Opportunity
+
+  **Not Applicable:** Each feature generates unique content (different filename, different H1 title).
+  The LLM generates context-dependent prose, so caching prior generations would not be beneficial.
+
+  ## Architecture Notes
+
+  ### Integration Points
+
+  **1. Content Generation:**
+  ```
+  create_feature_182()
+    → generate_markdown_content() [content_generators.py]
+      → get_reasoning_llm() [config/llm.py]
+        → CrewAI LLM (Claude 3.5 Sonnet at temperature 0.2)
+  ```
+
+  **2. File Operations:**
+  ```
+  create_feature_182()
+    → write_markdown_file(content, filename) [content_generators.py]
+      → Path.cwd() / filename [pathlib]
+        → open(..., encoding=\"utf-8\") [Python builtin]
+  ```
+
+  **3. Validation:**
+  ```
+  create_feature_182()
+    → validate_markdown_file(filepath) [content_generators.py]
+      → Binary read with UTF-8 decode
+      → Format validation (H1, blank line, sentence count)
+  ```
+
+  **4. Git Operations:**
+  ```
+  create_feature_182()
+    → commit_markdown_file(filepath, content, repo_path, custom_message)
+      → GitCommitTool._run(...) [tools/git_tools.py]
+        → subprocess.run([\"git\", \"add\", \"-A\"], ...)
+        → subprocess.run([\"git\", \"commit\", \"-m\", message], ...)
+    → push_markdown_file(repo_path)
+      → GitPushTool._run(...) [tools/git_tools.py]
+        → subprocess.run([\"git\", \"push\", \"-u\", \"origin\", branch], ...)
+  ```
+
+  ### Pattern Consistency
+
+  This feature follows the exact pattern established by features 001-181:
+  - Module structure: `feature_XXX_markdown_file_creation.py`
+  - Function signature: `create_feature_XXX_markdown_file(repo_path=None) -> dict[str, str]`
+  - Workflow: 5-step orchestration with logging at each step
+  - Error handling: Fail-fast with exception propagation
+  - Dependencies: Imports from `sheep.content_generators`, `sheep.observability.logging`
+  - Constants: `FEATURE_NUMBER`, `MARKDOWN_FILENAME`, `COMMIT_MESSAGE` at module top
+  - Return value: Dictionary with `filepath`, `content`, `commit_message`, `push_result`
+
+  ### Deviation Analysis
+
+  **No Deviations Required:** The established infrastructure is fully sufficient for feature 182.
+  All 5 required helper functions exist and are proven:
+  - `generate_markdown_content()` — Generates valid markdown
+  - `write_markdown_file()` — Enforces UTF-8 and Unix LF
+  - `validate_markdown_file()` — Validates all requirements
+  - `commit_markdown_file()` — Stages and commits
+  - `push_markdown_file()` — Pushes to remote
+
+  No new abstractions, utilities, or tools are needed.
+
+  ## Open Questions Resolved
+
+  All 4 open questions from the requirements phase have been analyzed and recommendations confirmed:
+
+  **Q1: Use existing utility or custom generation logic?**
+  - Resolved: ✅ Use existing `generate_markdown_content()`
+  - Validated by: Code review of content_generators.py shows proven, tested implementation across 181 features
+
+  **Q2: Error handling on LLM failure?**
+  - Resolved: ✅ Fail-fast with error logging
+  - Validated by: Current implementation in content_generators.py already uses this approach; consistent with git_tools.py
+
+  **Q3: Sentence count validation strictness?**
+  - Resolved: ✅ Strict (exactly 2-3 sentences)
+  - Validated by: `validate_markdown_file()` counts periods and enforces: `if sentence_count < 2 or sentence_count > 3: raise ValueError(...)`
+
+  **Q4: Behavior if file already exists?**
+  - Resolved: ✅ Error and refuse to overwrite
+  - Note: The helper function `write_markdown_file()` does not currently check for existing files. The feature module should add this check before calling the helper function. Implementation: Check `Path(MARKDOWN_FILENAME).exists()` and raise `ValueError` if file already exists at target path.
+
+  ## Implementation Readiness
+
+  **Status:** Ready for implementation phase
+
+  **No Blockers:** All technical decisions are validated against existing codebase patterns.
+
+  **Confidence Level:** Very High (99%)
+  - Pattern validated across 181 prior features
+  - All required helper functions exist and are tested
+  - No new dependencies needed
+  - Security and performance implications are well-understood
+  - Architecture is proven and established
+
+  **Single Implementation Note:** Feature module should add explicit check for existing file before calling
+  `write_markdown_file()` to satisfy requirement \"Error and refuse to overwrite\". This can be implemented as:
+  ```python
+  if Path(MARKDOWN_FILENAME).exists():
+      raise ValueError(f\"File already exists: {MARKDOWN_FILENAME}\")
+  ```
+
+  ---
+
+  **Research Phase Completed:** 2026-03-23
+  **Next Phase:** Implementation — Create feature_182_markdown_file_creation.py following proven pattern
