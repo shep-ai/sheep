@@ -7,6 +7,8 @@ Uses tempfile for isolated testing without affecting the repository.
 import tempfile
 from pathlib import Path
 import pytest
+import subprocess
+from unittest import mock
 import create_markdown_file
 
 
@@ -590,3 +592,115 @@ class TestValidationErrorMessages:
                     assert "empty" in str(e)
             finally:
                 os.chdir(original_cwd)
+
+
+class TestGitOperations:
+    """Tests for git workflow operations (add, commit, push)."""
+
+    def test_git_add_called(self):
+        """Test that git_add calls subprocess.run with correct arguments."""
+        with mock.patch('subprocess.run') as mock_run:
+            # Mock successful git add
+            mock_run.return_value = mock.Mock(returncode=0)
+
+            create_markdown_file.git_add("test-file.md")
+
+            # Verify subprocess.run was called with correct args
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ['git', 'add', 'test-file.md']
+            assert call_args[1]['check'] is True
+
+    def test_git_add_failure(self):
+        """Test that git_add raises CalledProcessError on failure."""
+        with mock.patch('subprocess.run') as mock_run:
+            # Mock git add failure
+            mock_run.side_effect = subprocess.CalledProcessError(
+                1, 'git add', stderr="fatal: not a git repository"
+            )
+
+            # Should raise CalledProcessError
+            with pytest.raises(subprocess.CalledProcessError):
+                create_markdown_file.git_add("test-file.md")
+
+    def test_git_commit_message_format(self):
+        """Test that commit message follows conventional commit format."""
+        # Verify the commit message constant has correct format
+        message = create_markdown_file.COMMIT_MESSAGE
+
+        # Should start with 'feat(175):'
+        assert message.startswith('feat(175):')
+
+        # Should mention the filename
+        assert 'test-rh39t2.md' in message
+
+        # Should mention prose content
+        assert 'prose content' in message
+
+    def test_git_commit_called(self):
+        """Test that git_commit calls subprocess.run with correct arguments."""
+        with mock.patch('subprocess.run') as mock_run:
+            # Mock successful git commit
+            mock_run.return_value = mock.Mock(returncode=0)
+
+            test_message = "feat(175): test commit"
+            create_markdown_file.git_commit(test_message)
+
+            # Verify subprocess.run was called with correct args
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ['git', 'commit', '-m', test_message]
+            assert call_args[1]['check'] is True
+
+    def test_git_commit_failure(self):
+        """Test that git_commit raises CalledProcessError on failure."""
+        with mock.patch('subprocess.run') as mock_run:
+            # Mock git commit failure (e.g., missing user config)
+            mock_run.side_effect = subprocess.CalledProcessError(
+                1, 'git commit', stderr="error: no changes added to commit"
+            )
+
+            # Should raise CalledProcessError
+            with pytest.raises(subprocess.CalledProcessError):
+                create_markdown_file.git_commit("feat(175): test")
+
+    def test_git_push_to_head(self):
+        """Test that git_push uses HEAD for current branch."""
+        with mock.patch('subprocess.run') as mock_run:
+            # Mock successful git push
+            mock_run.return_value = mock.Mock(returncode=0)
+
+            create_markdown_file.git_push()
+
+            # Verify subprocess.run was called with HEAD (current branch)
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert 'HEAD' in call_args[0][0]
+            assert call_args[0][0] == ['git', 'push', '-u', 'origin', 'HEAD']
+            assert call_args[1]['check'] is True
+
+    def test_git_push_sets_upstream(self):
+        """Test that git_push sets upstream tracking with -u flag."""
+        with mock.patch('subprocess.run') as mock_run:
+            # Mock successful git push
+            mock_run.return_value = mock.Mock(returncode=0)
+
+            create_markdown_file.git_push()
+
+            # Verify -u flag is present for upstream tracking
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert '-u' in call_args[0][0]
+            assert 'origin' in call_args[0][0]
+
+    def test_git_push_failure(self):
+        """Test that git_push raises CalledProcessError on failure."""
+        with mock.patch('subprocess.run') as mock_run:
+            # Mock git push failure (e.g., network error)
+            mock_run.side_effect = subprocess.CalledProcessError(
+                1, 'git push', stderr="fatal: Could not read from remote repository"
+            )
+
+            # Should raise CalledProcessError
+            with pytest.raises(subprocess.CalledProcessError):
+                create_markdown_file.git_push()
