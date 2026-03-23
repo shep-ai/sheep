@@ -1,3 +1,3 @@
-# Web Development Trends
+# Cloud Computing
 
-Modern web development uses reactive frameworks. CSS frameworks simplify styling tasks. TypeScript adds type safety to JavaScript.
+Cloud services provide on-demand computing resources. They enable organizations to scale applications globally. This reduces infrastructure costs significantly.
