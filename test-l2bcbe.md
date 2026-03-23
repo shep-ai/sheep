@@ -1,3 +1,3 @@
-# Blockchain Technology
+# Artificial Intelligence
 
-Blockchain is a distributed ledger technology. It underpins cryptocurrencies like Bitcoin. Smart contracts automate transactions on blockchain networks.
+Artificial intelligence is transforming how we solve problems. Machine learning algorithms can now recognize patterns that humans might miss. These technologies continue to evolve rapidly.
