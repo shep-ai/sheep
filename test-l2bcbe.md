@@ -1,3 +1,3 @@
-# Python Programming
+# Testing Framework
 
-Python is a versatile programming language. It's widely used for data science and web development. The language emphasizes code readability.
+Testing is critical for software quality. Unit tests verify individual functions. Integration tests check how components work together.
