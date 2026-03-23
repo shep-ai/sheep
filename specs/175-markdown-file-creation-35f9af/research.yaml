@@ -1,0 +1,399 @@
+name: markdown-file-creation-35f9af
+summary: >
+  This feature follows the established architectural pattern from 170+ similar markdown file creation
+  features (170-174). Implementation uses pathlib for cross-platform file I/O, subprocess for git operations,
+  and pytest for comprehensive testing. Key decisions: structure-based validation (H1 heading + blank line + prose)
+  with 300-800 byte guideline, UTF-8 encoding without BOM enforced via write_bytes(), explicit '\n' for Unix LF
+  line endings, and git operations with subprocess.run(check=True) for strict error handling.
+
+relatedFeatures:
+  - title: "Feature 174 - Markdown File Creation"
+    description: "Previous similar feature (reference implementation available)"
+  - title: "Feature 173 - Markdown File Creation"
+    description: "Primary reference implementation with established pattern"
+  - title: "Features 170-172 - Markdown File Creation Series"
+    description: "Earlier similar features establishing consistent architecture"
+
+technologies:
+  - "Python 3.11+ (primary language)"
+  - "pathlib (standard library file operations, cross-platform)"
+  - "subprocess (standard library git command execution)"
+  - "tempfile (standard library for test isolation)"
+  - "pytest (testing framework, already in project dependencies)"
+  - "unittest.mock (standard library mocking for git operations in tests)"
+  - "Git (required for git add/commit/push operations)"
+
+relatedLinks:
+  - title: "Feature 173 Reference Implementation - create_markdown_file.py"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-35f9af/specs/173-markdown-file-creation-3ef644/create_markdown_file.py"
+  - title: "Feature 173 Test Suite - test_create_markdown_file.py"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-35f9af/specs/173-markdown-file-creation-3ef644/test_create_markdown_file.py"
+  - title: "Project README - Sheep Platform Overview"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-35f9af/README.md"
+
+decisions:
+  - title: "File I/O Library Selection"
+    chosen: "pathlib.Path"
+    rejected:
+      - "os.path module — older API, less intuitive, requires more boilerplate for cross-platform compatibility"
+      - "subprocess for file operations — overcomplicates file creation, inappropriate tool selection"
+    rationale: >
+      pathlib.Path is the modern, recommended standard library module for file operations in Python 3.11+.
+      It provides an object-oriented API with excellent cross-platform support, works seamlessly with the
+      Path.write_bytes() method for encoding control, and is already established in the codebase across
+      170+ similar features (feature 173, etc.). pathlib is more readable and maintainable than os.path
+      string manipulations.
+
+  - title: "UTF-8 Encoding and BOM Handling"
+    chosen: "write_bytes() with explicit 'utf-8' encoding"
+    rejected:
+      - "write_text() with encoding parameter — doesn't guarantee BOM-free output, less control over binary format"
+      - "encoding='utf-8-sig' — adds UTF-8 BOM which violates requirement for BOM-free encoding"
+    rationale: >
+      The requirement explicitly specifies UTF-8 encoding without Byte Order Mark (BOM). Using
+      write_bytes(content.encode('utf-8')) gives precise control: the Python string encoding to bytes
+      never adds a BOM with 'utf-8' codec (only 'utf-8-sig' does). This pattern is established in feature 173
+      and ensures correct binary output across all platforms. write_text() doesn't provide the same level
+      of control and may introduce platform-specific behaviors.
+
+  - title: "Line Ending Strategy (LF vs CRLF)"
+    chosen: "Explicit '\\n' characters in content string"
+    rejected:
+      - "os.linesep — platform-dependent, would create CRLF on Windows, violates Unix LF requirement"
+      - "write_text() with universal newlines — abstracts line endings, creates platform-specific behavior"
+    rationale: >
+      The requirement specifies Unix-style LF line endings (not Windows CRLF). Using explicit '\\n' characters
+      in the content string, combined with write_bytes(), ensures LF on all platforms. This is simple, explicit,
+      and matches the established pattern from feature 173. When the string is encoded to bytes with 'utf-8',
+      '\\n' becomes the single byte 0x0A (LF), never CRLF, regardless of OS.
+
+  - title: "File Size Validation Approach"
+    chosen: "Structure validation (H1 + blank line + prose) with 300-800 byte guideline"
+    rejected:
+      - "Strict byte range enforcement (e.g., must be exactly 400-600 bytes) — overly rigid, sentence length varies naturally"
+      - "No size validation — loses consistency signal, weakens ability to detect malformed content"
+    rationale: >
+      The core requirement is markdown structure (H1 heading, blank line, 2-3 sentences of prose).
+      File size naturally emerges from this structure: 2-3 sentences of prose plus heading typically yields
+      300-800 bytes. Rather than enforce a hard byte constraint, the implementation validates structure first
+      and checks file size is in the observed typical range (300-800 bytes) as a consistency signal.
+      This matches feature 173 pattern and the product decision to treat 300-800 bytes as a guideline,
+      not a hard constraint.
+
+  - title: "Git Command Execution Strategy"
+    chosen: "subprocess.run() with check=True"
+    rejected:
+      - "subprocess.call() — doesn't raise exception on error, requires manual error checking"
+      - "os.system() — deprecated, poor error handling, shell injection risks"
+      - "subprocess.Popen() — unnecessary complexity for simple sequential commands"
+    rationale: >
+      subprocess.run() with check=True is the modern Python standard library approach for executing
+      external commands. It automatically raises subprocess.CalledProcessError if any git command fails,
+      providing clean exception handling. The check=True parameter ensures strict error handling: any
+      non-zero exit code raises an exception rather than silently failing. This matches the established
+      pattern in feature 173 and enables clear error propagation in main().
+
+  - title: "Testing Framework Selection"
+    chosen: "pytest with fixtures and parametrization"
+    rejected:
+      - "unittest — more boilerplate, less flexible fixture system, verbose test syntax"
+      - "nose — deprecated, no longer actively maintained, less community adoption"
+    rationale: >
+      pytest is the standard testing framework used throughout the Sheep project. It provides superior fixture
+      support (tempfile fixtures), cleaner test syntax (assert statements instead of self.assertEqual()),
+      better error messages, and parametrization for testing multiple scenarios. Feature 173 uses pytest
+      and establishes the pattern for this codebase. pytest is actively maintained and the modern Python
+      testing standard.
+
+  - title: "Test Isolation Strategy"
+    chosen: "tempfile.TemporaryDirectory with os.chdir() to reset working directory"
+    rejected:
+      - "Mock filesystem (unittest.mock.patch('pathlib.Path')) — difficult to debug, obscures actual behavior"
+      - "pytest tmpdir fixture alone — doesn't reset cwd, causes test interference if not careful"
+    rationale: >
+      Creating real temporary directories with tempfile ensures tests work with actual file system
+      behavior (permissions, symlinks, encoding detection, etc.) and are easier to debug. Using os.chdir()
+      to reset the working directory is explicit and ensures tests don't interfere with each other.
+      This approach creates real files so test failures show actual filesystem issues rather than mock misconfigurations.
+      Matches the established pattern in feature 173.
+
+  - title: "Prose Content Generation Strategy"
+    chosen: "Hardcoded prose specific to this feature (not template-based)"
+    rejected:
+      - "Template-based generator function — adds complexity, minimal reusability across one-off features"
+      - "Random content generation — requires external dependency (faker, random), harder to debug"
+    rationale: >
+      The product decision specifies arbitrary placeholder text with hardcoded prose. This keeps implementation
+      simple and explicit: anyone reading the code sees exactly what prose content will be created. Each feature
+      (170+) has unique content, so template reusability is minimal. Hardcoding matches the established pattern
+      from feature 173 and reduces dependencies.
+
+  - title: "Validation Error Handling"
+    chosen: "AssertionError with descriptive error messages"
+    rejected:
+      - "ValueError — less semantic for validation assertions, not the convention in Sheep"
+      - "Custom exception class — unnecessary complexity for simple validation"
+    rationale: >
+      AssertionError is the standard Python exception for assertions and validation logic. It clearly communicates
+      intent (\"this assumption/requirement failed\"). Using AssertionError makes validation failures easy to catch
+      in pytest using pytest.raises(AssertionError, match=\"...\"). Error messages should be descriptive (e.g.,
+      \"File size 250 bytes is outside typical range (300-800 bytes)\") to help debug failures. This matches feature 173
+      pattern and Python testing conventions.
+
+  - title: "Git Commit Message Format"
+    chosen: "Conventional Commits format: feat(175): create markdown file test-ijl29t.md with title and prose content"
+    rejected:
+      - "Free-form messages (e.g., \"Create test file\") — loses semantic structure, harder to parse"
+      - "semantic-release format variations — overkill for simple file creation"
+    rationale: >
+      Conventional Commits is an industry standard that structures commit messages semantically. The format
+      \"feat(NUMBER): description\" clearly indicates this is a feature commit with the feature number and
+      a descriptive summary. This matches the requirement specification and is consistent across all 170+
+      similar features in the codebase. It enables automatic changelog generation and clear git history.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Library: pathlib.Path
+
+  **Chosen:** pathlib.Path with write_bytes() and explicit UTF-8 encoding
+
+  **Rejected:**
+  - os.path module — older API, less intuitive, requires more boilerplate for cross-platform paths
+  - subprocess for file operations — inappropriate tool, overcomplicates file creation
+
+  **Rationale:** pathlib is the modern Python 3.11+ standard for file operations. It provides an
+  object-oriented API, excellent cross-platform support without manual path manipulation, and integrates
+  seamlessly with Path.write_bytes() for precise encoding control. The pattern is established across
+  170+ similar features in the codebase (feature 173, etc.).
+
+  ### 2. Encoding Strategy: write_bytes() with Explicit UTF-8
+
+  **Chosen:** `filepath.write_bytes(content.encode('utf-8'))`
+
+  **Rejected:**
+  - write_text() — doesn't guarantee BOM-free output, less binary control
+  - encoding='utf-8-sig' — adds UTF-8 BOM, violates \"no BOM\" requirement
+
+  **Rationale:** The requirement specifies UTF-8 without Byte Order Mark (BOM). Using write_bytes()
+  with explicit 'utf-8' encoding gives precise control: Python's 'utf-8' codec never adds BOM
+  (only 'utf-8-sig' does). This approach ensures correct binary output across platforms and matches
+  the pattern from feature 173.
+
+  ### 3. Line Endings: Explicit \\n Characters
+
+  **Chosen:** Explicit '\\n' in content string, combined with UTF-8 encoding to bytes
+
+  **Rejected:**
+  - os.linesep — platform-dependent, creates CRLF on Windows, violates Unix LF requirement
+  - write_text() — abstracts line endings, creates platform-specific behavior
+
+  **Rationale:** Requirement specifies Unix-style LF line endings. Using explicit '\\n' in the content
+  string ensures LF on all platforms: when encoded as UTF-8, '\\n' becomes byte 0x0A (LF), never CRLF,
+  regardless of operating system. This is simple, explicit, and deterministic. Matches feature 173 pattern.
+
+  ### 4. File Size Validation: Structure-Based with Guidelines
+
+  **Chosen:** Validate structure (H1 + blank line + prose); check file size is 300-800 bytes
+
+  **Rejected:**
+  - Strict enforcement: \"file must be exactly 400-600 bytes\" — too rigid, sentence length varies
+  - No validation: ignore file size — loses consistency signal
+
+  **Rationale:** Core requirement is markdown structure. File size naturally emerges from the structure
+  (2-3 sentences typically yields 300-800 bytes). The implementation validates structure first and treats
+  the 300-800 byte range as a guideline/consistency check, not a hard constraint. This aligns with the
+  product decision \"file size as guideline, not hard constraint\" and matches feature 173 pattern.
+
+  ### 5. Git Operations: subprocess.run(check=True)
+
+  **Chosen:** subprocess.run() with check=True for strict error handling
+
+  **Rejected:**
+  - subprocess.call() — doesn't raise exception on error
+  - os.system() — deprecated, poor error handling
+  - subprocess.Popen() — unnecessary complexity
+
+  **Rationale:** subprocess.run() with check=True is the modern Python standard for executing external
+  commands. It automatically raises subprocess.CalledProcessError on non-zero exit codes, enabling clean
+  exception handling. This matches the pattern from feature 173 and enables informative error messages in
+  main().
+
+  ### 6. Testing Framework: pytest
+
+  **Chosen:** pytest with fixtures, parametrization, and mock.patch for git operations
+
+  **Rejected:**
+  - unittest — more boilerplate, less flexible fixtures
+  - nose — deprecated, no longer maintained
+
+  **Rationale:** pytest is the standard framework in the Sheep project. It provides superior fixture
+  support (tempfile fixtures), cleaner test syntax (assert vs self.assertEqual()), better error messages,
+  and active maintenance. Feature 173 establishes the pytest pattern for this codebase.
+
+  ### 7. Test Isolation: Real Temporary Directories
+
+  **Chosen:** tempfile.TemporaryDirectory with os.chdir() for working directory reset
+
+  **Rejected:**
+  - Mock filesystem (mock.patch) — difficult to debug, obscures actual behavior
+  - pytest tmpdir fixture alone — doesn't reset cwd consistently
+
+  **Rationale:** Real temporary directories ensure tests work with actual filesystem behavior
+  (permissions, encoding detection, symlinks). Using os.chdir() is explicit and ensures tests
+  don't interfere with each other. This makes failures easier to debug and matches feature 173 pattern.
+
+  ### 8. Prose Content: Hardcoded
+
+  **Chosen:** Hardcoded prose specific to this feature
+
+  **Rejected:**
+  - Template-based generator — adds complexity, minimal reusability for one-off features
+  - Random generation — adds external dependency, harder to debug
+
+  **Rationale:** Product decision specifies arbitrary placeholder text with hardcoding. Each of the
+  170+ features has unique content, so template reusability is minimal. Hardcoding is explicit and
+  reduces dependencies. Matches feature 173 pattern.
+
+  ### 9. Validation Errors: AssertionError
+
+  **Chosen:** AssertionError with descriptive error messages
+
+  **Rejected:**
+  - ValueError — less semantic for validation
+  - Custom exception — unnecessary complexity
+
+  **Rationale:** AssertionError is the Python standard for validation failures. Error messages should
+  be descriptive (e.g., \"File size 250 bytes outside typical range (300-800)\"). This matches feature 173
+  and enables easy pytest exception matching: `pytest.raises(AssertionError, match=\"...\")`
+
+  ### 10. Git Commit Message: Conventional Commits Format
+
+  **Chosen:** feat(175): create markdown file test-ijl29t.md with title and prose content
+
+  **Rejected:**
+  - Free-form messages — loses semantic structure
+  - Variations on semantic-release format — overkill
+
+  **Rationale:** Conventional Commits format (feat(NUMBER): description) is an industry standard
+  that enables semantic versioning, automatic changelog generation, and clear git history. This
+  matches the requirement and is consistent across all 170+ features.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File path operations and I/O | Use | Modern standard library, cross-platform, established in codebase |
+  | subprocess | Execute git commands | Use | Standard library, clean error handling with check=True |
+  | tempfile | Create isolated test directories | Use | Standard library, ensures test isolation without mocking |
+  | pytest | Testing framework | Use | Project standard, superior fixtures and assertions |
+  | unittest.mock | Mock subprocess calls in tests | Use | Standard library, enables git operation verification without real commits |
+  | sys | Exit status codes | Use | Standard library, needed for main() exit handling |
+  | os | Change working directory in tests | Use | Standard library, necessary for test directory isolation |
+
+  No external packages are required beyond pytest (already in project dependencies).
+
+  ## Security Considerations
+
+  1. **File Encoding Safety**: Using explicit UTF-8 encoding without BOM prevents encoding-related attacks
+     and ensures consistent, predictable file format across platforms.
+
+  2. **Line Ending Consistency**: Explicit LF line endings prevent CRLF injection attacks and ensure
+     consistent file format that can't be manipulated by line ending conversion.
+
+  3. **Subprocess Safety**: Using subprocess.run() with list-style command arguments (not shell=True)
+     prevents shell injection attacks. The command is: `['git', 'add', FILENAME]` (not `'git add ' + FILENAME`).
+
+  4. **File Path Safety**: pathlib prevents path traversal attacks better than string concatenation.
+     The filename is hardcoded as `test-ijl29t.md`, not user-input.
+
+  5. **Git Credentials**: subprocess.run() inherits environment, so git credentials from .git/config
+     or SSH keys are available. No credential storage in code.
+
+  ## Performance Considerations
+
+  1. **File I/O**: write_bytes() is efficient for small files (<1KB). No optimization needed.
+
+  2. **Validation**: Validation is O(n) where n is file size. Reading full file into memory is acceptable
+     for markdown files (typically <1KB).
+
+  3. **Git Operations**: subprocess.run() spawns new process for each command (add, commit, push).
+     This is standard and expected. Could be optimized to batch commands, but unnecessary for this feature.
+
+  4. **Testing**: tempfile operations are fast. Mock patches avoid real git operations, keeping tests quick.
+
+  5. **No Caching**: File is created once, validated once, committed once. No caching needed.
+
+  ## Architecture Notes
+
+  ### How This Fits Into the Sheep Platform
+
+  This feature follows the established architecture pattern from 170+ similar markdown file creation features
+  (170-174). Key architectural characteristics:
+
+  1. **Self-Contained**: Feature 175 is completely independent. No modifications to Sheep platform code.
+     No dependencies on other Sheep modules or features.
+
+  2. **Executable Script Pattern**: Implementation is a Python script (create_markdown_file.py) that can
+     be run directly with python or through Sheep's automation. The main() function orchestrates the workflow.
+
+  3. **Three-Layer Pattern**: Established across 170+ features:
+     - **Creation layer**: create_file() — builds markdown content
+     - **Validation layer**: validate_file() — verifies structure and format
+     - **Integration layer**: git_operations() — stages, commits, pushes
+
+  4. **Git as Output Interface**: Results are committed to git. This enables:
+     - Reproducibility (git history)
+     - Tracking (git blame, git log)
+     - CI/CD integration (commits trigger workflows)
+     - Remote synchronization (push)
+
+  5. **Test Suite Pattern**: Comprehensive pytest tests ensure:
+     - File creation correctness
+     - Validation logic
+     - Error handling
+     - Git operation correctness (via mocking)
+     - Integration workflows
+
+  ### Code Organization
+
+  - `/specs/175-markdown-file-creation-35f9af/create_markdown_file.py` — Implementation script
+  - `/specs/175-markdown-file-creation-35f9af/test_create_markdown_file.py` — Test suite
+  - No changes to Sheep platform codebase
+
+  ### Reusability
+
+  This implementation is a reference pattern for future similar features. The three-function approach
+  (create/validate/git) can be adapted for other file creation tasks by:
+  1. Changing FILENAME, MARKDOWN_TITLE, MARKDOWN_PROSE constants
+  2. Adjusting validation rules for different file formats
+  3. Keeping git operations and test structure identical
+
+  ## Integration Points
+
+  - **Git Integration**: Uses git add/commit/push via subprocess (standard git commands)
+  - **File System**: Creates file in repository root (current working directory)
+  - **Testing**: Follows pytest convention, integrates with project test suite
+  - **CI/CD**: Commits are automatically tracked by git and can trigger downstream workflows
+
+  ## Implementation Risk Assessment
+
+  **Low Risk**:
+  - Uses only standard library modules (pathlib, subprocess, tempfile)
+  - Follows established pattern from 170+ successful features
+  - Comprehensive test coverage (unit + integration tests)
+  - No external dependencies
+  - Self-contained, no impact on Sheep platform
+
+  **Mitigation**:
+  - Tests use real tempfile (not mocks) to catch filesystem issues early
+  - Validation tests cover all failure cases
+  - Integration tests verify complete workflow
+  - Error messages are descriptive for debugging
+
+  ---
+
+  **Research Phase Complete**: All technical decisions documented with rationale and alternatives considered.
+  Ready for implementation phase (feature 175 creation).
