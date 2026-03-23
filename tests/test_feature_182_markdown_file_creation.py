@@ -7,6 +7,161 @@ from unittest.mock import patch
 import pytest
 
 
+class TestFileExistenceCheck:
+    """Tests for file existence check to prevent overwrites."""
+
+    def test_raises_error_if_file_already_exists(self, tmp_path):
+        """Test that function raises ValueError if markdown file already exists."""
+        import os
+
+        from sheep.features.feature_182_markdown_file_creation import (
+            MARKDOWN_FILENAME,
+            create_feature_182_markdown_file,
+        )
+
+        # Create the file in temp directory
+        test_file = tmp_path / MARKDOWN_FILENAME
+        test_file.write_text("# Existing Content\n\nThis file already exists.\n")
+
+        # Change to temp directory
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            # Expect ValueError when trying to create feature with existing file
+            with pytest.raises(ValueError, match="File already exists"):
+                create_feature_182_markdown_file()
+        finally:
+            os.chdir(original_cwd)
+
+    def test_error_message_contains_filename(self, tmp_path):
+        """Test that error message includes the filename."""
+        import os
+
+        from sheep.features.feature_182_markdown_file_creation import (
+            MARKDOWN_FILENAME,
+            create_feature_182_markdown_file,
+        )
+
+        # Create the file in temp directory
+        test_file = tmp_path / MARKDOWN_FILENAME
+        test_file.write_text("# Existing Content\n\nThis file already exists.\n")
+
+        # Change to temp directory
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            # Expect error containing filename
+            with pytest.raises(ValueError) as exc_info:
+                create_feature_182_markdown_file()
+            assert MARKDOWN_FILENAME in str(exc_info.value)
+        finally:
+            os.chdir(original_cwd)
+
+    def test_error_suggests_cleanup_action(self, tmp_path):
+        """Test that error message suggests removing the existing file."""
+        import os
+
+        from sheep.features.feature_182_markdown_file_creation import (
+            MARKDOWN_FILENAME,
+            create_feature_182_markdown_file,
+        )
+
+        # Create the file in temp directory
+        test_file = tmp_path / MARKDOWN_FILENAME
+        test_file.write_text("# Existing Content\n\nThis file already exists.\n")
+
+        # Change to temp directory
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            # Expect error with actionable message
+            with pytest.raises(ValueError) as exc_info:
+                create_feature_182_markdown_file()
+            error_msg = str(exc_info.value).lower()
+            assert "remove" in error_msg or "retry" in error_msg
+        finally:
+            os.chdir(original_cwd)
+
+    @patch("sheep.features.feature_182_markdown_file_creation.generate_markdown_content")
+    def test_no_generation_if_file_exists(self, mock_generate, tmp_path):
+        """Test that LLM generation is not called if file already exists."""
+        import os
+
+        from sheep.features.feature_182_markdown_file_creation import (
+            MARKDOWN_FILENAME,
+            create_feature_182_markdown_file,
+        )
+
+        # Create the file in temp directory
+        test_file = tmp_path / MARKDOWN_FILENAME
+        test_file.write_text("# Existing Content\n\nThis file already exists.\n")
+
+        # Change to temp directory
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            # Try to create feature
+            with pytest.raises(ValueError):
+                create_feature_182_markdown_file()
+
+            # Verify generation was NOT called (fail-fast before expensive LLM call)
+            mock_generate.assert_not_called()
+        finally:
+            os.chdir(original_cwd)
+
+    def test_succeeds_when_file_does_not_exist(self, tmp_path):
+        """Test that function proceeds normally when file doesn't exist."""
+        import os
+
+        from sheep.features.feature_182_markdown_file_creation import (
+            MARKDOWN_FILENAME,
+            create_feature_182_markdown_file,
+        )
+
+        # File should NOT exist yet
+        assert not (tmp_path / MARKDOWN_FILENAME).exists()
+
+        # Change to temp directory
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            # Mock the expensive operations to avoid needing real LLM/git
+            with patch(
+                "sheep.features.feature_182_markdown_file_creation.generate_markdown_content"
+            ) as mock_gen:
+                with patch(
+                    "sheep.features.feature_182_markdown_file_creation.write_markdown_file"
+                ) as mock_write:
+                    with patch(
+                        "sheep.features.feature_182_markdown_file_creation.validate_markdown_file"
+                    ):
+                        with patch(
+                            "sheep.features.feature_182_markdown_file_creation.commit_markdown_file"
+                        ):
+                            with patch(
+                                "sheep.features.feature_182_markdown_file_creation.push_markdown_file"
+                            ) as mock_push:
+                                # Setup mocks
+                                mock_content = "# Test\n\nSentence. Sentence. Sentence.\n"
+                                mock_gen.return_value = mock_content
+                                mock_write.return_value = str(tmp_path / MARKDOWN_FILENAME)
+                                mock_push.return_value = "Pushed"
+
+                                # Call should succeed and proceed to generation
+                                result = create_feature_182_markdown_file()
+
+                                # Verify it called generate (passed the file existence check)
+                                mock_gen.assert_called_once()
+                                assert "filepath" in result
+        finally:
+            os.chdir(original_cwd)
+
+
 class TestFeature182MarkdownFileCreation:
     """Tests for feature 182 markdown file creation."""
 

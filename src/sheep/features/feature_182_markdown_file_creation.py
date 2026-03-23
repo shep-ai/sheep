@@ -64,6 +64,15 @@ def create_feature_182_markdown_file(repo_path: str | None = None) -> dict[str, 
     )
 
     try:
+        # Pre-flight check: Ensure file doesn't already exist
+        _logger.debug(f"Checking if {MARKDOWN_FILENAME} already exists")
+        if Path(MARKDOWN_FILENAME).exists():
+            raise ValueError(
+                f"File already exists: {MARKDOWN_FILENAME}. "
+                f"Remove it before retrying."
+            )
+        _logger.debug(f"File existence check passed: {MARKDOWN_FILENAME} does not exist")
+
         # Task 1: Generate valid markdown content
         _logger.info("Task 1: Generating markdown content")
         content = generate_markdown_content()
