@@ -1,0 +1,160 @@
+name: "markdown-file-creation-dd6001"
+summary: >
+  Implement feature 184 by creating markdown file test-396h0d.md with LLM-generated H1 title and 2-3 sentences of prose. Leverages existing content generation, file creation, and git workflow infrastructure from the Sheep platform. Follows the proven pattern executed 183+ times in preceding features. Estimated effort: 10-15 minutes.
+
+relatedFeatures:
+  - number: 183
+    name: "markdown-file-creation-14373e"
+    relationship: "Immediately preceding feature — identical pattern"
+  - number: 182
+    name: "markdown-file-creation-59cf9a"
+    relationship: "Identical pattern — reference implementation"
+
+technologies:
+  - "Python 3.11+ (pathlib standard library)"
+  - "CrewAI (LLM framework for prose generation)"
+  - "Claude API (via CrewAI for content generation)"
+  - "Git CLI (version control and commits)"
+  - "UTF-8 text encoding (with strict validation)"
+
+relatedLinks:
+  - title: "Markdown Basic Syntax"
+    url: "https://www.markdownguide.org/basic-syntax/"
+  - title: "Conventional Commits"
+    url: "https://www.conventionalcommits.org/"
+  - title: "POSIX Line Endings"
+    url: "https://en.wikipedia.org/wiki/Newline#POSIX"
+
+phases:
+  - id: "phase-1"
+    name: "Content Generation"
+    description: "Generate markdown content via CrewAI LLM: H1 title and exactly 2-3 sentences of coherent prose. Leverages existing generate_markdown_content() function with structured prompt ensuring semantic coherence and quality."
+    parallel: false
+
+  - id: "phase-2"
+    name: "File Creation and Validation"
+    description: "Write generated content to test-396h0d.md in repository root using pathlib. Validate UTF-8 encoding without BOM, LF line endings, markdown structure (H1 + blank line + prose), and file size (300-600 bytes). Enforces quality consistency across 184-file collection."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Git Workflow"
+    description: "Stage file, commit with conventional message 'feat(184): Create markdown file test-396h0d.md with prose content', and push to feature branch. Uses existing GitCommitTool and GitPushTool with upstream tracking."
+    parallel: false
+
+filesToCreate:
+  - "test-396h0d.md"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 184 executes an established, proven pattern within the Sheep platform's agentic architecture. The implementation integrates three existing subsystems:
+
+  1. **Content Generation Pipeline** (content_generators.py)
+     - Function: `generate_markdown_content()` calls `get_reasoning_llm()` with MARKDOWN_GENERATION_PROMPT
+     - Input: Implicit (no parameters needed — LLM generates about any topic)
+     - Output: Markdown string with H1 heading and 2-3 sentences
+     - Temperature: 0.2 for consistency and coherence
+
+  2. **File Operations** (pathlib standard library)
+     - Function: `write_markdown_file()` uses `Path.cwd() / filename` for repo-root placement
+     - Ensures deterministic file location across all environments
+     - No external dependencies beyond Python stdlib
+
+  3. **Git Integration** (tools/git_tools.py)
+     - GitCommitTool: Stages file and creates conventional commit
+     - GitPushTool: Pushes to feature branch with upstream tracking
+     - Both tools wrap git CLI with error handling and logging
+
+  The three phases execute sequentially: content → file → git. No parallelization or inter-phase dependencies beyond data flow.
+
+  ## Key Design Decisions
+
+  ### 1. LLM-Generated Prose (from spec resolution)
+  **Chosen:** CrewAI/Claude API for coherent, varied prose
+
+  **Rationale:** The research findings and spec explicitly resolve to LLM generation. This approach:
+  - Ensures coherent, grammatically correct prose (NFR-5)
+  - Provides natural variation across 184 files (no identical content)
+  - Leverages existing CrewAI infrastructure already embedded in Sheep
+  - Aligns with platform's agentic philosophy
+  - Temperature 0.2 guarantees consistency without sacrificing naturalness
+
+  **Alternatives Rejected:**
+  - Fixed/template prose: Would create 184 identical files; no semantic value
+  - Pseudo-random seeded: Requires custom generator; CrewAI already proven across 180+ features
+
+  ### 2. Strict UTF-8/LF Validation (from NFR-1, NFR-8)
+  **Chosen:** Validate encoding before commit; fail if non-compliant
+
+  **Rationale:** Non-functional requirements explicitly mandate:
+  - UTF-8 without BOM (byte-order mark)
+  - LF (Unix) line endings, not CRLF
+
+  The codebase implements validation via `validate_file_properties()` and `validate_markdown_file()`:
+  - Binary-level checks: UTF-8 BOM detection (b'\\xef\\xbb\\xbf'), CRLF rejection (b'\\r\\n')
+  - Structural checks: H1 heading on line 1, blank line on line 2, 2-3 sentences of prose
+  - Size check: 300-600 bytes range (NFR-3)
+
+  Validation is essential at scale: consistency across 184+ files prevents encoding mismatches and ensures the collection remains coherent. The minimal overhead (binary pattern matching on ~500 bytes) is justified by quality assurance.
+
+  **Alternatives Rejected:**
+  - Rely on git config alone: core.safecrlf cannot guarantee UTF-8 without BOM on all platforms
+  - Warnings only: Allows non-compliant files; degrades collection integrity
+
+  ### 3. Single Conventional Commit (from spec requirements)
+  **Chosen:** One commit per file with message `feat(184): Create markdown file test-396h0d.md with prose content`
+
+  **Rationale:**
+  - Matches 1:1 relationship between features and commits
+  - Conventional format aligns with Sheep project standards (enforced across 180+ features)
+  - Clear commit history: each feature is independently trackable
+  - Upstream tracking via GitPushTool(set_upstream=True) establishes remote relationship
+
+  **Alternatives Rejected:**
+  - Multiple commits per file: Unnecessary fragmentation; obscures feature boundary
+  - Non-conventional format: Violates project standards; breaks commit message parsing
+
+  ### 4. Descriptive H1 Titles Matched to Content
+  **Chosen:** LLM generates title dynamically based on prose topic
+
+  **Rationale:** Research findings show actual production files use descriptive titles (test-zscez5.md: "Artificial Intelligence and Machine Learning", test-zyz8v7.md: "The Power of Meaningful Work") matched to prose. The MARKDOWN_GENERATION_PROMPT requests 'a title about any topic you choose', enabling natural topic-content alignment.
+
+  **Pattern Validation:** Verified across 180+ existing test-*.md files; consistent with working implementations.
+
+  ## Implementation Strategy
+
+  **Phase Ordering Rationale:**
+  1. **Content first:** Generate prose before file creation ensures we know final content size/format
+  2. **Validation middle:** Verify quality immediately after file creation, before git workflow
+  3. **Git last:** Only push validated, correct files; prevents bad commits in history
+
+  **Incremental Execution:**
+  Each phase is small and focused, enabling rapid debugging if validation fails. The generation → write → validate → commit → push flow mirrors all 180+ successful prior features.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | LLM API call fails (network, quota, outage) | CrewAI has built-in retry logic; if exhausted, error propagates with clear message. Feature can be retried without manual cleanup. |
+  | Generated prose is poor quality (too short, incoherent) | Validation checks sentence count (2-3 via period count). If validation fails, retry generation with same seed to maintain determinism. |
+  | File encoding is incorrect on some platforms (CRLF on Windows, UTF-16 on Mac) | Strict validation catches platform-specific issues before commit. File is written with explicit UTF-8 encoding and LF line endings in code. |
+  | File size exceeds 600 bytes | Validation enforces size range; if prose is too long, regenerate with shorter content request. LLM temperature 0.2 ensures conciseness. |
+  | Git operations fail (no upstream branch, merge conflicts) | Feature branch pre-created; no merge conflicts expected (only adding one file). GitPushTool error handling propagates failure clearly. |
+  | File already exists (name collision) | Feature branches are clean; filename (test-396h0d.md) is unique to this feature. No overwrite risk. |
+
+  ## File Structure Summary
+
+  - **Created:** `test-396h0d.md` (test markdown file, ~350-550 bytes, repo root)
+  - **Not Modified:** All existing source code, config, and spec files remain unchanged
+  - **Commit Isolation:** Changes confined to single file; no side effects on other features or components
+
+  ## Execution Notes
+
+  - Estimated total time: 10-15 minutes (consistent with Small size estimate)
+  - No external dependencies beyond existing CrewAI/pathlib infrastructure
+  - All validation and error handling is deterministic and reproducible
+  - Feature follows identical workflow to features 1-183; pattern is proven and stable
