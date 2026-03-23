@@ -1,0 +1,221 @@
+name: "markdown-file-creation-7b4332"
+summary: >
+  Feature 180 implements markdown file creation (test-d8xuk6.md) following the well-established
+  pattern from 179 prior features. Implementation creates a standalone feature module that
+  orchestrates existing content generation, file writing, validation, and git operations.
+  No new dependencies or infrastructure changes required. The feature reuses proven utilities
+  for content generation (Claude API), file I/O (Pathlib with UTF-8 encoding), validation
+  (strict format checking), and git operations (GitPython abstractions).
+
+relatedFeatures:
+  - "feature-170-markdown-file-creation"
+  - "feature-179-markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (language)"
+  - "CrewAI (LLM orchestration framework)"
+  - "Anthropic Claude API (content generation)"
+  - "Pathlib (file operations)"
+  - "Structlog (structured logging)"
+  - "Subprocess (git operations via wrapper)"
+
+relatedLinks:
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "Anthropic Claude API Models"
+    url: "https://docs.anthropic.com/en/docs/about-claude/models/overview"
+
+phases:
+  - id: "phase-1"
+    name: "Foundation & Module Setup"
+    description: "Create standalone feature module with proper structure, imports, and constants following the established pattern from feature 170."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Core Orchestration Implementation"
+    description: "Implement the main orchestration function that coordinates content generation, file writing, and validation using existing utilities."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Git Integration & Error Handling"
+    description: "Add git commit and push operations, implement comprehensive error handling and structured logging throughout the workflow."
+    parallel: false
+
+  - id: "phase-4"
+    name: "Testing & Validation"
+    description: "Create unit tests covering normal operation and error cases, verify end-to-end functionality, ensure feature is CLI-accessible."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_180_markdown_file_creation.py"
+  - "tests/features/test_feature_180_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 180 follows the proven architecture established by 179 prior features, specifically referencing
+  feature 170 as the direct implementation template. The feature is structured as a standalone module
+  that orchestrates a well-defined pipeline:
+
+  ```
+  create_feature_180_markdown_file()
+    ├── Generate: content_generators.generate_markdown_content()
+    ├── Write: content_generators.write_markdown_file()
+    ├── Validate: content_generators.validate_markdown_file()
+    ├── Commit: content_generators.commit_markdown_file()
+    └── Push: content_generators.push_markdown_file()
+  ```
+
+  Each step is a separate call to an existing utility, enabling clear progression, error isolation,
+  and consistent logging. The orchestration happens in the feature module at `src/sheep/features/feature_180_markdown_file_creation.py`.
+
+  ### Integration Points
+
+  **LLM Configuration:** The feature calls `sheep.config.llm.get_reasoning_llm()` factory to obtain
+  a CrewAI LLM instance (Anthropic Claude with temperature 0.2). The ANTHROPIC_API_KEY environment
+  variable is loaded automatically via existing settings configuration.
+
+  **Content Generation:** Calls `sheep.content_generators.generate_markdown_content()` which:
+  - Uses the LLM to generate H1 heading about any topic
+  - Inserts blank line separator
+  - Generates 2-3 sentences of coherent prose
+  - Returns generated content as string
+
+  **File Operations:** Calls `sheep.content_generators.write_markdown_file()` which:
+  - Creates file at specified path (repository root)
+  - Writes content with UTF-8 encoding (no BOM)
+  - Ensures Unix LF line endings
+  - Validates file creation success
+  - Returns filepath
+
+  **Validation:** Calls `sheep.content_generators.validate_markdown_file()` which:
+  - Verifies UTF-8 encoding without BOM
+  - Checks Unix LF line endings
+  - Validates H1 heading structure
+  - Verifies blank line separator
+  - Counts sentences (must be 2-3)
+  - Checks file size (approximately 300-600 bytes)
+  - Raises ValueError if any requirement violated (strict validation)
+
+  **Git Operations:** Calls abstracted git tools:
+  - `content_generators.commit_markdown_file()` → GitCommitTool from sheep.tools.git_tools
+  - `content_generators.push_markdown_file()` → GitPushTool from sheep.tools.git_tools
+  Both use subprocess with proper error handling and return operation results.
+
+  **Logging:** Uses `sheep.observability.logging.get_logger(__name__)` for structured logging:
+  - INFO level: major steps (generate, write, validate, commit, push)
+  - DEBUG level: detailed operation information
+  - ERROR level: exceptions with full context
+
+  ## Key Design Decisions
+
+  ### 1. Standalone Feature Module vs. Shared Base Class
+
+  **Chosen:** Standalone module `src/sheep/features/feature_180_markdown_file_creation.py`
+
+  **Rationale:** All 179 prior features use individual modules in `src/sheep/features/`. This pattern
+  provides clear separation of concerns, makes feature logic discoverable, and enables easy maintenance.
+  Feature 170 (reference implementation) demonstrates this exact pattern. Consistency across 180 features
+  is critical for team comprehension and long-term maintainability.
+
+  **Rejected Alternatives:**
+  - Integrate into shared base class → breaks consistency, reduces maintainability
+  - Use generic wrapper function → feature 170 explicitly uses orchestration module, not wrapper
+
+  ### 2. LLM Provider: Anthropic Claude via CrewAI
+
+  **Chosen:** Anthropic Claude accessed through `sheep.config.llm.get_reasoning_llm()` with temperature 0.2
+
+  **Rationale:** CrewAI provides unified LLM interface consistent with project patterns. Temperature 0.2
+  generates focused, coherent prose (typically 2-5s response time). All 179 prior features use identical
+  configuration, ensuring consistency. This choice is maintained in settings and managed centrally.
+
+  **Rejected Alternatives:**
+  - Direct Anthropic SDK calls → existing CrewAI abstraction is more consistent
+  - Other LLM providers → all prior features use Anthropic Claude
+  - Fast model (cheaper/faster) → reasoning model produces better prose quality for content generation
+
+  ### 3. Content Generation Strategy: Random Topics
+
+  **Chosen:** Generate content about any topic of Claude's choosing (no topic guidance)
+
+  **Rationale:** All 179 prior features use random topic generation. The MARKDOWN_GENERATION_PROMPT
+  instructs Claude to generate H1 heading about any topic, blank line, 2-3 sentences. This avoids
+  configuration complexity and maintains consistency across all features.
+
+  **Rejected Alternatives:**
+  - Guided topic generation → diverges from 179 prior features, adds unnecessary config
+  - Hard-coded prose → violates spec requirement (NFR-11) for generated content
+
+  ### 4. File Validation: Strict Validation with Fast Failure
+
+  **Chosen:** Use `validate_markdown_file()` with strict validation—fail on any non-compliance
+
+  **Rationale:** All 179 prior features use strict validation. The function checks UTF-8 encoding
+  without BOM, Unix LF line endings, H1 heading structure, blank line separator, 2-3 sentence
+  requirement, and trailing newline. Failure raises ValueError immediately, enabling fast debugging.
+  This consistency ensures quality across all 180 features.
+
+  **Rejected Alternatives:**
+  - Lenient validation (warn but proceed) → breaks consistency, allows inconsistent files
+  - Custom validation logic → existing function is tested and proven across 179 features
+
+  ### 5. Error Handling: Try/Except with Structured Logging
+
+  **Chosen:** Try/except blocks with specific exception types, all exceptions logged before re-raising
+
+  **Rationale:** Specific exception types (ValueError for content/validation, IOError for file ops,
+  Exception for git) indicate failure category. All exceptions logged with context before re-raising
+  ensures observability without silent failures. This approach matches feature 170 pattern.
+
+  **Rejected Alternatives:**
+  - Bare exception handling → specific types provide failure context
+  - Silent failure handling → all exceptions must be logged for debugging
+
+  ### 6. Return Value Structure: Dictionary with Operation Results
+
+  **Chosen:** Return dictionary with filepath, content, commit_message, and push_result keys
+
+  **Rationale:** Feature 170 (reference implementation) uses this structure. Dictionary provides
+  complete operation information without requiring additional queries. Structure is JSON-serializable
+  and matches established pattern.
+
+  **Rejected Alternatives:**
+  - Return simple status boolean → lacks detail for verification
+  - Return Pydantic model → dictionary is more lightweight and matches existing pattern
+
+  ## Implementation Strategy
+
+  **Phase 1** establishes the module foundation: create the Python file with proper imports,
+  constants (feature number, filename), and function stub. This creates the entry point for
+  all subsequent orchestration.
+
+  **Phase 2** implements the core orchestration: the main function calls content generation,
+  file writing, and validation utilities in sequence. This is the logical workflow that creates
+  the markdown file and ensures it meets all requirements before moving to git operations.
+
+  **Phase 3** adds git integration: commit and push operations complete the feature. Error
+  handling and logging are woven throughout each step to provide observability.
+
+  **Phase 4** validates the implementation: unit tests verify each component works correctly,
+  integration tests verify the complete workflow, and CLI accessibility ensures the feature
+  can be invoked as designed.
+
+  This ordering follows the content generation pipeline and ensures that validation happens
+  before git operations—a critical requirement to prevent committing invalid files to the repository.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | API call fails (network/rate limiting) | Claude API failures are caught by content_generators.generate_markdown_content() and logged. Feature fails fast with clear error. Handle in try/except with ERROR logging. |
+  | Generated content doesn't meet requirements | File is validated by content_generators.validate_markdown_file() before git ops. Validation raises ValueError if 2-3 sentence requirement not met. Feature fails without committing. |
+  | File encoding or line ending issues | content_generators.write_markdown_file() handles encoding and ensures LF line endings. Validation checks both before commit. Consistent with 179 prior features. |
+  | Git commit/push fails | Git operations are abstracted through tools module with error handling. Subprocess errors are caught and logged. Feature fails with clear error message. |
+  | Partial state if operation fails mid-pipeline | Each step is isolated. If generation fails, no file created. If file write fails, no validation/commit. Try/except at each step ensures atomicity. |
+  | Inconsistency with prior features | Implementation directly copies feature 170 pattern. Function names, structure, logging, error handling match established convention. Code review can verify consistency. |
+  | Feature not accessible from CLI | Feature module follows established CLI pattern. Verify that `--feature 180` parameter routes to create_feature_180_markdown_file() in CLI layer. Test CLI invocation. |
