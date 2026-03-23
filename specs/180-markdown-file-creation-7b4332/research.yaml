@@ -1,0 +1,445 @@
+name: "markdown-file-creation-7b4332"
+summary: >
+  Feature 180 implements markdown file creation following the well-established pattern from 179 prior features.
+  Implementation is straightforward: create standalone feature module that orchestrates content generation,
+  file writing, validation, and git operations using existing infrastructure. No new dependencies or
+  architectural changes required. LLM integration uses CrewAI with Claude for random-topic prose generation.
+  Strict validation ensures UTF-8 encoding, Unix LF line endings, proper markdown structure, and 2-3 sentence requirement.
+
+relatedFeatures:
+  - "feature-170-markdown-file-creation"
+  - "feature-179-markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (language)"
+  - "CrewAI (LLM orchestration framework)"
+  - "Anthropic Claude API (LLM for content generation)"
+  - "Pathlib (file operations)"
+  - "Structlog (structured logging)"
+  - "Subprocess (git operations via wrapper)"
+  - "Pydantic (configuration and data validation)"
+
+relatedLinks:
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "Anthropic Claude API Documentation"
+    url: "https://docs.anthropic.com/en/docs/about-claude/models/overview"
+  - title: "Python Pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Structlog Documentation"
+    url: "https://www.structlog.org/"
+
+decisions:
+  - title: "Feature Module Architecture"
+    chosen: "Standalone feature module (src/sheep/features/feature_180_markdown_file_creation.py)"
+    rejected:
+      - "Integrate feature logic into shared base class — breaks consistency with 179 prior features which all use individual modules in src/sheep/features/, reduces maintainability"
+      - "Use generic create_markdown_file() wrapper — feature 170 uses explicit orchestration module, not the generic wrapper, establishing the pattern"
+    rationale: >
+      All 179 prior features (including the reference feature 170) use individual, standalone feature modules.
+      This pattern provides clear separation of concerns, makes feature-specific logic explicit, and enables
+      easy feature discovery and maintenance. The module structure follows the proven pattern from feature 170,
+      ensuring consistency across the codebase. The explicit orchestration (not using the generic wrapper) is
+      the established pattern for individual features.
+
+  - title: "LLM Provider and Model Selection"
+    chosen: "Anthropic Claude via CrewAI LLM framework (get_reasoning_llm() with temperature 0.2)"
+    rejected:
+      - "Use direct Anthropic SDK calls — existing abstraction through CrewAI is more consistent with project patterns and simplifies dependency management"
+      - "Use other LLM providers (OpenAI GPT, Google Gemini) — all 179 prior features use Anthropic Claude, ensuring consistency and unified billing/auth"
+      - "Use fast_model (faster, cheaper) — reasoning_model produces higher quality prose, worth the marginal cost difference for this content generation task"
+    rationale: >
+      CrewAI provides a unified LLM interface used throughout the project. The reasoning_llm is configured with
+      temperature 0.2, which provides focused, coherent prose generation while maintaining reasonable API latency.
+      This matches the configuration used in all prior features. The model is configured in settings (ANTHROPIC_API_KEY)
+      and accessed through get_reasoning_llm() factory, ensuring centralized control and consistency.
+
+  - title: "Content Generation Strategy"
+    chosen: "Random topic generation via generate_markdown_content() with no topic guidance"
+    rejected:
+      - "Guided topic generation (provide specific topic or category) — all 179 prior features use random topics, diverging would break consistency and add unnecessary configuration complexity"
+      - "Hard-coded prose content — violates spec requirement (NFR-11) for generated content and contradicts all prior features"
+    rationale: >
+      The specification explicitly requires random topic generation (resolved in openQuestions). This maintains
+      consistency with all 179 prior features and avoids additional configuration. The generate_markdown_content()
+      function uses the MARKDOWN_GENERATION_PROMPT which instructs Claude to generate an H1 heading about any topic,
+      a blank line, and 2-3 sentences of prose.
+
+  - title: "File Validation Approach"
+    chosen: "Strict validation using validate_markdown_file() — fail fast on any non-compliance"
+    rejected:
+      - "Lenient validation (warn but continue) — all 179 prior features use strict validation, provides consistency and ensures quality across all files"
+      - "Custom validation logic — existing validate_markdown_file() is tested, proven across 179 features, no need to reinvent"
+    rationale: >
+      The specification explicitly requires strict validation (resolved in openQuestions). This approach checks:
+      UTF-8 encoding without BOM, Unix LF line endings, H1 heading structure, blank line separator, 2-3 sentence
+      requirement, and trailing newline. The existing validate_markdown_file() function provides all necessary checks
+      and is reused from the infrastructure. Failure at any validation point raises ValueError with descriptive message.
+
+  - title: "File Writing and Encoding"
+    chosen: "Use Python built-in open() with encoding='utf-8' via write_markdown_file() utility"
+    rejected:
+      - "Direct file I/O without abstraction — write_markdown_file() provides validation and consistency checks"
+      - "Use encoding libraries like nio or custom encoding handlers — Python 3.11+ built-in UTF-8 support is sufficient, reduces dependencies"
+    rationale: >
+      The write_markdown_file() utility handles UTF-8 encoding correctly and validates file creation success.
+      Python's built-in open() with encoding='utf-8' automatically handles line endings correctly on each platform
+      (LF on Unix/Linux, CRLF on Windows but we're on Linux). The utility also verifies file existence and non-empty status
+      before returning. This is the proven approach used in all prior features.
+
+  - title: "Git Integration Strategy"
+    chosen: "Use GitCommitTool and GitPushTool from sheep.tools.git_tools module with abstracted subprocess calls"
+    rejected:
+      - "Use GitPython library directly — project has already abstracted git operations into tools module, diverging would duplicate effort and reduce consistency"
+      - "Manual git subprocess commands — existing tools provide error handling, logging, and consistent interface"
+    rationale: >
+      The project provides abstracted git tools (GitCommitTool, GitPushTool) that wrap subprocess calls with proper
+      error handling and logging. These tools are used throughout the codebase and in all prior features. The tools
+      use Pydantic models for input validation and provide consistent error messages. Using the abstraction maintains
+      consistency and leverages tested code.
+
+  - title: "Logging and Observability"
+    chosen: "Structured logging via structlog using get_logger(__name__) for all steps"
+    rejected:
+      - "Print-based logging — project uses structured logging throughout, provides better observability and integration with logging infrastructure"
+      - "Custom logging wrappers — project-wide structlog setup is centralized, consistent approach"
+    rationale: >
+      The project uses structlog for structured logging configured in sheep.observability.logging. The get_logger()
+      function provides a configured BoundLogger instance. Each major step (generate, write, validate, commit, push)
+      logs at INFO level with context. Errors log at ERROR level with full exception context. This matches the logging
+      pattern from feature 170 and all prior features.
+
+  - title: "Error Handling Strategy"
+    chosen: "Try/except blocks with specific exception types and wrapped error re-raising"
+    rejected:
+      - "Bare exception handling — specific exception types (ValueError, IOError, Exception) provide context for different failure modes"
+      - "Silent failure handling — all exceptions are logged and re-raised to fail fast, matching spec requirements"
+    rationale: >
+      The feature module uses try/except to catch and log exceptions at each step, providing observability.
+      Specific exception types indicate different failure categories: ValueError for content/validation errors,
+      IOError for file operations, Exception for git operations. All exceptions are logged with context before
+      re-raising, ensuring no silent failures. This approach enables rapid debugging and maintains clean error messages.
+
+  - title: "Return Value Structure"
+    chosen: "Dictionary with filepath, content, commit_message, and push_result keys"
+    rejected:
+      - "Return simple status boolean — detailed return information enables client code to verify and use the outputs"
+      - "Return Pydantic model — dictionary is more lightweight and matches existing feature module pattern"
+    rationale: >
+      Feature 170 (the reference implementation) returns a dictionary containing: filepath (str), content (str),
+      commit_message (str), and push_result (str). This provides callers with complete information about the operation
+      result without requiring additional queries. The structure is simple, JSON-serializable, and matches the established pattern.
+
+openQuestions:
+  - question: "Should prose content be generated with topic guidance or allowed to be random?"
+    resolved: true
+    options:
+      - option: "Random topic generation"
+        description: "Claude generates prose about any topic of its choosing. Maintains consistency with 179 prior features which all use random topics. Faster implementation, no additional configuration needed."
+        selected: true
+      - option: "Guided topic generation"
+        description: "Provide specific topic or category guidance to Claude for content generation. More control over content relevance, but adds complexity and diverges from prior feature pattern."
+        selected: false
+      - option: "User-provided topic"
+        description: "Accept topic as input parameter from CLI or configuration. Maximizes flexibility but adds complexity and breaks consistency with all prior features which generate random topics."
+        selected: false
+    selectionRationale: >
+      Random topic generation is recommended because all 179 prior features use this approach, ensuring consistency across
+      the codebase. The MARKDOWN_GENERATION_PROMPT instructs Claude to generate content about any topic of its choice.
+      This avoids unnecessary scope expansion and configuration complexity while maintaining the established pattern.
+
+  - question: "Should file validation be strict (fail on non-compliance) or lenient (warn only)?"
+    resolved: true
+    options:
+      - option: "Strict validation"
+        description: "Reject file creation if any requirement is not met (UTF-8 encoding, LF line endings, sentence count, file size). Ensures consistency across all 180 features, fails fast on issues."
+        selected: true
+      - option: "Lenient validation"
+        description: "Warn on non-compliance but proceed with file creation. More forgiving but may allow inconsistent files across features, makes debugging harder."
+        selected: false
+      - option: "No validation"
+        description: "Skip validation entirely and trust Claude output. Fastest approach but risks inconsistent files and violates spec requirements (FR-10)."
+        selected: false
+    selectionRationale: >
+      Strict validation is recommended because all prior 179 features use strict validation via validate_markdown_file(),
+      ensuring consistent quality and compliance across the platform. The validation checks: UTF-8 encoding without BOM,
+      Unix LF line endings, H1 heading structure, blank line separator, 2-3 sentence requirement, and trailing newline.
+      Failure at any checkpoint raises ValueError with descriptive message, enabling rapid issue detection and resolution.
+
+  - question: "Should feature implementation be a standalone module or integrated into existing feature class?"
+    resolved: true
+    options:
+      - option: "Standalone feature module"
+        description: "Create new src/sheep/features/feature_180_markdown_file_creation.py module following the pattern from feature 170. Clean separation of concerns, consistent with 179 prior features."
+        selected: true
+      - option: "Integrated into base class"
+        description: "Add feature logic to a shared base class or existing feature module. Reduces file count but breaks consistency with prior feature pattern, harder to maintain."
+        selected: false
+      - option: "Use CLI-only implementation"
+        description: "Implement feature only in CLI layer without separate feature module. Reduces code organization but makes feature logic less discoverable and testable."
+        selected: false
+    selectionRationale: >
+      Standalone module is recommended because all 179 prior features use individual modules in src/sheep/features/,
+      establishing a clear, consistent pattern. Feature 170 (the reference implementation) is a standalone module
+      with function create_feature_170_markdown_file(). This approach provides clear separation of concerns, makes
+      feature-specific logic explicit, and enables easy feature discovery and maintenance.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Feature Module Architecture
+
+  **Chosen:** Standalone feature module (`src/sheep/features/feature_180_markdown_file_creation.py`)
+
+  **Rejected:**
+  - Integrate into shared base class — breaks consistency with 179 prior features, reduces maintainability
+  - Use generic wrapper function — feature 170 uses explicit orchestration module, not the generic wrapper
+
+  **Rationale:** All 179 prior features follow the standalone module pattern. Feature 170 provides the exact
+  reference pattern: a module with a feature-specific function that orchestrates the complete workflow. This
+  ensures consistency, makes logic discoverable, and aligns with established project patterns.
+
+  ### 2. LLM Provider and Model Selection
+
+  **Chosen:** Anthropic Claude via CrewAI (`get_reasoning_llm()` with temperature 0.2)
+
+  **Rejected:**
+  - Direct Anthropic SDK calls — existing CrewAI abstraction is more consistent and manages dependencies
+  - Other providers (OpenAI, Google, Anthropic) — all 179 prior features use Anthropic Claude
+  - Fast model (cheaper/faster) — reasoning model produces higher quality prose
+
+  **Rationale:** CrewAI provides unified LLM interface. The reasoning_llm with temperature 0.2 generates
+  focused, coherent prose. This model choice is configured in settings and used consistently across all features.
+
+  ### 3. Content Generation Strategy
+
+  **Chosen:** Random topic generation via `generate_markdown_content()` without topic guidance
+
+  **Rejected:**
+  - Guided topic generation — diverges from 179 prior features, adds unnecessary configuration
+  - Hard-coded content — violates spec requirement (NFR-11) for generated content
+
+  **Rationale:** Random topic generation is the established pattern across all prior features. The
+  MARKDOWN_GENERATION_PROMPT instructs Claude to generate H1 heading about any topic, blank line, and 2-3 sentences.
+
+  ### 4. File Validation Approach
+
+  **Chosen:** Strict validation using `validate_markdown_file()` — fail on any non-compliance
+
+  **Rejected:**
+  - Lenient validation (warn but proceed) — breaks consistency with 179 prior features
+  - Custom validation logic — existing function is tested and proven
+
+  **Rationale:** Strict validation ensures UTF-8 encoding without BOM, Unix LF line endings, H1 heading,
+  blank line separator, 2-3 sentence requirement, and trailing newline. All prior features use strict validation
+  for consistency and quality assurance.
+
+  ### 5. File Writing and Encoding
+
+  **Chosen:** Python built-in `open(encoding='utf-8')` via `write_markdown_file()` utility
+
+  **Rejected:**
+  - Direct I/O without abstraction — utilities provide validation and consistency
+  - Custom encoding libraries — Python 3.11+ built-in support is sufficient
+
+  **Rationale:** The write_markdown_file() function validates UTF-8 encoding, file creation success, and non-empty
+  status. Python's built-in open() with encoding='utf-8' handles platform-specific line endings correctly.
+  This is the proven approach used across all prior features.
+
+  ### 6. Git Integration
+
+  **Chosen:** Use `GitCommitTool` and `GitPushTool` from `sheep.tools.git_tools` module
+
+  **Rejected:**
+  - GitPython library directly — project abstracts git operations, diverging would duplicate effort
+  - Manual subprocess commands — existing tools provide error handling and consistent interface
+
+  **Rationale:** The git tools provide abstracted subprocess calls with error handling, logging, and Pydantic
+  input validation. Using these tools maintains consistency with all prior features and leverages tested code.
+
+  ### 7. Logging and Observability
+
+  **Chosen:** Structured logging via `structlog` using `get_logger(__name__)` for all steps
+
+  **Rejected:**
+  - Print-based logging — project uses structured logging throughout
+  - Custom wrappers — project-wide setup is centralized and consistent
+
+  **Rationale:** Each major step (generate, write, validate, commit, push) logs at INFO level. Errors log at
+  ERROR level with full context. This matches feature 170 pattern and all prior features.
+
+  ### 8. Error Handling
+
+  **Chosen:** Try/except blocks with specific exception types and wrapped error re-raising
+
+  **Rejected:**
+  - Bare exception handling — specific types (ValueError, IOError, Exception) provide context
+  - Silent failures — all exceptions logged and re-raised
+
+  **Rationale:** Specific exception types indicate different failure categories. All exceptions logged with
+  context before re-raising ensures observability and fast debugging. Matches established pattern.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | CrewAI | LLM orchestration framework | Use | Core dependency, used throughout project, proven across 179 features |
+  | Anthropic SDK | Claude API access | Use via CrewAI | Integrated through CrewAI, no direct dependency needed |
+  | Pathlib | File path operations | Use | Cross-platform path handling, standard in Python 3.11+, used throughout project |
+  | Structlog | Structured logging | Use | Project-wide logging infrastructure, configured centrally |
+  | Pydantic | Configuration validation | Use | Already in project, used for git tool inputs |
+  | GitPython | Git operations | Reject | Project abstracts git through tools module instead |
+  | Custom encoding | Special encoding handling | Reject | Python 3.11+ built-in UTF-8 support is sufficient |
+
+  ## Security Considerations
+
+  ### API Key Management
+  - ANTHROPIC_API_KEY loaded from environment via `sheep.config.settings`
+  - Stored as Pydantic `SecretStr` — never logged or exposed in debug output
+  - Passed to CrewAI LLM factory which handles secure transmission to Anthropic API
+  - **Mitigation:** Environment variable loading is handled centrally, no hardcoded keys
+
+  ### File Operations Security
+  - Filename validation checks for path traversal attempts: "/" and "\\" characters rejected
+  - Filename must not start with "."
+  - All file operations use Pathlib which prevents symlink attacks
+  - File permissions use OS defaults (no special permissions)
+  - **Mitigation:** No user input is evaluated as code; filenames are validated strictly
+
+  ### Git Operations Security
+  - Git commands executed via subprocess with proper argument escaping
+  - Commit message passed as argument, not interpolated into shell command
+  - No shell=True parameter used in subprocess calls
+  - **Mitigation:** No command injection vulnerability possible; subprocess with list args is safe
+
+  ### Generated Content Security
+  - Claude API response is treated as data, never executed
+  - Content is validated before writing (format and sentence structure checks)
+  - No code evaluation of generated content
+  - **Mitigation:** Content is written as plain text, no execution possible
+
+  ### Dependency Security
+  - All dependencies already in project (no new dependencies added)
+  - CrewAI and Anthropic SDK maintained by reputable organizations
+  - No external content evaluation or dynamic execution
+  - **Mitigation:** Using existing vetted dependencies reduces supply chain risk
+
+  ## Performance Implications
+
+  ### API Call Optimization
+  - Single Claude API call per feature execution
+  - Temperature 0.2 provides faster convergence than higher temperatures (typically 2-5s response time)
+  - No token budget concerns: typical prose is 100-200 tokens, well within limits
+  - **Optimization:** One-shot generation is efficient; no multi-turn prompting
+
+  ### File I/O Performance
+  - Single write operation to disk (no multiple writes)
+  - Validation uses efficient binary read (no full content parsing)
+  - Pathlib operations are optimized for common filesystem operations
+  - **Optimization:** Minimal disk I/O, validation is O(n) where n is file size (~300-600 bytes)
+
+  ### Git Operations Performance
+  - Single commit and push per execution (no multiple commits)
+  - Standard git subprocess calls use system binary (native performance)
+  - Set upstream on first push (-u flag) is efficient, subsequent pushes faster
+  - **Optimization:** Git operations are the bottleneck but unavoidable per requirements
+
+  ### Memory Usage
+  - Content generation: CrewAI manages LLM connection pooling
+  - File content: ~300-600 bytes of prose, negligible memory impact
+  - No unbounded data structures or loops
+  - **Optimization:** Memory usage is constant regardless of feature number
+
+  ### Scalability Considerations
+  - Feature is designed for one-off execution, not batch processing
+  - If running 180+ features in sequence, time is linear with feature count (one feature per API call)
+  - No caching or optimization needed for single execution
+  - **Note:** Caching would be beneficial only if same content generated multiple times (not applicable)
+
+  ## Architecture Notes
+
+  ### Integration Points
+
+  The feature integrates with existing infrastructure at these points:
+
+  **LLM Configuration:**
+  - Calls `sheep.config.llm.get_reasoning_llm()` factory
+  - Uses ANTHROPIC_API_KEY from settings (environment variable)
+  - CrewAI handles API call, response parsing, and error handling
+
+  **Content Generation Pipeline:**
+  - Calls `sheep.content_generators.generate_markdown_content()` → uses LLM
+  - Calls `sheep.content_generators.write_markdown_file()` → uses Pathlib, handles encoding
+  - Calls `sheep.content_generators.validate_markdown_file()` → strict validation
+  - Calls `sheep.content_generators.commit_markdown_file()` → uses GitCommitTool
+  - Calls `sheep.content_generators.push_markdown_file()` → uses GitPushTool
+
+  **Git Operations:**
+  - GitCommitTool and GitPushTool from `sheep.tools.git_tools`
+  - Both use subprocess with proper error handling
+  - Return string results for caller inspection
+
+  **Logging:**
+  - Uses `sheep.observability.logging.get_logger(__name__)`
+  - Logs major steps at INFO level, details at DEBUG level
+  - Errors logged with full context before re-raising
+
+  ### Design Patterns
+
+  **Orchestration Pattern:**
+  The feature module follows an orchestration pattern where a main function coordinates specialized utilities:
+  ```
+  create_feature_180() → [generate, write, validate, commit, push]
+  ```
+  Each step is a separate function call, enabling clear progression and error isolation.
+
+  **Error Propagation:**
+  Errors at any step are caught, logged, and re-raised immediately. This ensures:
+  - No partial state (if generation fails, no file is created)
+  - Fast failure with diagnostic information
+  - Caller has clear exception to handle
+
+  **Return Value Pattern:**
+  The feature returns a dictionary with operation results, enabling callers to:
+  - Verify success through return values
+  - Access generated content for inspection
+  - Query commit and push results for status
+
+  ### Code Organization
+
+  **Feature Module Structure:**
+  ```
+  feature_180_markdown_file_creation.py
+  ├── Module docstring (140-180, purpose, structure)
+  ├── Imports (pathlib, content_generators, logging)
+  ├── Constants (FEATURE_NUMBER, MARKDOWN_FILENAME, COMMIT_MESSAGE)
+  ├── Main function (create_feature_180_markdown_file)
+  ├── Error handling (try/except with logging)
+  └── CLI entry point (if __name__ == "__main__")
+  ```
+
+  **Separation of Concerns:**
+  - Feature module: orchestration and coordination
+  - content_generators: content generation and file operations
+  - git_tools: git operations and command execution
+  - config: settings and LLM configuration
+  - logging: structured observability
+
+  ### Consistency with Prior Features
+
+  Feature 180 follows the exact pattern from feature 170:
+  - Same module structure and naming convention
+  - Same function orchestration order (generate → write → validate → commit → push)
+  - Same error handling approach (try/except with logging)
+  - Same return value structure (dictionary with filepath, content, message, result)
+  - Same logging strategy (INFO for steps, DEBUG for details)
+
+  This consistency ensures:
+  - Easy feature discovery and understanding
+  - Predictable behavior for callers
+  - Simple maintenance and debugging
+  - Clear testing and validation patterns
+
+  ---
+
+  _Research phase completed on 2026-03-23_
