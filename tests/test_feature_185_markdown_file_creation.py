@@ -43,11 +43,11 @@ class TestFeature185MarkdownFileCreation:
     def test_all_helper_functions_accessible(self):
         """Test that all helper functions are imported and accessible."""
         from sheep.features.feature_185_markdown_file_creation import (
-            generate_markdown_content,
-            write_markdown_file,
-            validate_markdown_file,
             commit_markdown_file,
+            generate_markdown_content,
             push_markdown_file,
+            validate_markdown_file,
+            write_markdown_file,
         )
 
         assert callable(generate_markdown_content)
