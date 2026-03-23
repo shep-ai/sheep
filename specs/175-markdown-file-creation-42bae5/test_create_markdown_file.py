@@ -594,6 +594,158 @@ class TestValidationErrorMessages:
                 os.chdir(original_cwd)
 
 
+class TestMainOrchestration:
+    """Tests for main() orchestration and error handling."""
+
+    def test_main_success(self):
+        """Test that main() successfully orchestrates complete workflow."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Mock git operations to avoid actual repository modifications
+                with mock.patch('create_markdown_file.git_add'):
+                    with mock.patch('create_markdown_file.git_commit'):
+                        with mock.patch('create_markdown_file.git_push'):
+                            # Capture exit code by catching SystemExit
+                            try:
+                                create_markdown_file.main()
+                                # If we get here, sys.exit(0) was called
+                                assert False, "Should have called sys.exit()"
+                            except SystemExit as e:
+                                # Success path should exit with code 0
+                                assert e.code == 0
+
+                # Verify file was created
+                assert (tmpdir_path / create_markdown_file.FILENAME).exists()
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_validation_failure(self):
+        """Test that main() catches validation errors and exits with code 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Mock create_file to create an invalid file (no prose)
+                def create_invalid_file():
+                    file_path = Path(create_markdown_file.FILENAME)
+                    file_path.write_text("# Title\n\n\n", encoding='utf-8', newline='\n')
+
+                with mock.patch('create_markdown_file.create_file', side_effect=create_invalid_file):
+                    with mock.patch('create_markdown_file.git_add'):
+                        with mock.patch('create_markdown_file.git_commit'):
+                            with mock.patch('create_markdown_file.git_push'):
+                                try:
+                                    create_markdown_file.main()
+                                    assert False, "Should have exited with code 1"
+                                except SystemExit as e:
+                                    # Validation failure should exit with code 1
+                                    assert e.code == 1
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_git_failure(self):
+        """Test that main() catches git errors and exits with code 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Mock git_push to raise CalledProcessError
+                with mock.patch('create_markdown_file.git_add'):
+                    with mock.patch('create_markdown_file.git_commit'):
+                        with mock.patch('create_markdown_file.git_push') as mock_push:
+                            mock_push.side_effect = subprocess.CalledProcessError(
+                                1, 'git push', stderr="fatal: network error"
+                            )
+                            try:
+                                create_markdown_file.main()
+                                assert False, "Should have exited with code 1"
+                            except SystemExit as e:
+                                # Git failure should exit with code 1
+                                assert e.code == 1
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_file_io_failure(self):
+        """Test that main() catches file I/O errors and exits with code 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Mock create_file to raise OSError
+                with mock.patch('create_markdown_file.create_file') as mock_create:
+                    mock_create.side_effect = OSError("Permission denied")
+                    try:
+                        create_markdown_file.main()
+                        assert False, "Should have exited with code 1"
+                    except SystemExit as e:
+                        # File I/O failure should exit with code 1
+                        assert e.code == 1
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_orchestration_order(self):
+        """Test that main() calls functions in correct order."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                call_order = []
+
+                def mock_create():
+                    call_order.append('create')
+                    # Create a valid file
+                    file_path = Path(create_markdown_file.FILENAME)
+                    file_path.write_text(
+                        f"# {create_markdown_file.TITLE}\n\n{create_markdown_file.PROSE}\n",
+                        encoding='utf-8',
+                        newline='\n'
+                    )
+
+                def mock_validate(filename):
+                    call_order.append('validate')
+
+                def mock_add(filename):
+                    call_order.append('add')
+
+                def mock_commit(message):
+                    call_order.append('commit')
+
+                def mock_push():
+                    call_order.append('push')
+
+                with mock.patch('create_markdown_file.create_file', side_effect=mock_create):
+                    with mock.patch('create_markdown_file.validate_file', side_effect=mock_validate):
+                        with mock.patch('create_markdown_file.git_add', side_effect=mock_add):
+                            with mock.patch('create_markdown_file.git_commit', side_effect=mock_commit):
+                                with mock.patch('create_markdown_file.git_push', side_effect=mock_push):
+                                    try:
+                                        create_markdown_file.main()
+                                    except SystemExit:
+                                        pass
+
+                # Verify correct order
+                assert call_order == ['create', 'validate', 'add', 'commit', 'push']
+            finally:
+                os.chdir(original_cwd)
+
+
 class TestGitOperations:
     """Tests for git workflow operations (add, commit, push)."""
 
@@ -704,3 +856,58 @@ class TestGitOperations:
             # Should raise CalledProcessError
             with pytest.raises(subprocess.CalledProcessError):
                 create_markdown_file.git_push()
+
+
+class TestScriptEntryPoint:
+    """Tests for script entry point and command-line interface."""
+
+    def test_script_entry_point_exists(self):
+        """Test that script has if __name__ == '__main__' entry point."""
+        import inspect
+
+        # Get the source code
+        source = inspect.getsource(create_markdown_file)
+
+        # Should contain the entry point
+        assert "if __name__ == '__main__'" in source
+
+    def test_script_exits_zero_on_success(self):
+        """Test that running script as main exits with code 0 on success."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Mock git operations
+                with mock.patch('create_markdown_file.git_add'):
+                    with mock.patch('create_markdown_file.git_commit'):
+                        with mock.patch('create_markdown_file.git_push'):
+                            # Simulate script execution
+                            try:
+                                create_markdown_file.main()
+                            except SystemExit as e:
+                                assert e.code == 0, f"Expected exit code 0, got {e.code}"
+            finally:
+                os.chdir(original_cwd)
+
+    def test_script_exits_one_on_failure(self):
+        """Test that running script as main exits with code 1 on failure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Mock create_file to raise validation error
+                with mock.patch('create_markdown_file.create_file'):
+                    with mock.patch('create_markdown_file.validate_file') as mock_validate:
+                        mock_validate.side_effect = ValueError("Invalid file structure")
+                        try:
+                            create_markdown_file.main()
+                        except SystemExit as e:
+                            assert e.code == 1, f"Expected exit code 1, got {e.code}"
+            finally:
+                os.chdir(original_cwd)
