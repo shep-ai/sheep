@@ -1,7 +1,6 @@
 """Tests for feature 178: Creating markdown file test-khrvcn.md with title and prose content."""
 
 from pathlib import Path
-import pytest
 
 
 class TestMarkdownFileCreation:
