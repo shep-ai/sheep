@@ -1,0 +1,459 @@
+name: markdown-file-creation-d0cf94
+summary: >
+  This feature creates a single markdown file (test-t2wrez.md) with H1 heading and
+  2-3 sentences of prose, following the established architecture pattern from 175+ prior
+  similar features. Implementation uses Python 3.11+ standard library (pathlib, subprocess),
+  pytest for testing, and conventional git operations. No external dependencies required
+  beyond pytest. Key decisions: pathlib for file operations, subprocess.run() with check=True
+  for git, pytest fixtures for isolated testing, and comprehensive validation of encoding,
+  line endings, and file structure.
+
+relatedFeatures:
+  - number: 175
+    name: markdown-file-creation-35f9af
+  - number: 174
+    name: markdown-file-creation-1fc9b9
+  - number: 173
+    name: markdown-file-creation-3ef644
+
+technologies:
+  - "Python 3.11+ (core language)"
+  - "pathlib (standard library - file operations)"
+  - "subprocess (standard library - git commands)"
+  - "pytest (test framework)"
+  - "pytest fixtures (tempfile, mock)"
+  - "Git (external tool, required for git operations)"
+
+relatedLinks:
+  - title: "Feature 175 Implementation Reference"
+    url: "file:///specs/175-markdown-file-creation-35f9af/create_markdown_file.py"
+  - title: "Feature 175 Test Suite Reference"
+    url: "file:///specs/175-markdown-file-creation-35f9af/test_create_markdown_file.py"
+  - title: "Feature 173 Implementation Reference"
+    url: "file:///specs/173-markdown-file-creation-3ef644/create_markdown_file.py"
+  - title: "Project README - Architecture Overview"
+    url: "file:///README.md"
+  - title: "Project pyproject.toml - Dependencies and Python Version"
+    url: "file:///pyproject.toml"
+
+decisions:
+  - title: "File Operations Library Selection"
+    chosen: "pathlib.Path (Python 3.11+ standard library)"
+    rejected:
+      - "os.path + open() — Less modern, more verbose, harder to read, not cross-platform idiomatic"
+      - "Third-party libraries (e.g., py, pathlib3) — Unnecessary external dependencies, pathlib is built-in"
+    rationale: >
+      pathlib.Path is the standard, modern approach in Python 3.11+. Provides object-oriented,
+      cross-platform file operations without external dependencies. Path.write_bytes() and
+      Path.read_text() are cleaner and safer than manual file operations. This approach is
+      proven across 175+ prior features in this repository (features 170-175 all use pathlib).
+      Write operations use Path.write_bytes() with explicit UTF-8 encoding to ensure no BOM,
+      and explicit '\n' characters in content strings guarantee Unix LF line endings regardless
+      of platform.
+
+  - title: "Git Command Execution Method"
+    chosen: "subprocess.run() with check=True"
+    rejected:
+      - "GitPython library — Adds external dependency, subprocess is more direct and predictable"
+      - "os.system() or shell=True — Security risk (command injection), poor error handling"
+    rationale: >
+      subprocess.run() with check=True provides safe, deterministic git operations with strict
+      error handling. Raises CalledProcessError on any failure, preventing invalid commits. Using
+      list arguments ([\"git\", \"add\", filename]) instead of shell=True prevents command
+      injection risks. This is the established pattern across all 175+ prior markdown file
+      creation features. The three-step workflow (add → commit → push) is simple, straightforward,
+      and matches conventional git best practices. The -u flag on push sets upstream tracking,
+      and HEAD refers to the current branch being worked on.
+
+  - title: "Encoding Strategy for Encoding and Line Ending Safety"
+    chosen: "Path.write_bytes() with content.encode('utf-8') and explicit '\\n' characters"
+    rejected:
+      - "Path.write_text(encoding='utf-8') — Susceptible to platform line ending conversion (CRLF on Windows)"
+      - "Using str.encode() without explicit newlines — May introduce CRLF on Windows if not careful"
+    rationale: >
+      This approach guarantees UTF-8 encoding without BOM and Unix LF line endings across all
+      platforms. By using Path.write_bytes(), we have explicit control over every byte. By
+      constructing the content string with explicit '\\n' characters (not relying on implicit
+      newlines), we ensure LF is written, not CRLF. The validation function confirms this by
+      reading binary content and checking that it does NOT contain b'\\r\\n' and DOES start
+      with H1 markdown. This approach is proven across 175+ prior features and handles both
+      Windows and Unix environments correctly. Using UTF-8 encoding (not utf-8-sig) explicitly
+      avoids Byte Order Mark (BOM) issues.
+
+  - title: "File Validation Approach"
+    chosen: "Comprehensive validation function with AssertionError and descriptive messages"
+    rejected:
+      - "Simple existence check only — Insufficient to catch structural or encoding issues"
+      - "Exceptions from read operations — Less explicit, harder to debug"
+    rationale: >
+      The validation function (validate_file) performs five critical checks: (1) file exists,
+      (2) file size is in typical range (300-800 bytes, soft guideline 400-600), (3) starts
+      with H1 heading (# ), (4) contains blank line (double newline separator), (5) has prose
+      content. It returns True on success or raises AssertionError with descriptive message on
+      failure. This pattern is established in features 173-175 and provides clear feedback for
+      debugging. The 300-800 byte constraint is flexible (not a hard limit) to allow for
+      variations in prose while catching obviously wrong files.
+
+  - title: "Testing Framework and Isolation"
+    chosen: "pytest with tempfile fixtures for isolated test directories and mock.patch for git operations"
+    rejected:
+      - "unittest instead of pytest — pytest is more modern, used by the project, better fixtures"
+      - "Testing against real repository — Risks contaminating actual codebase, not reproducible"
+    rationale: >
+      pytest is the project's chosen testing framework (pyproject.toml specifies pytest>=8.0.0).
+      Using tempfile.TemporaryDirectory() ensures test isolation; each test gets a clean
+      directory with original working directory restored afterward. This prevents tests from
+      interfering with the repository state or each other. mock.patch is used to verify git
+      commands without actually executing them, preventing unwanted side effects. The test suite
+      includes comprehensive coverage: file creation, encoding verification, line ending
+      verification, structure validation, error cases, and complete integration tests. This
+      pattern is proven across features 173-175 test suites.
+
+  - title: "Conventional Commit Message Format"
+    chosen: "\"feat(NUMBER): create markdown file test-t2wrez.md with title and prose content\""
+    rejected:
+      - "Generic messages like \"Add file\" — Not descriptive, doesn't follow project conventions"
+      - "Commit messages without feat() prefix — Loses semantic meaning, harder to track features"
+    rationale: >
+      Conventional commits provide structure and semantic meaning. The format \"feat(176): ...\"
+      indicates a feature addition for issue #176, making git history searchable and meaningful.
+      This approach is standard across all 175+ prior features in this repository. The message
+      includes specific details (filename, that it has title and prose) for clarity and
+      traceability.
+
+openQuestions:
+  - question: "Should we add prose content validation (count sentences) or accept any content?"
+    resolved: true
+    options:
+      - option: "Accept any prose content (current approach)"
+        description: >
+          Validate that prose exists and is non-empty, but don't count sentences or validate
+          content quality. The requirement \"2-3 sentences\" is documented but not enforced by code.
+          Rationale: Sentence counting is fragile (abbreviations, ellipses, special cases).
+          The validation suite from features 173-175 doesn't enforce sentence count, only that
+          prose exists. More maintainable and less brittle.
+        selected: true
+      - option: "Enforce sentence count (2-3 periods)"
+        description: >
+          Count periods in prose and reject if count is outside 2-3 range. Accounts for some
+          false positives (abbreviations like \"Mr.\" or \"etc.\"). More rigid validation.
+          Rationale: Would add complexity, increase brittleness, and existing features don't do this.
+        selected: false
+      - option: "Use NLP for sentence segmentation"
+        description: >
+          Import NLTK or spaCy to properly segment sentences and count. Most accurate but adds
+          external dependency and complexity. Rationale: Overkill for this task, adds dependencies
+          not already in the project, unnecessary complexity.
+        selected: false
+    selectionRationale: >
+      The approach from features 173-175 validates only that prose exists and is non-empty.
+      This is simpler, more maintainable, and less brittle. The \"2-3 sentences\" requirement
+      is documented in the specification and commit message but not enforced by code validation.
+      This matches the established pattern across 170+ prior features.
+
+  - question: "Should validation check for specific prose quality (readability, coherence)?"
+    resolved: true
+    options:
+      - option: "No — validate structure only, not content quality (current approach)"
+        description: >
+          Validate file format, encoding, line endings, size, and structure (H1 + blank + prose).
+          Don't validate prose quality, readability, or coherence. Rationale: Simpler, more
+          maintainable, content quality is author responsibility.
+        selected: true
+      - option: "Enforce minimum prose length (e.g., 50+ characters)"
+        description: >
+          Add check that prose content is longer than a threshold (e.g., 50 characters).
+          Prevents trivial prose like \"Hello.\" Rationale: Adds validation layer but still
+          doesn't check coherence.
+        selected: false
+      - option: "Use AI/language model to validate prose quality"
+        description: >
+          Integrate with LLM (Claude, OpenAI) to validate prose is coherent and substantive.
+          Most comprehensive but adds complexity, external dependencies, latency.
+          Rationale: Overkill for this task, inappropriate scope.
+        selected: false
+    selectionRationale: >
+      The established pattern (features 173-175) validates structure only. Content quality is
+      the responsibility of the person writing the prose, not the validation code. This keeps
+      the validation function focused, simple, and maintainable. File size check (300-800 bytes)
+      provides a natural quality gate that rejects obviously inadequate content.
+
+  - question: "Should git operations be conditional (only if validation passes) or executed separately?"
+    resolved: true
+    options:
+      - option: "Conditional execution (only run git ops if validation passes)"
+        description: >
+          Call git_operations() only after validate_file() succeeds. If validation fails,
+          raise exception and exit before touching git. Rationale: Prevents committing invalid files.
+          This is the approach in features 173-175.
+        selected: true
+      - option: "Separate functions — user calls create_file(), validate_file(), git_operations() independently"
+        description: >
+          Expose three separate functions; user coordinates the workflow. More flexible but
+          less safe (user could skip validation). Rationale: Allows reuse but requires more
+          discipline.
+        selected: false
+      - option: "Automatic git operations inside create_file()"
+        description: >
+          Do everything (file creation, validation, git) inside create_file(). Single function
+          call, but less modular and harder to test. Rationale: Less flexible, harder to debug.
+        selected: false
+    selectionRationale: >
+      The main() function orchestrates the workflow: create → validate → git. Validation is
+      called before git_operations(), ensuring invalid files are never committed. This is the
+      proven pattern from features 173-175. Tests verify this ordering via mock.patch and
+      integration tests.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File Creation Using pathlib.Path
+
+  **Chosen:** pathlib.Path with Path.write_bytes() and explicit UTF-8 encoding
+
+  **Rejected:**
+  - os.path + open() — Older, more verbose, less idiomatic in modern Python
+  - Third-party libraries (py, pathlib3) — Unnecessary external dependencies; pathlib is built-in since Python 3.4
+
+  **Rationale:**
+  pathlib.Path is the standard, modern approach for file operations in Python 3.11+. It provides:
+  - Object-oriented, intuitive API (pathlib.Path vs string paths)
+  - Cross-platform path handling (automatically handles Windows vs Unix paths)
+  - No external dependencies (built into Python 3.11+ standard library)
+  - Clean read/write operations (Path.write_bytes(), Path.read_text())
+
+  This approach is proven across 175+ prior similar features in the Sheep repository (features 170-175).
+  By using Path.write_bytes(content.encode('utf-8')), we explicitly control:
+  - UTF-8 encoding without BOM (no b'\xef\xbb\xbf' prefix)
+  - Unix LF line endings (by using explicit '\n' in content strings, not relying on platform defaults)
+
+  ### 2. Git Operations Using subprocess.run()
+
+  **Chosen:** subprocess.run() with check=True and list-based arguments
+
+  **Rejected:**
+  - GitPython library — Adds external dependency; subprocess is more direct and predictable
+  - os.system() or shell=True — Security risk (command injection via unvalidated input), poor error handling
+
+  **Rationale:**
+  subprocess.run() with check=True provides safe, deterministic git command execution:
+  - Raises CalledProcessError on any non-zero return code (strict error handling)
+  - Using list arguments (['git', 'add', filename]) prevents shell injection attacks
+  - No shell parsing overhead; command intent is clear
+  - Standard Python approach recommended by Python documentation
+
+  Three-step workflow: git add → git commit → git push
+  - Stage the file: git add test-t2wrez.md
+  - Commit with conventional message: git commit -m "feat(176): ..."
+  - Push with upstream tracking: git push -u origin HEAD
+
+  This pattern is established across all 175+ prior markdown creation features and aligns with
+  git best practices.
+
+  ### 3. Encoding and Line Ending Strategy
+
+  **Chosen:** Path.write_bytes() with content.encode('utf-8') and explicit '\n' characters in strings
+
+  **Rejected:**
+  - Path.write_text(encoding='utf-8') — Susceptible to platform line ending conversion (may introduce CRLF on Windows)
+  - Implicit newlines — Unreliable across platforms without explicit control
+
+  **Rationale:**
+  The requirement specifies:
+  - UTF-8 encoding without BOM (Byte Order Mark)
+  - Unix-style LF line endings, not Windows CRLF
+
+  Our approach guarantees this:
+  1. Path.write_bytes() gives explicit control over every byte written to disk
+  2. Constructing content with explicit '\n' characters (not relying on Python's implicit newline handling)
+     ensures LF is written, not CRLF
+  3. Using content.encode('utf-8') (not 'utf-8-sig') ensures no BOM is added
+  4. Validation checks binary content with:
+     - Not starting with b'\xef\xbb\xbf' (UTF-8 BOM check)
+     - Not containing b'\r\n' (CRLF check)
+     - Contains b'\n' (LF confirmation)
+
+  This cross-platform approach is proven across 175+ prior features and works correctly on
+  Windows, macOS, and Linux.
+
+  ### 4. File Validation Strategy
+
+  **Chosen:** Comprehensive validation function with AssertionError and descriptive messages
+
+  **Rejected:**
+  - Simple existence check only — Insufficient; would miss encoding, structure, and size issues
+  - Exceptions from read operations — Less explicit; harder to debug specific issues
+
+  **Rationale:**
+  The validate_file() function performs five sequential checks:
+
+  1. **File Existence:** assert filepath.exists()
+  2. **File Size:** assert 300 < file_size < 800
+     - Soft guideline: 400-600 bytes (optimal for H1 + blank line + 2-3 sentences)
+     - Tolerance range: 300-800 bytes (flexibility for variations)
+  3. **H1 Heading:** assert content.startswith('# ')
+  4. **Blank Line Separator:** assert '\n\n' in content
+  5. **Prose Content:** assert len(prose.strip()) > 0
+
+  On success: returns True
+  On failure: raises AssertionError with descriptive message (e.g., "File size 250 bytes is
+  outside typical range (300-800 bytes)...")
+
+  This pattern is established in features 173-175. Descriptive error messages aid debugging
+  and provide clear feedback on what went wrong.
+
+  ### 5. Testing Framework: pytest with Fixtures and Isolation
+
+  **Chosen:** pytest with tempfile.TemporaryDirectory() fixtures and mock.patch()
+
+  **Rejected:**
+  - unittest — Older syntax, less flexible, not the project's choice
+  - Testing against real repository — Risks contaminating codebase, not reproducible
+
+  **Rationale:**
+  The project uses pytest (pyproject.toml specifies pytest>=8.0.0). Benefits:
+
+  - **Fixture Support:** tempfile.TemporaryDirectory() provides isolated test directories
+  - **Isolation:** Each test gets a clean filesystem; original working directory is restored via try/finally
+  - **Mocking:** mock.patch('subprocess.run') verifies git commands without actually executing them
+  - **Comprehensive Coverage:**
+    - File creation tests (existence, naming, content)
+    - Encoding tests (UTF-8, no BOM)
+    - Line ending tests (LF, no CRLF)
+    - Structure tests (H1 + blank + prose)
+    - Size validation tests (300-800 byte range)
+    - Error cases (missing heading, missing blank, empty prose)
+    - Integration tests (complete workflow)
+    - Git operation verification (via mock)
+
+  This comprehensive test suite is proven across features 173-175 and provides confidence in
+  correctness and prevents regressions.
+
+  ### 6. Conventional Commit Message Format
+
+  **Chosen:** "feat(176): create markdown file test-t2wrez.md with title and prose content"
+
+  **Rejected:**
+  - Generic messages ("Add file", "Update repo") — Not descriptive, loses semantic meaning
+  - Messages without type prefix — Harder to track features and categorize commits
+
+  **Rationale:**
+  Conventional Commits (https://www.conventionalcommits.org/) provide structure and semantic
+  meaning:
+  - **Type:** "feat" indicates a feature addition
+  - **Scope:** "176" references the feature/issue number, making it traceable
+  - **Description:** "create markdown file test-t2wrez.md with title and prose content" provides specificity
+
+  This format is used across all 175+ prior features in the Sheep repository. It enables:
+  - Searchable git history (grep for "feat(176)")
+  - Clear semantic meaning (automated tools can parse and categorize commits)
+  - Project convention consistency (every developer follows same pattern)
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File operations (read/write paths) | **Use** (standard library) | Built into Python 3.11+, cross-platform, modern approach, proven across 175+ prior features |
+  | subprocess | Execute git commands | **Use** (standard library) | Built into Python 3.11+, safe command execution with check=True, no external dependencies |
+  | pytest | Testing framework | **Use** (project dependency) | Already in pyproject.toml (dev dependencies), project standard, excellent fixture/mock support |
+  | unittest.mock | Mock git operations in tests | **Use** (standard library, included with pytest) | Verify git commands without side effects, enables deterministic testing |
+  | tempfile | Isolated test directories | **Use** (standard library) | Provides TemporaryDirectory() for test isolation, automatic cleanup |
+  | sys | Exit codes and error handling | **Use** (standard library) | Small, standard usage for sys.exit() on success/failure |
+  | GitPython | Alternative git library | **Reject** | Adds external dependency; subprocess is simpler and more predictable |
+  | pathspec | File globbing (if needed) | **Reject** | Not needed; using explicit filename (test-t2wrez.md) |
+  | attrs/dataclasses | Object modeling (if needed) | **Reject** | Not needed; simple dict/string approach in constants |
+  | mypy/type hints | Static typing (optional) | **Use Conservatively** | Project uses mypy (pyproject.toml); add minimal type hints for clarity; docstrings document types |
+
+  ## Security Considerations
+
+  ### Input Validation
+  - **File Operations:** No user input processed; filename and content are hardcoded constants
+  - **Git Commands:** Using list-based arguments ([\"git\", \"add\", FILENAME]) instead of f-strings
+    prevents command injection even if constants were user-provided
+
+  ### Encoding Safety
+  - **UTF-8 Encoding:** Explicitly specified; handles international characters safely
+  - **BOM Prevention:** Using UTF-8 (not utf-8-sig) ensures no Byte Order Mark
+  - **Line Ending Normalization:** Explicit '\n' prevents platform-specific issues
+
+  ### File Operations
+  - **Permission Handling:** pathlib.Path.write_bytes() will raise IOError if permissions deny write access
+  - **Disk Space:** Same IOError if disk is full; no special handling (let user address)
+  - **Path Traversal:** No risk; hardcoded filename (test-t2wrez.md) at repository root
+
+  ### Git Operations
+  - **Command Injection:** Prevented by using list-based subprocess arguments
+  - **Network Security:** git push uses standard SSH/HTTPS protocols; assumes system git is configured
+  - **Credential Handling:** Relies on system git configuration (SSH keys, credential helpers)
+
+  ### No High-Risk Operations
+  - No shell evaluation (shell=False)
+  - No eval() or exec()
+  - No external API calls
+  - No database operations
+  - No user input parsed or executed
+
+  **Conclusion:** This feature has low security risk. Standard library modules, hardcoded
+  constants, and safe subprocess invocation prevent common attack vectors.
+
+  ## Performance Considerations
+
+  ### File I/O Performance
+  - **File Writing:** Single write_bytes() call; minimal overhead (< 1KB file)
+  - **File Reading:** Single read_text() + validation checks; O(n) where n = file size (~500 bytes)
+  - **No Caching Needed:** Single file operation; no repeated reads/writes
+
+  ### Git Operations
+  - **subprocess.run() Overhead:** Standard, expected; launching 3 git subprocesses is normal
+    - git add: Quickly stages file (O(1) for single file)
+    - git commit: Creates commit object (O(1) for single file)
+    - git push: Network operation; latency depends on network, not code
+  - **No Performance Tuning Needed:** This is simple, linear-time operation with no loops
+
+  ### Validation Performance
+  - **File Size Check:** stat() syscall; O(1), no file reading needed
+  - **Content Validation:** Single read_text() + string operations; O(n) where n = file size
+  - **Total Validation Time:** Microseconds for a 500-byte file
+
+  ### Overall Assessment
+  - **Time Complexity:** O(1) for file operations + O(n) for validation where n = file size
+  - **Space Complexity:** O(n) to hold file content in memory (500 bytes, negligible)
+  - **No Optimization Needed:** Simple operations on small files; no profiling or optimization required
+  - **Scalability:** Not applicable; this is a single-file operation
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Platform
+  - **Feature Pattern:** Follows established pattern from 175+ prior similar features (173-175)
+  - **Isolation:** This feature is independent; doesn't modify Sheep platform code
+  - **Reusability:** Implementation serves as reference pattern for future similar features
+  - **Testing:** Uses only pytest (dev dependency); no special Sheep testing infrastructure
+
+  ### Code Organization
+  - **Module Constants:** FILENAME, MARKDOWN_TITLE, MARKDOWN_PROSE, COMMIT_MESSAGE defined at module level
+  - **Function Separation:**
+    - create_file() — File creation logic
+    - validate_file() — Validation logic
+    - git_operations() — Git workflow
+    - main() — Orchestration and error handling
+  - **Error Handling:**
+    - create_file(): IOError on write failure (propagates)
+    - validate_file(): AssertionError with descriptive message on validation failure
+    - git_operations(): CalledProcessError on git failure (from check=True)
+    - main(): try/except catching both subprocess.CalledProcessError and generic Exception
+
+  ### Comparison to Related Features
+  - **Feature 175 (test-ijl29t.md):** Same architecture, same Python patterns, same git workflow
+  - **Feature 174 (test-u9soe6.md):** Same implementation pattern
+  - **Feature 173 (test-b96pp3.md):** Same implementation pattern
+  - **Consistency:** All 175+ prior features follow this proven approach
+
+  This consistency provides:
+  - **Predictability:** Developers know what to expect
+  - **Maintainability:** New developers can use prior features as templates
+  - **Reliability:** Pattern has been battle-tested across 170+ implementations
+  - **Quality:** Established best practices embedded in pattern
+
+  ---
+
+  **Research Complete:** All technical decisions documented and rationale provided. Ready for implementation planning.
