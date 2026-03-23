@@ -456,3 +456,233 @@ class TestValidateFileFunction:
             assert result is True
         finally:
             os.chdir(original_cwd)
+
+
+class TestGitOperations:
+    """Tests for git operations (add, commit, push)."""
+
+    def test_git_add_function_exists(self):
+        """Test that git_add() function exists and is callable."""
+        from create_markdown_file import git_add
+
+        # Function should be defined
+        assert callable(git_add)
+
+    def test_git_commit_function_exists(self):
+        """Test that git_commit() function exists and is callable."""
+        from create_markdown_file import git_commit
+
+        # Function should be defined
+        assert callable(git_commit)
+
+    def test_git_push_function_exists(self):
+        """Test that git_push() function exists and is callable."""
+        from create_markdown_file import git_push
+
+        # Function should be defined
+        assert callable(git_push)
+
+    def test_git_add_stages_file_in_git(self, tmp_path):
+        """Test that git_add() stages the file in git."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            # Initialize git repo
+            import subprocess
+
+            subprocess.run(["git", "init"], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Create and stage file
+            from create_markdown_file import create_file, git_add
+
+            create_file()
+            git_add()
+
+            # Verify file is staged
+            result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            # Output should show 'A' (added) or 'AM' for staged files
+            assert "test-u9soe6.md" in result.stdout
+        finally:
+            os.chdir(original_cwd)
+
+    def test_git_commit_creates_commit_with_message(self, tmp_path):
+        """Test that git_commit() creates a commit with the proper message."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            import subprocess
+
+            # Initialize git repo
+            subprocess.run(["git", "init"], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Create, stage, and commit file
+            from create_markdown_file import (
+                create_file,
+                git_add,
+                git_commit,
+                COMMIT_MESSAGE,
+            )
+
+            create_file()
+            git_add()
+            git_commit()
+
+            # Verify commit message
+            result = subprocess.run(
+                ["git", "log", "--oneline", "-1"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            # Commit message should match expected format
+            assert COMMIT_MESSAGE in result.stdout
+        finally:
+            os.chdir(original_cwd)
+
+    def test_git_operations_fail_without_git_repo(self, tmp_path):
+        """Test that git operations raise CalledProcessError without git repo."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            import subprocess
+
+            from create_markdown_file import create_file, git_add
+
+            create_file()
+
+            # Try git_add without git repo initialized
+            with pytest.raises(subprocess.CalledProcessError):
+                git_add()
+        finally:
+            os.chdir(original_cwd)
+
+
+class TestMainFunction:
+    """Tests for main() orchestration function."""
+
+    def test_main_function_exists(self):
+        """Test that main() function exists and is callable."""
+        from create_markdown_file import main
+
+        assert callable(main)
+
+    def test_main_orchestrates_complete_workflow_with_mock(self, tmp_path):
+        """Test that main() orchestrates create, validate, and git operations."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            import subprocess
+            from unittest.mock import patch, MagicMock
+            from create_markdown_file import main
+
+            # Initialize git repo
+            subprocess.run(["git", "init"], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Mock git push to avoid needing a real remote
+            with patch("create_markdown_file.git_push") as mock_push:
+                mock_push.return_value = None
+
+                # Run main - should exit cleanly via sys.exit(0)
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                # Exit code should be 0 (success)
+                assert exc_info.value.code == 0
+
+                # Verify git_push was called
+                mock_push.assert_called_once()
+        finally:
+            os.chdir(original_cwd)
+
+    def test_main_handles_validation_error(self, tmp_path, capsys):
+        """Test that main() handles validation errors gracefully."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from unittest.mock import patch
+            from create_markdown_file import main
+
+            # Mock validate_file to raise ValueError
+            with patch("create_markdown_file.validate_file") as mock_validate:
+                mock_validate.side_effect = ValueError("Test validation error")
+
+                # Run main - should exit with code 1
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                assert exc_info.value.code == 1
+
+                # Check stderr contains error message
+                captured = capsys.readouterr()
+                assert "Validation failed" in captured.err
+        finally:
+            os.chdir(original_cwd)
+
+    def test_main_handles_git_error(self, tmp_path, capsys):
+        """Test that main() handles git command failures gracefully."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            import subprocess
+            from unittest.mock import patch
+            from create_markdown_file import main
+
+            # Mock git_add to raise CalledProcessError
+            with patch("create_markdown_file.git_add") as mock_git_add:
+                error = subprocess.CalledProcessError(1, ["git", "add"])
+                mock_git_add.side_effect = error
+
+                # Run main - should exit with code 1
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                assert exc_info.value.code == 1
+
+                # Check stderr contains error message
+                captured = capsys.readouterr()
+                assert "Git command failed" in captured.err
+        finally:
+            os.chdir(original_cwd)

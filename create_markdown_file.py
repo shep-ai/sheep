@@ -5,6 +5,7 @@ Creates test-u9soe6.md with proper markdown structure and validation.
 """
 
 import sys
+import subprocess
 from pathlib import Path
 
 # Module-level constants
@@ -155,25 +156,131 @@ def validate_file(file_path):
     return True
 
 
+def git_add():
+    """
+    Stage the markdown file in git.
+
+    Uses 'git add' command to stage the file for commit.
+
+    Raises:
+        subprocess.CalledProcessError: If git add command fails.
+    """
+    try:
+        subprocess.run(["git", "add", FILENAME], check=True)
+        print(f"✓ Staged {FILENAME} with git add")
+    except subprocess.CalledProcessError as e:
+        raise subprocess.CalledProcessError(
+            e.returncode,
+            e.cmd,
+            e.output,
+            e.stderr,
+        ) from e
+
+
+def git_commit():
+    """
+    Create a git commit with the markdown file.
+
+    Uses 'git commit' with the conventional commit message format.
+
+    Raises:
+        subprocess.CalledProcessError: If git commit command fails.
+    """
+    try:
+        subprocess.run(["git", "commit", "-m", COMMIT_MESSAGE], check=True)
+        print(f"✓ Created commit: {COMMIT_MESSAGE}")
+    except subprocess.CalledProcessError as e:
+        raise subprocess.CalledProcessError(
+            e.returncode,
+            e.cmd,
+            e.output,
+            e.stderr,
+        ) from e
+
+
+def git_push():
+    """
+    Push the commit to the remote feature branch.
+
+    Uses 'git push -u origin HEAD' to push to the current branch.
+    The -u flag sets upstream tracking for the branch.
+
+    Raises:
+        subprocess.CalledProcessError: If git push command fails.
+    """
+    try:
+        subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+        print("✓ Pushed to remote origin")
+    except subprocess.CalledProcessError as e:
+        raise subprocess.CalledProcessError(
+            e.returncode,
+            e.cmd,
+            e.output,
+            e.stderr,
+        ) from e
+
+
 def main():
-    """Main entry point: create file."""
+    """
+    Main entry point: orchestrate complete workflow.
+
+    Executes the full feature 174 workflow:
+    1. Phase 1: Create markdown file with proper encoding and line endings
+    2. Phase 2: Validate file structure, encoding, and size
+    3. Phase 3: Git integration (add, commit, push)
+
+    Catches specific exceptions and logs errors to stderr before exiting:
+    - ValueError: Validation failures (user-facing, actionable)
+    - OSError: File I/O problems (system-level issue)
+    - subprocess.CalledProcessError: Git command failures with command output
+
+    Returns:
+        0 on success, 1 on failure
+    """
     print("=" * 60)
-    print("Feature 174: Markdown File Creation - Phase 1")
+    print("Feature 174: Markdown File Creation")
     print("=" * 60)
 
     try:
+        # Phase 1: Create markdown file
         print("\nPhase 1: Creating markdown file...")
         file_path = create_file()
         if not file_path:
+            print("Error: File creation failed", file=sys.stderr)
             sys.exit(1)
 
+        # Phase 2: Validate file
+        print("Phase 2: Validating file structure and content...")
+        validate_file(file_path)
+        print("✓ File validation passed")
+
+        # Phase 3: Git integration
+        print("\nPhase 3: Git integration and workflow...")
+        git_add()
+        git_commit()
+        git_push()
+
+        # Success
         print("\n" + "=" * 60)
-        print("✓ File created successfully!")
+        print("Successfully created test-u9soe6.md")
+        print("File has been created, validated, staged, committed, and pushed.")
         print("=" * 60)
-        return 0
+        sys.exit(0)
+
+    except ValueError as e:
+        print(f"✗ Validation failed: {e}", file=sys.stderr)
+        sys.exit(1)
+    except OSError as e:
+        print(f"✗ File I/O error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Git command failed: {e.cmd}", file=sys.stderr)
+        if e.stderr:
+            print(f"  Error output: {e.stderr}", file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
+        print(f"✗ Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
