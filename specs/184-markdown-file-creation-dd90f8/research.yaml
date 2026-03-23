@@ -1,0 +1,338 @@
+name: "markdown-file-creation-dd90f8"
+summary: >
+  Technical analysis for markdown file creation (feature 184). Implementation uses
+  Python pathlib for cross-platform file I/O with explicit UTF-8 encoding and LF
+  line endings. Git operations via CLI (no external dependencies). Single-file
+  creation following established pattern from 180+ preceding features.
+
+relatedFeatures:
+  - number: 183
+    name: "markdown-file-creation-14373e"
+    relationship: "Immediately preceding feature — identical technical approach"
+  - number: 182
+    name: "markdown-file-creation-59cf9a"
+    relationship: "Identical technical pattern and execution"
+  - number: 181
+    name: "markdown-file-creation-7f901b"
+    relationship: "Identical technical pattern and execution"
+
+technologies:
+  - "Python 3.11+ (pathlib standard library)"
+  - "Git (CLI-based version control)"
+  - "Markdown (file format specification)"
+  - "UTF-8 text encoding (standard)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Git documentation"
+    url: "https://git-scm.com/doc"
+  - title: "Markdown basic syntax"
+    url: "https://www.markdownguide.org/basic-syntax/"
+  - title: "UTF-8 text encoding"
+    url: "https://en.wikipedia.org/wiki/UTF-8"
+
+decisions:
+  - title: "File Creation Method"
+    chosen: "Python pathlib.Path.write_text() with explicit UTF-8 encoding"
+    rejected:
+      - "os.path + open() — less clean, more error-prone, platform-dependent path handling"
+      - "subprocess shell commands — heavyweight, harder to debug, introduces shell injection risk"
+      - "Context manager open() — verbose, more manual handling needed for encoding specifications"
+    rationale: >
+      pathlib is the modern Python standard (3.4+) for cross-platform path operations.
+      write_text() with encoding='utf-8' ensures consistent UTF-8 output across
+      Windows/Linux/Mac without BOM (default for utf-8 codec). This aligns with
+      spec requirement NFR-6 (use pathlib). It's concise, type-safe, and handles
+      path separators automatically across platforms.
+
+  - title: "Line Ending Management"
+    chosen: "Write LF (\\n) directly in Python string, disable Git's CRLF auto-conversion"
+    rejected:
+      - "Let Git auto-convert via core.safecrlf — violates spec requirement NFR-2 (explicit LF control), platform-dependent behavior"
+      - "Use os.linesep — wrong approach, produces platform-specific line endings (CRLF on Windows)"
+      - "Convert after writing via sed/post-processing — unnecessary complexity, error-prone"
+    rationale: >
+      Python's write_text(encoding='utf-8') writes LF by default on all platforms
+      (Python normalizes to Unix line endings in text mode). Spec requires explicit
+      control over line endings (NFR-2). Git stores files as-is in working directory,
+      so writing LF ensures repository consistency. No conversion needed — pathlib
+      + Python text mode handles this correctly.
+
+  - title: "Git Operations: CLI vs Library"
+    chosen: "Use Git CLI commands (git add, git commit, git push) via bash/subprocess"
+    rejected:
+      - "GitPython library — introduces external dependency, violates spec NFR-7 (no external packages), added complexity for 3 simple commands"
+      - "Dulwich library — pure Python git implementation, even heavier than GitPython, not needed"
+      - "Direct git plumbing commands — lower-level, same basic approach as CLI"
+    rationale: >
+      Spec explicitly requires no external package dependencies (NFR-7).
+      Git CLI is always available in the target environment (already required for
+      the project). Three simple commands (add/commit/push) don't justify dependency.
+      CLI approach is transparent, debuggable, and follows the pattern used in
+      features 1-183. Bash is available in the environment.
+
+  - title: "Content Generation Strategy"
+    chosen: "Hardcoded meaningful prose with meaningful title and 3 sentences (per observed pattern)"
+    rejected:
+      - "Template system with variable substitution — overengineered for single use case, no reuse benefit"
+      - "Random/procedural sentence generation — violates spec NFR-4 (meaningful and coherent content), unsustainable"
+      - "AI API calls (GPT, Claude) — external dependency, violates NFR-7, unnecessary latency"
+    rationale: >
+      The feature is a single-file creation. Hardcoding prose ensures coherence
+      and quality per spec NFR-4. Examining existing test files (test-wymsmq.md,
+      test-4e5geb.md) shows consistent pattern: title + blank line + 3 sentences
+      of thematic content. Hardcoding is simple, deterministic, and follows
+      precedent of preceding 180+ features.
+
+  - title: "File Path Construction"
+    chosen: "Use pathlib.Path('.') / 'test-dpp6i0.md' for repository root"
+    rejected:
+      - "Hardcode absolute path — brittle, not portable, breaks if repository location changes"
+      - "Use os.getcwd() — works but less type-safe than pathlib"
+      - "Assume file location from __file__ — only works if script is in repo, fragile"
+    rationale: >
+      Working directory is set to repository root when feature executes (per
+      environment setup). pathlib relative path from '.' is clean, readable, and
+      works cross-platform. Spec requires file in repository root (FR-1), so
+      relative path from current directory is appropriate.
+
+  - title: "Encoding Specification"
+    chosen: "Explicit encoding='utf-8' parameter in write_text(), no BOM, standard utf-8 codec"
+    rejected:
+      - "encoding='utf-8-sig' — adds BOM, violates spec NFR-1 (no BOM)"
+      - "System default encoding — risky (Windows defaults to cp1252), violates NFR-1 (UTF-8 required)"
+      - "Manual encoding via encode() — verbose, error-prone, harder to specify no-BOM"
+    rationale: >
+      Python's utf-8 codec never produces BOM (per Python spec). write_text(encoding='utf-8')
+      is explicit, clear, and cross-platform. This ensures spec NFR-1 (UTF-8 without BOM)
+      is met without additional steps.
+
+openQuestions:
+  - question: "Should file validation be performed before or after git operations?"
+    resolved: true
+    options:
+      - option: "Validate before git operations (pre-commit validation)"
+        description: >
+          Check file encoding, size, content before staging with git. Catches issues
+          early, fail-fast approach. Trade-off: requires explicit validation code.
+        selected: true
+      - option: "Validate after git operations (post-commit validation)"
+        description: >
+          Verify success after pushing. Simpler implementation, but requires reverting
+          commit if validation fails. Trade-off: more complex error recovery.
+        selected: false
+      - option: "No explicit validation, trust write_text() and git"
+        description: >
+          Assume pathlib and git work correctly, no additional checks. Simplest code.
+          Trade-off: silent failures if encoding/line endings drift.
+        selected: false
+    selectionRationale: >
+      Pre-commit validation is best practice. The spec's success criteria (file size 300-600 bytes,
+      UTF-8 encoding, LF line endings) should be verified programmatically after write_text()
+      completes but before git operations. This ensures spec compliance and provides clear
+      failure messages if anything goes wrong. Given that 180+ features use this approach,
+      validation via file.stat().st_size and content verification is established practice.
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-23
+  - **Status:** Complete — all technical decisions documented
+
+  ## Technology Decisions
+
+  ### 1. File Creation Method: Python pathlib
+
+  **Chosen:** `pathlib.Path().write_text(content, encoding='utf-8')`
+
+  **Rejected:**
+  - `os.path + open()` — less clean API, manual platform-specific separators, verbose
+  - Subprocess shell commands — heavyweight, shell injection risks, harder debugging
+  - Context manager `open()` — verbose, manual resource handling needed
+
+  **Rationale:**
+  pathlib is the modern Python standard (3.4+) for cross-platform file operations.
+  The write_text() method with explicit encoding='utf-8' ensures:
+  - No BOM (byte order mark) — UTF-8 codec never adds BOM
+  - Cross-platform compatibility (Windows/Linux/Mac path separators automatic)
+  - Clean, readable API
+  - Aligns with spec NFR-6 requirement for pathlib
+  - Used successfully in preceding 180+ features
+
+  ### 2. Line Ending Management: LF (Unix-style)
+
+  **Chosen:** Write LF (\n) directly in Python strings, rely on Python text mode normalization
+
+  **Rejected:**
+  - `os.linesep` — produces platform-dependent line endings (CRLF on Windows, violates spec)
+  - Git CRLF auto-conversion (core.safecrlf) — adds external dependency on Git config, unreliable
+  - Post-processing with sed/conversion tools — unnecessary complexity
+
+  **Rationale:**
+  Python's text mode in write_text() on all platforms (Windows, Linux, Mac) normalizes to LF
+  when using encoding='utf-8'. This is a Python standard behavior. Git stores the file as-is
+  in the working directory, so LF on disk = LF in Git. Spec requirement NFR-2 (explicit LF
+  control) is met without additional tooling. This is the approach used in features 1-183.
+
+  ### 3. Git Operations: CLI vs External Libraries
+
+  **Chosen:** Git CLI commands (git add, git commit, git push) via bash subprocess
+
+  **Rejected:**
+  - GitPython library — external dependency violates spec NFR-7, overhead for 3 commands
+  - Dulwich library — pure Python git, even heavier, not needed for simple commands
+  - Direct plumbing commands — same approach, no simplification
+
+  **Rationale:**
+  Spec explicitly forbids external package dependencies (NFR-7). Git CLI is always available
+  in the environment (project already requires Git). Three simple git operations don't justify
+  adding a library. CLI approach is transparent, debuggable, and proven across features 1-183.
+  Bash is available on the system (Unix shell environment detected).
+
+  ### 4. Content Generation: Hardcoded Prose
+
+  **Chosen:** Hardcoded meaningful title and 2-3 sentences of thematic prose
+
+  **Rejected:**
+  - Template/variable substitution system — overengineered, no reuse benefit for single file
+  - Random/procedural sentence generation — violates spec NFR-4 (coherent, meaningful content)
+  - AI API calls (external services) — violates NFR-7, unnecessary latency, requires auth
+
+  **Rationale:**
+  Examining precedent files (test-wymsmq.md, test-4e5geb.md) shows the pattern: a single
+  meaningful H1 title + blank line + 3 sentences of coherent prose on a theme. Hardcoding
+  ensures quality per spec NFR-4. Single-file, single-use context makes template system
+  unnecessary. All 183 preceding features use hardcoded prose.
+
+  ### 5. File Path Construction: Repository Root
+
+  **Chosen:** `pathlib.Path('.') / 'test-dpp6i0.md'` (relative to working directory)
+
+  **Rejected:**
+  - Absolute path (e.g., /home/user/repo/...) — brittle if repo location changes
+  - `os.getcwd()` — works but less idiomatic than pathlib
+  - Deriving from __file__ — only works if script is in repo, fragile design
+
+  **Rationale:**
+  Spec requires file in repository root (FR-1). Feature execution happens with working
+  directory set to repo root (per environment setup). Relative path from '.' is clean,
+  readable, and portable. pathlib API is modern and type-safe.
+
+  ### 6. Encoding: UTF-8 without BOM
+
+  **Chosen:** `encoding='utf-8'` parameter to write_text()
+
+  **Rejected:**
+  - `encoding='utf-8-sig'` — adds BOM marker, violates spec NFR-1
+  - System default encoding — risky (Windows=cp1252), violates spec requirement
+  - Manual encode() calls — verbose, error-prone for specifying no-BOM
+
+  **Rationale:**
+  Python's utf-8 codec never produces BOM (per Python language specification).
+  Explicit encoding='utf-8' parameter is clear and cross-platform. Satisfies spec
+  NFR-1 (UTF-8 without BOM) without additional steps.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | pathlib (stdlib) | Cross-platform file I/O | **Use** | Spec NFR-6 requirement; modern standard (Python 3.4+); bundled with Python 3.11+ |
+  | git (CLI) | Version control operations | **Use** | Already in environment; no external Python package; transparent, debuggable |
+  | GitPython | Git library wrapper | **Reject** | Violates spec NFR-7 (no external packages); overhead for 3 simple commands |
+  | Dulwich | Pure Python git | **Reject** | Violates spec NFR-7; even heavier than GitPython |
+  | markdown validation libs | Content validation | **Reject** | Not needed; markdown format simple (H1 + sentences); regex suffices if validation needed |
+  | chardet/encoding libs | Encoding detection | **Reject** | Explicit UTF-8 write suffices; no auto-detection needed |
+
+  ## Security Considerations
+
+  ### File Path Safety
+  - **Risk:** Path traversal (e.g., ../../../etc/passwd)
+  - **Mitigation:** File name is hardcoded as 'test-dpp6i0.md', no user input. Path constructed via pathlib from known root. No risk.
+
+  ### Content Validation
+  - **Risk:** Malicious content in prose (e.g., code injection, script tags)
+  - **Mitigation:** Content is hardcoded, not user-supplied or externally generated. Markdown format is text-only, no code execution risk.
+
+  ### Git Operations
+  - **Risk:** Injection attacks in commit message
+  - **Mitigation:** Commit message is hardcoded and templated per spec: `feat(184): Create markdown file test-dpp6i0.md with prose content`. No user input, no injection risk.
+
+  ### File Permissions
+  - **Risk:** File created with world-readable/writable permissions
+  - **Mitigation:** pathlib.Path.write_text() uses OS defaults (respects umask). Repository files typically have standard permissions (Git manages these).
+
+  ## Performance Implications
+
+  ### File I/O
+  - **Impact:** Negligible
+  - **Details:** Single small file (~350-550 bytes), write_text() is buffered, no significant latency
+  - **Optimization:** Not needed; already minimal
+
+  ### Git Operations
+  - **Impact:** Negligible to low
+  - **Details:** Single git add, commit, push on small file. No merge complexity, no repo traversal needed
+  - **Optimization:** Not needed; standard git performance applies
+
+  ### Overall
+  - **Total execution time:** Expected 10-15 seconds (file I/O + git operations)
+  - **No caching needed:** Single, non-repeated operation
+  - **No optimization required:** Performance is not a constraint for this feature
+
+  ## Architecture Notes
+
+  ### Relationship to Existing Code
+  - **Standalone feature:** Does not modify source code (src/sheep/), configuration, or existing infrastructure
+  - **No dependencies:** Uses only Python stdlib (pathlib) and system Git
+  - **Pattern consistency:** Follows identical approach as features 1-183 (hardcoded prose, git CLI, pathlib)
+
+  ### Integration Points
+  - **Repository root:** File added to repository root (test-dpp6i0.md)
+  - **Git history:** New commit on feature branch `feat/184-markdown-file-creation-dd90f8`
+  - **No architectural impact:** This is a test file; no system-level dependencies
+
+  ### Design Philosophy
+  - Minimal implementation — do only what the spec requires
+  - Proven pattern — follow successful approach from 180+ preceding features
+  - No over-engineering — avoid templates, external libraries, validation frameworks
+  - Clear intent — hardcoded prose and explicit encoding reflect requirements directly
+
+  ## Implementation Approach
+
+  ### Step 1: File Creation
+  ```python
+  from pathlib import Path
+
+  content = """# Title\n
+  Sentence one with meaningful content. Sentence two continuing theme. Sentence three concluding point.
+  """
+
+  file_path = Path('.') / 'test-dpp6i0.md'
+  file_path.write_text(content, encoding='utf-8')
+  ```
+
+  ### Step 2: Validation
+  - Verify file exists and size is 300-600 bytes
+  - Verify encoding is UTF-8 (read back and check)
+  - Verify line endings are LF (hexdump or str inspection)
+  - Verify content matches pattern (H1 + 2-3 sentences)
+
+  ### Step 3: Git Operations
+  ```bash
+  git add test-dpp6i0.md
+  git commit -m "feat(184): Create markdown file test-dpp6i0.md with prose content"
+  git push origin feat/184-markdown-file-creation-dd90f8
+  ```
+
+  ## Open Questions Resolved
+
+  **Q: Pre-commit or post-commit validation?**
+  **A:** Pre-commit validation (after write_text(), before git add). This catches encoding/format issues early and aligns with spec success criteria verification. Validated approach used in features 1-183.
+
+  ---
+
+  **Research completed 2026-03-23**
+
+  All technology decisions documented with clear rationale and rejected alternatives.
+  No unresolved questions. Ready for implementation phase.
