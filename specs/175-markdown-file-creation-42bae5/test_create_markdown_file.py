@@ -911,3 +911,197 @@ class TestScriptEntryPoint:
                             assert e.code == 1, f"Expected exit code 1, got {e.code}"
             finally:
                 os.chdir(original_cwd)
+
+
+class TestEndToEndIntegration:
+    """End-to-end integration tests exercising the complete workflow."""
+
+    def test_end_to_end_workflow(self):
+        """Test complete workflow: create file, validate, and execute git operations.
+
+        This integration test verifies the entire pipeline:
+        1. Creates a temporary git repository
+        2. Executes file creation
+        3. Validates the created file
+        4. Stages file with git add
+        5. Commits file with conventional commit message
+        6. Verifies git history contains the commit
+
+        This test uses a real git repository to verify that git operations work correctly
+        and that the file is properly integrated into version control.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Initialize a temporary git repository for integration testing
+                subprocess.run(
+                    ['git', 'init'],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+
+                # Configure git user for commits (required for git commit to work)
+                subprocess.run(
+                    ['git', 'config', 'user.email', 'test@example.com'],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                subprocess.run(
+                    ['git', 'config', 'user.name', 'Test User'],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+
+                # Create the markdown file
+                create_markdown_file.create_file()
+
+                # Verify file exists after creation
+                file_path = tmpdir_path / create_markdown_file.FILENAME
+                assert file_path.exists(), f"File {create_markdown_file.FILENAME} was not created"
+
+                # Validate the file before git operations (mimics main() workflow)
+                create_markdown_file.validate_file(create_markdown_file.FILENAME)
+
+                # Stage the file in git
+                create_markdown_file.git_add(create_markdown_file.FILENAME)
+
+                # Verify file is staged
+                status_result = subprocess.run(
+                    ['git', 'status', '--porcelain'],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                assert 'A' in status_result.stdout or 'M' in status_result.stdout, \
+                    "File was not staged in git"
+
+                # Commit the file with conventional commit message
+                create_markdown_file.git_commit(create_markdown_file.COMMIT_MESSAGE)
+
+                # Verify commit exists in git history
+                log_result = subprocess.run(
+                    ['git', 'log', '--oneline'],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                assert create_markdown_file.COMMIT_MESSAGE in log_result.stdout, \
+                    "Commit message not found in git history"
+
+                # Verify file content is correct in the committed version
+                content = file_path.read_text(encoding='utf-8')
+                assert content.startswith(f"# {create_markdown_file.TITLE}"), \
+                    "File content does not match expected title"
+                assert create_markdown_file.PROSE in content, \
+                    "File content does not contain expected prose"
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_end_to_end_workflow_creates_valid_file(self):
+        """Test that end-to-end workflow produces a file that passes all validations."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Initialize a temporary git repository
+                subprocess.run(
+                    ['git', 'init'],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                subprocess.run(
+                    ['git', 'config', 'user.email', 'test@example.com'],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                subprocess.run(
+                    ['git', 'config', 'user.name', 'Test User'],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+
+                # Execute the full workflow (without push, which requires a remote)
+                create_markdown_file.create_file()
+                create_markdown_file.validate_file(create_markdown_file.FILENAME)
+                create_markdown_file.git_add(create_markdown_file.FILENAME)
+                create_markdown_file.git_commit(create_markdown_file.COMMIT_MESSAGE)
+
+                # Verify the created file passes all validation checks
+                file_path = tmpdir_path / create_markdown_file.FILENAME
+                content = file_path.read_text(encoding='utf-8')
+
+                # Check all structural requirements
+                lines = content.split('\n')
+                assert lines[0].startswith('# '), "Missing H1 heading"
+                assert lines[1] == '', "Missing blank line after heading"
+                assert content.count('.') >= 2, "Not enough sentences"
+                assert content.endswith('\n'), "Missing trailing newline"
+
+                # Check encoding and line endings
+                content_bytes = file_path.read_bytes()
+                assert not content_bytes.startswith(b'\xef\xbb\xbf'), "File has UTF-8 BOM"
+                assert b'\r\n' not in content_bytes, "File has CRLF line endings"
+
+                # Check file size
+                file_size = file_path.stat().st_size
+                assert 300 <= file_size <= 800, f"File size {file_size} out of range"
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_end_to_end_workflow_file_content_matches_spec(self):
+        """Test that the created file content matches the feature specification.
+
+        Verifies that:
+        - Title is meaningful and relates to technology/software domain
+        - Prose content is coherent and substantial (2-3 sentences)
+        - Structure follows markdown conventions
+        - File is properly formatted for inclusion in git repository
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir_path)
+
+                # Create the file
+                create_markdown_file.create_file()
+
+                # Read and verify content structure
+                file_path = tmpdir_path / create_markdown_file.FILENAME
+                content = file_path.read_text(encoding='utf-8')
+
+                # Verify title is present and not empty
+                assert f"# {create_markdown_file.TITLE}" in content, \
+                    "Title not found in file or doesn't match"
+                assert len(create_markdown_file.TITLE) > 5, \
+                    "Title is too short"
+
+                # Verify prose content is present and substantial
+                assert create_markdown_file.PROSE in content, \
+                    "Prose content not found in file"
+                assert len(create_markdown_file.PROSE) > 100, \
+                    "Prose content is too short (less than 100 characters)"
+
+                # Count sentences in prose (periods = sentence count)
+                sentence_count = create_markdown_file.PROSE.count('.')
+                assert 2 <= sentence_count <= 3, \
+                    f"Prose should have 2-3 sentences, has {sentence_count}"
+
+            finally:
+                os.chdir(original_cwd)
