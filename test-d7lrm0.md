@@ -1,5 +1,5 @@
-# Quiet Morning Walk
+# Backyard Stargazing
 
-The neighborhood is calm just after sunrise, with only birds and distant traffic filling the air.  
-Walking for twenty minutes helps clear my thoughts and makes the rest of the day feel more focused.  
-It is a simple routine, but it consistently improves my mood and energy.
+On clear nights, I like to step outside for a few minutes and look for familiar constellations.  
+The quiet sky makes it easy to slow down and notice details I usually miss during the day.  
+Even a short stargazing break feels refreshing and helps me end the evening calmly.
