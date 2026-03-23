@@ -210,3 +210,249 @@ class TestModuleConstants:
         from create_markdown_file import COMMIT_MESSAGE
 
         assert COMMIT_MESSAGE == "feat(174): create markdown file test-u9soe6.md with prose content"
+
+
+class TestValidateFileFunction:
+    """Tests for validate_file() function."""
+
+    def test_validate_file_passes_for_valid_file(self, tmp_path):
+        """Test that validate_file() passes for properly created file."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import create_file, validate_file
+
+            create_file()
+
+            # Should pass validation without raising exception
+            result = validate_file("test-u9soe6.md")
+            assert result is True
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_fails_for_missing_file(self, tmp_path):
+        """Test that validate_file() raises ValueError for missing file."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            with pytest.raises(ValueError, match="File does not exist"):
+                validate_file("nonexistent.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_fails_for_empty_file(self, tmp_path):
+        """Test that validate_file() raises ValueError for empty file."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create empty file
+            Path("empty.md").write_text("")
+
+            with pytest.raises(ValueError, match="File is empty"):
+                validate_file("empty.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_detects_utf8_bom(self, tmp_path):
+        """Test that validate_file() detects UTF-8 BOM."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create file with UTF-8 BOM
+            file_content = "# Title\n\nProse content. More content."
+            Path("with_bom.md").write_bytes(
+                b"\xef\xbb\xbf" + file_content.encode("utf-8")
+            )
+
+            with pytest.raises(ValueError, match="UTF-8 BOM"):
+                validate_file("with_bom.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_detects_crlf_line_endings(self, tmp_path):
+        """Test that validate_file() detects CRLF line endings."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create file with CRLF line endings
+            file_content = "# Title\r\n\r\nProse content. More content.\r\n"
+            Path("with_crlf.md").write_bytes(file_content.encode("utf-8"))
+
+            with pytest.raises(ValueError, match="CRLF line endings"):
+                validate_file("with_crlf.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_fails_for_missing_h1_heading(self, tmp_path):
+        """Test that validate_file() fails when H1 heading is missing."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create file without H1 heading
+            Path("no_heading.md").write_text(
+                "## Not H1\n\nProse content. More content.\n"
+            )
+
+            with pytest.raises(ValueError, match="H1 heading"):
+                validate_file("no_heading.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_fails_for_missing_blank_line(self, tmp_path):
+        """Test that validate_file() fails when blank line is missing."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create file without blank line after heading
+            Path("no_blank.md").write_text(
+                "# Title\nProse content. More content.\n"
+            )
+
+            with pytest.raises(ValueError, match="Second line must be blank"):
+                validate_file("no_blank.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_fails_for_too_few_sentences(self, tmp_path):
+        """Test that validate_file() fails for only 1 sentence."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create file with only 1 sentence
+            Path("one_sentence.md").write_text(
+                "# Title\n\nJust one sentence.\n"
+            )
+
+            with pytest.raises(ValueError, match="2-3 sentences"):
+                validate_file("one_sentence.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_fails_for_too_many_sentences(self, tmp_path):
+        """Test that validate_file() fails for 4+ sentences."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create file with 4 sentences
+            Path("four_sentences.md").write_text(
+                "# Title\n\nFirst sentence. Second sentence. Third sentence. Fourth sentence.\n"
+            )
+
+            with pytest.raises(ValueError, match="2-3 sentences"):
+                validate_file("four_sentences.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_fails_for_missing_trailing_newline(self, tmp_path):
+        """Test that validate_file() fails when file doesn't end with newline."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create file without trailing newline
+            Path("no_newline.md").write_bytes(
+                b"# Title\n\nProse content. More content."
+            )
+
+            with pytest.raises(ValueError, match="must end with newline"):
+                validate_file("no_newline.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_fails_for_file_too_small(self, tmp_path):
+        """Test that validate_file() fails for file < 400 bytes."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create file that's too small (under 400 bytes)
+            Path("too_small.md").write_text(
+                "# T\n\nA. B.\n"  # Very short content
+            )
+
+            with pytest.raises(ValueError, match="outside 400-600 byte range"):
+                validate_file("too_small.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_fails_for_file_too_large(self, tmp_path):
+        """Test that validate_file() fails for file > 600 bytes."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import validate_file
+
+            # Create file that's too large (over 600 bytes) with exactly 2 sentences
+            # Use very long sentences to exceed 600 bytes without adding extra periods
+            long_sentence1 = "This is a very long prose content that contains detailed information about various topics and concepts without interruption. " * 2
+            long_sentence2 = "The second sentence is also quite lengthy and provides additional context and explanation about the subject matter at hand."
+            Path("too_large.md").write_text(
+                f"# Title\n\n{long_sentence1}{long_sentence2}\n"
+            )
+
+            with pytest.raises(ValueError, match="outside 400-600 byte range"):
+                validate_file("too_large.md")
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_accepts_path_object(self, tmp_path):
+        """Test that validate_file() accepts Path objects."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import create_file, validate_file
+
+            file_path = create_file()
+
+            # Should work with Path object
+            result = validate_file(file_path)
+            assert result is True
+        finally:
+            os.chdir(original_cwd)
+
+    def test_validate_file_accepts_string_path(self, tmp_path):
+        """Test that validate_file() accepts string paths."""
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+
+        try:
+            from create_markdown_file import create_file, validate_file
+
+            create_file()
+
+            # Should work with string path
+            result = validate_file("test-u9soe6.md")
+            assert result is True
+        finally:
+            os.chdir(original_cwd)

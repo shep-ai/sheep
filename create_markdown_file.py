@@ -63,6 +63,98 @@ def create_file():
         return None
 
 
+def validate_file(file_path):
+    """
+    Validate markdown file structure and properties.
+
+    Performs comprehensive validation of the created markdown file:
+    - File exists and has non-zero size
+    - UTF-8 encoding without BOM
+    - Unix LF line endings (no CRLF)
+    - H1 heading on first line
+    - Blank line on second line
+    - 2-3 sentences of prose content
+    - File ends with newline
+    - File size within 400-600 bytes
+
+    Args:
+        file_path: Path object or string path to file to validate.
+
+    Returns:
+        True if validation passes.
+
+    Raises:
+        ValueError: If any validation check fails, with descriptive message.
+    """
+    file_path = Path(file_path)
+
+    # Check file exists
+    if not file_path.exists():
+        raise ValueError(f"File does not exist: {file_path}")
+
+    # Check file size is non-zero
+    file_size = file_path.stat().st_size
+    if file_size == 0:
+        raise ValueError(f"File is empty: {file_path}")
+
+    # Read file as bytes for encoding and line ending checks
+    try:
+        binary_content = file_path.read_bytes()
+    except OSError as e:
+        raise ValueError(f"Cannot read file: {e}")
+
+    # Check for UTF-8 BOM (EF BB BF bytes)
+    if binary_content.startswith(b"\xef\xbb\xbf"):
+        raise ValueError("File contains UTF-8 BOM (should use plain UTF-8)")
+
+    # Check for CRLF line endings
+    if b"\r\n" in binary_content:
+        raise ValueError("File uses CRLF line endings (should use LF)")
+
+    # Decode content as UTF-8
+    try:
+        content = binary_content.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError(f"File is not valid UTF-8: {e}")
+
+    # Split into lines (preserving empty lines)
+    lines = content.split("\n")
+
+    # Check H1 heading on first line
+    if not lines or not lines[0].startswith("# "):
+        raise ValueError("First line must be H1 heading starting with '# '")
+
+    # Check blank line on second line
+    if len(lines) < 2 or lines[1] != "":
+        raise ValueError("Second line must be blank")
+
+    # Check prose content has 2-3 sentences
+    if len(lines) < 3:
+        raise ValueError("File must contain prose content after heading")
+
+    prose_content = "\n".join(lines[2:]).strip()
+    if not prose_content:
+        raise ValueError("Prose content is empty")
+
+    sentence_count = prose_content.count(".")
+    if not (2 <= sentence_count <= 3):
+        raise ValueError(
+            f"Prose must have 2-3 sentences (found {sentence_count})"
+        )
+
+    # Check file ends with newline
+    if not content.endswith("\n"):
+        raise ValueError("File must end with newline")
+
+    # Check file size is in 400-600 byte range
+    if not (400 <= file_size <= 600):
+        raise ValueError(
+            f"File size {file_size} bytes is outside 400-600 byte range"
+        )
+
+    return True
+
+
 def main():
     """Main entry point: create file."""
     print("=" * 60)
