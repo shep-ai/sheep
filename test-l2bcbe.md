@@ -1,3 +1,3 @@
-# Cybersecurity Essentials
+# Quantum Computing
 
-Cybersecurity protects systems from malicious attacks. Strong passwords form the foundation of security. Regular updates patch known vulnerabilities.
+Quantum computers use quantum bits for computation. They can solve certain problems much faster than classical computers. The field is still in early development.
