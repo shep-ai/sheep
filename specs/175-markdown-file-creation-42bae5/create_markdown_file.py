@@ -128,7 +128,7 @@ def validate_file(filename):
             f"File {filename} has {sentence_count} sentences; expected 2-3"
         )
 
-    # Check file size (300-800 bytes)
+    # Check file size (300-800 bytes) - check last so structural issues are caught first
     file_size = file_path.stat().st_size
     if file_size < 300:
         raise ValueError(f"File {filename} is {file_size} bytes; minimum is 300")
