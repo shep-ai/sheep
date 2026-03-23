@@ -12,6 +12,13 @@ from sheep.content_generators import (
     validate_file_properties,
 )
 
+# Test content that meets all requirements for feature 184
+# This represents the markdown content to be generated and written to test-396h0d.md
+TEST_CONTENT = """# Artificial Intelligence and Machine Learning
+
+Artificial intelligence and machine learning technologies are fundamentally transforming how we live and work, enabling computers to learn from data and make intelligent decisions. These powerful tools are already being applied across industries, from healthcare diagnostics to autonomous vehicles, improving efficiency and creating new possibilities. As AI continues to advance, it promises to unlock solutions to some of humanity's greatest challenges while requiring thoughtful consideration of ethical implications.
+"""
+
 
 class TestGenerateMarkdownContentForFeature184:
     """Tests for task-1: Generate markdown content via LLM for feature 184."""
@@ -328,3 +335,157 @@ class TestValidateFileEncodingForFeature184:
 
         # Should pass - LF line endings are correct
         assert validate_file_properties(str(filepath)) is True
+
+
+class TestCreateMarkdownFileIntegration:
+    """Integration tests for feature 184: Create test-396h0d.md with prose content."""
+
+    def test_file_does_not_exist_before_creation(self):
+        """Test that file test-396h0d.md does not exist before creation."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+        # Clean up if it exists from a previous run
+        if test_file.exists():
+            test_file.unlink()
+        assert not test_file.exists()
+
+    def test_creates_file_with_content_generators(self):
+        """Test that file is created with write_markdown_file() from TEST_CONTENT."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        # Clean up before test
+        if test_file.exists():
+            test_file.unlink()
+
+        # Write file using content_generators with TEST_CONTENT
+        file_path = write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        assert test_file.exists(), "File test-396h0d.md should exist"
+        assert file_path == str(test_file), "Returned path should match file path"
+        assert test_file.read_bytes() == TEST_CONTENT.encode("utf-8"), "File content should match TEST_CONTENT exactly"
+
+    def test_file_contains_valid_h1_heading(self):
+        """Test that file contains exactly one H1 heading (starts with '# ')."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        # Ensure file exists
+        write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        text_content = test_file.read_text(encoding="utf-8")
+        lines = text_content.split("\n")
+
+        assert lines[0].startswith("# "), "First line should be H1 heading"
+
+    def test_file_contains_valid_sentence_count(self):
+        """Test that file contains exactly 2-3 sentences (ending with periods)."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        # Ensure file exists
+        write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        text_content = test_file.read_text(encoding="utf-8")
+        # Extract prose content (skip heading and blank line)
+        lines = text_content.split("\n")
+        prose_lines = [line for line in lines[2:] if line.strip()]
+        prose_content = "\n".join(prose_lines).strip()
+
+        # Count periods to count sentences
+        sentence_count = prose_content.count(".")
+        assert 2 <= sentence_count <= 3, f"Should have 2-3 sentences, found {sentence_count}"
+
+    def test_file_has_blank_line_separator(self):
+        """Test that file has blank line after H1 heading."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        text_content = test_file.read_text(encoding="utf-8")
+        lines = text_content.split("\n")
+
+        assert lines[0].startswith("# "), "First line should be H1 heading"
+        assert lines[1] == "", "Second line should be blank separator"
+
+    def test_file_not_utf8_bom(self):
+        """Test that file encoding is UTF-8 without BOM (first bytes not 0xEF 0xBB 0xBF)."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        binary_content = test_file.read_bytes()
+        # Assert file does NOT start with UTF-8 BOM signature
+        assert not binary_content.startswith(b"\xef\xbb\xbf"), "File should not have UTF-8 BOM"
+
+    def test_file_has_lf_line_endings(self):
+        """Test that file contains only LF line endings (no CRLF byte sequences)."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        binary_content = test_file.read_bytes()
+        # Assert file contains no CRLF sequences (0x0D 0x0A)
+        assert b"\r\n" not in binary_content, "File should not have CRLF line endings"
+        # Assert file contains LF sequences
+        assert b"\n" in binary_content, "File should have LF line endings"
+
+    def test_file_size_within_range(self):
+        """Test that file size is between 300-600 bytes (inclusive)."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        file_size = len(test_file.read_bytes())
+        assert 300 <= file_size <= 600, f"File size {file_size} should be 300-600 bytes"
+
+    def test_file_passes_validate_markdown_file(self):
+        """Test that file passes comprehensive validation."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        # Should not raise any exception
+        result = validate_markdown_file(str(test_file))
+        assert result is True, "File validation should pass"
+
+    def test_file_passes_validate_file_properties(self):
+        """Test that file passes encoding and properties validation."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        # Should not raise any exception
+        result = validate_file_properties(str(test_file))
+        assert result is True, "File properties validation should pass"
+
+    def test_validation_all_criteria_met(self):
+        """Test that file passes all validation criteria together."""
+        repo_root = Path(__file__).parent.parent
+        test_file = repo_root / "test-396h0d.md"
+
+        write_markdown_file(TEST_CONTENT, "test-396h0d.md")
+
+        binary_content = test_file.read_bytes()
+        file_size = len(binary_content)
+
+        # Check UTF-8 without BOM
+        assert not binary_content.startswith(b"\xef\xbb\xbf"), "No UTF-8 BOM"
+
+        # Check no CRLF
+        assert b"\r\n" not in binary_content, "No CRLF line endings"
+
+        # Check file size
+        assert 300 <= file_size <= 600, f"File size {file_size} in range 300-600"
+
+        # Check markdown validation
+        assert validate_markdown_file(str(test_file)) is True, "Markdown validation passes"
+
+        # Check file properties validation
+        assert validate_file_properties(str(test_file)) is True, "Properties validation passes"
