@@ -15,7 +15,6 @@ from pathlib import Path
 
 from sheep.content_generators import (
     commit_markdown_file,
-    create_markdown_file,
     generate_markdown_content,
     push_markdown_file,
     validate_markdown_file,
