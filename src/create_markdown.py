@@ -13,7 +13,7 @@ import re
 import subprocess
 import time
 
-from sheep.config.llm import get_reasoning_llm
+from sheep.config.llm import create_llm, get_reasoning_llm
 from sheep.observability.logging import get_logger
 
 _logger = get_logger(__name__)
@@ -35,6 +35,48 @@ This is the first sentence. This is the second sentence. This is the third sente
 # Regex pattern for sentence boundary detection
 # Matches sentences ending with period, question mark, or exclamation mark
 SENTENCE_BOUNDARY_PATTERN = r'[.!?]\s+'
+
+# Deterministic topics for content generation (for reproducible seeding)
+# Maps feature numbers to specific topics via modulo operation
+FEATURE_TOPICS = [
+    "distributed systems",
+    "machine learning",
+    "cloud computing",
+    "cybersecurity",
+    "web development",
+    "data science",
+    "mobile applications",
+    "database design",
+    "software architecture",
+    "artificial intelligence",
+    "containerization",
+    "microservices",
+    "DevOps practices",
+    "API design",
+    "performance optimization",
+    "code testing",
+    "version control",
+    "continuous integration",
+    "monitoring and logging",
+    "system design",
+]
+
+
+def _get_topic_for_feature(feature_number: int) -> str:
+    """
+    Get deterministic topic for a feature number.
+
+    Uses feature number modulo to select from FEATURE_TOPICS, ensuring
+    the same feature number always produces the same topic.
+
+    Args:
+        feature_number: The feature number (e.g., 202).
+
+    Returns:
+        A topic string for content generation.
+    """
+    topic_index = feature_number % len(FEATURE_TOPICS)
+    return FEATURE_TOPICS[topic_index]
 
 
 def generate_markdown_content(max_retries: int = 3, retry_delay: float = 1.0) -> dict[str, str]:
@@ -107,6 +149,104 @@ def generate_markdown_content(max_retries: int = 3, retry_delay: float = 1.0) ->
             raise ValueError(f"Claude API call failed: {e}") from e
 
     raise ValueError(f"Failed to generate markdown after {max_retries} attempts")
+
+
+def generate_markdown_content_for_feature(
+    feature_number: int,
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
+) -> dict[str, str]:
+    """
+    Generate markdown content with deterministic seeding based on feature number.
+
+    Uses a deterministic topic mapping from feature number to ensure identical output
+    across multiple executions. Uses temperature=0 for Claude API to ensure deterministic
+    output (same seed produces same result).
+
+    Args:
+        feature_number: Feature number for deterministic topic selection (e.g., 202).
+        max_retries: Maximum number of retry attempts for API calls (default: 3).
+        retry_delay: Initial delay in seconds for exponential backoff (default: 1.0).
+
+    Returns:
+        Dictionary with keys:
+        - 'title': The H1 heading text (without # prefix)
+        - 'prose': The 2-3 sentences of prose content
+        - 'full_content': The complete markdown including heading
+
+    Raises:
+        ValueError: If content generation fails after retries or content is invalid.
+        Exception: If Claude API is unavailable or authentication fails.
+    """
+    # Get deterministic topic from feature number
+    topic = _get_topic_for_feature(feature_number)
+    _logger.info(f"Generating content for Feature {feature_number} (topic: {topic})")
+
+    # Create deterministic prompt with feature-specific topic
+    prompt = f"""Generate a markdown document about {topic} with the following requirements:
+1. Create an H1 heading (format: # Title) - should be 5-10 words and specific to {topic}
+2. Write exactly 2-3 sentences of meaningful, coherent prose about {topic}
+3. Ensure the prose is thematically related to the title
+4. Make the content substantive and informative
+
+Return ONLY the markdown content with no additional text or explanation.
+
+Format example:
+# Example Title
+
+This is the first sentence. This is the second sentence. This is the third sentence.
+"""
+
+    # Create LLM with temperature=0 for deterministic output
+    llm = create_llm(temperature=0.0)
+
+    for attempt in range(max_retries):
+        try:
+            _logger.debug(f"Generating content (attempt {attempt + 1}/{max_retries})")
+
+            # Call Claude API with the deterministic prompt
+            response = llm.call([{"role": "user", "content": prompt}])
+
+            # Extract response text
+            if isinstance(response, dict):
+                content = str(response.get("content", str(response)))
+            else:
+                content = str(response)
+
+            _logger.debug(f"Raw LLM response (first 100 chars): {content[:100]}...")
+
+            # Validate the generated content
+            validation_result = validate_content(content)
+            if not validation_result['is_valid']:
+                raise ValueError(f"Content validation failed: {validation_result['errors']}")
+
+            # Parse the content into title and prose
+            title, prose = _parse_markdown_content(content)
+
+            _logger.info(f"Successfully generated content for Feature {feature_number}: '{title}'")
+            return {
+                'title': title,
+                'prose': prose,
+                'full_content': content,
+            }
+
+        except ValueError as e:
+            # Validation or parsing error - retry with backoff
+            _logger.warning(f"Content generation failed (attempt {attempt + 1}): {e}")
+            if attempt < max_retries - 1:
+                delay = retry_delay * (2 ** attempt)  # Exponential backoff
+                _logger.debug(f"Retrying in {delay:.1f} seconds...")
+                time.sleep(delay)
+            else:
+                msg = f"Failed to generate valid markdown for Feature {feature_number} after {max_retries} attempts"
+                raise ValueError(msg) from e
+
+        except Exception as e:
+            # API or authentication error - don't retry on non-validation errors
+            _logger.error(f"Claude API error: {e}")
+            raise ValueError(f"Claude API call failed: {e}") from e
+
+    raise ValueError(f"Failed to generate markdown for Feature {feature_number} after {max_retries} attempts")
 
 
 def validate_content(content: str) -> dict[str, any]:
