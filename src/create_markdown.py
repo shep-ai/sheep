@@ -10,9 +10,8 @@ This module provides utilities for:
 """
 
 import re
-import time
 import subprocess
-from typing import Optional
+import time
 
 from sheep.config.llm import get_reasoning_llm
 from sheep.observability.logging import get_logger
@@ -99,12 +98,13 @@ def generate_markdown_content(max_retries: int = 3, retry_delay: float = 1.0) ->
                 _logger.debug(f"Retrying in {delay:.1f} seconds...")
                 time.sleep(delay)
             else:
-                raise ValueError(f"Failed to generate valid markdown after {max_retries} attempts: {e}")
+                msg = f"Failed to generate valid markdown after {max_retries} attempts"
+                raise ValueError(msg) from e
 
         except Exception as e:
             # API or authentication error - don't retry on non-validation errors
             _logger.error(f"Claude API error: {e}")
-            raise ValueError(f"Claude API call failed: {e}")
+            raise ValueError(f"Claude API call failed: {e}") from e
 
     raise ValueError(f"Failed to generate markdown after {max_retries} attempts")
 
@@ -157,7 +157,6 @@ def validate_content(content: str) -> dict[str, any]:
         return {'is_valid': False, 'errors': errors, 'details': details}
 
     details['has_h1_heading'] = True
-    title = lines[0][2:].strip()
 
     # Check for blank line separator (if multiple lines)
     if len(lines) > 1 and lines[1] != '':
@@ -209,7 +208,7 @@ def validate_content(content: str) -> dict[str, any]:
     }
 
 
-def validate_sentence_count(prose: str) -> tuple[bool, int, Optional[str]]:
+def validate_sentence_count(prose: str) -> tuple[bool, int, str | None]:
     """
     Validate that prose contains exactly 2-3 sentences.
 
@@ -237,7 +236,7 @@ def validate_sentence_count(prose: str) -> tuple[bool, int, Optional[str]]:
     return True, sentence_count, None
 
 
-def validate_prose_length(prose: str, min_length: int = 100, max_length: int = 300) -> tuple[bool, int, Optional[str]]:
+def validate_prose_length(prose: str, min_length: int = 100, max_length: int = 300) -> tuple[bool, int, str | None]:
     """
     Validate that prose is within acceptable length range.
 
@@ -332,7 +331,7 @@ def _parse_markdown_content(content: str) -> tuple[str, str]:
     return title, prose
 
 
-def create_markdown_file(content: str, filename: str = "test-nttet0.md", filepath: Optional[str] = None) -> str:
+def create_markdown_file(content: str, filename: str = "test-nttet0.md", filepath: str | None = None) -> str:
     """
     Create a markdown file with proper UTF-8 encoding and Unix LF line endings.
 
@@ -366,10 +365,7 @@ def create_markdown_file(content: str, filename: str = "test-nttet0.md", filepat
     else:
         target_path = Path(filepath)
         # If filepath is a directory (or looks like one), append filename
-        if target_path.is_dir() or str(target_path).endswith('/'):
-            target_path = target_path / filename
-        # If filepath is just a directory name without trailing slash, append filename
-        elif not str(target_path).endswith('.md'):
+        if target_path.is_dir() or str(target_path).endswith('/') or not str(target_path).endswith('.md'):
             target_path = target_path / filename
 
     # Check if file already exists (fail-safe)
@@ -384,9 +380,9 @@ def create_markdown_file(content: str, filename: str = "test-nttet0.md", filepat
         target_path.write_text(content, encoding='utf-8', newline='\n')
         _logger.info(f"Created markdown file: {target_path}")
         return str(target_path.absolute())
-    except IOError as e:
+    except OSError as e:
         _logger.error(f"Failed to write markdown file: {e}")
-        raise IOError(f"Cannot write to {target_path}: {e}")
+        raise OSError(f"Cannot write to {target_path}: {e}")
 
 
 def validate_file_encoding(filepath: str) -> dict[str, any]:
@@ -447,7 +443,7 @@ def validate_file_encoding(filepath: str) -> dict[str, any]:
         except UnicodeDecodeError as e:
             errors.append(f"File is not valid UTF-8: {e}")
 
-    except IOError as e:
+    except OSError as e:
         errors.append(f"Cannot read file: {e}")
 
     is_valid = len(errors) == 0
@@ -553,7 +549,7 @@ def validate_file_structure(filepath: str) -> dict[str, any]:
         if sentence_count < 2 or sentence_count > 3:
             errors.append(f"Prose must contain exactly 2-3 sentences (found {sentence_count})")
 
-    except IOError as e:
+    except OSError as e:
         errors.append(f"Cannot read file: {e}")
     except Exception as e:
         errors.append(f"Error validating file structure: {e}")
@@ -802,7 +798,7 @@ def push_to_feature_branch(
                     'branch': branch_name,
                     'errors': [],
                 }
-            except subprocess.TimeoutExpired as e:
+            except subprocess.TimeoutExpired:
                 error_msg = f"Push timed out (attempt {attempt + 1}): network timeout"
                 _logger.warning(error_msg)
                 if attempt < max_retries - 1:
@@ -904,7 +900,7 @@ def _validate_git_config() -> dict[str, any]:
         }
 
 
-def _extract_commit_hash() -> Optional[str]:
+def _extract_commit_hash() -> str | None:
     """
     Extract the current commit hash using git rev-parse HEAD.
 
@@ -925,7 +921,7 @@ def _extract_commit_hash() -> Optional[str]:
 
 def create_and_commit_markdown_file(
     filename: str = "test-nttet0.md",
-    filepath: Optional[str] = None,
+    filepath: str | None = None,
     branch_name: str = "feat/199-markdown-file-creation-5e3e07",
 ) -> dict[str, any]:
     """
