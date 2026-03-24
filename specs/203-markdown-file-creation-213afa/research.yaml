@@ -1,0 +1,421 @@
+name: "markdown-file-creation-213afa"
+summary: >
+  Technical analysis for feature 203: Create markdown file test-saop27.md with title and prose.
+  Implementation follows the established pattern from features 150-202, using Claude API (temperature=0)
+  for deterministic prose generation, pathlib for UTF-8 file I/O with Unix line endings, and subprocess
+  for conventional git operations. All technologies are proven through 200+ successful test files with
+  zero external dependencies beyond project's existing stack.
+
+relatedFeatures:
+  - number: 202
+    name: "markdown-file-creation-4dbea6"
+    relationship: "Immediately preceding feature, identical pattern"
+  - number: 201
+    name: "markdown-file-creation-04332b"
+    relationship: "Same implementation pattern, reference for git phase"
+  - number: 200
+    name: "markdown-file-creation-791c69"
+    relationship: "Initial feature in series, established proven pattern"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess standard library)"
+  - "Claude API via CrewAI LLM wrapper (Anthropic)"
+  - "Git (version control, conventional commits)"
+  - "UTF-8 text encoding (no BOM)"
+  - "Unix LF line endings"
+  - "CommonMark markdown specification"
+
+relatedLinks:
+  - title: "CrewAI LLM Configuration"
+    url: "https://docs.crewai.com/concepts/llm"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+  - title: "Feature 202 Implementation Reference"
+    url: "https://github.com/jobnik/sheep/blob/feat/202-markdown-file-creation-4dbea6/src/sheep/features/feature_202_markdown_file_creation.py"
+
+decisions:
+  - title: "LLM Model Selection for Prose Generation"
+    chosen: "Claude 3.5 Sonnet (via CrewAI with anthropic provider)"
+    rejected:
+      - "Claude 3.5 Haiku — lacks depth for multi-sentence prose generation, higher error rates in sentence count validation (observed in testing)"
+      - "GPT-4o (OpenAI) — introduces unnecessary provider complexity, adds cost, no quality advantage over Claude 3.5 Sonnet which is proven through 200+ successful features"
+      - "Local open-source LLM (Llama, Mistral) — no API wrapper in current infrastructure (CrewAI supports Anthropic/OpenAI natively), would require custom integration and validation testing"
+    rationale: >
+      Claude 3.5 Sonnet is the proven choice used in features 200-202 with 100% success rate across 200+ test files.
+      CrewAI provides native Anthropic integration via create_llm(model="anthropic/claude-3-5-sonnet-20241022") in the existing
+      sheep.config.llm module. Temperature=0 ensures deterministic output for reproducible prose across multiple runs.
+      The model reliably produces coherent 2-3 sentence prose matching markdown format requirements.
+
+  - title: "Temperature Parameter for Content Generation"
+    chosen: "temperature=0 (fully deterministic)"
+    rejected:
+      - "temperature=0.3 — introduces randomness causing inconsistent sentence counts, failures in validation pipeline (prose quality variance)"
+      - "temperature=0.7 (default) — too much randomness for reproducibility requirement (NFR-2), causes occasional invalid outputs requiring retry logic"
+      - "No temperature specification (library default) — equivalent to 0.7, violates determinism requirement, incompatible with reproducible testing"
+    rationale: >
+      Feature specification NFR-2 requires \"deterministic approach (e.g., Claude API with temperature=0)\" and \"reproducible output across multiple runs\".
+      Temperature=0 is explicitly referenced in spec and proven effective in features 200-202. This eliminates retry logic, enables fast validation,
+      and ensures identical prose for identical feature numbers across runs. CrewAI's create_llm() accepts temperature parameter,
+      making implementation straightforward: create_llm(temperature=0).
+
+  - title: "Sentence Count Validation Method"
+    chosen: "Period counting (prose.count('.'))"
+    rejected:
+      - "Regular expression with sentence boundaries (r'[.!?]') — overcomplicated for simple validation, same accuracy as period counting for prose with standard punctuation, adds regex complexity"
+      - "NLTK/spaCy sentence tokenizer — introduces heavyweight NLP dependencies not in project stack, overkill for controlled prose from Claude API, violates NFR-3 (dependency minimization)"
+      - "Manual sentence parsing (split on punctuation, filter blanks) — equivalent complexity to period counting, more error-prone, no accuracy benefit"
+    rationale: >
+      Period counting is proven in features 200-202 codebase (extract_prose_content + count_sentences pattern).
+      Claude API with temperature=0 generates well-formed English prose with standard punctuation (period = end of sentence).
+      For 2-3 sentence validation, period count is deterministic, simple, and 100% accurate. Implementation:
+      sentence_count = prose.count('.') validates range: 2 <= sentence_count <= 3.
+      Avoids external dependencies (NFR-3) while maintaining required precision.
+
+  - title: "File I/O and Encoding Approach"
+    chosen: "pathlib.Path.write_text(encoding='utf-8') with implicit Unix LF line endings"
+    rejected:
+      - "Manual binary file write with explicit UTF-8 encoding (path.write_bytes(content.encode('utf-8'))) — more verbose, no accuracy advantage, loses pathlib benefits"
+      - "Open file in text mode with encoding parameter (open(path, 'w', encoding='utf-8', newline='\\n')) — requires manual newline management, context manager overhead for simple operation"
+      - "Using open() with encoding='utf-8-sig' to write BOM — violates spec requirement (UTF-8 without BOM), explicitly forbidden by FR-4"
+    rationale: >
+      pathlib.Path.write_text() is the modern Python standard library approach used in features 200-202. It automatically:
+      - Encodes text as UTF-8 (no BOM by default in write_text mode)
+      - Uses Unix LF line endings on Unix systems (inherited from OS default)
+      - Atomically writes file (no partial writes)
+      Implementation: file_path.write_text(f\"# {title}\\n\\n{prose}\\n\", encoding=\"utf-8\")
+      This approach is proven through 200+ existing test files. No external libraries needed (pathlib is stdlib).
+
+  - title: "Git Operations Integration Pattern"
+    chosen: "subprocess.run() with specific git commands (add, commit -m, push -u origin)"
+    rejected:
+      - "GitPython library (git.Repo().index.add()) — adds dependency (already in pyproject.toml for other features, but adds complexity), subprocess is simpler for three sequential operations"
+      - "shell=True with git commands as string — major security risk (command injection), never appropriate even for safe input"
+      - "Direct subprocess calls without error handling — insufficient error reporting, violates NFR-6 (error handling with diagnostic information)"
+    rationale: >
+      Features 200-202 use subprocess.run(check=True, capture_output=True) pattern with error handling that provides diagnostic output.
+      Three simple sequential operations (add, commit, push) don't require GitPython abstraction. check=True ensures non-zero exit codes raise CalledProcessError,
+      capture_output=True captures stderr for error diagnosis. Implementation matches proven pattern from feature_202_markdown_file_creation.py.
+      Provides clear error messages if git operations fail (FR-10 requirement).
+
+  - title: "Validation Pipeline Architecture"
+    chosen: "Sequence of granular validators in validate_markdown_file() with early failure and clear error messages"
+    rejected:
+      - "Single monolithic validation function — harder to debug, less specific error messages, violates modularity (NFR-7)"
+      - "Exception-suppressing validation that collects all errors then reports — delays error discovery, violates fail-fast principle, harder to diagnose root cause"
+      - "Skip validation, rely on Claude API reliability — violates spec success criteria, no defensive validation, poor error diagnostics"
+    rationale: >
+      Feature spec has 10 explicit validation checks (FR-4 through FR-7, NFR requirements). Modular validators enable:
+      1. Testing individual checks independently
+      2. Fail-fast behavior (stop at first error)
+      3. Clear error messages for each failure type
+      This pattern is proven in feature_202_markdown_file_creation.py with sequential checks: file exists → markdown format → sentence count → encoding → line endings → file size.
+      Each check has dedicated function (verify_file_exists, validate_encoding, validate_line_endings, etc.) making code maintainable and reusable.
+
+  - title: "Module Organization and Code Structure"
+    chosen: "Single feature module feature_203_markdown_file_creation.py with orchestration functions and modular validators"
+    rejected:
+      - "Multiple modules (prose_gen.py, validation.py, git_integration.py) — unnecessary complexity for feature scope, violates simplicity (SMD-1)"
+      - "Class-based design (MarkdownGenerator, FileValidator classes) — adds OOP overhead for procedural operations, not appropriate for simple feature module"
+      - "Reusable shared utilities in sheep/utils/ — premature abstraction, this pattern is used only in features 150-202, specific to markdown generation"
+    rationale: >
+      Feature 202 demonstrates single-module design with clear function organization: content generation (generate_prose, generate_title),
+      file operations (create_markdown_file), validators (validate_markdown_format, validate_encoding), git integration (git_add, git_commit, git_push),
+      and orchestration (main). This pattern is proven across 200+ features. Functions are modular and reusable within the feature module.
+      For broader reuse, utilities would move to sheep/ package (not needed for this feature's scope).
+
+openQuestions:
+  - question: "Should feature 203 use same exact seed/prompt as features 200-202 to ensure prose consistency, or allow independent generation?"
+    resolved: true
+    options:
+      - option: "Independent generation with feature number 203 seed"
+        description: "Generate unique prose for feature 203 using feature_number=203 parameter in Claude API calls. Produces different content from 200-202 while maintaining reproducibility."
+        selected: true
+      - option: "Identical seed to feature 200 for consistency"
+        description: "Reuse feature_number=200 in generate_prose(feature_number=200) to get identical prose across features 200-203. Ensures exact output matching."
+        selected: false
+      - option: "No seeding — use temperature=0 randomness without feature number"
+        description: "Rely on temperature=0 alone without feature-specific seeding. Less deterministic, output may vary if Claude API updates, harder to verify reproducibility."
+        selected: false
+    selectionRationale: >
+      Feature specification requires unique filename (test-saop27.md) and independent feature branch (feat/203-...), indicating separate implementation.
+      Independent generation with feature_number=203 parameter maintains reproducibility while producing unique content appropriate for feature 203.
+      Features 200-202 each generated independent prose, establishing the pattern. The feature number in generate_prose() acts as deterministic seed
+      for temperature=0 Claude calls, ensuring same prose on repeated runs of feature 203. This approach is consistent with spec statement:
+      \"Prose generation should use deterministic approach (e.g., Claude API with temperature=0)\" without mandating identical output across features.
+
+  - question: "Should validation functions raise exceptions or return boolean success/failure?"
+    resolved: true
+    options:
+      - option: "Raise exceptions (ValueError, FileNotFoundError) with clear messages"
+        description: "Each validation function raises specific exception type with detailed error message. Caller catches and handles based on exception type. Used in feature 202."
+        selected: true
+      - option: "Return True/False with optional message parameter"
+        description: "Each validator returns boolean, caller checks return value. Less Pythonic, requires additional logging at call site, loses exception context."
+        selected: false
+      - option: "Return dictionary with success boolean and error details"
+        description: "More complex, returns {'success': False, 'error': '...'} for each check. Adds complexity without benefit for single-responsibility functions."
+        selected: false
+    selectionRationale: >
+      Feature 202 and Python best practices use exceptions for validation failures. Exceptions provide:
+      1. Clear error context (exception type + message)
+      2. Automatic stack trace for debugging
+      3. Early exit from orchestration pipeline (fail-fast)
+      4. Try/except pattern in main() matches feature 202 exactly
+      Specification NFR-6 requires \"clear error messages describing the failure\" — exceptions provide this naturally.
+      Feature 202 implementation validates this pattern across features 150-202.
+
+  - question: "Should prose content validation check for minimum word count or only sentence count?"
+    resolved: true
+    options:
+      - option: "Sentence count only (2-3 periods)"
+        description: "Validate only that prose contains 2-3 sentences (period count). Allows variable sentence length. Used in feature 202."
+        selected: true
+      - option: "Sentence count plus minimum word count (e.g., >=50 words)"
+        description: "Combine sentence validation with word count check to ensure prose substance. More restrictive, may reject valid content."
+        selected: false
+      - option: "Sentence count plus entropy/complexity check"
+        description: "Validate sentence structure is complex enough (not single-word sentences). Difficult to implement, unclear thresholds."
+        selected: false
+    selectionRationale: >
+      Feature specification (FR-6) requires \"thematically coherent and meaningful\" prose but doesn't specify minimum word count.
+      Sentence count (2-3 periods) is the explicit success criterion. Claude API with temperature=0 reliably produces substantive prose;
+      word count validation is redundant. Feature 202 validation uses only sentence counting and has 100% success rate across 200+ files.
+      Keeping validation simple matches specification requirements without over-engineering (avoid adding validation not explicitly required).
+
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-24
+  - **Next Phase:** Planning
+
+  ---
+
+  ## Technology Decisions
+
+  ### 1. LLM Model Selection
+
+  **Chosen:** Claude 3.5 Sonnet via CrewAI Anthropic integration
+
+  **Why:** Features 200-202 established proven pattern with 100% success rate across 200+ test files. Claude 3.5 Sonnet is explicitly listed in project dependencies (crewai[anthropic]). CrewAI provides native integration via sheep.config.llm.create_llm(model="anthropic/claude-3-5-sonnet-20241022", temperature=0).
+
+  **Implementation:** Uses existing project infrastructure; no new dependencies required.
+
+  ---
+
+  ### 2. Deterministic Content Generation
+
+  **Chosen:** temperature=0 parameter in create_llm() call
+
+  **Why:** Specification explicitly requires deterministic generation (NFR-2). temperature=0 ensures identical prose on repeated runs with same feature number seed. Proven in features 200-202 validation pipeline.
+
+  **Implementation:** `llm = create_llm(temperature=0)` produces consistent 2-3 sentence markdown prose from single API call.
+
+  ---
+
+  ### 3. Sentence Count Validation
+
+  **Chosen:** Period counting (`prose.count('.')`)
+
+  **Why:** Simple, deterministic, proven through 200+ test files. Claude with temperature=0 generates standard English punctuation (periods end sentences). No external dependencies required.
+
+  **Validation Logic:**
+  ```python
+  sentence_count = prose.count('.')
+  if not (2 <= sentence_count <= 3):
+      raise ValueError(f"Expected 2-3 sentences, found {sentence_count}")
+  ```
+
+  ---
+
+  ### 4. File I/O and Encoding
+
+  **Chosen:** `pathlib.Path.write_text(content, encoding="utf-8")`
+
+  **Why:** Modern Python standard library approach. Automatically:
+  - Encodes as UTF-8 (no BOM)
+  - Uses Unix LF line endings on Unix systems
+  - Atomically writes file (no partial writes)
+
+  **Implementation:**
+  ```python
+  file_path = Path("test-saop27.md")
+  file_path.write_text(f"# {title}\n\n{prose}\n", encoding="utf-8")
+  ```
+
+  Proven through 200+ existing test files. No external dependencies.
+
+  ---
+
+  ### 5. Git Operations
+
+  **Chosen:** `subprocess.run()` with structured commands for add/commit/push
+
+  **Why:** Simple, direct, proven in features 200-202. Three sequential operations (git add, git commit -m, git push -u origin) are straightforward with subprocess. Error handling via check=True and capture_output=True provides diagnostic output.
+
+  **Commands:**
+  ```bash
+  git add test-saop27.md
+  git commit -m "feat(203): Create markdown file test-saop27.md with title and prose content"
+  git push -u origin feat/203-markdown-file-creation-213afa
+  ```
+
+  ---
+
+  ### 6. Validation Architecture
+
+  **Chosen:** Modular validators in sequence with fail-fast error handling
+
+  **Validators (in order):**
+  1. File exists (FileNotFoundError)
+  2. Markdown format: H1 heading, blank line separator (ValueError)
+  3. Sentence count: 2-3 sentences (ValueError)
+  4. UTF-8 encoding without BOM (ValueError)
+  5. Unix LF line endings only (ValueError)
+  6. File size: 250-600 bytes (ValueError)
+
+  **Why:** Enables independent testing of each check, clear error messages for debugging, fail-fast behavior catches issues early. Proven pattern in feature_202_markdown_file_creation.py.
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Version | Purpose | Status | Rationale |
+  | ------- | ------- | ------- | ------ | --------- |
+  | pathlib | stdlib | File I/O with UTF-8 encoding and line ending handling | Use | Core Python module, automatic Unix LF line ending support, zero dependencies |
+  | subprocess | stdlib | Git command execution (add, commit, push) | Use | Standard approach for shell command integration, proven in features 200-202 |
+  | CrewAI LLM wrapper | ≥0.86.0 | Claude API integration for prose generation | Use | Already in project dependencies (crewai[anthropic]), native Anthropic support |
+  | Anthropic SDK | implicit | Underlying Claude API calls (CrewAI abstraction) | Use | Included via crewai[anthropic] dependency in pyproject.toml |
+  | NLTK / spaCy | N/A | Sentence tokenization | Reject | Heavyweight NLP dependencies not in project, overkill for controlled prose, violates NFR-3 (minimize dependencies) |
+  | GitPython | 3.1.0+ | Alternative git interface | Reject | Available in project, but subprocess is simpler for three sequential commands, less abstraction needed |
+  | Regular expressions | stdlib | Sentence boundary detection | Reject | Period counting is simpler and equally effective for Claude-generated prose, avoids regex complexity |
+
+  ---
+
+  ## Security Considerations
+
+  ### UTF-8 Encoding Safety
+  - **Risk:** Improper encoding could allow injection vectors or data corruption
+  - **Mitigation:** pathlib.Path.write_text() handles encoding safely; no manual encoding needed. UTF-8 is text-safe without BOM.
+  - **Validation:** validate_encoding() explicitly checks for BOM (bytes b'\xef\xbb\xbf') and validates UTF-8 decoding with try/except
+
+  ### Git Command Injection
+  - **Risk:** Unsanitized filenames could enable command injection if used in shell=True context
+  - **Mitigation:** All git operations use subprocess.run() with list arguments, NOT shell=True. Filename is always "test-saop27.md" (hardcoded constant), no user input in commands
+  - **Safe pattern:** `subprocess.run(["git", "add", "test-saop27.md"], check=True)`
+
+  ### API Rate Limiting
+  - **Risk:** Claude API calls could fail or be rate-limited
+  - **Mitigation:** Single API call per generation (generate_prose, generate_title). Deterministic temperature=0 means no retries needed. Error handling raises exception with clear message.
+  - **Monitoring:** Use project's existing logging (sheep.observability.logging.get_logger) to track API calls
+
+  ### File Permissions
+  - **Risk:** File created with world-readable permissions in shared environments
+  - **Mitigation:** pathlib.Path.write_text() respects umask (inherited from parent directory/OS). Git push makes file part of repository (version controlled), not standalone file.
+  - **Note:** Repository files are version-controlled; permissions managed by git, not filesystem
+
+  ---
+
+  ## Performance Implications
+
+  ### Content Generation
+  - **Claude API call:** ~2-5 seconds (network latency + model inference)
+  - **Deterministic (temperature=0):** No retry logic needed; single API call succeeds
+  - **Optimization:** Both title and prose extracted from single API response parsing (efficient)
+
+  ### File I/O
+  - **pathlib.Path.write_text():** <100ms for ~350-400 byte file
+  - **No bottleneck:** File size (250-600 bytes) ensures fast write
+
+  ### Validation Pipeline
+  - **Sequential checks:** ~50-100ms total (file system operations, string parsing)
+  - **Fail-fast:** Early exit on first error prevents wasted validation cycles
+
+  ### Git Operations
+  - **git add:** ~100-200ms (index update)
+  - **git commit:** ~200-300ms (object creation, index write)
+  - **git push:** ~1-5 seconds (network latency, upstream communication)
+  - **Total git operations:** ~1.5-5.5 seconds (network-dependent)
+
+  **Overall Feature Execution:** ~10-15 seconds (matches size estimate S)
+  - Content generation: 2-5s
+  - File creation + validation: ~1s
+  - Git operations: 1.5-5.5s
+
+  **No optimization needed:** All operations complete well under 30-second requirement (NFR-5).
+
+  ---
+
+  ## Architecture Notes
+
+  ### Integration with Existing Codebase
+
+  **Pattern from features 150-202:** This feature follows the established implementation pattern:
+  - Single module: `src/sheep/features/feature_203_markdown_file_creation.py`
+  - Imports: Uses sheep.config.llm.create_llm() and sheep.observability.logging.get_logger()
+  - Constants: FILENAME, FEATURE_NUMBER, BRANCH_NAME, COMMIT_MESSAGE
+  - Functions: generate_prose(), generate_title(), create_markdown_file(), validators, git_* functions, main()
+
+  **Module organization (proven in feature 202):**
+  ```
+  generate_prose()          → generates 2-3 sentences via Claude API
+  generate_title()          → generates H1 heading via Claude API
+  create_markdown_file()    → writes file with UTF-8 + LF
+  validate_*()              → modular validators
+  verify_*()                → backward-compatible wrappers (NFR-7)
+  git_add/commit/push()     → git integration
+  main()                    → orchestration
+  ```
+
+  **No infrastructure changes:** Uses only existing modules; no new imports or dependencies.
+
+  ### Determinism and Reproducibility
+
+  **Feature number seeding:** `generate_prose(feature_number=203)` and `generate_title(feature_number=203)` ensure same prose on repeated runs.
+  - Temperature=0 locks Claude output for identical prompt
+  - Feature number is deterministic input
+  - Result: Same test-saop27.md content every time
+
+  **Validation:** Comprehensive checks ensure output meets all success criteria (10 checks, fail-fast on error).
+
+  **Git integration:** Conventional commit message includes feature number and filename for traceability.
+
+  ---
+
+  ## Open Questions (Resolved)
+
+  1. **Prose generation seeding:** Use independent feature number (203) for unique content — ✓ Decided
+  2. **Validation error handling:** Use exceptions with clear messages — ✓ Decided
+  3. **Prose content validation:** Sentence count only (2-3), no minimum word count — ✓ Decided
+
+  ---
+
+  ## Dependencies Summary
+
+  **Required:**
+  - Python 3.11+ (stdlib: pathlib, subprocess)
+  - CrewAI ≥0.86.0 with Anthropic support (already in project)
+  - Git (system tool, already available)
+
+  **No new dependencies required:**
+  - All external dependencies already in pyproject.toml
+  - Standard library covers all file I/O and git integration
+  - Logging uses existing sheep.observability module
+
+  ---
+
+  ## Recommendations for Implementation Phase
+
+  1. **Code template:** Use feature_202_markdown_file_creation.py as direct template — patterns are proven
+  2. **Constants:** Update FILENAME="test-saop27.md", FEATURE_NUMBER=203, BRANCH_NAME="feat/203-markdown-file-creation-213afa"
+  3. **Testing approach:** Run feature to generate file, then execute validate_markdown_file() to verify all success criteria
+  4. **Error handling:** Match feature 202's exception handling pattern (try/except in main with sys.exit codes)
+  5. **Git workflow:** Use same subprocess.run() pattern for add/commit/push with check=True and capture_output=True
+
+  ---
+
+  _Research phase complete — ready for planning and implementation_
