@@ -57,7 +57,7 @@ def generate_prose(feature_number: int = FEATURE_NUMBER) -> str:
         ValueError: If generated prose is invalid or doesn't meet requirements
         Exception: If Claude API call fails
     """
-    _logger.info(f"Generating prose content using Claude API (temperature=0)")
+    _logger.info("Generating prose content using Claude API (temperature=0)")
 
     try:
         # Create LLM with temperature=0 for deterministic generation
@@ -125,7 +125,7 @@ def generate_title(feature_number: int = FEATURE_NUMBER) -> str:
         ValueError: If generated title is invalid
         Exception: If Claude API call fails
     """
-    _logger.info(f"Generating title using Claude API (temperature=0)")
+    _logger.info("Generating title using Claude API (temperature=0)")
 
     try:
         # Create LLM with temperature=0 for deterministic generation
@@ -273,7 +273,7 @@ def validate_markdown_format(filename: str = FILENAME) -> None:
         raise
     except Exception as e:
         _logger.error(f"Error validating markdown format: {e}")
-        raise ValueError(f"Failed to validate markdown format: {e}")
+        raise ValueError(f"Failed to validate markdown format: {e}") from e
 
 
 def validate_encoding(filename: str = FILENAME) -> None:
@@ -303,7 +303,7 @@ def validate_encoding(filename: str = FILENAME) -> None:
         try:
             binary_content.decode("utf-8")
         except UnicodeDecodeError as e:
-            raise ValueError(f"File is not valid UTF-8: {e}")
+            raise ValueError(f"File is not valid UTF-8: {e}") from e
 
         _logger.debug("Encoding validation passed")
 
@@ -311,7 +311,7 @@ def validate_encoding(filename: str = FILENAME) -> None:
         raise
     except Exception as e:
         _logger.error(f"Error validating encoding: {e}")
-        raise ValueError(f"Failed to validate encoding: {e}")
+        raise ValueError(f"Failed to validate encoding: {e}") from e
 
 
 def verify_utf8_encoding(filename: str = FILENAME) -> None:
@@ -353,7 +353,7 @@ def validate_line_endings(filename: str = FILENAME) -> None:
         raise
     except Exception as e:
         _logger.error(f"Error validating line endings: {e}")
-        raise ValueError(f"Failed to validate line endings: {e}")
+        raise ValueError(f"Failed to validate line endings: {e}") from e
 
 
 def verify_lf_line_endings(filename: str = FILENAME) -> None:
@@ -391,7 +391,7 @@ def validate_file_size(
         raise
     except Exception as e:
         _logger.error(f"Error validating file size: {e}")
-        raise ValueError(f"Failed to validate file size: {e}")
+        raise ValueError(f"Failed to validate file size: {e}") from e
 
 
 def verify_file_size(
@@ -443,7 +443,7 @@ def extract_prose_content(filename: str = FILENAME) -> str:
         raise
     except Exception as e:
         _logger.error(f"Error extracting prose content: {e}")
-        raise ValueError(f"Failed to extract prose content: {e}")
+        raise ValueError(f"Failed to extract prose content: {e}") from e
 
 
 def count_sentences(prose: str) -> int:
@@ -490,7 +490,7 @@ def validate_sentence_count(filename: str = FILENAME) -> None:
         raise
     except Exception as e:
         _logger.error(f"Error validating sentence count: {e}")
-        raise ValueError(f"Failed to validate sentence count: {e}")
+        raise ValueError(f"Failed to validate sentence count: {e}") from e
 
 
 def verify_prose_content(filename: str = FILENAME) -> None:

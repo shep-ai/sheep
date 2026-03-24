@@ -10,39 +10,35 @@ This test suite covers:
 - Task 10: Comprehensive validation pipeline
 """
 
-import tempfile
 import os
 import subprocess
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 # Import the feature module
 from sheep.features.feature_203_markdown_file_creation import (
-    create_markdown_file,
-    verify_file_exists,
-    validate_markdown_format,
-    validate_encoding,
-    verify_utf8_encoding,
-    validate_line_endings,
-    verify_lf_line_endings,
-    validate_file_size,
-    verify_file_size,
-    extract_prose_content,
+    BRANCH_NAME,
+    COMMIT_MESSAGE,
+    FILENAME,
     count_sentences,
-    validate_sentence_count,
-    verify_prose_content,
-    validate_markdown_file,
-    generate_title,
-    generate_prose,
+    create_markdown_file,
+    extract_prose_content,
     git_add_file,
     git_commit,
     git_push,
-    FILENAME,
-    FEATURE_NUMBER,
-    COMMIT_MESSAGE,
-    BRANCH_NAME,
+    validate_encoding,
+    validate_file_size,
+    validate_line_endings,
+    validate_markdown_file,
+    validate_markdown_format,
+    validate_sentence_count,
+    verify_file_exists,
+    verify_lf_line_endings,
+    verify_prose_content,
+    verify_utf8_encoding,
 )
 
 
@@ -757,3 +753,241 @@ class TestTaskEleven:
             # Test git_push raises
             with pytest.raises(subprocess.CalledProcessError):
                 git_push()
+
+
+class TestTaskTwelve:
+    """Tests for task-12: main() orchestration function."""
+
+    def test_main_creates_file_validates_and_commits(self):
+        """Test that main() coordinates complete workflow: create, validate, git ops."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Use longer prose to meet 250+ byte requirement
+                long_prose = "This is the first comprehensive sentence with extensive meaningful content about modern technology and innovation. This is the second sentence that expands further on the topic with additional detailed insights and analysis. This is the third sentence providing final concluding thoughts on the entire subject matter."
+
+                with patch("sheep.features.feature_203_markdown_file_creation.generate_title", return_value="Test Title"):
+                    with patch("sheep.features.feature_203_markdown_file_creation.generate_prose", return_value=long_prose):
+                        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+                            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+                            # Import main here to avoid circular imports
+                            from sheep.features.feature_203_markdown_file_creation import main
+
+                            result = main()
+
+                            # Check return value is 0 (success)
+                            assert result == 0
+
+                            # Verify file was created
+                            assert Path(FILENAME).exists()
+
+                            # Verify git operations were called (3 calls: add, commit, push)
+                            assert mock_run.call_count == 3
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_handles_validation_errors(self):
+        """Test that main() handles validation errors gracefully."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Mock generate_prose to return invalid content (no periods)
+                with patch("sheep.features.feature_203_markdown_file_creation.generate_title", return_value="Title"):
+                    with patch("sheep.features.feature_203_markdown_file_creation.generate_prose", return_value="No periods at all"):
+
+                        from sheep.features.feature_203_markdown_file_creation import main
+
+                        result = main()
+
+                        # Should return 1 (failure)
+                        assert result == 1
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_handles_git_errors(self):
+        """Test that main() handles git operation failures gracefully."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch("sheep.features.feature_203_markdown_file_creation.generate_title", return_value="Title"):
+                    with patch("sheep.features.feature_203_markdown_file_creation.generate_prose", return_value="First. Second. Third."):
+                        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+                            # Simulate git failure
+                            error = subprocess.CalledProcessError(1, ["git"], stderr="not a git repo")
+                            mock_run.side_effect = error
+
+                            from sheep.features.feature_203_markdown_file_creation import main
+
+                            result = main()
+
+                            # Should return 1 (failure)
+                            assert result == 1
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_handles_file_exists_error(self):
+        """Test that main() handles FileExistsError when file already exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Create file first
+                Path(FILENAME).write_text("# Existing\n\nContent. More. Text.\n")
+
+                with patch("sheep.features.feature_203_markdown_file_creation.generate_title", return_value="Title"):
+                    with patch("sheep.features.feature_203_markdown_file_creation.generate_prose", return_value="First. Second. Third."):
+
+                        from sheep.features.feature_203_markdown_file_creation import main
+
+                        result = main()
+
+                        # Should return 1 (failure)
+                        assert result == 1
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_handles_unexpected_exceptions(self):
+        """Test that main() handles unexpected exceptions gracefully."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch("sheep.features.feature_203_markdown_file_creation.generate_title", side_effect=Exception("Unexpected error")):
+
+                    from sheep.features.feature_203_markdown_file_creation import main
+
+                    result = main()
+
+                    # Should return 1 (failure)
+                    assert result == 1
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestTaskThirteen:
+    """Tests for task-13: End-to-end integration test."""
+
+    def test_end_to_end_workflow_creates_valid_file(self):
+        """Test complete feature workflow creates valid markdown file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                long_prose = "Technology continues to shape our modern world in profound and meaningful ways every single day. Innovation drives progress forward and creates new exciting opportunities for our entire society. The future remains bright and promising with endless limitless possibilities waiting ahead."
+
+                with patch("sheep.features.feature_203_markdown_file_creation.generate_title", return_value="Test Title"):
+                    with patch("sheep.features.feature_203_markdown_file_creation.generate_prose", return_value=long_prose):
+                        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+                            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+                            from sheep.features.feature_203_markdown_file_creation import main
+
+                            # Execute main workflow
+                            result = main()
+                            assert result == 0
+
+                            # Verify file exists
+                            assert Path(FILENAME).exists()
+
+                            # Verify content structure
+                            content = Path(FILENAME).read_text(encoding="utf-8")
+                            lines = content.split("\n")
+                            assert lines[0] == "# Test Title"
+                            assert lines[1] == ""  # blank line
+                            assert "Technology continues to shape" in content
+            finally:
+                os.chdir(original_cwd)
+
+    def test_end_to_end_validates_all_criteria(self):
+        """Test end-to-end workflow validates all success criteria."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                long_prose = "Technology shapes our world in many profound and significant ways affecting all humanity. Innovation drives progress forward continuously and creates new opportunities for development. The future is bright with endless potential and possibilities ahead of us."
+
+                with patch("sheep.features.feature_203_markdown_file_creation.generate_title", return_value="Technology Topics"):
+                    with patch("sheep.features.feature_203_markdown_file_creation.generate_prose", return_value=long_prose):
+                        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+                            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+                            from sheep.features.feature_203_markdown_file_creation import (
+                                main,
+                                validate_markdown_file,
+                            )
+
+                            # Execute main workflow
+                            result = main()
+                            assert result == 0
+
+                            # Verify file passes all validation checks
+                            # This should not raise any exceptions
+                            validate_markdown_file(FILENAME)
+
+                            # Verify file properties
+                            content = Path(FILENAME).read_text(encoding="utf-8")
+                            binary_content = Path(FILENAME).read_bytes()
+                            file_size = Path(FILENAME).stat().st_size
+
+                            # Check encoding (no BOM)
+                            assert not binary_content.startswith(b"\xef\xbb\xbf")
+
+                            # Check line endings (LF only)
+                            assert b"\r\n" not in binary_content
+                            assert b"\n" in binary_content
+
+                            # Check file size (250-600 bytes)
+                            assert 250 <= file_size <= 600
+
+                            # Check sentence count (2-3)
+                            sentence_count = content.count(".")
+                            assert 2 <= sentence_count <= 3
+
+                            # Check markdown format
+                            lines = content.split("\n")
+                            assert lines[0].startswith("# ")
+                            assert lines[1] == ""
+            finally:
+                os.chdir(original_cwd)
+
+    def test_end_to_end_stages_and_commits(self):
+        """Test end-to-end workflow stages and commits file with git."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                long_prose = "This is a comprehensive and detailed analysis of the current technological landscape. Development continues steadily with new features being added regularly. Progress is made every single day through dedicated hard work and innovation."
+
+                with patch("sheep.features.feature_203_markdown_file_creation.generate_title", return_value="Great Title"):
+                    with patch("sheep.features.feature_203_markdown_file_creation.generate_prose", return_value=long_prose):
+                        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+                            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+                            from sheep.features.feature_203_markdown_file_creation import main
+
+                            result = main()
+                            assert result == 0
+
+                            # Verify git operations were called in correct order
+                            assert mock_run.call_count == 3
+
+                            # Check call sequence: add, commit, push
+                            calls = mock_run.call_args_list
+                            assert calls[0][0][0] == ["git", "add", FILENAME]
+                            assert calls[1][0][0][0:3] == ["git", "commit", "-m"]
+                            assert calls[1][0][0][3] == f"feat(203): Create markdown file {FILENAME} with title and prose content"
+                            assert calls[2][0][0] == ["git", "push", "-u", "origin", BRANCH_NAME]
+            finally:
+                os.chdir(original_cwd)
