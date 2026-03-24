@@ -571,3 +571,116 @@ class TestFeature191FileSizeValidation:
 
         with pytest.raises(ValueError):
             validate_file_size(FILENAME)
+
+
+class TestFeature191GitIntegration:
+    """Tests for task 7: Implement git operations (add, commit, push)."""
+
+    def test_git_add_calls_subprocess_with_correct_filename(self):
+        """Test that git_add() calls subprocess.run with correct git add command."""
+        from sheep.features.feature_191_markdown_file_creation import git_add, FILENAME
+
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            git_add(FILENAME)
+
+            # Verify subprocess.run was called with correct arguments
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ["git", "add", FILENAME]
+            assert call_args[1]["check"] is True
+            assert call_args[1]["capture_output"] is True
+
+    def test_git_add_with_default_filename(self):
+        """Test that git_add() uses FILENAME constant by default."""
+        from sheep.features.feature_191_markdown_file_creation import git_add, FILENAME
+
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            git_add()
+
+            # Verify subprocess.run was called with FILENAME
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ["git", "add", FILENAME]
+
+    def test_git_commit_calls_subprocess_with_conventional_message(self):
+        """Test that git_commit() calls subprocess.run with conventional commit message."""
+        from sheep.features.feature_191_markdown_file_creation import git_commit
+
+        expected_message = "feat(191): create markdown file test-u1rtbw.md"
+
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            git_commit(expected_message)
+
+            # Verify subprocess.run was called with correct arguments
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ["git", "commit", "-m", expected_message]
+            assert call_args[1]["check"] is True
+            assert call_args[1]["capture_output"] is True
+
+    def test_git_commit_with_default_message(self):
+        """Test that git_commit() uses conventional commit message by default."""
+        from sheep.features.feature_191_markdown_file_creation import git_commit
+
+        expected_message = "feat(191): create markdown file test-u1rtbw.md"
+
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            git_commit()
+
+            # Verify subprocess.run was called with default message
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ["git", "commit", "-m", expected_message]
+
+    def test_git_push_calls_subprocess_with_correct_arguments(self):
+        """Test that git_push() calls subprocess.run with correct git push arguments."""
+        from sheep.features.feature_191_markdown_file_creation import git_push
+
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            git_push()
+
+            # Verify subprocess.run was called with correct arguments
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ["git", "push", "-u", "origin", "HEAD"]
+            assert call_args[1]["check"] is True
+            assert call_args[1]["capture_output"] is True
+
+    def test_git_add_raises_on_failure(self):
+        """Test that git_add() propagates subprocess.CalledProcessError on git failure."""
+        from sheep.features.feature_191_markdown_file_creation import git_add
+
+        with patch(
+            "sheep.features.feature_191_markdown_file_creation.subprocess.run"
+        ) as mock_run:
+            # Mock subprocess.run to raise CalledProcessError
+            mock_run.side_effect = subprocess.CalledProcessError(1, "git add")
+
+            with pytest.raises(subprocess.CalledProcessError):
+                git_add()
+
+    def test_git_commit_raises_on_failure(self):
+        """Test that git_commit() propagates subprocess.CalledProcessError on git failure."""
+        from sheep.features.feature_191_markdown_file_creation import git_commit
+
+        with patch(
+            "sheep.features.feature_191_markdown_file_creation.subprocess.run"
+        ) as mock_run:
+            # Mock subprocess.run to raise CalledProcessError
+            mock_run.side_effect = subprocess.CalledProcessError(1, "git commit")
+
+            with pytest.raises(subprocess.CalledProcessError):
+                git_commit()
+
+    def test_git_push_raises_on_failure(self):
+        """Test that git_push() propagates subprocess.CalledProcessError on git failure."""
+        from sheep.features.feature_191_markdown_file_creation import git_push
+
+        with patch(
+            "sheep.features.feature_191_markdown_file_creation.subprocess.run"
+        ) as mock_run:
+            # Mock subprocess.run to raise CalledProcessError
+            mock_run.side_effect = subprocess.CalledProcessError(1, "git push")
+
+            with pytest.raises(subprocess.CalledProcessError):
+                git_push()

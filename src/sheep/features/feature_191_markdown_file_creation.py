@@ -201,3 +201,107 @@ def validate_file_size(filename: str) -> None:
         raise ValueError(
             f"File size {file_size} bytes outside acceptable range {MIN_SIZE}-{MAX_SIZE} bytes"
         )
+
+
+def git_add(filename: str = FILENAME) -> None:
+    """Stage file for commit using git add.
+
+    Args:
+        filename: Path to file to stage (defaults to FILENAME)
+
+    Raises:
+        subprocess.CalledProcessError: If git add command fails
+    """
+    subprocess.run(["git", "add", filename], check=True, capture_output=True)
+
+
+def git_commit(message: str = "feat(191): create markdown file test-u1rtbw.md") -> None:
+    """Commit staged changes with conventional commit message.
+
+    Args:
+        message: Commit message (defaults to feature 191 conventional format)
+
+    Raises:
+        subprocess.CalledProcessError: If git commit command fails
+    """
+    subprocess.run(["git", "commit", "-m", message], check=True, capture_output=True)
+
+
+def git_push() -> None:
+    """Push committed changes to remote repository.
+
+    Pushes to origin with -u flag to set upstream tracking.
+
+    Raises:
+        subprocess.CalledProcessError: If git push command fails
+    """
+    subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True, capture_output=True)
+
+
+def main() -> None:
+    """Main orchestration function for feature 191.
+
+    Executes the complete workflow:
+    1. Create markdown file with H1 heading and prose content
+    2. Validate encoding (UTF-8, no BOM)
+    3. Validate line endings (Unix LF only)
+    4. Validate structure (H1 heading + 2-3 sentences)
+    5. Validate file size (450-550 bytes)
+    6. Stage file with git add
+    7. Commit with conventional message
+    8. Push to remote repository
+
+    All validation checks complete before any git operations begin.
+
+    Raises:
+        FileExistsError: If file already exists
+        FileNotFoundError: If validation checks fail to find file
+        ValueError: If any validation check fails
+        subprocess.CalledProcessError: If any git operation fails
+    """
+    try:
+        # Phase 1: Create file
+        create_markdown_file()
+        print(f"✓ Created {FILENAME}")
+
+        # Phase 2: Run all validations before git operations
+        validate_encoding()
+        print("✓ Validated UTF-8 encoding")
+
+        validate_line_endings()
+        print("✓ Validated Unix LF line endings")
+
+        validate_structure(FILENAME)
+        print("✓ Validated markdown structure")
+
+        validate_file_size(FILENAME)
+        print("✓ Validated file size (450-550 bytes)")
+
+        # Phase 3: Git operations (only if all validations pass)
+        git_add()
+        print("✓ Staged file with git add")
+
+        git_commit()
+        print("✓ Committed with message: feat(191): create markdown file test-u1rtbw.md")
+
+        git_push()
+        print("✓ Pushed to remote repository")
+
+        print(f"\n✓ Feature 191 completed successfully: {FILENAME}")
+
+    except FileExistsError as e:
+        print(f"✗ Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"✗ Validation failed: {e}", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Git operation failed: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"✗ Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
