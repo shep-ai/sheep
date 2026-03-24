@@ -1,0 +1,254 @@
+name: "markdown-file-creation-3f7fee"
+summary: >
+  Implementation of test-joedur.md markdown file following the well-established
+  pattern used by 100+ existing test-*.md files in the repository. Uses Python
+  standard library (pathlib, subprocess) for file creation, comprehensive validation
+  of structure/encoding/line endings, and git workflow (add, commit, push). Design
+  decisions are based on prior feature implementations (#185-188) and explicit
+  specification requirements.
+
+relatedFeatures:
+  - "#188 Complete markdown file creation feature implementation"
+  - "#187 Complete markdown file creation feature implementation"
+  - "#186 Implement markdown file creation feature with specification"
+  - "#185 Implement markdown file creation with comprehensive testing"
+
+technologies:
+  - "Python 3.11+ (standard library only)"
+  - "pathlib (file I/O with Path objects)"
+  - "subprocess (git operations)"
+  - "UTF-8 encoding"
+  - "Unix LF line endings"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Conventional Commits format"
+    url: "https://www.conventionalcommits.org"
+
+phases:
+  - id: "phase-1"
+    name: "File Creation & Validation"
+    description: "Create markdown file with H1 heading and prose content, validate encoding, line endings, structure, and size before git operations. Ensures file quality and prevents pushing invalid content to remote."
+    parallel: false
+  - id: "phase-2"
+    name: "Git Integration"
+    description: "Stage file with git add, create conventional commit, and push to remote repository. Ensures file is properly versioned and accessible to all team members."
+    parallel: false
+  - id: "phase-3"
+    name: "Error Handling & Integration"
+    description: "Add comprehensive error handling for all failure modes (file conflicts, encoding issues, git failures) and verify complete end-to-end workflow."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/189_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This implementation follows the well-established pattern used by 100+ existing test-*.md
+  files in the repository. The architecture is straightforward and deliberately simple:
+
+  1. **File Creation Phase**: Construct markdown content (H1 + blank line + prose + newline)
+     and write to disk using `pathlib.Path.write_text()` with UTF-8 encoding and Unix LF line endings.
+
+  2. **Validation Phase**: Perform comprehensive validation before git operations to ensure
+     file quality. Check: existence, UTF-8 encoding (no BOM), Unix LF line endings (no CRLF),
+     markdown structure (H1 + blank line + prose), sentence count (2-3), file size (400-600 bytes),
+     and file ends with newline.
+
+  3. **Git Integration Phase**: Use subprocess to run git commands in sequence:
+     `git add test-joedur.md`, `git commit`, `git push -u origin HEAD`.
+     Uses conventional commit format per specification requirement.
+
+  **Integration Points:**
+  - Creates single file in repository root (no subdirectories)
+  - Uses standard git workflow with no custom hooks or configuration
+  - Conventional commit message integrates with repository history and automation tooling
+  - Error handling catches specific failure modes with clear, actionable messages
+
+  **Codebase Integration:**
+  - Follows pattern established by features #185-188 (recent successful implementations)
+  - Uses only Python standard library (pathlib, subprocess, sys) per NFR-1
+  - Aligns with 100+ existing test-*.md files in repository structure and format
+  - No changes to build system, CI/CD, or infrastructure required
+
+  ## Key Design Decisions
+
+  ### 1. File Creation Method: pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path.write_text(content, encoding="utf-8", newline="\n")`
+
+  **Alternatives Considered:**
+  - `pathlib.Path.write_bytes()` with manual encoding — More verbose, less Pythonic
+  - `open()` context manager — More boilerplate code and explicit file closing
+  - `os.path` with `os.open()` — Legacy API lacking object-oriented interface
+
+  **Rationale:**
+  Path.write_text() is the modern standard for Python 3.11+ file I/O. The newline="\n"
+  parameter explicitly guarantees Unix LF line endings on all platforms (Windows, macOS, Linux),
+  preventing platform-specific line ending issues. Single method call handles encoding, newline
+  normalization, and file closing automatically, reducing complexity and error risk. This approach
+  is clearest for readers and matches the pattern used in features #174, #176.
+
+  ### 2. Existing File Conflict Handling: Check & Abort
+
+  **Chosen:** Check if file exists; if yes, abort immediately with clear error message
+
+  **Alternatives Considered:**
+  - Silently overwrite existing file — Risks data loss and makes failures invisible
+  - Silently skip creation if exists — Obscures the problem and hides real issues
+
+  **Rationale:**
+  This is an explicit specification requirement (open questions resolved).
+  The fail-fast approach prevents accidental data loss, makes failures obvious and debuggable,
+  and aligns with Unix philosophy of explicit error handling. Users can easily recover by
+  manually deleting the file and re-running. This matches the implementation in feature #174.
+
+  ### 3. Validation Strategy: Comprehensive Multi-Check Approach
+
+  **Chosen:** Comprehensive validation before git commit:
+  - File existence and readability
+  - UTF-8 encoding without BOM
+  - Unix LF line endings only (no CRLF)
+  - Markdown structure (H1 + blank line + prose)
+  - Sentence count (2-3 sentences)
+  - File size (400-600 bytes per specification)
+  - File ends with newline
+
+  **Alternatives Considered:**
+  - Minimal validation (file exists only) — Fails to catch encoding, line ending, or structural issues
+  - No validation — Risks pushing invalid files to immutable git history
+
+  **Rationale:**
+  Comprehensive validation ensures file quality before committing to remote repository.
+  Since git history is immutable once pushed, validation prevents bad state from persisting.
+  This pattern is established across features #185-188. Each check is specific and provides
+  a clear, actionable error message for debugging.
+
+  ### 4. Git Operations: subprocess.run() with check=True
+
+  **Chosen:** `subprocess.run([command, args], check=True)` for all git operations
+
+  **Alternatives Considered:**
+  - GitPython library — External dependency violates NFR-1 (standard library only)
+  - `os.system()` with git commands — No return code checking, poor error handling
+  - Manual git parsing or implementation — Unnecessary complexity
+
+  **Rationale:**
+  subprocess.run() is built into Python's standard library and purpose-built for executing
+  shell commands. Using check=True automatically raises CalledProcessError on non-zero exit,
+  ensuring robust error handling. This avoids introducing external dependencies (GitPython).
+  The pattern is established across features #174-188 and throughout the codebase.
+
+  ### 5. Commit Message: Conventional Commit Format
+
+  **Chosen:** `"feat(189): create markdown file test-joedur.md with prose content"`
+
+  **Alternatives Considered:**
+  - Simple message like "Create test-joedur.md" — Lacks structure and context
+  - Long detailed message — Unnecessary verbosity
+
+  **Rationale:**
+  This is an explicit specification requirement (FR-10). Conventional Commit format provides
+  structure and consistency with 100+ existing commits in the repository. This enables
+  automated tooling for changelog generation, semantic versioning, and release automation.
+  Pattern matches all prior implementations in features #174-188.
+
+  ### 6. Git Push Target: "git push -u origin HEAD"
+
+  **Chosen:** `git push -u origin HEAD` (push current branch to remote with upstream tracking)
+
+  **Alternatives Considered:**
+  - Commit locally only without push — Violates specification FR-11 (push to remote)
+  - `git push origin main` or explicit branch name — Less flexible if branch naming varies
+
+  **Rationale:**
+  Specification FR-11 explicitly requires pushing to remote. Using HEAD (current branch)
+  is flexible and works with any branch name. The -u flag sets upstream tracking, making
+  future git operations on this branch simpler. Ensures test file is immediately available
+  to all team members and properly integrated into the remote repository.
+
+  ### 7. Prose Content: Hardcoded Meaningful Constants
+
+  **Chosen:** Define TITLE and PROSE as module-level string constants with meaningful content
+
+  **Alternatives Considered:**
+  - Generated or random content — Risk of grammatically invalid sentences
+  - Lorem ipsum placeholder text — Not substantive per specification FR-4
+
+  **Rationale:**
+  Hardcoded prose ensures specification FR-4 is met: "grammatically valid and substantive content."
+  By writing prose as a constant, we can review it once and ensure quality. Topic and specific
+  text are implementation choices per specification. This approach matches all prior implementations
+  which carefully crafted prose about meaningful topics.
+
+  ### 8. Error Handling: Specific Exception Types with stderr Output
+
+  **Chosen:** Try/except with specific exception types (ValueError, OSError, CalledProcessError);
+  print clear messages to stderr; exit(1) on failure
+
+  **Alternatives Considered:**
+  - Silent failures — Debugging impossible when things go wrong
+  - Generic Exception catch-all only — Loses context about what type of failure occurred
+
+  **Rationale:**
+  Specific exception handling catches different failure modes and provides targeted context:
+  - ValueError: Validation failures (encoding, line endings, structure)
+  - OSError: File I/O problems (permissions, disk space)
+  - CalledProcessError: Git command failures (git not in PATH, authentication)
+  All errors print to stderr (Unix convention) with descriptive, actionable messages.
+  Exit code 1 signals failure to shell/CI/CD systems. Pattern matches features #174-176.
+
+  ## Implementation Strategy
+
+  **Phase Ordering Rationale:**
+
+  1. **Phase 1 First (File Creation & Validation)**: Must create and validate file before
+     committing to git. Validation prevents pushing invalid content to immutable remote history.
+     Early validation catches issues before they become part of git history.
+
+  2. **Phase 2 Second (Git Integration)**: Only after file is created and validated should
+     we stage, commit, and push. Git operations depend on valid file existing.
+
+  3. **Phase 3 Third (Error Handling & Integration)**: Comprehensive error handling ensures
+     all failure modes are caught and reported. Integration testing verifies end-to-end
+     workflow with error recovery.
+
+  **Rationale for Task Ordering:**
+  - Setup (constants) → Creation → Validation → Git → Error Handling → Integration
+  - Dependencies flow naturally: each phase depends on previous phase completing
+  - Validation happens before irreversible git operations
+  - Error handling wrapped around entire workflow
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | File already exists, causing silent failure or data loss | Check existence before creation; abort with clear error if file exists (specification requirement). User can manually delete and re-run. |
+  | Invalid UTF-8 encoding pushed to repository | Validate encoding (no BOM) before git commit. Check for non-UTF-8 bytes and reject. |
+  | CRLF or mixed line endings committed to repository | Validate file uses Unix LF only before commit. Check for \r\n and reject. |
+  | Markdown structure invalid (missing H1, wrong format) | Validate first line is "# Title", second line blank, content is prose with 2-3 sentences. |
+  | File size outside 400-600 bytes range | Validate file size before commit. Ensures consistency with 100+ existing test files. |
+  | Git not available in PATH or credentials missing | subprocess raises CalledProcessError; catch and report clearly. User can install git or configure credentials. |
+  | Network failure preventing git push | subprocess raises CalledProcessError; catch and report clearly. User can retry push manually when network restored. |
+  | Sentence count validation incorrectly counts periods (e.g., abbreviations) | Count periods as sentence markers; document assumption that prose uses periods for sentences. Manual review of prose catches edge cases. |
+
+  ## Success Criteria
+
+  Implementation is complete when:
+  - test-joedur.md exists in repository root with H1 + 2-3 sentences
+  - File has UTF-8 encoding without BOM
+  - File uses Unix LF line endings only
+  - File size is 400-600 bytes
+  - File is committed with conventional message "feat(189): ..."
+  - File is pushed to remote repository
+  - All validation checks pass before git operations
+  - Error handling catches and reports specific failure modes
+  - Script exits with code 0 on success, 1 on failure
