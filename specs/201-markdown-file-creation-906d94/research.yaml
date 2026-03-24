@@ -1,0 +1,404 @@
+name: "markdown-file-creation-906d94"
+summary: >
+  Feature 201 creates a markdown file (test-lihjez.md) with validated structure using established
+  utilities from features 199-200. Implementation reuses proven validation patterns, integrates with
+  CrewAI and Claude API for content generation, and follows a three-phase workflow: content creation,
+  validation, and git integration. The 400-600 byte constraint requires careful prose management to
+  avoid both undersized and oversized files.
+
+relatedFeatures:
+  - "199-markdown-file-creation"
+  - "200-markdown-file-creation"
+  - "190-189 (markdown file creation series)"
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI (>=0.86.0)"
+  - "Anthropic Claude API (reasoning model)"
+  - "GitPython (>=3.1.0)"
+  - "Pydantic (>=2.0.0)"
+  - "structlog (>=24.0.0)"
+  - "pathlib (standard library)"
+  - "subprocess (standard library)"
+
+relatedLinks:
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "Anthropic Claude API Guide"
+    url: "https://docs.anthropic.com/claude/"
+  - title: "GitPython Documentation"
+    url: "https://gitpython.readthedocs.io/"
+
+decisions:
+  - title: "Content Generation Strategy"
+    chosen: "Reuse generate_markdown_content() utility from src/create_markdown.py"
+    rejected:
+      - "Write fresh implementation: duplicates proven code, loses validation benefits from features 199-200, introduces divergence risk"
+      - "Use CrewAI agents directly: adds complexity, less testable, loses established validation patterns"
+    rationale: >
+      The src/create_markdown.py module provides a fully tested generate_markdown_content() function
+      that integrates with Claude API via sheep.config.llm.get_reasoning_llm(). This utility handles
+      retry logic with exponential backoff, response parsing, and content validation in a single
+      reusable abstraction. Reusing it ensures consistency across features 190-200, validates the
+      abstraction through repeated use, and reduces implementation time. The utility returns structured
+      output (title, prose, full_content) that directly feeds into file creation and validation phases.
+
+  - title: "File Size Constraint (400-600 bytes)"
+    chosen: "Validate generated content size before file creation; request Claude to adjust if needed"
+    rejected:
+      - "Accept any content and truncate/pad: destroys prose quality, violates fail-fast principle"
+      - "Generate at random and accept any size: high retry rate, unpredictable execution time"
+    rationale: >
+      The 400-600 byte constraint is strict and non-negotiable per requirements. Generating prose
+      and validating it post-generation can fail if content undershoots or overshoots the range.
+      The better approach: generate initial content, validate its byte size when written as UTF-8 LF,
+      and fail fast if out of range. The Claude-generated prose (typically 100-300 characters per
+      src/create_markdown.py) combines with the H1 heading and structural formatting to typically
+      land in the 400-600 byte range. If validation fails, report specific size for user adjustment
+      rather than attempting auto-correction.
+
+  - title: "Validation Order and Error Handling"
+    chosen: "Sequential validation before git operations: encoding → line-endings → structure → size"
+    rejected:
+      - "Validate only on failure: defers debugging, loses transparency"
+      - "Parallel validation: harder to debug, unclear which check failed first"
+    rationale: >
+      All validation must complete before any git operations (add, commit, push). The recommended
+      order is: encoding (UTF-8 BOM check) → line-endings (LF vs CRLF) → structure (H1 heading,
+      blank line, prose, final newline) → file size (400-600 bytes). This ordering catches encoding
+      issues first (most fundamental), then structural issues, then size constraints. Fail-fast on
+      first validation error with descriptive message showing exactly what failed.
+
+  - title: "Integration with CrewAI and Claude API"
+    chosen: "Use sheep.config.llm.get_reasoning_llm() for Claude API access via CrewAI"
+    rejected:
+      - "Direct Anthropic SDK: bypasses CrewAI abstraction, loses configuration management"
+      - "Use fast_llm instead of reasoning_llm: sacrifices reasoning quality for content generation"
+    rationale: >
+      The sheep platform provides sheep.config.llm.get_reasoning_llm() which returns a CrewAI LLM
+      instance pre-configured for complex reasoning tasks. This abstraction handles API key management,
+      model selection, temperature tuning, and error handling. Using it ensures feature 201 integrates
+      properly with platform observability and configuration. The reasoning LLM (temperature=0.2) is
+      appropriate for generating coherent, consistent prose content. The src/create_markdown.py utility
+      already uses get_reasoning_llm(), so reusing it maintains consistency.
+
+  - title: "Logging and Observability"
+    chosen: "Use sheep.observability.logging.get_logger() for structured logging"
+    rejected:
+      - "Python standard logging: misses platform integration, no structured output"
+      - "Print statements: no log levels, hard to filter, no tracing integration"
+    rationale: >
+      The sheep platform uses structlog with Langfuse integration for observability. Using
+      sheep.observability.logging.get_logger() ensures all major operations (content generation,
+      file creation, validation checks, git operations) are logged in structured format that appears
+      in traces and observability dashboards. Log key events: content generation start/success,
+      each validation check result, file creation, git operations, and final success/failure.
+
+  - title: "Git Workflow Implementation"
+    chosen: "Use subprocess to invoke git directly (add, commit, push) after all validations pass"
+    rejected:
+      - "Use GitPython library: adds dependency, more overhead for simple operations"
+      - "Use shell script wrapper: less portable, harder to test error cases"
+    rationale: >
+      The feature 198 pattern uses subprocess.run() with git commands directly. This approach is
+      proven, minimal overhead, and provides excellent error handling through CalledProcessError.
+      The commands are simple (git add, git commit -m, git push -u origin HEAD) and don't require
+      GitPython's abstractions. Using subprocess keeps implementation lightweight and consistent
+      with established patterns.
+
+  - title: "Error Handling and User Feedback"
+    chosen: "Specific exception types with descriptive error messages; fail-fast on first error"
+    rejected:
+      - "Catch-all exceptions: masks root cause, hard to debug"
+      - "Continue on validation errors: violates fail-fast principle, produces corrupt output"
+    rationale: >
+      Features must be transparent about what failed. Use specific exception types: FileExistsError
+      (file already exists), FileNotFoundError (file missing after validation), ValueError (content
+      or validation issue), subprocess.CalledProcessError (git operation failed). Each error message
+      should be specific and actionable (e.g., \"File size 350 bytes is below 400-byte minimum\" not
+      \"File size validation failed\"). This aids debugging and ensures users can correct issues.
+
+openQuestions:
+  - question: "Should the feature support regenerating content if size validation fails, or fail immediately?"
+    resolved: true
+    options:
+      - option: "Fail immediately with error message"
+        description: "Stop execution and report the byte size of generated content vs expected range (400-600). User adjusts request or accepts failure. Benefits: fail-fast principle, clear visibility. Trade-off: requires manual intervention."
+        selected: true
+      - option: "Retry content generation with size hints"
+        description: "On size validation failure, request Claude to generate shorter/longer prose and retry. Benefits: more robust, self-healing. Trade-off: added complexity, unpredictable retry count, masks generation issues."
+        selected: false
+      - option: "Auto-truncate or pad content to fit size"
+        description: "Force content into 400-600 byte range by truncating or padding. Benefits: idempotent, always succeeds. Trade-off: destroys prose quality, violates fail-fast, produces invalid output."
+        selected: false
+    selectionRationale: >
+      Fail immediately is correct because it follows fail-fast principles and maintains transparency.
+      The generated prose (100-300 characters) plus H1 heading plus structural formatting typically
+      lands in the 400-600 byte range. If it doesn't, the user should know exactly why. Retrying adds
+      complexity without solving the underlying issue. Auto-truncation destroys content quality. The
+      approach: generate once, validate, report specific byte count and error if out of range.
+
+  - question: "Should file creation occur before or after content generation, or both?"
+    resolved: true
+    options:
+      - option: "Generate content, validate, then write file (current approach)"
+        description: "Build and validate content in memory first, write only if valid. Benefits: no partial files on validation failure, clean error handling. Trade-off: slightly higher memory usage."
+        selected: true
+      - option: "Write file immediately, then validate in-place"
+        description: "Create file as soon as content is generated, validate it, delete if invalid. Benefits: straightforward flow. Trade-off: leaves partial files on failure, more I/O operations."
+        selected: false
+      - option: "Generate to temp file, validate, rename if valid"
+        description: "Write to temporary file, validate, atomic rename to final name. Benefits: atomic operations, clean error state. Trade-off: extra I/O, temp file cleanup needed."
+        selected: false
+    selectionRationale: >
+      Generate in memory, validate, then write is correct because it's simplest and cleanest. The
+      content is small (<600 bytes), so memory overhead is negligible. Validation happens before any
+      file write, preventing partial files on disk. This matches feature 198 pattern and follows
+      fail-fast principle.
+
+  - question: "Should sentence counting use regex boundaries (. ! ?) or more sophisticated NLP detection?"
+    resolved: true
+    options:
+      - option: "Use simple regex boundary detection (periods, question marks, exclamation marks)"
+        description: "Count sentences by splitting on [.!?] followed by whitespace. Benefits: simple, predictable, matches feature 198 pattern. Trade-off: treats abbreviations as sentence ends."
+        selected: true
+      - option: "Use NLTK or spaCy for sentence tokenization"
+        description: "Use NLP library to intelligently segment sentences. Benefits: handles abbreviations, edge cases. Trade-off: adds dependency, slower, more complex."
+        selected: false
+      - option: "Count sentences by checking punctuation in prose"
+        description: "Count total occurrences of . ! ? in prose text. Benefits: very simple. Trade-off: fragile, counts punctuation in the middle of words."
+        selected: false
+    selectionRationale: >
+      Simple regex is correct. The src/create_markdown.py utility already uses regex-based sentence
+      counting (SENTENCE_BOUNDARY_PATTERN = r'[.!?]\\s+'). Reusing this pattern ensures consistency
+      across features 199-200. While it has edge cases (abbreviations like \"Dr.\" or \"etc.\"), it's
+      deterministic and works well for generated prose. Adding NLP libraries would be over-engineering
+      for this use case. The approach is proven and validated across 11+ features.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Content Generation with Existing Utilities
+
+  **Chosen:** Reuse generate_markdown_content() from src/create_markdown.py
+
+  **Rejected:**
+  - Writing fresh implementation duplicates proven code and introduces divergence risk
+  - Using CrewAI agents directly adds unnecessary complexity without validation benefits
+
+  **Rationale:** The src/create_markdown.py module provides a fully tested utility that integrates
+  with Claude API via sheep.config.llm.get_reasoning_llm(). It handles retry logic, response parsing,
+  and content validation. Reusing ensures consistency across features 190-200 and validates the
+  abstraction through repeated proven use.
+
+  ### 2. File Size Constraint Management (400-600 bytes)
+
+  **Chosen:** Generate content, validate byte size post-generation, fail fast if outside range
+
+  **Rejected:**
+  - Accept any content and truncate/pad: destroys prose quality, violates fail-fast
+  - Retry with size hints: adds complexity without addressing root cause
+  - Auto-correct to fit range: produces invalid output
+
+  **Rationale:** The 400-600 byte constraint is strict. Claude-generated prose (100-300 chars) plus
+  H1 heading plus structural formatting typically lands in range. If validation fails, report exact
+  byte count for user visibility rather than attempting correction. This follows fail-fast principles.
+
+  ### 3. Validation Order: Encoding → Line-endings → Structure → Size
+
+  **Chosen:** Sequential validation in strict order before any git operations
+
+  **Rejected:**
+  - Validate only on failure: defers debugging, reduces transparency
+  - Parallel validation: harder to isolate which check failed first
+
+  **Rationale:** Validation must complete fully before git operations (add, commit, push). Sequential
+  order catches fundamental issues first (encoding), then structural issues, then constraints. Fail
+  immediately on first error with specific message about what failed.
+
+  ### 4. CrewAI and Claude API Integration
+
+  **Chosen:** Use sheep.config.llm.get_reasoning_llm() for Claude API access via CrewAI
+
+  **Rejected:**
+  - Direct Anthropic SDK: bypasses platform abstraction and configuration
+  - Using fast_llm: insufficient reasoning quality for content generation
+
+  **Rationale:** The sheep platform provides pre-configured LLM access through get_reasoning_llm().
+  This abstraction handles API key management, model selection, temperature tuning (0.2 for consistency),
+  and platform integration. Using it ensures feature 201 integrates with observability and configuration.
+
+  ### 5. Logging Strategy
+
+  **Chosen:** Use sheep.observability.logging.get_logger() for structured logging
+
+  **Rejected:**
+  - Python standard logging: misses platform integration
+  - Print statements: no log levels, no tracing integration
+
+  **Rationale:** The sheep platform uses structlog with Langfuse integration. Using get_logger()
+  ensures all major operations (content generation, file creation, validation, git operations) are
+  logged in structured format with tracing integration.
+
+  ### 6. Git Workflow Implementation
+
+  **Chosen:** Use subprocess to invoke git commands directly (add, commit, push)
+
+  **Rejected:**
+  - GitPython library: adds dependency overhead for simple operations
+  - Shell script wrapper: less portable, harder to test
+
+  **Rationale:** Feature 198 pattern uses subprocess.run() successfully. The commands are simple
+  (git add, git commit -m, git push -u origin HEAD) and subprocess provides excellent error handling.
+  This keeps implementation lightweight and consistent with established patterns.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | src/create_markdown.py | Content generation with Claude API | Use | Proven utility with retry logic, response parsing, and validation. Reusing validates the abstraction. |
+  | CrewAI (>=0.86.0) | LLM orchestration and integration | Use | Required by platform; used via sheep.config.llm module for API access. |
+  | Anthropic SDK | Claude API client | Use (indirectly) | Used by CrewAI; accessed via sheep.config.llm.get_reasoning_llm(). |
+  | GitPython (>=3.1.0) | Git operations | Reject | Not needed; subprocess.run() with git commands is simpler and proven in feature 198. |
+  | pathlib | File system operations | Use | Standard library, used for file creation, reading, validation. Cleaner than os.path. |
+  | subprocess | External command execution | Use | Used for git operations (add, commit, push). Standard library, proven pattern. |
+  | structlog (>=24.0.0) | Structured logging | Use | Platform standard; accessed via sheep.observability.logging.get_logger(). |
+  | Pydantic (>=2.0.0) | Configuration and validation | Use | Platform standard; used by sheep.config module for settings management. |
+
+  ## Security Considerations
+
+  1. **File Path Traversal:** Feature writes to root directory only (test-lihjez.md). No user input in
+     file paths. File existence check prevents overwriting. No vulnerability.
+
+  2. **Content Injection:** Claude API generates content; feature doesn't accept user input. Content
+     written as UTF-8 text to markdown file. No injection vectors (markdown is safe format).
+
+  3. **Command Injection:** Git commands are invoked via subprocess.run() with explicit argument
+     list, not shell=True. File paths are hardcoded. No command injection risk.
+
+  4. **File Permissions:** Feature creates file with default permissions (typically 0o644 on Unix).
+     No sensitive data. Readable by all users; writable only by feature owner. Acceptable.
+
+  5. **API Key Management:** Claude API key access through sheep.config.llm module handles secrets
+     securely via Pydantic SecretStr. Keys not exposed in logs or error messages. Secure.
+
+  6. **Error Messages:** Validation errors report specific failures (e.g., file size, line endings)
+     without exposing system paths or API details. Safe to log and display.
+
+  7. **Git Operations:** Pushes to feature branch (origin/HEAD) on the current branch. No force push.
+     Safe and consistent with feature 198 pattern.
+
+  ## Performance Implications
+
+  1. **Content Generation:** Claude API call (via get_reasoning_llm()) is the slowest operation.
+     Typical latency: 1-5 seconds. Retry logic with exponential backoff (up to 3 attempts) could
+     extend to 10+ seconds on failures. Acceptable per NFR-10 (<2 minutes total).
+
+  2. **File Validation:** All validation functions operate on small file (<600 bytes). Encoding check
+     reads full file as bytes (negligible cost). Line ending check does one regex scan. Structure
+     validation splits on newlines and counts sentences (simple string operations). Total: <10ms.
+
+  3. **Git Operations:** Local git operations (add, commit, push) depend on network latency for push.
+     Typical: <1 second for add, <100ms for commit, 1-5 seconds for push. Total git: <10 seconds.
+
+  4. **Total Execution Time:** Content generation (1-10s) + validation (negligible) + git (10s) =
+     ~10-20 seconds typical, <2 minutes worst-case (per NFR-10). Well within limits.
+
+  5. **Memory Usage:** Content generation produces string <600 bytes. File validation reads file into
+     memory. Total memory: <10KB. Negligible impact.
+
+  6. **Disk I/O:** One file write operation (600 bytes) + git operations. Minimal impact on system.
+
+  ## Architecture Notes
+
+  ### Relationship to Existing Features
+
+  Feature 201 is part of the established markdown file creation series (190-200). It reuses:
+  - Content generation patterns from features 199-200
+  - Validation functions from src/create_markdown.py
+  - Git workflow patterns from feature 198
+  - Logging patterns via sheep.observability module
+  - LLM access via sheep.config.llm module
+
+  This consistency ensures:
+  - Proven abstractions tested across 11+ features
+  - Minimal divergence in implementation patterns
+  - Easier maintenance and debugging
+  - Clear success criteria (same structure as prior features)
+
+  ### Implementation Phases
+
+  Feature 201 follows the three-phase pattern established in features 190-200:
+
+  **Phase 1: Content Generation**
+  - Import generate_markdown_content() from src/create_markdown.py
+  - Call get_reasoning_llm() for Claude API access
+  - Retry logic with exponential backoff (max 3 attempts)
+  - Return title and prose content
+
+  **Phase 2: File Creation and Validation**
+  - Check file doesn't already exist (fail if it does per requirements)
+  - Write content with UTF-8 encoding, LF line endings
+  - Validate encoding (no BOM)
+  - Validate line endings (LF only)
+  - Validate structure (H1 heading, blank line, prose, final newline)
+  - Validate file size (400-600 bytes)
+  - Fail immediately on first validation error
+
+  **Phase 3: Git Integration**
+  - Stage file: git add test-lihjez.md
+  - Commit: git commit -m "feat(201): create markdown file test-lihjez.md..."
+  - Push: git push -u origin HEAD
+
+  ### Logging Strategy
+
+  Log major operations for observability:
+  - Content generation attempts and success
+  - File creation
+  - Each validation check (encoding, line endings, structure, size)
+  - Git operations (add, commit, push)
+  - Success or failure with specific error details
+
+  Use structured logging via sheep.observability.logging.get_logger() to ensure traces and
+  dashboards capture feature execution for debugging and monitoring.
+
+  ### Error Handling
+
+  Follow fail-fast principle:
+  - FileExistsError: File already exists (check before any operations)
+  - ValueError: Content generation or validation failure (specific message about what failed)
+  - FileNotFoundError: File missing after creation (unexpected, suggests I/O error)
+  - subprocess.CalledProcessError: Git operation failed (show git error message)
+  - Exception: Unexpected errors (log stack trace for debugging)
+
+  Each error message must be specific and actionable, not generic.
+
+  ## Implementation Constraints
+
+  1. **File size: 400-600 bytes** (strict per requirements)
+  2. **File name: test-lihjez.md** (exactly as specified)
+  3. **Location: repository root** (not in subdirectories)
+  4. **Encoding: UTF-8 without BOM** (no byte-order mark)
+  5. **Line endings: LF only** (no CRLF, no CR)
+  6. **Structure: H1 heading, blank line, prose, final newline**
+  7. **Content: Exactly 2-3 sentences** (validated by periods, question marks, exclamation marks)
+  8. **Git: Feature branch only** (no force push, conventional commit message)
+  9. **No pre-existing file** (fail if test-lihjez.md exists)
+  10. **All validations before git ops** (prevent partial commits)
+
+  ## Success Metrics
+
+  - ✅ File test-lihjez.md created in repository root
+  - ✅ File contains H1 heading and 2-3 sentences of prose
+  - ✅ File size 400-600 bytes (inclusive)
+  - ✅ UTF-8 encoding without BOM
+  - ✅ LF line endings exclusively
+  - ✅ Ends with exactly one newline
+  - ✅ Staged, committed, and pushed to origin
+  - ✅ No validation errors during execution
+  - ✅ Structured logs confirm all checks passed
+  - ✅ Completes in <2 minutes total execution time
+
+  ---
+
+  **Research Status:** Complete — ready for implementation planning
