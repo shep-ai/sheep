@@ -24,8 +24,6 @@ from src.create_markdown import (
     generate_markdown_content,
     create_markdown_file,
     validate_markdown_file,
-    stage_and_commit_file,
-    push_to_feature_branch,
 )
 
 # Module-level constants
@@ -34,6 +32,169 @@ COMMIT_MESSAGE = "feat(201): create markdown file test-lihjez.md"
 
 # Initialize logger
 _logger = get_logger(__name__)
+
+
+def git_add(filename: str) -> dict:
+    """
+    Stage a file using 'git add'.
+
+    Args:
+        filename: The filename to stage
+
+    Returns:
+        Dictionary with keys:
+        - 'success': Boolean indicating if add succeeded
+        - 'filename': The filename that was staged
+        - 'error': Error message if failed, None if successful
+    """
+    _logger.info(f"Staging file with git add: {filename}")
+    try:
+        result = subprocess.run(
+            ['git', 'add', filename],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"File staged successfully: {filename}")
+        return {
+            'success': True,
+            'filename': filename,
+            'error': None,
+        }
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Failed to stage file: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        return {
+            'success': False,
+            'filename': filename,
+            'error': error_msg,
+        }
+
+
+def git_commit(filename: str, commit_message: str) -> dict:
+    """
+    Create a commit with the specified message.
+
+    Args:
+        filename: The filename being committed (for logging)
+        commit_message: The commit message to use
+
+    Returns:
+        Dictionary with keys:
+        - 'success': Boolean indicating if commit succeeded
+        - 'commit_hash': The commit hash (short form) if successful, None otherwise
+        - 'error': Error message if failed, None if successful
+    """
+    _logger.info(f"Creating commit with message: {commit_message}")
+    try:
+        result = subprocess.run(
+            ['git', 'commit', '-m', commit_message],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        # Get the commit hash
+        try:
+            hash_result = subprocess.run(
+                ['git', 'rev-parse', 'HEAD'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            commit_hash = hash_result.stdout.strip()[:7]
+        except subprocess.CalledProcessError:
+            commit_hash = None
+
+        _logger.info(f"Commit created successfully (hash: {commit_hash})")
+        return {
+            'success': True,
+            'commit_hash': commit_hash,
+            'error': None,
+        }
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Failed to create commit: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        return {
+            'success': False,
+            'commit_hash': None,
+            'error': error_msg,
+        }
+
+
+def git_push(branch_name: str) -> dict:
+    """
+    Push commits to the feature branch on origin.
+
+    Args:
+        branch_name: The branch name to push to
+
+    Returns:
+        Dictionary with keys:
+        - 'success': Boolean indicating if push succeeded
+        - 'branch': The branch name
+        - 'error': Error message if failed, None if successful
+    """
+    _logger.info(f"Pushing to feature branch: {branch_name}")
+    try:
+        result = subprocess.run(
+            ['git', 'push', '-u', 'origin', branch_name],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"Push succeeded to {branch_name}")
+        return {
+            'success': True,
+            'branch': branch_name,
+            'error': None,
+        }
+    except subprocess.CalledProcessError as e:
+        error_msg = f"Failed to push to {branch_name}: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        return {
+            'success': False,
+            'branch': branch_name,
+            'error': error_msg,
+        }
+
+
+def git_workflow(filename: str, commit_message: str, branch_name: str) -> dict:
+    """
+    Execute complete git workflow: add, commit, push.
+
+    Args:
+        filename: The filename to stage and commit
+        commit_message: The commit message to use
+        branch_name: The branch name to push to
+
+    Returns:
+        Dictionary with keys:
+        - 'success': Boolean indicating if entire workflow succeeded
+        - 'errors': List of error messages (empty if successful)
+    """
+    _logger.info("Starting git workflow: add, commit, push")
+    errors = []
+
+    # Stage file
+    add_result = git_add(filename)
+    if not add_result['success']:
+        errors.append(add_result['error'])
+        return {'success': False, 'errors': errors}
+
+    # Commit
+    commit_result = git_commit(filename, commit_message)
+    if not commit_result['success']:
+        errors.append(commit_result['error'])
+        return {'success': False, 'errors': errors}
+
+    # Push
+    push_result = git_push(branch_name)
+    if not push_result['success']:
+        errors.append(push_result['error'])
+        return {'success': False, 'errors': errors}
+
+    _logger.info("Git workflow completed successfully")
+    return {'success': True, 'errors': []}
 
 
 def main():
@@ -101,21 +262,41 @@ def main():
         # Phase 3: Git integration
         _logger.info("Phase 3: Git integration (add, commit, push)...")
 
-        # Stage the file
-        _logger.info(f"Staging file: {FILENAME}")
-        stage_result = stage_and_commit_file(
+        # Get current branch name for pushing
+        try:
+            branch_result = subprocess.run(
+                ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            current_branch = branch_result.stdout.strip()
+            _logger.info(f"Current branch: {current_branch}")
+        except subprocess.CalledProcessError as e:
+            raise subprocess.CalledProcessError(
+                e.returncode,
+                e.cmd,
+                output=f"Failed to get current branch: {e.stderr or e.stdout}"
+            )
+
+        # Execute git workflow
+        workflow_result = git_workflow(
             filename=FILENAME,
-            commit_message=COMMIT_MESSAGE
+            commit_message=COMMIT_MESSAGE,
+            branch_name=current_branch
         )
-        _logger.info(f"File staged and committed: {stage_result}")
+
+        if not workflow_result['success']:
+            error_messages = '\n  '.join(workflow_result['errors'])
+            raise subprocess.CalledProcessError(
+                1,
+                'git workflow',
+                output=f"Git workflow failed:\n  {error_messages}"
+            )
+
         print(f"✓ Phase 3a: File staged with git add")
         print(f"✓ Phase 3b: File committed with message: {COMMIT_MESSAGE}")
-
-        # Push to feature branch
-        _logger.info("Pushing to feature branch...")
-        push_result = push_to_feature_branch()
-        _logger.info(f"Push result: {push_result}")
-        print(f"✓ Phase 3c: Pushed to remote origin")
+        print(f"✓ Phase 3c: Pushed to remote origin ({current_branch})")
 
         # Success
         print("\n" + "=" * 60)

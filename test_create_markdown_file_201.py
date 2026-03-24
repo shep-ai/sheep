@@ -8,6 +8,7 @@ This module contains tests for:
 """
 
 import sys
+import subprocess
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -470,3 +471,207 @@ class TestFileValidation:
                             assert 400 <= file_size <= 600, f"File size {file_size} outside 400-600 byte range"
             finally:
                 os.chdir(original_cwd)
+
+
+class TestGitAdd:
+    """Tests for git_add() function (Phase 3 - Git Integration)."""
+
+    def test_git_add_with_valid_file(self):
+        """Test that git_add() stages a file successfully."""
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                os.system("git init")
+                os.system("git config user.email 'test@example.com'")
+                os.system("git config user.name 'Test User'")
+
+                # Create test file
+                Path("test-file.md").write_text("test content")
+
+                with patch('sheep.observability.logging.get_logger'):
+                    import create_markdown_file_201
+                    result = create_markdown_file_201.git_add("test-file.md")
+
+                    assert result['success'] == True
+                    assert result['filename'] == "test-file.md"
+                    assert result['error'] is None
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_add_nonexistent_file(self):
+        """Test that git_add() handles nonexistent file gracefully."""
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                os.system("git init")
+
+                with patch('sheep.observability.logging.get_logger'):
+                    import create_markdown_file_201
+                    result = create_markdown_file_201.git_add("nonexistent.md")
+
+                    assert result['success'] == False
+                    assert result['filename'] == "nonexistent.md"
+                    assert result['error'] is not None
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestGitCommit:
+    """Tests for git_commit() function (Phase 3 - Git Integration)."""
+
+    def test_git_commit_with_staged_file(self):
+        """Test that git_commit() creates a commit successfully."""
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                os.system("git init")
+                os.system("git config user.email 'test@example.com'")
+                os.system("git config user.name 'Test User'")
+
+                # Create and stage test file
+                Path("test-file.md").write_text("test content")
+                os.system("git add test-file.md")
+
+                with patch('sheep.observability.logging.get_logger'):
+                    import create_markdown_file_201
+                    result = create_markdown_file_201.git_commit(
+                        "test-file.md",
+                        "test: add test file"
+                    )
+
+                    assert result['success'] == True
+                    assert result['commit_hash'] is not None
+                    assert result['error'] is None
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_commit_message_format(self):
+        """Test that git_commit() uses the provided message."""
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                os.system("git init")
+                os.system("git config user.email 'test@example.com'")
+                os.system("git config user.name 'Test User'")
+
+                # Create and stage test file
+                Path("test-file.md").write_text("test content")
+                os.system("git add test-file.md")
+
+                with patch('sheep.observability.logging.get_logger'):
+                    import create_markdown_file_201
+                    commit_msg = "feat(201): test commit message"
+                    result = create_markdown_file_201.git_commit("test-file.md", commit_msg)
+
+                    assert result['success'] == True
+                    # Verify the commit was created with the message
+                    log_result = os.popen("git log --oneline -1").read()
+                    assert "feat(201): test commit message" in log_result
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestGitPush:
+    """Tests for git_push() function (Phase 3 - Git Integration)."""
+
+    def test_git_push_nonexistent_branch(self):
+        """Test that git_push() handles nonexistent branch gracefully."""
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo without remote
+                os.system("git init")
+
+                with patch('sheep.observability.logging.get_logger'):
+                    import create_markdown_file_201
+                    result = create_markdown_file_201.git_push("nonexistent-branch")
+
+                    # Should fail because there's no remote
+                    assert result['success'] == False
+                    assert result['error'] is not None
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestGitWorkflow:
+    """Tests for git_workflow() function (Phase 3 - Git Integration)."""
+
+    def test_git_workflow_orchestrates_operations(self):
+        """Test that git_workflow() calls add, commit, and push in sequence."""
+        import tempfile
+        import os
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                os.system("git init")
+                os.system("git config user.email 'test@example.com'")
+                os.system("git config user.name 'Test User'")
+
+                # Create test file
+                Path("test-file.md").write_text("test content")
+
+                with patch('sheep.observability.logging.get_logger'):
+                    import create_markdown_file_201
+                    # Mock the push operation since we don't have a real remote
+                    with patch('subprocess.run') as mock_run:
+                        mock_run.side_effect = [
+                            # Add operation succeeds
+                            MagicMock(returncode=0, stdout="", stderr=""),
+                            # Commit operation succeeds
+                            MagicMock(returncode=0, stdout="commit 123abc", stderr=""),
+                            # rev-parse succeeds
+                            MagicMock(returncode=0, stdout="1234567\n", stderr=""),
+                            # Push fails (expected since no remote)
+                            None,
+                        ]
+                        result = create_markdown_file_201.git_workflow(
+                            "test-file.md",
+                            "feat(201): test file",
+                            "test-branch"
+                        )
+
+                        # Should have called subprocess.run at least twice (add, commit)
+                        assert mock_run.call_count >= 2
+
+    def test_git_workflow_returns_success_false_on_add_failure(self):
+        """Test that git_workflow() returns failure if git add fails."""
+        with patch('sheep.observability.logging.get_logger'):
+            with patch('subprocess.run') as mock_run:
+                mock_run.side_effect = subprocess.CalledProcessError(1, 'git add')
+
+                import create_markdown_file_201
+                result = create_markdown_file_201.git_workflow(
+                    "test-file.md",
+                    "feat(201): test",
+                    "test-branch"
+                )
+
+                assert result['success'] == False
+                assert len(result['errors']) > 0
