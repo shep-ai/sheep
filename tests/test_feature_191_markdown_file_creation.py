@@ -328,6 +328,9 @@ class TestFeature191StructureValidation:
 
         # Should not raise any exception
         validate_structure(FILENAME)
+
+
+class TestFeature191LineEndingValidation:
     """Tests for task 4: Implement Unix LF line ending validation."""
 
     def setup_method(self):
