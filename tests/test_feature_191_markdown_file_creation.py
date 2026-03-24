@@ -684,3 +684,179 @@ class TestFeature191GitIntegration:
 
             with pytest.raises(subprocess.CalledProcessError):
                 git_push()
+
+
+class TestFeature191Integration:
+    """Tests for phase 5: Integration & Error Handling - main() function."""
+
+    def setup_method(self):
+        """Clean up any existing test file before each test."""
+        from sheep.features.feature_191_markdown_file_creation import FILENAME
+
+        test_file = Path(FILENAME)
+        if test_file.exists():
+            test_file.unlink()
+
+    def teardown_method(self):
+        """Clean up test file after each test."""
+        from sheep.features.feature_191_markdown_file_creation import FILENAME
+
+        test_file = Path(FILENAME)
+        if test_file.exists():
+            test_file.unlink()
+
+    def test_main_complete_workflow_success(self):
+        """Test that main() executes complete workflow successfully."""
+        from sheep.features.feature_191_markdown_file_creation import FILENAME, main
+
+        # Mock subprocess.run to avoid actual git operations
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            main()
+
+            # Verify file was created
+            assert Path(FILENAME).exists(), f"File {FILENAME} should exist after main()"
+
+            # Verify git operations were called in sequence
+            # Should be: git add, git commit, git push
+            assert mock_run.call_count == 3, f"Expected 3 git calls, got {mock_run.call_count}"
+
+            # Check git add was called first
+            first_call = mock_run.call_args_list[0]
+            assert first_call[0][0] == ["git", "add", FILENAME]
+
+            # Check git commit was called second
+            second_call = mock_run.call_args_list[1]
+            assert second_call[0][0][0:2] == ["git", "commit"]
+
+            # Check git push was called third
+            third_call = mock_run.call_args_list[2]
+            assert third_call[0][0] == ["git", "push", "-u", "origin", "HEAD"]
+
+    def test_main_validation_before_git_operations(self):
+        """Test that validation happens before git operations."""
+        from sheep.features.feature_191_markdown_file_creation import main
+
+        # Mock validate_file_size to raise ValueError (simulating validation failure)
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            with patch("sheep.features.feature_191_markdown_file_creation.validate_file_size") as mock_validate:
+                mock_validate.side_effect = ValueError("File size out of range")
+
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                # Verify git operations were NOT called
+                mock_run.assert_not_called()
+                assert exc_info.value.code == 1
+
+    def test_main_validation_encoding_prevents_git(self):
+        """Test that encoding validation failure prevents git operations."""
+        from sheep.features.feature_191_markdown_file_creation import main
+
+        # Mock validate_encoding to raise ValueError (simulating encoding failure)
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            with patch("sheep.features.feature_191_markdown_file_creation.validate_encoding") as mock_validate:
+                mock_validate.side_effect = ValueError("Invalid UTF-8 encoding")
+
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                # Verify git operations were NOT called
+                mock_run.assert_not_called()
+                assert exc_info.value.code == 1
+
+    def test_main_validation_structure_prevents_git(self):
+        """Test that structure validation failure prevents git operations."""
+        from sheep.features.feature_191_markdown_file_creation import main
+
+        # Mock validate_structure to raise ValueError (simulating structure failure)
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            with patch("sheep.features.feature_191_markdown_file_creation.validate_structure") as mock_validate:
+                mock_validate.side_effect = ValueError("Invalid markdown structure")
+
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                # Verify git operations were NOT called
+                mock_run.assert_not_called()
+                assert exc_info.value.code == 1
+
+    def test_main_exits_with_zero_on_success(self):
+        """Test that main() exits with code 0 on successful completion."""
+        from sheep.features.feature_191_markdown_file_creation import FILENAME
+
+        # Mock subprocess.run to avoid actual git operations
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            with patch("sys.exit") as mock_exit:
+                from sheep.features.feature_191_markdown_file_creation import main
+                main()
+
+                # main() should not call sys.exit on success (just returns normally)
+                # If it did call sys.exit, it should be with 0
+                if mock_exit.called:
+                    mock_exit.assert_called_with(0)
+
+    def test_main_exits_with_one_on_validation_failure(self):
+        """Test that main() exits with code 1 on validation failure."""
+        from sheep.features.feature_191_markdown_file_creation import main
+
+        # Mock validate_file_size to raise ValueError
+        with patch("sheep.features.feature_191_markdown_file_creation.validate_file_size") as mock_validate:
+            mock_validate.side_effect = ValueError("File size out of range")
+
+            with patch("sys.exit") as mock_exit:
+                main()
+
+                # Should exit with code 1
+                mock_exit.assert_called_with(1)
+
+    def test_main_exits_with_one_on_git_failure(self):
+        """Test that main() exits with code 1 on git operation failure."""
+        from sheep.features.feature_191_markdown_file_creation import FILENAME
+
+        # Mock git operations to fail
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            # Make git add fail
+            mock_run.side_effect = subprocess.CalledProcessError(1, "git add")
+
+            with patch("sys.exit") as mock_exit:
+                from sheep.features.feature_191_markdown_file_creation import main
+                main()
+
+                # Should exit with code 1
+                mock_exit.assert_called_with(1)
+
+    def test_main_file_exists_error_prevents_execution(self):
+        """Test that main() fails if file already exists."""
+        from sheep.features.feature_191_markdown_file_creation import FILENAME
+
+        # Create file so it already exists
+        Path(FILENAME).write_text("# Existing\n\nThis file already exists.\n", encoding="utf-8", newline="\n")
+
+        with patch("sys.exit") as mock_exit:
+            from sheep.features.feature_191_markdown_file_creation import main
+            main()
+
+            # Should exit with code 1
+            mock_exit.assert_called_with(1)
+
+    def test_main_prints_progress_messages(self, capsys):
+        """Test that main() prints progress messages for each phase."""
+        from sheep.features.feature_191_markdown_file_creation import FILENAME
+
+        # Mock subprocess.run to avoid actual git operations
+        with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
+            from sheep.features.feature_191_markdown_file_creation import main
+            main()
+
+            # Capture printed output
+            captured = capsys.readouterr()
+            output = captured.out
+
+            # Verify progress messages were printed
+            assert "Created test-u1rtbw.md" in output
+            assert "UTF-8 encoding" in output
+            assert "Unix LF line endings" in output
+            assert "markdown structure" in output
+            assert "file size" in output
+            assert "git add" in output or "Staged" in output
+            assert "completed successfully" in output

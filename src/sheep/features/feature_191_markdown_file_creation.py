@@ -79,7 +79,7 @@ def validate_encoding() -> None:
     try:
         binary_content.decode("utf-8")
     except UnicodeDecodeError as e:
-        raise ValueError(f"File {FILENAME} contains invalid UTF-8 encoding: {e}")
+        raise ValueError(f"File {FILENAME} contains invalid UTF-8 encoding: {e}") from e
 
 
 def validate_line_endings(filename: str = FILENAME) -> None:
@@ -168,11 +168,7 @@ def validate_structure(filename: str) -> None:
     prose_text = "\n".join(prose_lines).strip()
     sentence_count = count_sentences(prose_text)
 
-    if sentence_count < 2:
-        raise ValueError(
-            f"Invalid markdown structure: expected 2-3 sentences, found {sentence_count}"
-        )
-    elif sentence_count > 3:
+    if not (2 <= sentence_count <= 3):
         raise ValueError(
             f"Invalid markdown structure: expected 2-3 sentences, found {sentence_count}"
         )
@@ -191,15 +187,15 @@ def validate_file_size(filename: str) -> None:
     Raises:
         ValueError: If file size is outside the acceptable range (450-550 bytes)
     """
-    MIN_SIZE = 450
-    MAX_SIZE = 550
+    min_size = 450
+    max_size = 550
 
     file_path = Path(filename)
     file_size = file_path.stat().st_size
 
-    if not (MIN_SIZE <= file_size <= MAX_SIZE):
+    if not (min_size <= file_size <= max_size):
         raise ValueError(
-            f"File size {file_size} bytes outside acceptable range {MIN_SIZE}-{MAX_SIZE} bytes"
+            f"File size {file_size} bytes outside acceptable range {min_size}-{max_size} bytes"
         )
 
 
