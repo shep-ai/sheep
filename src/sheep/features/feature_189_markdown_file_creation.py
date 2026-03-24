@@ -66,8 +66,8 @@ def validate_encoding(filepath: str) -> None:
     # Verify UTF-8 decoding
     try:
         binary_content.decode("utf-8")
-    except UnicodeDecodeError:
-        raise ValueError("File must be UTF-8 encoded")
+    except UnicodeDecodeError as e:
+        raise ValueError("File must be UTF-8 encoded") from e
 
 
 def validate_line_endings(filepath: str) -> None:

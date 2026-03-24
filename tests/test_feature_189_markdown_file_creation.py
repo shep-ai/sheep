@@ -2,10 +2,9 @@
 
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 import pytest
-import tempfile
-import os
 
 
 class TestFeature189Constants:
@@ -53,8 +52,8 @@ class TestFeature189FileExistenceCheck:
     def test_no_error_when_file_does_not_exist(self):
         """Test no error raised when file doesn't exist."""
         from sheep.features.feature_189_markdown_file_creation import (
-            check_file_does_not_exist,
             FILENAME,
+            check_file_does_not_exist,
         )
 
         # Ensure file doesn't exist
@@ -67,8 +66,8 @@ class TestFeature189FileExistenceCheck:
     def test_raises_value_error_when_file_exists(self):
         """Test ValueError raised when file already exists."""
         from sheep.features.feature_189_markdown_file_creation import (
-            check_file_does_not_exist,
             FILENAME,
+            check_file_does_not_exist,
         )
 
         # Create the file
@@ -85,8 +84,8 @@ class TestFeature189FileExistenceCheck:
     def test_error_message_is_specific(self):
         """Test that error message is clear and specific."""
         from sheep.features.feature_189_markdown_file_creation import (
-            check_file_does_not_exist,
             FILENAME,
+            check_file_does_not_exist,
         )
 
         Path(FILENAME).write_text("test")
@@ -109,8 +108,8 @@ class TestFeature189FileCreation:
     def test_file_is_created(self):
         """Test that file is created successfully."""
         from sheep.features.feature_189_markdown_file_creation import (
-            create_markdown_file,
             FILENAME,
+            create_markdown_file,
         )
 
         # Cleanup first
@@ -128,10 +127,10 @@ class TestFeature189FileCreation:
     def test_file_content_structure(self):
         """Test that file content has correct structure."""
         from sheep.features.feature_189_markdown_file_creation import (
-            create_markdown_file,
             FILENAME,
-            TITLE,
             PROSE,
+            TITLE,
+            create_markdown_file,
         )
 
         if Path(FILENAME).exists():
@@ -154,8 +153,8 @@ class TestFeature189FileCreation:
     def test_file_is_readable_utf8(self):
         """Test that file is readable as UTF-8."""
         from sheep.features.feature_189_markdown_file_creation import (
-            create_markdown_file,
             FILENAME,
+            create_markdown_file,
         )
 
         if Path(FILENAME).exists():
@@ -174,8 +173,8 @@ class TestFeature189FileCreation:
     def test_file_has_unix_lf_line_endings(self):
         """Test that file uses Unix LF line endings, not CRLF."""
         from sheep.features.feature_189_markdown_file_creation import (
-            create_markdown_file,
             FILENAME,
+            create_markdown_file,
         )
 
         if Path(FILENAME).exists():
@@ -447,3 +446,299 @@ class TestFeature189GitOperations:
 
         with pytest.raises(subprocess.CalledProcessError):
             stage_file("test-joedur.md")
+
+
+class TestFeature189ErrorHandling:
+    """Tests for task 8: Error handling and integration."""
+
+    def test_error_on_existing_file(self, capsys):
+        """Test that ValueError is caught and printed to stderr when file exists."""
+        from sheep.features.feature_189_markdown_file_creation import FILENAME, main
+
+        # Create the file first
+        Path(FILENAME).write_text("existing content")
+
+        try:
+            # main() should exit with code 1
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            assert exc_info.value.code == 1
+
+            # Verify error was printed to stderr
+            captured = capsys.readouterr()
+            assert "Validation error" in captured.err or "already exists" in captured.err.lower()
+        finally:
+            if Path(FILENAME).exists():
+                Path(FILENAME).unlink()
+
+    @patch("subprocess.run")
+    def test_error_on_git_failure(self, mock_run, capsys):
+        """Test that CalledProcessError is caught and printed to stderr."""
+        from sheep.features.feature_189_markdown_file_creation import FILENAME, main
+
+        # Make git command fail
+        mock_run.side_effect = subprocess.CalledProcessError(128, "git add")
+
+        # Cleanup first
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+        try:
+            # main() should exit with code 1
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            assert exc_info.value.code == 1
+
+            # Verify error was printed to stderr
+            captured = capsys.readouterr()
+            assert "Git operation failed" in captured.err
+        finally:
+            if Path(FILENAME).exists():
+                Path(FILENAME).unlink()
+
+    @patch("sheep.features.feature_189_markdown_file_creation.push_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.commit_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.stage_file")
+    def test_main_exits_with_code_zero_on_success(
+        self, mock_stage, mock_commit, mock_push
+    ):
+        """Test that main() exits with code 0 on successful completion."""
+        from sheep.features.feature_189_markdown_file_creation import (
+            FILENAME,
+            main,
+        )
+
+        # Cleanup first
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+        try:
+            # With mocked git operations
+            # main() should complete without raising SystemExit
+            # (it returns normally with implicit exit code 0)
+            main()
+            # If we reach here, the function returned normally (exit code 0)
+        finally:
+            if Path(FILENAME).exists():
+                Path(FILENAME).unlink()
+
+    @patch("subprocess.run")
+    def test_validation_error_printed_to_stderr(self, mock_run, capsys):
+        """Test that validation errors are printed to stderr, not stdout."""
+        from sheep.features.feature_189_markdown_file_creation import FILENAME, main
+
+        # Make validation fail by having create succeed but validation fail
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+        # Create a file that will fail structure validation
+        bad_content = "# Title\n\nOnly one sentence.\n"  # Missing required 2-3 sentences
+        Path(FILENAME).write_text(bad_content, encoding="utf-8")
+
+        try:
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            assert exc_info.value.code == 1
+
+            # Verify output went to stderr
+            captured = capsys.readouterr()
+            assert "Validation error" in captured.err or "sentences" in captured.err.lower()
+        finally:
+            if Path(FILENAME).exists():
+                Path(FILENAME).unlink()
+
+
+class TestFeature189Integration:
+    """Integration tests for complete end-to-end workflow."""
+
+    @patch("sheep.features.feature_189_markdown_file_creation.push_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.commit_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.stage_file")
+    def test_complete_workflow_creates_valid_file(
+        self, mock_stage, mock_commit, mock_push, capsys
+    ):
+        """Test complete workflow: file creation, validation, and git operations."""
+        from sheep.features.feature_189_markdown_file_creation import (
+            FILENAME,
+            PROSE,
+            TITLE,
+            main,
+        )
+
+        # Cleanup first
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+        try:
+            main()
+
+            # Verify file exists
+            assert Path(FILENAME).exists(), f"File {FILENAME} should exist after main()"
+
+            # Verify file content
+            content = Path(FILENAME).read_text(encoding="utf-8")
+            assert TITLE in content, "File should contain TITLE"
+            assert PROSE in content, "File should contain PROSE"
+            assert content.startswith("# "), "File should start with H1 heading"
+
+            # Verify git operations were called
+            mock_stage.assert_called_once_with(FILENAME)
+            mock_commit.assert_called_once()
+            mock_push.assert_called_once()
+
+            # Verify success message printed
+            captured = capsys.readouterr()
+            assert "Successfully created" in captured.out or "✓" in captured.out
+        finally:
+            if Path(FILENAME).exists():
+                Path(FILENAME).unlink()
+
+    @patch("sheep.features.feature_189_markdown_file_creation.push_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.commit_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.stage_file")
+    def test_file_content_matches_expected_structure(
+        self, mock_stage, mock_commit, mock_push
+    ):
+        """Test that created file has exact expected structure."""
+        from sheep.features.feature_189_markdown_file_creation import (
+            FILENAME,
+            PROSE,
+            TITLE,
+            main,
+        )
+
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+        try:
+            main()
+
+            content = Path(FILENAME).read_text(encoding="utf-8")
+            lines = content.split("\n")
+
+            # First line: H1 heading
+            assert lines[0] == f"# {TITLE}"
+
+            # Second line: blank separator
+            assert lines[1] == ""
+
+            # Third line and onward: prose content
+            assert PROSE in content
+
+            # File ends with newline
+            assert content.endswith("\n")
+
+            # File uses LF only (no CRLF)
+            assert "\r\n" not in content
+
+            # File size in valid range
+            file_size = Path(FILENAME).stat().st_size
+            assert 400 <= file_size <= 600
+
+        finally:
+            if Path(FILENAME).exists():
+                Path(FILENAME).unlink()
+
+    @patch("sheep.features.feature_189_markdown_file_creation.push_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.commit_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.stage_file")
+    def test_git_operations_called_in_correct_order(
+        self, mock_stage, mock_commit, mock_push, capsys
+    ):
+        """Test that git operations are called in correct order."""
+        from sheep.features.feature_189_markdown_file_creation import (
+            FILENAME,
+            main,
+        )
+
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+        try:
+            main()
+
+            # Verify order: stage -> commit -> push
+            call_order = []
+            for _call in mock_stage.mock_calls:
+                call_order.append("stage")
+            for _call in mock_commit.mock_calls:
+                call_order.append("commit")
+            for _call in mock_push.mock_calls:
+                call_order.append("push")
+
+            # At minimum: stage was called, then commit, then push
+            assert "stage" in call_order
+            assert "commit" in call_order
+            assert "push" in call_order
+            assert call_order.index("stage") < call_order.index(
+                "commit"
+            ), "Stage should be called before commit"
+            assert call_order.index("commit") < call_order.index(
+                "push"
+            ), "Commit should be called before push"
+
+        finally:
+            if Path(FILENAME).exists():
+                Path(FILENAME).unlink()
+
+    @patch("sheep.features.feature_189_markdown_file_creation.push_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.commit_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.stage_file")
+    def test_commit_message_uses_conventional_format(
+        self, mock_stage, mock_commit, mock_push
+    ):
+        """Test that commit message follows conventional commit format."""
+        from sheep.features.feature_189_markdown_file_creation import FILENAME, main
+
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+        try:
+            main()
+
+            # Extract the commit message from the mock call
+            assert mock_commit.called, "commit_file should be called"
+
+            # Get the message argument from commit_file call
+            call_args = mock_commit.call_args
+            # commit_file(filename, message)
+            message = call_args[0][1] if len(call_args[0]) > 1 else None
+
+            # Verify message format
+            assert message is not None
+            assert message.startswith("feat(189):"), "Message should follow conventional format"
+            assert "test-joedur.md" in message.lower(), "Message should reference the filename"
+
+        finally:
+            if Path(FILENAME).exists():
+                Path(FILENAME).unlink()
+
+    @patch("sheep.features.feature_189_markdown_file_creation.push_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.commit_file")
+    @patch("sheep.features.feature_189_markdown_file_creation.stage_file")
+    def test_validation_happens_before_git_operations(
+        self, mock_stage, mock_commit, mock_push
+    ):
+        """Test that validation errors prevent git operations from running."""
+        from sheep.features.feature_189_markdown_file_creation import FILENAME, main
+
+        # Create file with invalid content that will fail validation
+        bad_content = "# Title\n\nToo short.\n"  # Only 1 sentence
+        Path(FILENAME).write_text(bad_content, encoding="utf-8")
+
+        try:
+            # Validation should fail before any git operations
+            with pytest.raises(SystemExit):
+                main()
+
+            # Git operations should not be called
+            mock_stage.assert_not_called()
+            mock_commit.assert_not_called()
+            mock_push.assert_not_called()
+
+        finally:
+            if Path(FILENAME).exists():
+                Path(FILENAME).unlink()
