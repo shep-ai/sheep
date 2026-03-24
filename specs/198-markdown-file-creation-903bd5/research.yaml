@@ -1,0 +1,432 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-903bd5"
+summary: "Technical analysis for markdown file creation feature. Uses Claude API for AI-generated prose, pathlib for file I/O, subprocess for git operations, and comprehensive regex-based validation before committing. Follows established pattern from 198+ existing test files (features 150-197) with no external dependencies beyond project baseline."
+
+# Relationships
+relatedFeatures:
+  - number: 197
+    name: "markdown-file-creation-011064"
+    relationship: "Immediately preceding feature with identical implementation pattern; serves as direct code precedent"
+  - number: 196
+    name: "markdown-file-creation-be60a2"
+    relationship: "Identical pattern for file creation, prose generation, validation, and git workflow"
+  - number: 195
+    name: "markdown-prose-file"
+    relationship: "Identical pattern establishing baseline quality standards and implementation approach"
+
+technologies:
+  - "Python 3.11+ (standard library: pathlib, subprocess, re, unicodedata)"
+  - "Anthropic Claude API (content generation via anthropic SDK)"
+  - "Markdown (CommonMark specification v0.30)"
+  - "Git 2.x (git add, git commit, git push commands)"
+  - "UTF-8 text encoding (no BOM)"
+  - "Unix LF line endings (\\n)"
+  - "Regular expressions (sentence detection and validation)"
+
+relatedLinks:
+  - title: "Sheep Project Repository"
+    url: "https://github.com/jobnik/sheep"
+  - title: "CommonMark Markdown Specification (v0.30)"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Anthropic Python SDK"
+    url: "https://github.com/anthropics/anthropic-sdk-python"
+
+# Structured technology decisions
+decisions:
+  - title: "Content Generation Method"
+    chosen: "Claude API via Anthropic SDK for AI-generated prose"
+    rejected:
+      - "OpenAI API (ChatGPT) — Project already uses Anthropic SDKs, not OpenAI; would introduce new dependency inconsistency"
+      - "Template-based prose — Spec explicitly rejects templated content; produces repetitive, low-quality output"
+      - "Random word generation or Lorem Ipsum — Produces nonsensical content, fails to showcase platform capabilities"
+    rationale: "Feature spec explicitly selects AI-generated prose to maintain quality standards from features 150-197, ensure uniqueness across 198+ files, and demonstrate platform automation capability. Anthropic SDK is already integrated in the project (crewaiwrapper.py, llm.py). Claude excels at generating coherent, meaningful prose on arbitrary topics. Single API call efficient for this small feature."
+
+  - title: "File I/O Library"
+    chosen: "Python pathlib.Path (standard library)"
+    rejected:
+      - "os.open() and os.write() — Lower-level API, more verbose, requires manual encoding handling"
+      - "open() builtin function — Works but pathlib is modern standard, more cross-platform, type-safe"
+    rationale: "pathlib.Path is modern Python standard since 3.4, already used throughout project codebase, provides method chaining, built-in encoding/newline parameter support (critical for UTF-8 with LF requirement), cross-platform path handling. Codebase analysis shows pathlib usage in pyproject.toml."
+
+  - title: "Line Ending Strategy"
+    chosen: "Explicit newline='\\n' parameter in Path.write_text() to enforce Unix LF"
+    rejected:
+      - "Relying on Python platform defaults — On Windows, default is CRLF; fails success criteria"
+      - "Post-processing file with sed/tr after creation — Slower, adds error surface, fragile"
+    rationale: "Success criteria explicitly requires Unix LF line endings. pathlib.write_text() accepts newline parameter. Specifying newline='\\n' ensures LF on all platforms (Windows, Linux, macOS). Zero performance overhead. Validation must verify this requirement."
+
+  - title: "Encoding and BOM Handling"
+    chosen: "UTF-8 encoding (explicit, no BOM) via Path.write_text(encoding='utf-8')"
+    rejected:
+      - "Default system encoding — Varies by platform/locale; may produce BOM on some systems; violates spec"
+      - "Manual bytes writing — More complex, requires explicit UTF-8 encoder configuration"
+    rationale: "Success criteria requires UTF-8 without BOM. Python's write_text(encoding='utf-8') produces UTF-8 without BOM by default (correct behavior since Python 3.x). Explicit parameter for clarity. BOM validation needed during comprehensive validation step."
+
+  - title: "Validation Approach"
+    chosen: "Comprehensive validation before commit: syntax, sentence count, encoding, line endings, file size"
+    rejected:
+      - "Minimal validation (only file exists, readable, has content) — Allows invalid content through; increases rework risk"
+      - "No validation (trust content and commit immediately) — Highest risk; contradicts established pattern from features 150-197"
+    rationale: "Feature spec explicitly requires comprehensive validation. Catches errors early avoiding rework. Requires 2-3 minutes additional work but prevents commits that could be immediately reverted. Spec lists specific validation criteria: markdown syntax check, exactly 2-3 sentences, UTF-8 no BOM, LF only, 250-600 byte range. Aligns with quality standards from precedent features."
+
+  - title: "Sentence Detection and Counting"
+    chosen: "Regex-based sentence detection: count terminal punctuation (. ! ?) excluding abbreviations"
+    rejected:
+      - "NLTK (Natural Language Toolkit) — External dependency, overkill for simple prose validation, adds 30MB dependency"
+      - "spaCy — Another NLP library, too heavy for this feature, requires model downloads"
+      - "Manual character/period counting without regex — Naive, fails on abbreviations and edge cases"
+    rationale: "Feature requires exactly 2-3 sentences. Simple regex pattern using Python standard library re module sufficient: detect sentence-final punctuation. Must exclude common abbreviations (Mr., Dr., etc.) and contractions. Pattern: count occurrences of [.!?] followed by space or end-of-line, excluding common abbreviations. Zero external dependencies. Fast, reliable for prose validation."
+
+  - title: "Git Operations Tooling"
+    chosen: "subprocess module (standard library) with git command-line interface"
+    rejected:
+      - "GitPython library — External library (available in project but not required); adds abstraction layer, slightly slower"
+      - "os.system() — Security risk (shell injection), less control over output/errors, platform-specific"
+      - "Direct libgit2 bindings — Overengineered, requires native library installation"
+    rationale: "Spec allows subprocess for git operations. subprocess is standard library, safe (command as list prevents shell injection), provides stderr/stdout capture for error handling. Three simple operations: git add, git commit, git push. subprocess.run() sufficient. GitPython not needed for this minimal workflow. Direct git commands proven reliable in features 150-197."
+
+  - title: "Title and Prose Generation Coordination"
+    chosen: "Single Claude API call requesting both title and prose in one prompt"
+    rejected:
+      - "Two separate API calls (one for title, one for prose) — Doubles latency, doubles costs, risks theme mismatch"
+      - "Generate prose first, then extract/summarize for title — More complex, may not create cohesive theme"
+      - "Template titles with generated prose — Maintains spec requirement for thematic relationship but lower quality titles"
+    rationale: "Spec requires thematic relationship between title and prose. Single coordinated API call ensures both are generated with shared context. Prompt structure: request specific markdown format (# Title, blank line, 2-3 sentences). More efficient than separate calls. Easier to validate both requirements simultaneously."
+
+  - title: "Error Handling Strategy"
+    chosen: "Explicit error handling at each stage with informative error messages; raise exceptions for validation failures"
+    rejected:
+      - "Silent failures or generic exceptions — Makes debugging difficult, hides root cause"
+      - "Bare exception propagation without context — User sees cryptic Python tracebacks"
+    rationale: "Small feature with clear contract. Explicit error messages help debugging: 'Markdown validation failed: invalid heading format', 'Sentence count is X but requires 2-3', etc. File I/O failures, API failures, git command failures each need clear messages. Validation failures should prevent commit immediately (exceptions are appropriate). Follows established error handling pattern in codebase (structlog for logging)."
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: "How should prose content be generated?"
+    resolved: true
+    options:
+      - option: "AI-generated meaningful prose"
+        description: "Use Claude or another LLM to generate unique, coherent prose with meaningful topic coverage. Provides flexibility (\"about anything\"), maintains quality standards from features 150-197, demonstrates platform automation capability, ensures uniqueness across 198+ files."
+        selected: true
+      - option: "Templated prose"
+        description: "Use pre-written templates or boilerplate text. Faster implementation but results in repetitive, lower-quality output that weakens the overall quality baseline."
+        selected: false
+      - option: "Random or filler text"
+        description: "Use Lorem Ipsum or random word generation. Quick but produces nonsensical content that fails to meet quality standards and does not showcase platform capabilities."
+        selected: false
+    selectionRationale: "AI-generated content is recommended because it maintains the quality standards established in features 150-197, provides meaningful differentiation from previous files, demonstrates platform automation capability, and aligns with the user's flexible requirements (\"about anything\"). Feature spec explicitly selects this option."
+    answer: "AI-generated meaningful prose"
+
+  - question: "Should title and prose content be thematically related?"
+    resolved: true
+    options:
+      - option: "Yes - thematically related"
+        description: "Title and prose should share a coherent topic or theme. Maintains quality standards from precedent features, creates professional-looking output, ensures logical consistency that makes files indistinguishable from features 150-197."
+        selected: true
+      - option: "No - title and content can be unrelated"
+        description: "Title and prose can cover different topics. Reduces content generation complexity but creates disjointed, unprofessional files that would weaken the quality baseline."
+        selected: false
+      - option: "Flexible - either approach is acceptable"
+        description: "Allow either thematically related or unrelated content. Reduces constraints but introduces inconsistency across files, making some appear professional while others appear lower-quality."
+        selected: false
+    selectionRationale: "Thematic relationship is recommended because quality standards from features 150-197 demonstrate that professional, coherent files are the expectation. Disjointed content would be immediately noticeable and would contradict the established pattern of 198+ existing files. Feature spec explicitly selects this option. Single coordinated API call ensures thematic coherence."
+    answer: "Yes - thematically related"
+
+  - question: "What level of validation should be performed before committing the file?"
+    resolved: true
+    options:
+      - option: "Comprehensive validation"
+        description: "Validate markdown syntax, sentence count (exactly 2-3), encoding (UTF-8 no BOM), line endings (LF only), file size (250-600 bytes), and thematic relationship. Catches encoding/structure errors early, aligns with features 150-197 quality standards, minimal overhead (2-3 minutes), prevents rework."
+        selected: true
+      - option: "Minimal validation"
+        description: "Only verify file exists, is readable, and has some content. Faster but allows invalid content to be committed, increasing risk of rework and quality issues."
+        selected: false
+      - option: "No validation"
+        description: "Trust that the file is correct and commit immediately. Fastest but highest risk of committing invalid or low-quality content, contradicting precedent features."
+        selected: false
+    selectionRationale: "Comprehensive validation is recommended because it catches errors early (avoiding rework), aligns with the quality standards demonstrated in features 150-197, requires only minimal additional time (2-3 minutes), and prevents commits that could be immediately reverted. Feature spec explicitly selects this option. Small additional overhead prevents larger problems downstream."
+    answer: "Comprehensive validation"
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-24
+  - **Status:** Complete
+
+  ## Executive Summary
+
+  This feature creates a single markdown file (`test-l5g799.md`) in the repository root following the established pattern from 198+ existing test files (features 150-197). Implementation requires:
+
+  1. **Content Generation**: Single Claude API call to generate thematically-related title and 2-3 sentence prose
+  2. **File I/O**: pathlib.Path with explicit UTF-8 encoding and Unix LF line endings
+  3. **Validation**: Comprehensive regex-based validation (markdown syntax, sentence count, encoding, line endings, file size)
+  4. **Git Workflow**: Standard subprocess-based git operations (add, commit, push)
+
+  No external dependencies beyond project baseline (Anthropic SDK already available). Estimated 10-15 minutes implementation time. Zero risk to existing codebase (creates single new file only).
+
+  ## Technology Decisions
+
+  ### 1. Content Generation: Claude API
+
+  **Chosen:** Anthropic Claude API via anthropic-sdk-python (already integrated)
+
+  **Rejected:**
+  - OpenAI API (ChatGPT) — Project uses Anthropic SDKs; would introduce dependency inconsistency
+  - Template-based prose — Spec rejects as low-quality and repetitive
+  - Random/Lorem Ipsum text — Fails quality standards and doesn't demonstrate platform capabilities
+
+  **Rationale:** Feature spec explicitly requires AI-generated prose. Anthropic SDK is already integrated in project (referenced in crewaiwrapper.py and llm.py configuration). Claude excels at generating coherent, meaningful prose on arbitrary topics in single API call. Efficient for this small feature.
+
+  **Implementation Detail:** Single API call with prompt structure: generate markdown with `# Title` heading, blank line, then 2-3 sentences of prose on related topic. Response parsing extracts title and prose separately.
+
+  ### 2. File I/O: pathlib.Path (standard library)
+
+  **Chosen:** Python pathlib.Path for cross-platform file operations
+
+  **Rejected:**
+  - os.open() + os.write() — Lower-level, verbose, requires manual encoding
+  - open() builtin — Works but pathlib is modern standard with better encoding support
+
+  **Rationale:** pathlib.Path is standard Python since 3.4, provides clean API with encoding and newline parameters (critical for UTF-8 with LF requirement). Cross-platform path handling. Likely already used in codebase. Method: `Path('.').joinpath('test-l5g799.md').write_text(content, encoding='utf-8', newline='\n')`.
+
+  **Validation Consideration:** After writing, validation must read file in binary mode to verify actual bytes contain correct encoding and line endings.
+
+  ### 3. Line Endings: Explicit Unix LF via newline parameter
+
+  **Chosen:** `newline='\n'` parameter in Path.write_text()
+
+  **Rejected:**
+  - Platform defaults — Would produce CRLF on Windows, violating spec
+  - Post-processing with sed/tr — Adds complexity, error surface, performance overhead
+
+  **Rationale:** Success criteria explicitly requires Unix LF line endings. Python's pathlib.write_text() accepts newline parameter. Setting `newline='\n'` enforces LF on all platforms. No performance overhead. Validation must verify actual bytes (0x0A not 0x0D0x0A).
+
+  ### 4. Encoding: UTF-8 without BOM via explicit parameter
+
+  **Chosen:** `encoding='utf-8'` in Path.write_text()
+
+  **Rejected:**
+  - Default system encoding — Platform-dependent, may include BOM
+  - Manual byte encoding — Unnecessarily complex
+
+  **Rationale:** Success criteria requires UTF-8 without BOM. Python's write_text(encoding='utf-8') produces UTF-8 without BOM (correct behavior since Python 3.x). Explicit parameter for clarity and to prevent accidental BOM introduction. Validation reads file bytes to confirm no UTF-8 BOM (0xEFBBBF).
+
+  ### 5. Validation: Comprehensive multi-stage approach
+
+  **Chosen:** Four validation stages before commit:
+  1. **Markdown syntax** — Verify `# Title` format on first line
+  2. **Sentence count** — Regex-based detection of exactly 2-3 sentences (terminal punctuation: . ! ?)
+  3. **Encoding/Line endings** — Read file bytes, verify UTF-8 (no BOM) and LF-only line endings
+  4. **File size** — Verify 250-600 byte range (typical for this pattern)
+
+  **Rejected:**
+  - Minimal validation — Allows invalid content through; increases rework
+  - No validation — Highest risk; contradicts quality standards from features 150-197
+
+  **Rationale:** Spec explicitly requires comprehensive validation. Catches errors early, prevents commits of invalid content. Requires 2-3 minutes but prevents rework. Quality standards from precedent features 150-197 demand this level of verification.
+
+  **Implementation:**
+  - Markdown check: regex `^#\s+\w+` on first line
+  - Sentence detection: regex `[.!?](?:\s|$)` with abbreviation filtering (exclude Mr., Dr., etc.)
+  - Encoding: read file as bytes, check for UTF-8 BOM marker (0xEFBBBF), verify no CRLF (0x0D)
+  - Size: `len(content.encode('utf-8'))` must be 250-600 bytes
+
+  ### 6. Sentence Detection: Regex with abbreviation handling
+
+  **Chosen:** Regular expression pattern for terminal punctuation with abbreviation filtering
+
+  **Rejected:**
+  - NLTK library — External 30MB dependency, overkill for simple validation
+  - spaCy — Another NLP library, requires model downloads
+  - Naive period counting — Fails on abbreviations (Mr., Dr., etc.)
+
+  **Rationale:** Feature requires exactly 2-3 sentences. Python re module (standard library) sufficient. Pattern to count sentence-final punctuation: `[.!?](?:\s|$)` detects . ! ? followed by space or end-of-line. Filter out common abbreviations by excluding periods preceded by single uppercase letter. Zero external dependencies. Fast and reliable for prose validation.
+
+  ### 7. Git Operations: subprocess with git CLI
+
+  **Chosen:** subprocess.run() with git commands as argument list
+
+  **Rejected:**
+  - GitPython library — External library; adds abstraction layer
+  - os.system() — Security risk (shell injection); less error control
+
+  **Rationale:** Spec allows subprocess. Standard library, safe (command as list prevents injection). Three operations needed: `git add`, `git commit`, `git push`. subprocess.run() provides stderr/stdout capture for error handling. GitPython not needed for this minimal workflow. Proven pattern in features 150-197.
+
+  **Implementation:** Three subprocess calls:
+  ```
+  subprocess.run(['git', 'add', 'test-l5g799.md'], check=True, capture_output=True)
+  subprocess.run(['git', 'commit', '-m', 'feat(198): Create markdown file test-l5g799.md with title and prose content'], check=True, capture_output=True)
+  subprocess.run(['git', 'push', 'origin', 'feat/198-markdown-file-creation-903bd5'], check=True, capture_output=True)
+  ```
+
+  ### 8. Title/Prose Generation: Coordinated single API call
+
+  **Chosen:** Single Claude API prompt requesting both title and prose with thematic relationship
+
+  **Rejected:**
+  - Separate API calls — Doubles latency, cost, risks theme mismatch
+  - Generate prose then extract title — More complex, may not achieve cohesive theme
+  - Template titles — Lower quality alignment
+
+  **Rationale:** Spec requires thematic relationship between title and prose. Single coordinated API call ensures both generated with shared context. Prompt specifies exact format (markdown with # Title, blank line, 2-3 sentences). More efficient than separate calls. Response parsing extracts title and prose. Easier to validate both requirements simultaneously.
+
+  **Prompt Structure:**
+  ```
+  Generate a markdown file with the following structure:
+  1. First line: # Title (replace Title with a creative, one-phrase title)
+  2. Blank line
+  3. Exactly 2-3 sentences of prose content related to the title
+
+  The topic can be about anything. Ensure the prose is coherent, meaningful, and thematically related to the title.
+  ```
+
+  ### 9. Error Handling: Explicit with contextual messages
+
+  **Chosen:** Explicit error handling at each stage with informative error messages
+
+  **Rejected:**
+  - Silent failures — Makes debugging difficult
+  - Bare exception propagation — Cryptic Python tracebacks
+
+  **Rationale:** Clear error messages help debugging. Examples: "Markdown validation failed: invalid heading format", "Sentence count is 1 but requires 2-3", "File encoding contains BOM", "Git push failed: check branch configuration". Validation failures should raise exceptions immediately (prevents bad commits). Follows established error handling in codebase (structlog for logging).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | anthropic (Anthropic SDK) | Content generation via Claude API | **Use** | Already integrated in project; excels at prose generation; specified in spec |
+  | pathlib (Python stdlib) | File I/O operations | **Use** | Standard library; clean encoding/newline support; modern Python standard |
+  | subprocess (Python stdlib) | Execute git commands | **Use** | Standard library; safe argument list format; proven in features 150-197 |
+  | re (Python stdlib) | Regex-based validation | **Use** | Standard library; sufficient for sentence detection and syntax validation |
+  | unicodedata (Python stdlib) | Unicode handling for BOM detection | **Use** | Standard library; optional but recommended for robust UTF-8 validation |
+  | GitPython | Alternative git operations | **Reject** | External dependency; subprocess is simpler for 3 basic operations; adds abstraction |
+  | NLTK | Natural Language Toolkit for sentence parsing | **Reject** | External 30MB dependency; overkill for simple terminal punctuation detection |
+  | spaCy | Advanced NLP library | **Reject** | External dependency; requires model downloads; excessive for this feature |
+  | os (stdlib functions) | Alternative file I/O | **Reject** | Lower-level than pathlib; requires more verbose code; less elegant |
+  | json (Python stdlib) | Not needed | **Reject** | Feature doesn't require JSON serialization |
+
+  ## Security Considerations
+
+  ### Content Generation
+  - **Low Risk:** Claude API content is generated by trusted LLM, not from user input
+  - **Mitigation:** Validate prose content length and structure before file write
+
+  ### File Path Handling
+  - **Low Risk:** Filename is hardcoded (`test-l5g799.md`), no path injection possible
+  - **No user input in path construction**
+
+  ### Git Command Execution
+  - **Low Risk:** subprocess.run() called with argument list (not shell=True), prevents command injection
+  - **Mitigation:** Use list format for all git commands, never string concatenation
+
+  ### Encoding/Line Endings
+  - **Low Risk:** UTF-8 encoding is safe; explicit newline parameter prevents platform-specific issues
+  - **No risk of encoding-based attacks with simple ASCII/Unicode prose**
+
+  ### File System Permissions
+  - **Medium Risk:** Requires write access to repository root (already available in feature branch context)
+  - **Mitigation:** Catch file permission errors explicitly
+
+  **No new security vulnerabilities introduced.** Implementation uses safe patterns from standard library with no external untrusted inputs. Feature creates single markdown file only (no modifications to existing files).
+
+  ## Performance Implications
+
+  ### Latency
+  - **Claude API call:** 0.5-2 seconds (primary latency; network-dependent)
+  - **File I/O:** < 1ms (single write operation, small file)
+  - **Validation:** < 10ms (regex operations on ~400 bytes)
+  - **Git operations:** 1-5 seconds (network-dependent push; local add/commit < 100ms)
+  - **Total estimate:** 2-7 seconds (dominated by API and push latency)
+
+  ### Resource Usage
+  - **Memory:** Minimal (~1MB for content string and file buffer)
+  - **Disk:** Adds ~400 bytes to repository (negligible)
+  - **Network:** Single API call + one git push
+
+  ### Caching Opportunities
+  - **Not applicable:** Single execution per feature; no repeated calls
+  - **No optimization needed** for this small feature
+
+  ### Scaling Implications
+  - **Not applicable:** Feature creates one file, no loops or repetitive operations
+  - **Future multiple-file features** should batch API calls for efficiency
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Platform
+
+  This feature follows the established pattern from features 150-197 precisely:
+
+  - **File Location:** Repository root (consistent with 198+ existing test files)
+  - **File Format:** CommonMark markdown with simple structure (H1 + prose)
+  - **Content Generation:** Claude API (established pattern in platform)
+  - **Git Workflow:** Conventional commits with feature branch (standard for Sheep)
+  - **Validation:** Comprehensive checks before commit (established quality baseline)
+
+  ### No Codebase Modifications
+
+  - **src/sheep/** — Not modified (feature is pure file creation)
+  - **Configuration files** — Not modified (uses existing Claude API configuration)
+  - **Dependencies** — None new (uses project baseline libraries)
+  - **Tests** — Not modified (feature has no logic to test)
+
+  ### Precedent and Consistency
+
+  Features 150-197 establish clear, proven patterns:
+  - Content generation via Claude API
+  - UTF-8 with Unix LF line endings
+  - Comprehensive validation before commit
+  - Conventional commit messages
+  - No modifications to source code
+
+  This feature follows those patterns exactly, ensuring consistency and quality.
+
+  ## Implementation Roadmap
+
+  ### Stage 1: Content Generation (3-5 minutes)
+  1. Call Claude API with prose generation prompt
+  2. Parse response to extract title and prose
+  3. Validate response has both components
+
+  ### Stage 2: File Creation (1-2 minutes)
+  1. Construct markdown file content (title + blank line + prose)
+  2. Write to `test-l5g799.md` using pathlib with UTF-8/LF settings
+  3. Verify file exists and is readable
+
+  ### Stage 3: Comprehensive Validation (2-3 minutes)
+  1. Verify markdown syntax (H1 heading format)
+  2. Count sentences (regex terminal punctuation)
+  3. Validate encoding (UTF-8 no BOM)
+  4. Verify line endings (LF only)
+  5. Check file size (250-600 bytes)
+  6. Raise exceptions for any validation failures
+
+  ### Stage 4: Git Workflow (2-5 minutes)
+  1. Execute `git add test-l5g799.md`
+  2. Execute `git commit` with conventional message
+  3. Execute `git push` to feature branch
+  4. Verify push success
+
+  **Total estimated time:** 10-15 minutes (consistent with spec estimate)
+
+  ---
+
+  ## Questions Resolved During Research
+
+  All three open questions from the feature spec are resolved (as noted in spec):
+
+  1. **Content generation:** AI-generated meaningful prose (via Claude API) ✓
+  2. **Thematic relationship:** Title and prose must be thematically related ✓
+  3. **Validation:** Comprehensive validation before commit ✓
+
+  These decisions are fully detailed in the "Technology Decisions" section above.
