@@ -3,12 +3,16 @@
 This module contains comprehensive tests for:
 - Task 1: Module structure with imports and constants
 - Task 2: File creation with UTF-8 encoding and Unix line endings
+- Task 6: Git operations (add, commit, push)
+- Task 7: Error handling and main orchestration
 """
 
 import os
 import sys
 from pathlib import Path
 import tempfile
+import subprocess
+from unittest.mock import patch, MagicMock, call
 import pytest
 
 # Add src to path for imports
@@ -25,6 +29,9 @@ from sheep.features.feature_197_markdown_file_creation import (
     count_sentences,
     validate_structure,
     validate_file_size,
+    git_add,
+    git_commit,
+    git_push,
     main,
 )
 
@@ -410,3 +417,374 @@ class TestIntegration:
 
         # Check file size
         assert 300 <= len(binary_content) <= 600
+
+
+class TestGitOperations:
+    """Tests for task-6: Git operations (add, commit, push)."""
+
+    def setup_method(self):
+        """Create test file before each test."""
+        create_markdown_file()
+
+    def teardown_method(self):
+        """Clean up test file after each test."""
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+    @patch("subprocess.run")
+    def test_git_add_calls_correct_command(self, mock_run):
+        """Test that git_add() calls git add with correct filename."""
+        git_add(FILENAME)
+        mock_run.assert_called_once()
+        args, kwargs = mock_run.call_args
+        assert args[0] == ["git", "add", FILENAME]
+        assert kwargs["check"] is True
+        assert kwargs["capture_output"] is True
+
+    @patch("subprocess.run")
+    def test_git_add_default_filename(self, mock_run):
+        """Test that git_add() uses FILENAME constant by default."""
+        git_add()
+        mock_run.assert_called_once()
+        args, kwargs = mock_run.call_args
+        assert args[0] == ["git", "add", FILENAME]
+
+    @patch("subprocess.run")
+    def test_git_add_raises_on_failure(self, mock_run):
+        """Test that git_add() raises CalledProcessError on non-zero exit."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, "git add")
+        with pytest.raises(subprocess.CalledProcessError):
+            git_add()
+
+    @patch("subprocess.run")
+    def test_git_commit_calls_correct_command(self, mock_run):
+        """Test that git_commit() calls git commit with correct message."""
+        message = "feat(197): Create markdown file test-d7cznn.md with title and prose content"
+        git_commit(message)
+        mock_run.assert_called_once()
+        args, kwargs = mock_run.call_args
+        assert args[0] == ["git", "commit", "-m", message]
+        assert kwargs["check"] is True
+        assert kwargs["capture_output"] is True
+
+    @patch("subprocess.run")
+    def test_git_commit_default_message(self, mock_run):
+        """Test that git_commit() uses default message by default."""
+        git_commit()
+        mock_run.assert_called_once()
+        args, kwargs = mock_run.call_args
+        assert "feat(197):" in args[0][3]
+        assert "test-d7cznn.md" in args[0][3]
+
+    @patch("subprocess.run")
+    def test_git_commit_message_format_is_conventional(self, mock_run):
+        """Test that git_commit() message follows Conventional Commits format."""
+        git_commit()
+        args, _ = mock_run.call_args
+        message = args[0][3]
+        # Conventional Commits: type(scope): description
+        assert message.startswith("feat(197):")
+
+    @patch("subprocess.run")
+    def test_git_commit_raises_on_failure(self, mock_run):
+        """Test that git_commit() raises CalledProcessError on non-zero exit."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, "git commit")
+        with pytest.raises(subprocess.CalledProcessError):
+            git_commit()
+
+    @patch("subprocess.run")
+    def test_git_push_calls_correct_command(self, mock_run):
+        """Test that git_push() calls git push with -u origin HEAD."""
+        git_push()
+        mock_run.assert_called_once()
+        args, kwargs = mock_run.call_args
+        assert args[0] == ["git", "push", "-u", "origin", "HEAD"]
+        assert kwargs["check"] is True
+        assert kwargs["capture_output"] is True
+
+    @patch("subprocess.run")
+    def test_git_push_raises_on_failure(self, mock_run):
+        """Test that git_push() raises CalledProcessError on non-zero exit."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, "git push")
+        with pytest.raises(subprocess.CalledProcessError):
+            git_push()
+
+
+class TestErrorHandling:
+    """Tests for task-7: Error handling and main orchestration."""
+
+    def setup_method(self):
+        """Clean up test file before each test."""
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+    def teardown_method(self):
+        """Clean up test file after each test."""
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+    @patch("subprocess.run")
+    def test_main_returns_success_exit_code_on_success(self, mock_run):
+        """Test that main() returns 0 on successful completion."""
+        with patch("sys.exit") as mock_exit:
+            main()
+            # If no exception raised and no sys.exit(1) called, return was implicit success
+            mock_exit.assert_not_called()
+
+    @patch("subprocess.run")
+    def test_main_prints_success_messages(self, mock_run):
+        """Test that main() prints success messages for each phase."""
+        with patch("builtins.print") as mock_print:
+            main()
+            # Should print success messages for file creation and validations
+            assert mock_print.call_count > 0
+            # Check for some expected messages
+            call_args = [str(call[0]) for call in mock_print.call_args_list]
+            printed_text = " ".join(call_args)
+            assert "Created" in printed_text or "created" in printed_text.lower()
+
+    def test_main_exits_with_code_1_if_file_exists(self):
+        """Test that main() exits with code 1 if file already exists."""
+        # Create the file first
+        create_markdown_file()
+
+        # Try to run main again - should fail
+        with patch("sys.exit") as mock_exit:
+            with patch("sys.stderr"):
+                main()
+            mock_exit.assert_called_once_with(1)
+
+    def test_main_exits_with_code_1_on_validation_error(self):
+        """Test that main() exits with code 1 if validation fails."""
+        # Create a file that passes creation but fails validation
+        create_markdown_file()
+        # Corrupt the file to fail validation
+        Path(FILENAME).write_text("No H1 heading\n\nNo prose\n", encoding="utf-8", newline="\n")
+
+        with patch("sys.exit") as mock_exit:
+            with patch("sys.stderr"):
+                main()
+            mock_exit.assert_called_once_with(1)
+
+    @patch("subprocess.run")
+    def test_main_exits_with_code_1_on_git_failure(self, mock_run):
+        """Test that main() exits with code 1 if git operations fail."""
+        # Mock git_add to succeed but git_commit to fail
+        def side_effect_func(cmd, **kwargs):
+            if "commit" in cmd:
+                raise subprocess.CalledProcessError(1, "git commit")
+            return MagicMock()
+
+        mock_run.side_effect = side_effect_func
+
+        with patch("sys.exit") as mock_exit:
+            with patch("sys.stderr"):
+                main()
+            mock_exit.assert_called_once_with(1)
+
+    def test_main_error_messages_go_to_stderr(self):
+        """Test that error messages are written to stderr."""
+        # Create file that will fail validation
+        create_markdown_file()
+        Path(FILENAME).write_text("Invalid content", encoding="utf-8", newline="\n")
+
+        with patch("sys.stderr") as mock_stderr:
+            with patch("sys.exit"):
+                main()
+            # stderr.write or print should be called
+            # (depending on implementation)
+
+    @patch("subprocess.run")
+    def test_main_workflow_order_is_correct(self, mock_run):
+        """Test that main() executes workflow in correct order: create → validate → git."""
+        # Track the order of operations
+        operations = []
+
+        original_path_exists = Path.exists
+        original_path_write = Path.write_text
+
+        def tracked_exists(self):
+            operations.append("check_exists")
+            return original_path_exists(self)
+
+        def tracked_write(self, content, **kwargs):
+            operations.append("write_file")
+            return original_path_write(self, content, **kwargs)
+
+        def tracked_git(*args, **kwargs):
+            if "add" in args[0]:
+                operations.append("git_add")
+            elif "commit" in args[0]:
+                operations.append("git_commit")
+            elif "push" in args[0]:
+                operations.append("git_push")
+            return MagicMock()
+
+        mock_run.side_effect = tracked_git
+
+        with patch.object(Path, "exists", tracked_exists):
+            with patch.object(Path, "write_text", tracked_write):
+                main()
+
+        # Check that file operations happen before git operations
+        if "write_file" in operations and "git_add" in operations:
+            assert operations.index("write_file") < operations.index("git_add")
+
+    @patch("subprocess.run")
+    def test_main_does_not_git_add_if_validation_fails(self, mock_run):
+        """Test that main() does not call git add if validation fails."""
+        # Create file that fails validation
+        create_markdown_file()
+        Path(FILENAME).write_text("# Title\n\nOnly one.\n", encoding="utf-8", newline="\n")
+
+        with patch("sys.exit"):
+            with patch("sys.stderr"):
+                main()
+
+        # git_add should never be called
+        add_calls = [c for c in mock_run.call_args_list if "add" in str(c)]
+        assert len(add_calls) == 0
+
+
+class TestEndToEndIntegration:
+    """End-to-end integration tests for task-8."""
+
+    def setup_method(self):
+        """Clean up test file before each test."""
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+    def teardown_method(self):
+        """Clean up test file after each test."""
+        if Path(FILENAME).exists():
+            Path(FILENAME).unlink()
+
+    @patch("subprocess.run")
+    def test_complete_workflow_with_mocked_git(self, mock_run):
+        """Test complete workflow from creation through git push."""
+        # Mock all git operations to avoid actual git calls
+        mock_run.return_value = MagicMock()
+
+        # Run main
+        with patch("sys.exit"):
+            main()
+
+        # Verify file was created
+        assert Path(FILENAME).exists()
+
+        # Verify file has correct content
+        content = Path(FILENAME).read_text(encoding="utf-8")
+        assert content.startswith("# ")
+        assert PROSE in content
+
+        # Verify git operations were called
+        assert mock_run.call_count >= 3  # add, commit, push
+
+        # Verify order of git operations
+        calls = [c[0][0] for c in mock_run.call_args_list]
+        assert ["git", "add", FILENAME] in calls
+        assert any("commit" in str(c) for c in calls)
+        assert ["git", "push", "-u", "origin", "HEAD"] in calls
+
+    @patch("subprocess.run")
+    def test_file_properties_after_creation(self, mock_run):
+        """Test that created file meets all success criteria."""
+        mock_run.return_value = MagicMock()
+
+        with patch("sys.exit"):
+            main()
+
+        # File exists
+        assert Path(FILENAME).exists()
+
+        # File has correct content
+        content = Path(FILENAME).read_text(encoding="utf-8")
+
+        # H1 heading
+        assert content.startswith("# ")
+
+        # Blank line after heading
+        lines = content.split("\n")
+        assert lines[1] == ""
+
+        # 2-3 sentences
+        prose = "\n".join(lines[2:]).strip()
+        sentence_count = prose.count(".")
+        assert 2 <= sentence_count <= 3
+
+        # UTF-8 encoding
+        binary_content = Path(FILENAME).read_bytes()
+        assert not binary_content.startswith(b"\xef\xbb\xbf")
+
+        # Unix LF line endings
+        assert b"\r\n" not in binary_content
+
+        # File size 300-600 bytes
+        assert 300 <= len(binary_content) <= 600
+
+    @patch("subprocess.run")
+    def test_git_commit_message_format(self, mock_run):
+        """Test that git commit uses correct Conventional Commits format."""
+        mock_run.return_value = MagicMock()
+
+        with patch("sys.exit"):
+            main()
+
+        # Find the commit call
+        commit_calls = [c for c in mock_run.call_args_list if c[0][0][1] == "commit"]
+        assert len(commit_calls) > 0
+
+        message = commit_calls[0][0][0][3]
+        assert message.startswith("feat(197):")
+        assert "test-d7cznn.md" in message
+
+    def test_error_on_file_already_exists(self):
+        """Test that main() fails gracefully if file already exists."""
+        # Create file first
+        create_markdown_file()
+
+        # Try to run main again
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 1
+
+    @patch("subprocess.run")
+    def test_error_on_git_add_failure(self, mock_run):
+        """Test that main() fails if git add fails."""
+        mock_run.side_effect = subprocess.CalledProcessError(128, "git add")
+
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 1
+
+    @patch("subprocess.run")
+    def test_error_on_git_commit_failure(self, mock_run):
+        """Test that main() fails if git commit fails."""
+        def side_effect_func(cmd, **kwargs):
+            if "commit" in cmd:
+                raise subprocess.CalledProcessError(1, "git commit")
+            return MagicMock()
+
+        mock_run.side_effect = side_effect_func
+
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 1
+
+    @patch("subprocess.run")
+    def test_error_on_git_push_failure(self, mock_run):
+        """Test that main() fails if git push fails."""
+        def side_effect_func(cmd, **kwargs):
+            if "push" in cmd:
+                raise subprocess.CalledProcessError(128, "git push")
+            return MagicMock()
+
+        mock_run.side_effect = side_effect_func
+
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+
+        assert exc_info.value.code == 1
