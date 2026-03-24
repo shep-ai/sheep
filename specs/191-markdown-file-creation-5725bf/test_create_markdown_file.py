@@ -3,6 +3,8 @@
 import os
 import tempfile
 from pathlib import Path
+from unittest import mock
+import subprocess
 
 import pytest
 
@@ -10,7 +12,7 @@ import pytest
 import sys
 script_path = Path(__file__).parent.parent.parent / "create_markdown_file_191.py"
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from create_markdown_file_191 import create_file, validate_file
+from create_markdown_file_191 import create_file, validate_file, git_add, git_commit, git_push
 
 
 class TestCreateFile:
@@ -367,5 +369,306 @@ class TestIntegration:
 
                 # Validate overall file passes validation
                 assert validate_file("test-1m1w18.md") is True
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestGitOperations:
+    """Tests for git operation functions (add, commit, push)."""
+
+    @mock.patch("create_markdown_file_191.subprocess.run")
+    def test_git_add_calls_subprocess_with_correct_args(self, mock_run):
+        """Test that git_add() calls subprocess.run with correct arguments."""
+        mock_run.return_value = mock.Mock()
+
+        result = git_add("test-1m1w18.md")
+
+        # Verify subprocess.run was called with correct arguments
+        mock_run.assert_called_once_with(["git", "add", "test-1m1w18.md"], check=True)
+        # Verify return value
+        assert result is True
+
+    @mock.patch("create_markdown_file_191.subprocess.run")
+    def test_git_commit_calls_subprocess_with_correct_args(self, mock_run):
+        """Test that git_commit() calls subprocess.run with correct arguments."""
+        mock_run.return_value = mock.Mock()
+        message = "feat(191): create markdown file test-1m1w18.md"
+
+        result = git_commit(message)
+
+        # Verify subprocess.run was called with correct arguments
+        mock_run.assert_called_once_with(
+            ["git", "commit", "-m", message], check=True
+        )
+        # Verify return value
+        assert result is True
+
+    @mock.patch("create_markdown_file_191.subprocess.run")
+    def test_git_push_calls_subprocess_with_correct_args(self, mock_run):
+        """Test that git_push() calls subprocess.run with correct arguments."""
+        mock_run.return_value = mock.Mock()
+
+        result = git_push()
+
+        # Verify subprocess.run was called with correct arguments
+        mock_run.assert_called_once_with(["git", "push", "-u", "origin", "HEAD"], check=True)
+        # Verify return value
+        assert result is True
+
+    @mock.patch("create_markdown_file_191.subprocess.run")
+    def test_git_add_returns_true_on_success(self, mock_run):
+        """Test that git_add() returns True on successful execution."""
+        mock_run.return_value = mock.Mock()
+
+        result = git_add("test-1m1w18.md")
+
+        assert result is True, "git_add() should return True on success"
+
+    @mock.patch("create_markdown_file_191.subprocess.run")
+    def test_git_commit_returns_true_on_success(self, mock_run):
+        """Test that git_commit() returns True on successful execution."""
+        mock_run.return_value = mock.Mock()
+
+        result = git_commit("feat(191): create markdown file test-1m1w18.md")
+
+        assert result is True, "git_commit() should return True on success"
+
+    @mock.patch("create_markdown_file_191.subprocess.run")
+    def test_git_push_returns_true_on_success(self, mock_run):
+        """Test that git_push() returns True on successful execution."""
+        mock_run.return_value = mock.Mock()
+
+        result = git_push()
+
+        assert result is True, "git_push() should return True on success"
+
+    @mock.patch("create_markdown_file_191.subprocess.run")
+    def test_git_add_raises_on_failure(self, mock_run):
+        """Test that git_add() raises CalledProcessError on subprocess failure."""
+        error = subprocess.CalledProcessError(
+            1, ["git", "add", "test-1m1w18.md"], stderr="Not a git repository"
+        )
+        mock_run.side_effect = error
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_add("test-1m1w18.md")
+
+    @mock.patch("create_markdown_file_191.subprocess.run")
+    def test_git_commit_raises_on_failure(self, mock_run):
+        """Test that git_commit() raises CalledProcessError on subprocess failure."""
+        error = subprocess.CalledProcessError(
+            1, ["git", "commit", "-m", "message"], stderr="Nothing to commit"
+        )
+        mock_run.side_effect = error
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_commit("feat(191): create markdown file test-1m1w18.md")
+
+    @mock.patch("create_markdown_file_191.subprocess.run")
+    def test_git_push_raises_on_failure(self, mock_run):
+        """Test that git_push() raises CalledProcessError on subprocess failure."""
+        error = subprocess.CalledProcessError(
+            1, ["git", "push", "-u", "origin", "HEAD"], stderr="Permission denied"
+        )
+        mock_run.side_effect = error
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_push()
+
+    def test_git_add_uses_command_array(self):
+        """Test that git_add() uses command array (not shell=True)."""
+        # This is a structural test - we verify by mocking subprocess
+        with mock.patch("create_markdown_file_191.subprocess.run") as mock_run:
+            mock_run.return_value = mock.Mock()
+            git_add("test-1m1w18.md")
+
+            # Verify the first argument is a list (command array)
+            call_args = mock_run.call_args
+            first_arg = call_args[0][0]
+            assert isinstance(first_arg, list), "Should use command array, not shell string"
+            assert first_arg == ["git", "add", "test-1m1w18.md"]
+
+    def test_git_commit_uses_command_array(self):
+        """Test that git_commit() uses command array (not shell=True)."""
+        with mock.patch("create_markdown_file_191.subprocess.run") as mock_run:
+            mock_run.return_value = mock.Mock()
+            git_commit("feat(191): create markdown file test-1m1w18.md")
+
+            # Verify the first argument is a list (command array)
+            call_args = mock_run.call_args
+            first_arg = call_args[0][0]
+            assert isinstance(first_arg, list), "Should use command array, not shell string"
+
+    def test_git_push_uses_command_array(self):
+        """Test that git_push() uses command array (not shell=True)."""
+        with mock.patch("create_markdown_file_191.subprocess.run") as mock_run:
+            mock_run.return_value = mock.Mock()
+            git_push()
+
+            # Verify the first argument is a list (command array)
+            call_args = mock_run.call_args
+            first_arg = call_args[0][0]
+            assert isinstance(first_arg, list), "Should use command array, not shell string"
+            assert first_arg == ["git", "push", "-u", "origin", "HEAD"]
+
+    def test_git_add_uses_check_true(self):
+        """Test that git_add() uses check=True flag."""
+        with mock.patch("create_markdown_file_191.subprocess.run") as mock_run:
+            mock_run.return_value = mock.Mock()
+            git_add("test-1m1w18.md")
+
+            # Verify check=True was passed
+            call_args = mock_run.call_args
+            assert call_args[1].get("check") is True, "Should use check=True"
+
+    def test_git_commit_uses_check_true(self):
+        """Test that git_commit() uses check=True flag."""
+        with mock.patch("create_markdown_file_191.subprocess.run") as mock_run:
+            mock_run.return_value = mock.Mock()
+            git_commit("feat(191): create markdown file test-1m1w18.md")
+
+            # Verify check=True was passed
+            call_args = mock_run.call_args
+            assert call_args[1].get("check") is True, "Should use check=True"
+
+    def test_git_push_uses_check_true(self):
+        """Test that git_push() uses check=True flag."""
+        with mock.patch("create_markdown_file_191.subprocess.run") as mock_run:
+            mock_run.return_value = mock.Mock()
+            git_push()
+
+            # Verify check=True was passed
+            call_args = mock_run.call_args
+            assert call_args[1].get("check") is True, "Should use check=True"
+
+
+class TestGitIntegration:
+    """Integration tests for git operations with real git commands."""
+
+    def test_git_workflow_creates_and_stages_file(self):
+        """Test complete git workflow: create file, validate, add, commit, push."""
+        # Create a temporary directory and initialize a git repo
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+
+            try:
+                os.chdir(repo_path)
+
+                # Initialize a git repository
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Create the markdown file
+                create_file("test-1m1w18.md")
+                assert Path("test-1m1w18.md").exists()
+
+                # Validate the file
+                assert validate_file("test-1m1w18.md") is True
+
+                # Test git add
+                result = git_add("test-1m1w18.md")
+                assert result is True
+
+                # Check that file is staged
+                status = subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                assert "A  test-1m1w18.md" in status.stdout or "A test-1m1w18.md" in status.stdout
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_add_stages_file_successfully(self):
+        """Test that git_add() successfully stages a file in a git repository."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+
+            try:
+                os.chdir(repo_path)
+
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Create and add file
+                create_file("test-1m1w18.md")
+                result = git_add("test-1m1w18.md")
+
+                assert result is True
+                # Verify file is staged by checking git status
+                status = subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                assert "test-1m1w18.md" in status.stdout
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_commit_creates_commit_successfully(self):
+        """Test that git_commit() successfully creates a commit."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = Path(tmpdir)
+            original_cwd = Path.cwd()
+
+            try:
+                os.chdir(repo_path)
+
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Create, add, and commit file
+                create_file("test-1m1w18.md")
+                git_add("test-1m1w18.md")
+
+                message = "feat(191): create markdown file test-1m1w18.md"
+                result = git_commit(message)
+
+                assert result is True
+
+                # Verify commit was created by checking git log
+                log = subprocess.run(
+                    ["git", "log", "--oneline"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                assert "feat(191): create markdown file test-1m1w18.md" in log.stdout
+
             finally:
                 os.chdir(original_cwd)

@@ -160,11 +160,15 @@ def git_add(filename):
     Args:
         filename: Name of the file to stage.
 
+    Returns:
+        True if git add succeeds.
+
     Raises:
         subprocess.CalledProcessError: If git add command fails.
     """
     try:
         subprocess.run(["git", "add", filename], check=True)
+        return True
     except subprocess.CalledProcessError as e:
         raise subprocess.CalledProcessError(
             e.returncode,
@@ -183,11 +187,15 @@ def git_commit(commit_message):
     Args:
         commit_message: The commit message to use.
 
+    Returns:
+        True if git commit succeeds.
+
     Raises:
         subprocess.CalledProcessError: If git commit command fails.
     """
     try:
         subprocess.run(["git", "commit", "-m", commit_message], check=True)
+        return True
     except subprocess.CalledProcessError as e:
         raise subprocess.CalledProcessError(
             e.returncode,
@@ -204,11 +212,15 @@ def git_push():
     Uses 'git push -u origin HEAD' to push to the current branch.
     The -u flag sets upstream tracking for the branch.
 
+    Returns:
+        True if git push succeeds.
+
     Raises:
         subprocess.CalledProcessError: If git push command fails.
     """
     try:
         subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+        return True
     except subprocess.CalledProcessError as e:
         raise subprocess.CalledProcessError(
             e.returncode,
