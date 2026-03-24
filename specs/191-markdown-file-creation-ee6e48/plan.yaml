@@ -1,0 +1,219 @@
+name: "markdown-file-creation-ee6e48"
+summary: |
+  Feature 191 implements a direct/standalone markdown file creation module following the proven
+  pattern from features 188-190. The implementation uses pathlib for file I/O with explicit Unix LF
+  line endings, performs comprehensive fail-fast validation before git operations, and uses subprocess
+  for git add/commit/push. The feature creates test-u1rtbw.md with fixed template prose (2-3 sentences),
+  validates UTF-8 encoding, Unix line endings, markdown structure, and file size (450-550 bytes), then
+  stages and pushes the file to the remote repository.
+
+relatedFeatures:
+  - "feature-189-markdown-file-creation-3f7fee"
+  - "feature-188-markdown-file-creation-6778d8"
+  - "feature-190-markdown-file-creation-6778d8"
+
+technologies:
+  - "Python 3.11+"
+  - "pathlib (file I/O)"
+  - "subprocess (git operations)"
+  - "markdown format"
+  - "UTF-8 encoding"
+  - "Unix LF line endings"
+
+relatedLinks:
+  - title: "Feature 189 Implementation (Reference Pattern)"
+    url: "src/sheep/features/feature_189_markdown_file_creation.py"
+  - title: "Feature 190 Implementation (Recent Reference)"
+    url: "src/sheep/features/feature_190_markdown_file_creation.py"
+  - title: "Feature 188 Implementation (Baseline Pattern)"
+    url: "src/sheep/features/feature_188_markdown_file_creation.py"
+
+phases:
+  - id: "phase-1"
+    name: "Setup & Constants"
+    description: "Define file constants (filename, title, prose template) and create module structure. This phase establishes the fixed content that will be written to the markdown file, ensuring all 190+ implementations maintain consistency."
+    parallel: false
+  - id: "phase-2"
+    name: "File Creation"
+    description: "Implement core file creation using pathlib.Path.write_text() with explicit UTF-8 encoding and Unix LF newline parameter. This ensures cross-platform consistency on Windows, macOS, and Linux."
+    parallel: false
+  - id: "phase-3"
+    name: "Validation Layer"
+    description: "Implement comprehensive fail-fast validation: UTF-8 encoding (no BOM), Unix LF line endings, markdown structure (H1 + 2-3 sentences), and file size range (450-550 bytes). All validation completes before any git operations."
+    parallel: true
+  - id: "phase-4"
+    name: "Git Integration"
+    description: "Implement git operations using subprocess: add file to staging area, commit with conventional message feat(191): create markdown file test-u1rtbw.md, push to remote origin."
+    parallel: false
+  - id: "phase-5"
+    name: "Integration & Error Handling"
+    description: "Create main() entry point that orchestrates file creation, validation, and git operations. Implement error handling with specific exception types and exit codes. Ensure all validation completes before git operations begin."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_191_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 191 implements a simple, self-contained markdown file creation module following the proven
+  pattern successfully used in features 188-190 and validated across 190+ prior implementations.
+
+  ### Design Pattern
+
+  The implementation follows the direct/standalone approach identified in research:
+  - **No abstractions or helpers**: Single module file with inline validation functions
+  - **Self-documenting code**: Clear function names and minimal complexity
+  - **Explicit over implicit**: Every validation step is visible and testable
+  - **Fail-fast validation**: All checks complete before any git operations
+
+  ### Integration with Existing Codebase
+
+  The module integrates with the Sheep platform by:
+  - Living in src/sheep/features/ alongside features 188-190
+  - Using standard library tools (pathlib, subprocess) consistent with codebase conventions
+  - Following git workflow patterns established across 190+ test files in repository root
+  - Maintaining consistency with test-*.md file naming and content structure
+
+  ### Key Technical Choices
+
+  1. **pathlib for file I/O**: Modern Python idiom with explicit newline handling
+  2. **subprocess for git**: Safer than os.system(), allows check=True for error handling
+  3. **Fixed template prose**: Deterministic, testable, consistent with spec requirements
+  4. **Sequential validation**: Encode → line endings → structure → size, fail-fast on any error
+  5. **Text-based validation**: Read file as text, verify content properties directly
+
+  ## Key Design Decisions
+
+  ### Decision 1: Direct Implementation vs Abstracted/Library Approach
+
+  **Chosen:** Direct/standalone implementation using pathlib and subprocess
+  - Simple, self-contained module (~150-200 lines)
+  - No abstraction layers or helper dependencies
+  - Clear, testable validation functions inline
+
+  **Rationale:**
+  The spec requires fixed template prose (not LLM-generated), eliminating the primary advantage
+  of sheep.content_generators abstraction. Feature 189 demonstrates the direct approach works best.
+  For a trivial single-file operation, direct implementation is simpler and more maintainable than
+  creating abstractions that only serve this one feature.
+
+  ### Decision 2: File Writing with pathlib and Explicit Newline Parameter
+
+  **Chosen:** `Path(FILENAME).write_text(content, encoding="utf-8", newline="\n")`
+
+  **Rationale:**
+  The critical detail is the newline parameter. On Windows, Python's default text mode converts \n
+  to \r\n (CRLF), but the validation layer rejects CRLF. The explicit newline="\n" parameter prevents
+  this conversion on all platforms. pathlib is specified in the tech stack and is the modern Python
+  approach. Feature 189 proves this exact pattern works reliably.
+
+  ### Decision 3: Fail-Fast Validation Before Git Operations
+
+  **Chosen:** Sequential validation in order:
+  1. File exists check
+  2. UTF-8 encoding validation (no BOM)
+  3. Unix LF line ending validation
+  4. Markdown structure validation (H1 heading + 2-3 sentences)
+  5. File size validation (450-550 bytes)
+  - All checks complete BEFORE git add/commit/push
+
+  **Rationale:**
+  Spec explicitly requires: "All validation checks MUST complete successfully before proceeding
+  to git operations." This prevents corrupted files from entering git history. The sequence is
+  logical: existence → encoding → line endings → content → size. Early failures provide immediate
+  feedback without wasting time on unnecessary checks.
+
+  ### Decision 4: Fixed Template Prose Content
+
+  **Chosen:** Fixed 2-3 sentence prose template (~400-500 bytes total)
+  - Example: "Continuous learning is essential for growth in any field..."
+  - Consistent with all 190+ existing test-*.md files
+  - Deterministic and testable
+
+  **Rationale:**
+  Spec explicitly resolves this: "Fixed template text is recommended because it maintains consistency
+  with the established pattern across 190+ prior implementations, reduces implementation complexity,
+  and ensures reproducible results for testing purposes." LLM generation adds complexity and
+  non-determinism. Random generation breaks consistency. Fixed template is optimal.
+
+  ### Decision 5: subprocess for Git Operations (Required in Tech Stack)
+
+  **Chosen:** Direct subprocess.run() calls with list-form arguments
+  - `subprocess.run(["git", "add", FILENAME], check=True, capture_output=True)`
+  - `subprocess.run(["git", "commit", "-m", MESSAGE], check=True, capture_output=True)`
+  - `subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True, capture_output=True)`
+
+  **Rationale:**
+  Subprocess is explicitly required in the tech stack. List-form arguments are safer than shell strings,
+  preventing command injection. check=True raises CalledProcessError on non-zero exit codes.
+  capture_output=True suppresses git output. Feature 189 uses this exact pattern.
+
+  ### Decision 6: File Size Validation Range (450-550 bytes)
+
+  **Chosen:** Validate file size is within 450-550 byte range
+  - Too small (<450): Indicates truncated file or missing content
+  - Too large (>550): Indicates extraneous padding or expansion
+  - This range matches existing test-*.md files with 2-3 sentence templates
+
+  **Rationale:**
+  NFR-1 specifies "File size SHOULD be between 450-550 bytes to maintain consistency with existing
+  test files." This range catches data corruption while allowing natural prose variation. Examining
+  existing test files shows sizes cluster around 350-500 bytes; 450-550 is appropriate for a 2-3
+  sentence template with H1 heading and spacing.
+
+  ### Decision 7: Error Handling Strategy
+
+  **Chosen:** Specific exception types, all caught in main() with sys.exit(1)
+  - ValueError: Validation failures (encoding, structure, line endings, size)
+  - OSError: File I/O failures
+  - subprocess.CalledProcessError: Git operation failures
+  - All exceptions logged to stderr with descriptive messages
+
+  **Rationale:**
+  Clear exception hierarchy allows specific error messages. Exit code 1 indicates failure uniformly.
+  Feature 189 uses this pattern successfully. Descriptive error messages aid debugging.
+
+  ## Implementation Strategy
+
+  ### Phase Ordering Rationale
+
+  1. **Phase 1 (Setup)** comes first: Constants must exist before any file operations
+  2. **Phase 2 (File Creation)** comes second: File must exist before validation
+  3. **Phase 3 (Validation)** comes third: Validates the created file, can run in parallel (independent checks)
+  4. **Phase 4 (Git)** comes fourth: Only runs if all validations pass
+  5. **Phase 5 (Integration)** comes last: Orchestrates all previous phases and error handling
+
+  ### Module Structure
+
+  ```
+  feature_191_markdown_file_creation.py
+  ├── Constants: FILENAME, TITLE, PROSE
+  ├── Functions:
+  │   ├── create_markdown_file()      [Phase 2]
+  │   ├── validate_encoding()         [Phase 3]
+  │   ├── validate_line_endings()     [Phase 3]
+  │   ├── validate_structure()        [Phase 3]
+  │   ├── validate_file_size()        [Phase 3]
+  │   ├── git_add()                   [Phase 4]
+  │   ├── git_commit()                [Phase 4]
+  │   ├── git_push()                  [Phase 4]
+  │   └── main()                      [Phase 5]
+  ```
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | File already exists at test-u1rtbw.md | Check existence before creating; fail with clear error if found |
+  | Platform-specific line ending conversion (Windows CRLF) | Use explicit newline="\n" parameter in pathlib.Path.write_text() to prevent automatic conversion |
+  | Validation bypassed, invalid file committed | Comprehensive fail-fast validation ensures all checks complete before any git operations |
+  | Git push fails (network error, remote not configured) | Check git error output; provide clear error message on failure |
+  | UTF-8 encoding issues | Explicit encode/decode validation; reject any non-UTF-8 content or BOM markers |
+  | Command injection via git commands | Use subprocess list-form arguments (never shell=True), no user input in git messages |
+  | Insufficient prose content | Validation checks for exactly 2-3 sentences and H1 heading; rejects incomplete files |
+  | File size outside range | Validation check ensures 450-550 bytes; catches truncation or padding issues |
