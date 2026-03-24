@@ -1,0 +1,485 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-5725bf"
+summary: >
+  Technical research for feature 191 confirms that implementing markdown file creation
+  (test-1m1w18.md) should follow the proven pattern from features 188-190. The implementation
+  uses pathlib for file I/O, subprocess for git operations, comprehensive validation before
+  git operations, and standard library modules only. No new dependencies or architectural
+  changes are required; this is a straightforward replication of the established pattern.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - "Python 3.11+"
+  - "pathlib (file I/O)"
+  - "subprocess (git operations)"
+  - "markdown format"
+  - "UTF-8 encoding"
+  - "Unix LF line endings"
+
+relatedLinks:
+  - title: "Feature 190 implementation reference"
+    url: "specs/190-markdown-file-creation-6778d8/spec.yaml"
+  - title: "Feature 190 working implementation"
+    url: "create_markdown_file_190.py"
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess module documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Library Choice"
+    chosen: "pathlib.Path.write_text() for file creation and read_bytes()/read_text() for validation"
+    rejected:
+      - "os module — less modern, more verbose, less readable for path operations. pathlib is the standard in Python 3.11+."
+      - "Built-in open() function — more boilerplate code for encoding/newline handling. pathlib write_text() encapsulates this elegantly."
+    rationale: >
+      pathlib is the modern standard for file operations in Python 3.11+ and is already used
+      throughout the codebase (confirmed in feature 190 implementation). It provides
+      cross-platform path handling (Windows, Linux, macOS) and clean methods for text file
+      operations with explicit encoding control. The write_text(encoding=\"utf-8\", newline=\"\\n\")
+      pattern ensures UTF-8 without BOM and Unix LF line endings on all platforms, which is
+      essential for consistent markdown files. Reference implementation (feature 190)
+      successfully uses this approach.
+
+  - title: "Git Command Execution Method"
+    chosen: "subprocess.run() with command arrays and check=True flag"
+    rejected:
+      - "GitPython library — adds external dependency. Feature spec explicitly requires no external dependencies (NFR-5)."
+      - "shell=True with string commands — security risk for command injection and harder to debug. Command arrays are safer."
+      - "os.system() — deprecated, no error handling, no output capture."
+    rationale: >
+      subprocess.run() with command arrays (not shell=True) is the secure, modern standard for
+      executing external commands in Python 3. The check=True flag raises CalledProcessError
+      on non-zero exit codes, providing clean error handling. This approach is already proven
+      in feature 190 implementation and avoids the security risks of shell=True. No external
+      dependencies are added (subprocess is standard library). Command arrays prevent shell
+      interpretation issues and are more debuggable.
+
+  - title: "File Validation Strategy"
+    chosen: "Comprehensive pre-operation validation: check structure, encoding, line endings BEFORE git operations"
+    rejected:
+      - "Post-write validation only — could result in committing invalid files to git. Bad practice."
+      - "No validation — unreliable, unmaintainable, violates spec FR-5 and NFR-5. Cannot verify file quality."
+    rationale: >
+      Validating all file properties (UTF-8 encoding, LF line endings, H1 heading presence, sentence
+      count, file size) BEFORE git operations (add/commit/push) follows fail-fast principles and
+      prevents committing invalid files to the repository. This matches feature 190's proven pattern
+      and is explicitly required by spec FR-5 (\"perform all validation checks BEFORE any git operations\").
+      Validation checks are fast (~1ms) and provide clear error messages for debugging.
+
+  - title: "Encoding and Line Ending Handling"
+    chosen: "UTF-8 without BOM via encoding='utf-8', Unix LF via newline='\\n' in write_text()"
+    rejected:
+      - "Native line endings (newline='') — creates CRLF on Windows, violating spec. Not cross-platform reliable."
+      - "UTF-8 with BOM — not needed, adds 3 bytes, not standard for markdown. Complicates validation."
+    rationale: >
+      The feature spec explicitly requires UTF-8 without BOM and Unix LF line endings (FR-4).
+      pathlib.write_text(encoding=\"utf-8\", newline=\"\\n\") achieves this reliably on all platforms.
+      The encoding=\"utf-8\" parameter ensures UTF-8 without BOM (Python's default). The newline=\"\\n\"
+      forces Unix LF even on Windows. This is proven in feature 190 implementation. File validation
+      must check for UTF-8 BOM (byte pattern 0xEF 0xBB 0xBF) and CRLF sequences (0x0D 0x0A)
+      to ensure compliance.
+
+  - title: "Error Handling Approach"
+    chosen: "Comprehensive error handling: specific exception types (ValueError, OSError, CalledProcessError) with descriptive messages"
+    rejected:
+      - "Minimal try-catch — misses edge cases, hard to debug. Violates spec NFR-6 (clear error messages)."
+      - "No error handling — script crashes with cryptic messages. Not production-ready."
+    rationale: >
+      Comprehensive error handling is explicitly required by spec (openQuestions shows
+      'Comprehensive error handling' was selected). Each phase (create, validate, git operations)
+      has specific error cases: FR-9 requires detecting pre-existing files, validation errors must
+      be reported clearly, git failures must include command output. Feature 190 demonstrates this
+      pattern with catch blocks for ValueError (validation), OSError (file I/O), and
+      CalledProcessError (git failures). Error messages cite file paths, encoding details, git
+      command output to aid debugging.
+
+  - title: "Content Generation Method"
+    chosen: "Template-based with fixed title and 3-sentence prose block, stored as module-level constants"
+    rejected:
+      - "Dynamic content generation — non-deterministic, hard to debug, violates NFR-10 (deterministic implementation)."
+      - "Random sentence selection — inconsistent results, unmaintainable."
+    rationale: >
+      Feature spec resolves openQuestion 1 (content topic) to 'Generic technical content' and
+      openQuestion 2 (sentence count) to 'Exactly 3 sentences'. Module-level constants (TITLE,
+      PROSE, FILENAME, COMMIT_MESSAGE) provide clarity, make the file reproducible, and match
+      feature 190's pattern. Prose should cover generic technical topics (testing, reliability,
+      automation, markdown, etc.) to maintain consistency with 190+ existing test files and avoid
+      platform version coupling. The 3-sentence requirement meets the \"2-3 sentences\" spec and
+      ensures consistent file sizes (~450-550 bytes).
+
+  - title: "Pre-existing File Handling"
+    chosen: "Check file existence before creation; return None if exists, skip further operations, print error and exit(1)"
+    rejected:
+      - "Overwrite silently — risks data loss, no warning provided. Violates defensive programming."
+      - "Back up then create — adds complexity, cleanup burden. Overkill for test files."
+    rationale: >
+      Spec resolves openQuestion 3 to 'Fail with descriptive error and exit'. The create_file()
+      function must check Path.exists() and return None if the file already exists. The main()
+      function detects this and prints an error, then exits(1). This prevents accidental data loss,
+      helps detect configuration issues, and provides clear feedback. Matches feature 190 pattern
+      and is consistent with defensive programming practices.
+
+  - title: "Commit Message Format"
+    chosen: "Conventional commit format: 'feat(191): create markdown file test-1m1w18.md'"
+    rejected:
+      - "Minimal format like 'feat(191): add test-1m1w18.md' — less descriptive, harder to navigate git history."
+      - "Informal format like 'Add test file' — not conventional commit standard, inconsistent with prior features."
+    rationale: >
+      Spec resolves openQuestion 4 to 'feat(191): create markdown file test-1m1w18.md' format.
+      This exactly matches features 188-190 and is the conventional commit standard for feature
+      scopes. The format provides maximum clarity in git history: the scope (191) identifies the
+      feature, and the subject clearly describes what was created. Feature 190 uses identical format
+      successfully. This consistency across 190+ features is essential for git history maintainability.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should the implementation validate file size (400-600 bytes) or just verify structure?"
+    resolved: true
+    options:
+      - option: "Validate file size strictly (400-600 byte range)"
+        description: "Check that file size is between 400-600 bytes as specified in FR-7. Ensures consistency with test-*.md pattern from prior features. Catches malformed content (too short/long) before committing."
+        selected: true
+      - option: "Validate structure only (H1 + 3 sentences)"
+        description: "Only check that file has H1 heading and 3 sentences. Skip size validation. Allows files up to any size."
+        selected: false
+      - option: "Log size warning but allow any size"
+        description: "Print warning if file is outside 400-600 byte range but continue anyway. Permits flexibility but loses consistency guarantees."
+        selected: false
+    selectionRationale: >
+      Strict file size validation (400-600 bytes) is recommended because it's explicitly required
+      by spec FR-7 and ensures consistency with 190+ prior test files. Feature 190 implementation
+      validates this range and it catches malformed prose (if sentence count is wrong or content
+      is missing). The 400-600 byte range is natural result of proper H1 heading + exactly
+      3 sentences with generic technical prose. This validation prevents subtle bugs where content
+      is accidentally omitted.
+
+  - question: "Should validation check be implemented as a separate function or inline in create_file()?"
+    resolved: true
+    options:
+      - option: "Separate validate_file() function"
+        description: "Create standalone validation function that is called after file creation. Enables reusability and cleaner main() logic. Follows single responsibility principle. Matches feature 190 pattern exactly."
+        selected: true
+      - option: "Inline validation in create_file()"
+        description: "Perform all checks inside create_file() before returning. Simpler, single function. But violates separation of concerns."
+        selected: false
+      - option: "No validation function (use assertions)"
+        description: "Use Python assertions for validation. Simple but assertions can be disabled with -O flag. Not recommended for required checks."
+        selected: false
+    selectionRationale: >
+      Separate validate_file() function is recommended because it follows feature 190's proven
+      architecture and improves code maintainability. Keeping validation separate from creation
+      makes each function testable and reusable. The pattern: (1) create file, (2) call
+      validate_file(), (3) if validation passes, proceed to git operations. This is explicit,
+      clear, and matches NFR-4 (follow pattern from features 188-190).
+
+  - question: "How should the script handle scenarios where Git is not installed or not in PATH?"
+    resolved: true
+    options:
+      - option: "Catch CalledProcessError and provide clear error message"
+        description: "When subprocess.run() fails (Git not found), catch CalledProcessError and print clear message like 'Git command failed: git add test-1m1w18.md'. User knows to install Git or add to PATH."
+        selected: true
+      - option: "Pre-check for Git availability before creating file"
+        description: "Check if 'git' command exists before creating the file. Add extra pre-flight check. Prevents file creation if Git is unavailable."
+        selected: false
+      - option: "Assume Git is available and let subprocess raise an exception"
+        description: "Trust that Git is installed. Do not catch the exception specifically. Let it crash with cryptic error. Not user-friendly."
+        selected: false
+    selectionRationale: >
+      Catching CalledProcessError with clear error messages is recommended because it's
+      simpler and matches feature 190's pattern. The file is created first (which is fine
+      locally), then if git add fails, we catch it and report clearly. Pre-flight checks add
+      complexity; if Git is temporarily unavailable during create_file() but available during
+      git_add(), we would unnecessarily fail. The catch block in main() handles this: \"Git command
+      failed: git add test-1m1w18.md\" is clear enough. NFR-7 requires this kind of error message.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Library: pathlib.Path
+
+  **Chosen:** Use `pathlib.Path.write_text()` for file creation and `read_bytes()`/`read_text()` for validation.
+
+  **Rejected:**
+  - `os` module — less modern, verbose, not ideal for cross-platform path operations
+  - Built-in `open()` — requires more boilerplate for encoding and newline control
+
+  **Rationale:** pathlib is the modern standard in Python 3.11+ and is already used throughout
+  the Sheep codebase. It provides clean methods for text file operations with explicit encoding
+  control. The pattern `write_text(encoding="utf-8", newline="\n")` ensures UTF-8 without BOM
+  and Unix LF line endings on all platforms. Feature 190 successfully uses this approach.
+
+  ### 2. Git Command Execution: subprocess.run()
+
+  **Chosen:** Use `subprocess.run()` with command arrays and `check=True` flag.
+
+  **Rejected:**
+  - GitPython library — adds external dependency (violates NFR-5)
+  - `shell=True` with string commands — security risk, harder to debug
+  - `os.system()` — deprecated, no error handling
+
+  **Rationale:** subprocess.run() with command arrays (not shell=True) is the secure, modern
+  standard for executing external commands in Python. The check=True flag raises CalledProcessError
+  on non-zero exit codes. This approach is proven in feature 190 and avoids shell injection risks.
+  No external dependencies are added.
+
+  ### 3. File Validation Strategy: Pre-operation Comprehensive Validation
+
+  **Chosen:** Validate file structure, encoding, and line endings BEFORE any git operations.
+
+  **Rejected:**
+  - Post-write validation only — could commit invalid files to git
+  - No validation — unreliable, violates spec FR-5 and NFR-5
+
+  **Rationale:** Validating file properties before git operations follows fail-fast principles and
+  prevents committing invalid files. This is explicitly required by spec FR-5. Validation is fast
+  and provides clear error messages for debugging. Feature 190 implements this pattern successfully.
+
+  ### 4. Encoding and Line Endings: UTF-8 without BOM + Unix LF
+
+  **Chosen:** `encoding='utf-8'` and `newline='\n'` parameters in write_text().
+
+  **Rejected:**
+  - Native line endings (`newline=''`) — creates CRLF on Windows, not cross-platform
+  - UTF-8 with BOM — not needed, adds 3 bytes, not standard for markdown
+
+  **Rationale:** Spec FR-4 explicitly requires UTF-8 without BOM and Unix LF line endings.
+  `write_text(encoding="utf-8", newline="\n")` achieves this reliably on all platforms. Validation
+  must check for UTF-8 BOM (bytes 0xEF 0xBB 0xBF) and CRLF sequences (0x0D 0x0A).
+
+  ### 5. Error Handling: Comprehensive with Specific Exception Types
+
+  **Chosen:** Catch specific exceptions (ValueError, OSError, CalledProcessError) with descriptive messages.
+
+  **Rejected:**
+  - Minimal try-catch — misses edge cases, hard to debug
+  - No error handling — cryptic failure messages
+
+  **Rationale:** Comprehensive error handling is required by spec (openQuestion 5 selects this option).
+  Each phase has specific error cases: pre-existing file detection (FR-9), validation errors, git
+  failures. Feature 190 implements this pattern. Error messages cite file paths, encoding details,
+  and git command output to aid debugging.
+
+  ### 6. Content Generation: Template-based Constants
+
+  **Chosen:** Fixed title and 3-sentence prose stored as module-level constants (TITLE, PROSE, FILENAME).
+
+  **Rejected:**
+  - Dynamic content generation — non-deterministic, violates NFR-10
+  - Random sentence selection — inconsistent results
+
+  **Rationale:** Spec resolves content topic to 'Generic technical content' and sentence count to
+  'Exactly 3 sentences'. Module-level constants provide reproducibility and match feature 190's
+  pattern. Prose should cover generic topics (testing, reliability, markdown, etc.) to maintain
+  consistency with 190+ existing test files.
+
+  ### 7. Pre-existing File Handling: Check and Fail
+
+  **Chosen:** Check file existence before creation; return None if exists, print error, exit(1).
+
+  **Rejected:**
+  - Overwrite silently — risks data loss
+  - Back up then create — adds complexity
+
+  **Rationale:** Spec resolves this to 'Fail with descriptive error and exit' (openQuestion 3).
+  Check `Path.exists()` and return None if file exists. Main() detects this and prints error
+  then exits(1). This prevents accidental data loss and provides clear feedback. Feature 190
+  implements this pattern.
+
+  ### 8. Commit Message Format: Conventional Commit with Descriptor
+
+  **Chosen:** Use `feat(191): create markdown file test-1m1w18.md` format.
+
+  **Rejected:**
+  - Minimal format like `feat(191): add test-1m1w18.md` — less descriptive
+  - Informal format like `Add test file` — not conventional commit standard
+
+  **Rationale:** Spec resolves this to the full descriptive format (openQuestion 4). This exactly
+  matches features 188-190 and is the conventional commit standard. The format provides maximum
+  clarity in git history. Consistency across 190+ features is essential for maintainability.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | Cross-platform file I/O | Use | Standard in Python 3.11+, already used throughout codebase, provides clean API for encoding control |
+  | subprocess | Execute git commands | Use | Standard library, secure (no shell=True), proven in feature 190, no external dependencies |
+  | sys | Exit codes and stderr | Use | Standard library, necessary for proper error reporting |
+  | os | File paths, exists checks | Use (if needed) | Standard library, pathlib covers most use cases but os can supplement if needed |
+  | GitPython | Git operations wrapper | Reject | Adds external dependency; spec NFR-5 requires "no external dependencies beyond Python 3.11+ standard library" |
+  | dataclasses | Data structure definition | Reject | Not needed; constants are simple module-level variables, not complex data structures |
+
+  ## Security Considerations
+
+  ### Command Injection Prevention
+
+  **Risk:** Using shell=True with user-controlled input in git commands could allow command injection.
+
+  **Mitigation:** Always use command arrays (not shell=True) in subprocess.run(). Git commands are
+  built with hardcoded strings and constant filenames, no user input. Example:
+  `subprocess.run(["git", "add", FILENAME], check=True)` is safe; `os.system(f"git add {FILENAME}")` would not be.
+
+  ### File Path Validation
+
+  **Risk:** If filename is user-controlled, could create files outside repository root.
+
+  **Mitigation:** FILENAME is a constant (test-1m1w18.md). File is created at repository root via
+  `Path(FILENAME)` which stays in current directory. No path traversal possible.
+
+  ### Encoding Validation
+
+  **Risk:** Files with invalid UTF-8 or wrong line endings could cause issues for downstream tools.
+
+  **Mitigation:** Pre-operation validation checks for:
+  - UTF-8 BOM (forbidden by spec)
+  - CRLF line endings (forbidden by spec, replaced with LF)
+  - Valid UTF-8 decoding (reject non-UTF-8)
+  - H1 heading structure
+
+  ### File Permissions
+
+  **Risk:** Created files could have incorrect permissions (too permissive).
+
+  **Mitigation:** pathlib.Path.write_text() respects system umask. On typical Unix systems (umask
+  0022), created files are 0644 (readable by all, writable only by owner), which is appropriate
+  for repository files. Windows uses ACLs and handles permissions differently. No explicit
+  chmod() needed.
+
+  ### Git Push Safety
+
+  **Risk:** If git push fails (network issue, permission denied), file is already committed locally.
+
+  **Mitigation:** This is acceptable. Spec requires push to occur, but if network is temporarily
+  down, having the file committed locally is better than discarding it. Error message tells user
+  push failed so they can retry.
+
+  ## Performance Implications
+
+  ### File I/O Performance
+
+  **File creation:** Writing ~500 bytes to disk is ~0.1ms on typical hardware.
+
+  **File validation:** Reading bytes, decoding UTF-8, string operations, line splitting ~0.2ms.
+
+  **Total:** Negligible. Spec NFR-3 requires completion within 5 seconds; file operations are sub-millisecond.
+
+  ### Git Operations Performance
+
+  **git add:** Updating index for one file ~5-50ms (depends on repo size, filesystem).
+
+  **git commit:** Creating commit object ~10-100ms (depends on repo size, filesystem).
+
+  **git push:** Network I/O dependent, typically 0.5-5 seconds depending on network latency.
+
+  **Bottleneck:** git push to remote is the only significant latency (network-bound). File operations
+  and validation are negligible. Total operation should complete within 5 seconds for most networks
+  (unless connection is very slow).
+
+  ### Memory Usage
+
+  **File content:** ~500 bytes of prose fits easily in memory.
+
+  **Subprocess overhead:** subprocess.run() is lightweight, spawns one process per git command (~3 MB overhead per subprocess).
+
+  **Total:** Negligible for this operation. No optimization needed.
+
+  ## Architecture Notes
+
+  ### How This Fits Into Existing Architecture
+
+  This feature is a direct extension of the established markdown file creation pattern in the Sheep
+  platform. The implementation:
+
+  1. **Follows existing conventions:** Features 1-190 all create test-*.md files in repository root.
+     Feature 191 is identical in pattern: create file, validate, git add/commit/push.
+
+  2. **No source code changes:** This is a standalone script (create_markdown_file_191.py), similar to
+     create_markdown_file_190.py, create_markdown_file.py, etc. No changes to src/sheep/ package needed.
+
+  3. **Uses established validation patterns:** The validation logic (UTF-8 BOM check, CRLF detection,
+     H1 heading check, sentence count, file size) is proven across 190+ prior features.
+
+  4. **Integrates with git workflow:** Uses subprocess to git add/commit/push, consistent with how
+     Sheep platform automates code contributions.
+
+  5. **Maintains consistency:** Same file structure (H1 + blank line + prose), same encoding, same
+     line endings, same commit message format across all features.
+
+  ### Reference Implementation
+
+  Feature 190's create_markdown_file_190.py is a complete reference implementation that demonstrates:
+  - File creation with proper encoding/line endings
+  - Comprehensive validation function
+  - Git operation functions (add, commit, push)
+  - Error handling in main()
+  - Proper use of pathlib and subprocess
+
+  Feature 191 should follow this pattern exactly, changing only:
+  - FILENAME: "test-08hm34.md" → "test-1m1w18.md"
+  - TITLE: (generic technical content)
+  - PROSE: (3 sentences of generic technical content)
+  - COMMIT_MESSAGE: "feat(190): ..." → "feat(191): ..."
+
+  ## Dependencies Analysis
+
+  ### Required External Systems
+
+  - **Git:** Must be installed and in PATH for subprocess calls to work
+  - **Remote git repository:** Must have origin configured for git push to succeed
+
+  ### Python Standard Library Modules
+
+  - `sys` — for exit codes and stderr output
+  - `subprocess` — for git command execution
+  - `pathlib` — for file I/O and path handling
+  - (Optional) `os` — file operations, but pathlib covers most needs
+
+  ### No External Package Dependencies
+
+  Per spec NFR-5: "No external dependencies beyond Python 3.11+ standard library"
+
+  All required functionality is available in standard library. Do NOT add:
+  - GitPython (too heavyweight)
+  - requests (not needed)
+  - Click or argparse (script does not need CLI args)
+
+  ## Implementation Checklist
+
+  - [ ] Use pathlib.Path for file creation
+  - [ ] Ensure UTF-8 encoding without BOM via `encoding="utf-8"`
+  - [ ] Force Unix LF line endings via `newline="\n"`
+  - [ ] Check for pre-existing file, return None if exists
+  - [ ] Implement validate_file() function with all checks from spec FR-4
+  - [ ] Validate file structure (H1 heading, blank line, prose) before git operations
+  - [ ] Validate file encoding (no BOM) and line endings (no CRLF)
+  - [ ] Validate file size is 400-600 bytes
+  - [ ] Validate sentence count is exactly 2-3 (should be exactly 3)
+  - [ ] Use subprocess.run() with command arrays (not shell=True) for git operations
+  - [ ] Include check=True flag to raise CalledProcessError on git command failure
+  - [ ] Catch specific exceptions: ValueError, OSError, CalledProcessError
+  - [ ] Provide clear error messages citing file paths, encoding info, git output
+  - [ ] Use conventional commit format: `feat(191): create markdown file test-1m1w18.md`
+  - [ ] Follow exact pattern from feature 190 implementation
+
+  ## Success Criteria from Spec
+
+  This research confirms that the feature spec's success criteria are achievable using:
+
+  - **File structure:** pathlib.Path.write_text() creates file at repository root with proper structure
+  - **Encoding/line endings:** UTF-8 without BOM + Unix LF via write_text parameters
+  - **Validation:** Comprehensive checks before git operations (structure, encoding, size, sentence count)
+  - **Git integration:** subprocess.run() with command arrays for add/commit/push
+  - **Error handling:** Specific exception catches with clear messages
+  - **Determinism:** Template-based constants ensure consistent results
+
+  No blockers identified. Implementation should follow feature 190 pattern exactly.
+
+  ---
+
+  _Research phase completed — ready for planning_
