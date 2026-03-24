@@ -9,7 +9,7 @@ summary: |
   as title and 2-3 sentences of prose content. This continues the well-established pattern of 200+ test files
   in the Sheep automated implementation platform, demonstrating file creation, git integration, and
   conventional commits.
-phase: "Analysis"
+phase: "Requirements"
 sizeEstimate: "S"
 
 relatedFeatures:
@@ -40,7 +40,66 @@ relatedLinks:
   - title: "Conventional Commits Specification"
     url: "https://www.conventionalcommits.org/"
 
-openQuestions: []
+openQuestions:
+  - question: "Should prose content generation be deterministic (same output each run) or variable (different content each run)?"
+    resolved: true
+    options:
+      - option: "Deterministic (same output each run)"
+        description: "Content is generated with a fixed seed based on feature number, ensuring reproducible output. Simplifies testing and debugging, enables version control of exact content, but reduces variety across multiple runs."
+        selected: true
+      - option: "Variable (different content each run)"
+        description: "Each execution generates new prose, providing variety and demonstrating generative capabilities. More interesting for testing and demos, but harder to version control and reproduce bugs."
+        selected: false
+    selectionRationale: "Deterministic generation aligns with NFR-6 requirement and best practices for automated test platforms where reproducibility is critical for debugging and CI/CD reliability."
+    answer: "Deterministic (same output each run)"
+
+  - question: "Should generated prose be validated for quality/coherence (meaningful, thematically coherent), or only for structural format (sentence count, markdown syntax)?"
+    resolved: true
+    options:
+      - option: "Full quality validation (structure + semantic content)"
+        description: "Validate both format (H1 heading, sentence count, encoding) and content quality (meaningfulness, thematic coherence, no gibberish). Ensures high-quality test files but increases implementation complexity."
+        selected: true
+      - option: "Structural validation only"
+        description: "Validate only format requirements (H1 heading present, exactly 2-3 sentences, valid encoding, correct line endings). Simpler to implement but could allow low-quality or incoherent content."
+        selected: false
+    selectionRationale: "Full quality validation is required per Success Criteria (\"Prose content is thematically coherent and meaningful\") and NFR-2 (\"Prose content must be original, meaningful, and stylistically consistent\")."
+    answer: "Full quality validation (structure + semantic content)"
+
+  - question: "What should happen if file validation fails (e.g., wrong encoding, wrong line endings, invalid markdown)?"
+    resolved: true
+    options:
+      - option: "Fail immediately and report error"
+        description: "Stop execution, provide clear error message with details about what failed, require user/system intervention. Simple and safe, prevents creation of invalid files and masks issues."
+        selected: true
+      - option: "Attempt automatic correction and continue"
+        description: "Try to fix validation failures (e.g., convert line endings, re-encode) and continue execution. More user-friendly but could mask systemic issues that should be debugged."
+        selected: false
+    selectionRationale: "Fail fast is recommended because validation failures indicate environmental or configuration issues that should be addressed explicitly, not masked by automatic correction."
+    answer: "Fail immediately and report error"
+
+  - question: "Should git operations (stage, commit, push) retry on transient failures, or fail immediately?"
+    resolved: true
+    options:
+      - option: "Fail immediately with clear error"
+        description: "Stop on first git error, report error to user with details. Simple and deterministic, user can retry manually. Better for debugging and understanding failures."
+        selected: true
+      - option: "Retry with exponential backoff"
+        description: "Automatically retry transient failures (network timeouts, temporary lock issues) up to 3 times. More resilient but increases wall-clock time and complexity."
+        selected: false
+    selectionRationale: "Fail fast is recommended for simplicity and clarity. The Sheep platform prioritizes transparency in automated workflows, and failures should be visible to enable debugging."
+    answer: "Fail immediately with clear error"
+
+  - question: "Should prose content be on arbitrary topics or limited to specific domains/themes?"
+    resolved: true
+    options:
+      - option: "Any meaningful topic (arbitrary subjects)"
+        description: "Prose can be about any subject, limited only by the requirement to be meaningful and coherent. Maximum flexibility, demonstrates generative capability, aligns with user query (\"anything\")."
+        selected: true
+      - option: "Domain-specific topics (e.g., technology, science)"
+        description: "Content limited to specific themes matching repository purpose. More coherent but reduces flexibility and topic variety."
+        selected: false
+    selectionRationale: "Any meaningful topic is recommended per the original user query (\"about anything\") and existing precedent of 200+ test files covering diverse, unrelated topics."
+    answer: "Any meaningful topic (arbitrary subjects)"
 
 content: |
   ## Problem Statement
@@ -75,9 +134,10 @@ content: |
   - **FR-8**: Validate encoding: verify file is UTF-8 encoded without BOM
   - **FR-9**: Validate line endings: verify file contains only Unix LF newlines, not CRLF or CR
   - **FR-10**: Validate file size: confirm file is between 250-600 bytes
-  - **FR-11**: Stage the file using `git add test-b1weep.md` command
-  - **FR-12**: Create a commit with conventional commit message format: `feat(202): Create markdown file test-b1weep.md with title and prose content`
-  - **FR-13**: Push the commit to the feature branch `feat/202-markdown-file-creation-4dbea6`
+  - **FR-11**: Validate prose quality: confirm content is meaningful, coherent, and thematically related to the title (not gibberish)
+  - **FR-12**: Stage the file using `git add test-b1weep.md` command
+  - **FR-13**: Create a commit with conventional commit message format: `feat(202): Create markdown file test-b1weep.md with title and prose content`
+  - **FR-14**: Push the commit to the feature branch `feat/202-markdown-file-creation-4dbea6`
 
   ## Non-Functional Requirements
 
@@ -86,9 +146,20 @@ content: |
   - **NFR-3**: File creation and validation must complete in approximately 10-15 minutes of wall-clock execution time
   - **NFR-4**: Git operations must use standard, well-documented commands without custom flags or workarounds (except `--no-verify` when required by CI)
   - **NFR-5**: All file I/O operations must use Python standard library only (pathlib, no external dependencies)
-  - **NFR-6**: Prose generation should be deterministic — same feature execution should produce identical output for reproducibility and testing
+  - **NFR-6**: Prose generation should be deterministic — same feature execution with same inputs should produce identical output for reproducibility and testing
   - **NFR-7**: All error messages and logs must be clear and actionable, enabling quick debugging if any step fails
   - **NFR-8**: The feature implementation must demonstrate compliance with the Sheep platform's quality standards, as evidenced by the 200+ existing test files
+  - **NFR-9**: Validation failures must be reported clearly and stop execution immediately, preventing creation of invalid files
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should prose generation be deterministic or variable? | Deterministic (same output each run with fixed seed) | Required for reproducibility in automated testing and CI/CD; enables version control of exact content; simplifies debugging of failures |
+  | 2 | Should we validate prose quality or just structure? | Full quality validation (structure + semantic content) | Success Criteria explicitly require "thematically coherent and meaningful" content; NFR-2 requires originality and stylistic consistency; prevents low-quality output |
+  | 3 | What happens if validation fails? | Fail immediately with clear error message | Prevents creation of invalid files; validation failures indicate environmental issues that must be addressed, not masked; aligns with transparency-first approach of Sheep platform |
+  | 4 | Should git operations retry on failure? | Fail immediately with clear error | Simplicity and clarity; enables user to diagnose and retry manually; better for debugging; transient failures are rare in local repos |
+  | 5 | Should prose be arbitrary topics or domain-specific? | Any meaningful topic (arbitrary subjects) | Matches user query ("about anything"); aligns with 200+ existing test files on diverse topics; maximum flexibility demonstrates generative capability |
 
   ## Codebase Analysis
 
@@ -176,7 +247,7 @@ content: |
   | File System | Low | Single file creation operation (~350-550 bytes); no directory structure changes, no deletions or overwrites |
   | Git Repository | Low | Standard single commit and push following established pattern from features 150-201; no branch/merge complexity, no destructive operations |
   | Source Code (src/sheep/) | None | Feature is purely file creation; does not depend on or impact any source code in /src/sheep/ or elsewhere |
-  | Specs Directory | Low | Updates only this spec.yaml file during analysis phase; no impact on other specs or configurations |
+  | Specs Directory | Low | Updates only this spec.yaml file during requirements phase; no impact on other specs or configurations |
   | Configuration Files | None | No changes to .env, pyproject.toml, dockerfile, or any config files |
   | Tests | None | No test modifications or additions required; feature is simple file creation with no complex logic to test |
   | Dependencies | None | Feature uses only Python standard library (pathlib, subprocess) and git; no new package dependencies required |
@@ -212,7 +283,7 @@ content: |
 
   - **Content generation**: ~3-5 minutes (generate title and 2-3 sentences via Claude API with deterministic seed)
   - **File creation and encoding**: ~1-2 minutes (write file with UTF-8 encoding and LF line endings using pathlib)
-  - **Validation**: ~2-3 minutes (verify markdown syntax, sentence count, encoding, line endings, file size)
+  - **Validation**: ~2-3 minutes (verify markdown syntax, sentence count, encoding, line endings, file size, prose quality)
   - **Git workflow**: ~2-5 minutes (stage file, commit with conventional message, push to feature branch)
   - **Total estimate**: 10-15 minutes of actual work
 
@@ -242,13 +313,15 @@ content: |
   4. Verify UTF-8 encoding without BOM
   5. Verify LF line endings only (no CRLF or CR)
   6. Check file size (target 250-600 bytes)
-  7. Log validation results and any errors
+  7. Validate prose quality (meaningful, coherent, thematically related to title — not gibberish)
+  8. Log validation results and any errors; fail immediately if any check does not pass
 
   **Git Workflow:**
   1. Stage file: `git add test-b1weep.md`
   2. Create commit: `git commit -m "feat(202): Create markdown file test-b1weep.md with title and prose content"`
   3. Push to branch: `git push origin feat/202-markdown-file-creation-4dbea6`
+  4. Fail immediately with clear error if any git operation fails
 
   ---
 
-  _Analysis complete — ready for implementation_
+  _Requirements phase complete — ready for implementation_
