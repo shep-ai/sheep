@@ -9,7 +9,7 @@ summary: |
   as title and 2-3 sentences of prose content. This continues the well-established pattern of 200+ test files
   in the Sheep automated implementation platform, demonstrating file creation, git integration, and
   conventional commits.
-phase: "Analysis"
+phase: "Requirements"
 sizeEstimate: "S"
 
 relatedFeatures:
@@ -40,7 +40,54 @@ relatedLinks:
   - title: "Conventional Commits Specification"
     url: "https://www.conventionalcommits.org/"
 
-openQuestions: []
+openQuestions:
+  - question: "Should validation be minimal (file creation only) or comprehensive (sentence count, encoding, CommonMark compliance)?"
+    resolved: true
+    options:
+      - option: "Minimal validation"
+        description: "Check only that file exists and is readable as markdown. Fast, minimal failure points. Appropriate for simple test files where format is trusted."
+        selected: false
+      - option: "Comprehensive validation"
+        description: "Validate sentence count, word limits, UTF-8 encoding, LF line endings, CommonMark compliance, file size. Catches issues early, ensures quality standards. Better for automated systems where issues should fail immediately."
+        selected: true
+    selectionRationale: "Comprehensive validation is recommended because this is part of an automated implementation platform where early failure detection prevents inconsistent test files. Validation failures provide clear feedback to engineers about what went wrong, matching the established pattern from features 150-203."
+    answer: "Comprehensive validation"
+
+  - question: "Should Claude API prose generation use deterministic settings (temperature=0, fixed seed) or variable generation?"
+    resolved: true
+    options:
+      - option: "Deterministic (temperature=0, fixed seed)"
+        description: "Ensures reproducible content across runs. Easier to test and debug. May produce slightly less natural prose variation. Aligns with automated system expectations."
+        selected: true
+      - option: "Variable generation (standard temperature)"
+        description: "More natural content variation. Richer prose diversity. Harder to test and reproduce. May cause variability in test outputs."
+        selected: false
+    selectionRationale: "Deterministic generation is recommended because the system is automated and reproducibility across runs is essential. The analysis document already specifies 'temperature=0 for reproducibility', confirming this is the expected pattern. For a test file in an automated system, consistent output is more valuable than prose variation."
+    answer: "Deterministic (temperature=0, fixed seed)"
+
+  - question: "Should operation failures (API errors, file system errors) cause immediate exit or be retried?"
+    resolved: true
+    options:
+      - option: "Fail fast with clear error message"
+        description: "Exit immediately on any error, provide specific error message. Fast feedback, easier debugging. Matches expectations for automated systems where quick resolution is preferred."
+        selected: true
+      - option: "Retry up to N times before failing"
+        description: "Retry transient failures (network timeouts) up to 3 times. Handles temporary issues gracefully. More complex error handling, may mask underlying problems."
+        selected: false
+    selectionRationale: "Fail fast is recommended because in an automated context, immediate feedback about failures enables quick resolution. The system operates on feature branches with clear error tracking, so retries add complexity without significant benefit. Clear, specific error messages are more valuable than automatic retry logic."
+    answer: "Fail fast with clear error message"
+
+  - question: "Should the file be automatically pushed to the feature branch or only staged and committed?"
+    resolved: true
+    options:
+      - option: "Automatic push to feature branch"
+        description: "Stage, commit, and push all in one operation. Complete workflow in single step. Matches the pattern described in analysis of features 150-203. Risk: accidental pushes if user hasn't intended to push."
+        selected: true
+      - option: "Stage and commit only"
+        description: "User manually runs git push after feature completes. Extra control, explicit confirmation before pushing. Adds manual step to workflow."
+        selected: false
+    selectionRationale: "Automatic push is recommended because the feature branch is pre-created and isolated, and the analysis explicitly mentions 'push to feature branch' as a standard part of the workflow. This matches the pattern from features 150-203 and reduces manual steps in the automated implementation process."
+    answer: "Automatic push to feature branch"
 
 content: |
   ## Problem Statement
@@ -48,6 +95,57 @@ content: |
   The Sheep automated implementation platform requires the ability to create simple test markdown files following an established pattern. This feature creates a single test markdown file (`test-reejh3.md`) at the repository root with a title and prose content, demonstrating automated file creation, git integration, and conventional commit workflows.
 
   This is a continuation of the markdown-file-creation pattern established in features 150-203, with 200+ similar test files already existing in the repository as precedents. The feature serves as a minimal, testable unit of work for the automated implementation system, proving the platform can consistently produce high-quality files that match established patterns.
+
+  ## Success Criteria
+
+  - [ ] File `test-reejh3.md` is created at repository root (not in subdirectory)
+  - [ ] File contains valid CommonMark markdown syntax with no parse errors
+  - [ ] File starts with an H1 heading (title) on first line
+  - [ ] File contains exactly 2-3 prose sentences after the title
+  - [ ] File is encoded in UTF-8 with Unix LF line endings (0x0A, not CRLF)
+  - [ ] File size is between 100-600 bytes (reasonable markdown file size range)
+  - [ ] Content is generated via Claude API with deterministic settings (temperature=0)
+  - [ ] File is staged in git index with no uncommitted changes
+  - [ ] Git commit message follows Conventional Commits format (type: description)
+  - [ ] Commit is pushed to `feat/204-markdown-file-creation-946f62` branch
+  - [ ] Git history shows single commit for this feature with no merge commits
+  - [ ] No existing files in repository are modified or deleted
+  - [ ] All validation checks pass with clear error messages on any failure
+
+  ## Functional Requirements
+
+  - **FR-1**: Create a markdown file named `test-reejh3.md` at the repository root using `pathlib.Path` for cross-platform compatibility
+  - **FR-2**: File must begin with an H1 markdown heading (single `#` followed by space and title text) that serves as the file's title
+  - **FR-3**: File must contain exactly 2-3 complete prose sentences after the title, separated by blank line from heading
+  - **FR-4**: Write file with UTF-8 encoding and Unix LF line endings (validate and convert if necessary)
+  - **FR-5**: Generate title and prose content using Claude API with deterministic settings (temperature=0, fixed seed for reproducibility)
+  - **FR-6**: File must be valid CommonMark markdown (validate against CommonMark specification, not just basic syntax)
+  - **FR-7**: Stage the file in git using subprocess to run `git add`
+  - **FR-8**: Create a git commit with conventional commit message using subprocess (format: `type(scope): description`)
+  - **FR-9**: Push commit to the feature branch `feat/204-markdown-file-creation-946f62` using subprocess
+  - **FR-10**: Validate that no existing files were modified during this operation (fail if repository state diverges unexpectedly)
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Execution must complete within 5 minutes total (Claude API calls, file I/O, git operations)
+  - **NFR-2**: File size must be in range 100-600 bytes to match established test file patterns
+  - **NFR-3**: Implementation must follow architecture patterns from features 150-203 with identical module structure and function organization
+  - **NFR-4**: Claude API generation must use temperature=0 for deterministic, reproducible content across runs
+  - **NFR-5**: All error messages must be specific and actionable (not generic), enabling quick resolution
+  - **NFR-6**: File I/O must use `pathlib.Path` exclusively for cross-platform compatibility (no os.path module)
+  - **NFR-7**: Git operations must use Python `subprocess` module with no external git wrapper dependencies
+  - **NFR-8**: Code must be maintainable and follow existing feature module patterns from the codebase
+  - **NFR-9**: No external package dependencies; use only Python 3.11+ standard library and git command-line
+  - **NFR-10**: Logging and error tracking must use `sheep.observability.logging` infrastructure where available
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Validation scope (minimal vs comprehensive) | **Comprehensive validation** | Automated systems benefit from early failure detection. Catching formatting or sentence count issues immediately prevents inconsistent test files and matches the quality standards shown in features 150-203. |
+  | 2 | Claude generation: deterministic or variable? | **Deterministic (temperature=0)** | Reproducible content across runs is essential in automated systems. The analysis already specifies temperature=0, confirming this is the expected pattern. Consistent test output is more valuable than prose variation. |
+  | 3 | Error handling: fail-fast or retry? | **Fail fast with clear error message** | Immediate feedback on failures enables quick resolution in automated workflows. Clear, specific error messages are more useful than automatic retries. Matches expectations for engineering-focused systems. |
+  | 4 | Git push: automatic or manual? | **Automatic push to feature branch** | Feature branch is pre-created and isolated. Automatic push completes the full workflow in one operation. Matches pattern from features 150-203. Reduces manual steps in automated implementation process. |
 
   ## Codebase Analysis
 
@@ -139,7 +237,7 @@ content: |
 
   This is a minimal-effort, single-file creation feature with well-established precedents from 200+ existing test files:
 
-  - **Content generation**: ~3-5 minutes (generate title and 2-3 sentences via Claude API with deterministic seed)
+  - **Content generation**: ~3-5 minutes (generate title and 2-3 sentences via Claude API with deterministic settings)
   - **File creation and encoding**: ~1-2 minutes (write file with UTF-8 encoding and LF line endings using pathlib)
   - **Validation**: ~2-3 minutes (verify markdown syntax, sentence count, encoding, line endings, file size, prose quality)
   - **Git workflow**: ~2-5 minutes (stage file, commit with conventional message, push to feature branch)
@@ -158,4 +256,4 @@ content: |
 
   ---
 
-  _Analysis phase complete — ready for requirements refinement_
+  _Requirements phase complete — ready for implementation_
