@@ -1,0 +1,380 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-prose-file"
+summary: >
+  Feature 195 implements the well-established pattern for creating test markdown files
+  with AI-generated prose. Technical decisions align with existing codebase patterns:
+  Claude API for content generation, pathlib for file I/O, subprocess for git operations,
+  and comprehensive validation before commit. This approach maintains consistency with
+  features 150-194 while leveraging infrastructure already present in the codebase.
+
+# Relationships
+relatedFeatures:
+  - number: 194
+    name: "markdown-prose-file"
+    relationship: "Immediately preceding feature with identical pattern"
+  - number: 193
+    name: "markdown-prose-file"
+    relationship: "Identical implementation pattern; reference for code structure"
+  - number: 192
+    name: "markdown-prose-file"
+    relationship: "Identical implementation pattern; reference for code structure"
+
+technologies:
+  - "Python 3.11+ (pathlib, standard library)"
+  - "Claude API (via CrewAI LLM framework)"
+  - "Git (version control, subprocess integration)"
+  - "CommonMark Markdown Specification"
+  - "UTF-8 text encoding"
+  - "Unix LF line endings"
+
+relatedLinks:
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+
+# Structured technology decisions
+decisions:
+  - title: "Prose Content Generation Strategy"
+    chosen: "Claude API (via CrewAI LLM framework)"
+    rejected:
+      - "Deterministic template with variable insertion — would produce generic, identical output for all files. Contradicts spec requirement for \"meaningful and coherent\" prose. Previous features (192-194) demonstrate AI-generated content works reliably and produces higher-quality output. Maintenance burden of managing topic templates."
+      - "Hardcoded content specific to this feature — least flexible, zero reusability for feature 196+. Contradicts specification recommendation for AI-generated meaningful prose. Would require manual content creation for each feature."
+    rationale: >
+      Claude API is the optimal choice because it aligns with existing Sheep platform
+      infrastructure (codebase already implements content_generators.generate_markdown_content()
+      using get_reasoning_llm()). This approach produces meaningful, coherent prose with
+      related titles and content as required by the spec. The generated content quality
+      matches the 195+ existing test files. Leveraging existing infrastructure minimizes
+      implementation risk and complexity.
+
+  - title: "File Writing and Encoding Implementation"
+    chosen: "Python pathlib.Path.write_text() with UTF-8 encoding and newline='\\n'"
+    rejected:
+      - "os.open() with manual binary writes — lower-level approach adds complexity without benefit. More error-prone for encoding/line-ending handling. pathlib provides cross-platform abstractions that os.open() lacks. Would require explicit BOM handling and newline conversion."
+      - "External file I/O library — violates spec requirement for Python standard library only. Adds unnecessary dependency. pathlib is sufficient for this simple use case."
+    rationale: >
+      pathlib is the idiomatic, modern Python approach (standard library since 3.4).
+      The write_text() method with encoding='utf-8' ensures UTF-8 encoding. The newline='\\n'
+      parameter prevents platform-specific line ending conversion (critical for Unix LF guarantee).
+      This pattern is used consistently in features 150-194 and the content_generators module.
+      Cross-platform, handles encoding correctly, no external dependencies required.
+
+  - title: "Line Ending Normalization"
+    chosen: "Text mode with newline='\\n' parameter in write_text() and open()"
+    rejected:
+      - "Binary mode with explicit bytes (b'\\n') — more verbose and lower-level than necessary. Requires manual encoding to bytes. Text mode with newline parameter is cleaner and equally reliable. Python standard library explicitly documents that newline='' preserves line endings."
+      - "os.linesep constant — platform-dependent, would produce CRLF on Windows. Violates requirement for Unix LF. Current codebase uses explicit newline='\\n', not os.linesep."
+    rationale: >
+      Per Python documentation, newline='\\n' in text mode ensures LF line endings are
+      preserved without conversion. This guarantees Unix line ending requirement across
+      all platforms. Simpler than binary mode. Existing codebase (content_generators.py)
+      uses write_text() without explicit newline parameter but file writing does enforce
+      LF in subsequent validation. Text mode with newline='\\n' is the explicit, correct approach.
+
+  - title: "Validation Strategy"
+    chosen: "Comprehensive validation before git operations (encoding, structure, line endings, file size)"
+    rejected:
+      - "Basic validation (file exists and is readable) — insufficient to catch errors before committing. Violates spec requirement for \"comprehensive validation\". Inconsistent with quality standards of features 150-194. Could allow malformed content to enter git history."
+      - "No validation (trust code works) — too risky for file creation. No safety net for edge cases. Spec explicitly requires validation of markdown syntax, sentence count, encoding, and line endings."
+    rationale: >
+      Comprehensive validation aligns with spec requirements and quality standards
+      established in features 150-194. The content_generators module implements
+      validate_markdown_file() with checks for: UTF-8 encoding (no BOM), Unix LF line endings,
+      H1 heading structure, 2-3 sentence count, and trailing newline. Running all validations
+      before git operations ensures quality and prevents broken files from entering history.
+      Adds minimal time overhead (2-3 minutes per spec estimate) with significant quality benefit.
+
+  - title: "Git Integration Approach"
+    chosen: "subprocess module for git commands (git add, git commit, git push)"
+    rejected:
+      - "GitPython library — adds external dependency. Spec explicitly requires Python standard library only. subprocess is sufficient for simple git operations. GitPython provides object-oriented abstractions not needed for three basic commands."
+      - "Direct shell invocation (shell=True) — security risk for command injection. Less portable than subprocess list format. Current codebase uses subprocess with list arguments for safety."
+    rationale: >
+      subprocess is part of Python standard library and meets spec requirements.
+      Using subprocess with list-format arguments (not shell=True) is secure and prevents
+      command injection. Existing implementation in feature_193 and other features uses
+      subprocess.run() with list arguments. Pattern is well-established and reliable.
+      Simple git operations (add, commit, push) don't require GitPython's abstraction layer.
+
+  - title: "Markdown Content Structure"
+    chosen: "H1 heading, blank line, exactly 2-3 sentences of prose (matching precedent examples)"
+    rejected:
+      - "H2 heading instead of H1 — violates explicit requirement (FR-2) for H1 markdown heading. All precedent files use H1. Less prominent in markdown hierarchy."
+      - "No blank line separator — reduces readability and violates structure of all 195+ existing test files. Makes markdown semantically different from precedent examples."
+      - "4+ sentences or variable sentence count — violates spec requirement for exactly 2-3 sentences. All precedent examples use 3 sentences consistently. More complex to validate and maintain."
+    rationale: >
+      H1 heading with blank line separator and 2-3 sentences matches all 195+ existing
+      test files (e.g., test-9zebfj.md, test-xgtwtq.md). This consistency is critical
+      for the \"indistinguishable from existing files\" requirement. The structure is
+      simple to validate, parse, and maintain. Aligns with spec and precedent pattern.
+
+  - title: "Error Handling and Recovery"
+    chosen: "Fail-fast with clear error messages; no recovery attempts or partial commits"
+    rejected:
+      - "Retry logic for transient failures — adds complexity without clear benefit for local file operations. File I/O rarely fails transiently. Git push might fail but retry logic doesn't improve reliability. Better to surface error and let operator retry if needed."
+      - "Partial commit strategy (commit file even if validation fails) — violates data integrity. Broken files in git history create technical debt. Spec requires all validations pass before commit."
+    rationale: >
+      Fail-fast approach ensures integrity: validation completes fully before any git
+      operations begin. If validation fails, file is not committed, preventing broken
+      state. Feature 193 and existing implementations follow this pattern. Clear error
+      messages (via logging and exceptions) help operators diagnose issues quickly.
+      Simpler than retry logic and more reliable.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should prose generation use a single API call or separate calls for title and content?"
+    resolved: true
+    options:
+      - option: "Single coordinated API call"
+        description: "Generate title and prose together in one prompt. Ensures semantic coherence between title and content (both about the same topic). More efficient (1 API call vs 2). Matches implementation in content_generators.generate_markdown_content()."
+        selected: true
+      - option: "Separate sequential API calls"
+        description: "First generate topic/title, then generate prose about that topic. More control over each element. Adds 1 extra API call and latency. Requires coordination logic to ensure prose relates to title."
+        selected: false
+      - option: "Batch multiple files in single call"
+        description: "Generate content for multiple test files in one API call for efficiency. Complicates parsing and increases risk of format errors. Harder to validate each file individually. Not viable for feature pattern (one file per feature)."
+        selected: false
+    selectionRationale: >
+      Single coordinated API call is optimal because it ensures title and prose coherence
+      (spec requirement), reduces API overhead (1 call instead of 2), and matches the
+      implementation in content_generators.py which uses MARKDOWN_GENERATION_PROMPT with
+      clear formatting instructions. The prompt template already enforces the required structure.
+
+  - question: "Should file creation verify the filename matches the expected pattern before writing?"
+    resolved: true
+    options:
+      - option: "Validate filename against pattern (test-[a-z0-9]{6}.md)"
+        description: "Check that filename matches expected pattern to catch typos or misconfigurations. Provides early error detection. Feature 195 has fixed filename test-2xz0x5.md from spec, so pattern matching confirms correctness."
+        selected: true
+      - option: "Accept any .md filename"
+        description: "Less strict validation. Relies on operator to provide correct filename. Simpler code but less safety. Could create files with unexpected names."
+        selected: false
+      - option: "No filename validation"
+        description: "Minimal validation. Trusts the filename parameter. Similar to option 2 but even less explicit about the expectation."
+        selected: false
+    selectionRationale: >
+      Filename validation is recommended because feature 195 has a specific, fixed filename
+      (test-2xz0x5.md) from the spec. Validating against pattern ensures the correct file
+      is created. content_generators.py includes path validation (prevents directory traversal)
+      but not pattern matching. Adding pattern validation provides defense-in-depth and
+      prevents accidental creation of test files with wrong names.
+
+  - question: "How should the commit message for feature 195 be formatted — with feature number or generic?"
+    resolved: true
+    options:
+      - option: "Include feature number: feat(195): Create markdown file test-2xz0x5.md..."
+        description: "Conventional commit format with feature number (195). Matches features 192-194 and spec requirement. Provides clear traceability. Feature number links commit to feature spec."
+        selected: true
+      - option: "Generic format: feat: Create markdown file test-2xz0x5.md..."
+        description: "Standard conventional commit without feature number. Simpler. Less specific but still professional. Harder to trace commit back to feature specification."
+        selected: false
+      - option: "Include full spec URL or detailed description"
+        description: "Verbose commit message with additional metadata. Longer, harder to read in git log. Violates conventional commit brevity principle. Git history becomes cluttered."
+        selected: false
+    selectionRationale: >
+      Feature number in commit message is required by spec (\"feat(195): Create markdown
+      file test-2xz0x5.md with title and prose content\"). This format matches features
+      192-194 and Conventional Commits specification. The feature number (195) provides
+      direct traceability to the feature specification for future reference. All 195+
+      existing test files follow this pattern, ensuring consistency.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-24
+  - **Author:** Technical Architect
+
+  ## Technology Decisions
+
+  ### 1. Prose Content Generation
+
+  **Chosen:** Claude API via CrewAI LLM framework
+
+  **Rejected:**
+  - Deterministic templates — would produce generic, identical output. Contradicts spec requirement for meaningful content. Existing features demonstrate AI generation works reliably.
+  - Hardcoded content — least flexible, zero reusability for feature 196+. Contradicts spec recommendation for AI-generated prose.
+
+  **Rationale:** Claude API aligns with existing Sheep platform infrastructure (content_generators.generate_markdown_content() already implemented). Produces meaningful, coherent prose with related titles as required. Matches quality of 195+ existing test files. Minimal implementation risk by reusing existing infrastructure.
+
+  ### 2. File Writing and Encoding
+
+  **Chosen:** Python pathlib.Path.write_text() with encoding="utf-8" and newline="\n"
+
+  **Rejected:**
+  - os.open() with manual binary writes — adds complexity without benefit, more error-prone, lacks pathlib abstractions.
+  - External file I/O library — violates spec requirement for Python standard library only.
+
+  **Rationale:** pathlib is idiomatic modern Python (standard library). The write_text() method with encoding='utf-8' ensures UTF-8 encoding. Parameter newline='\n' prevents platform-specific conversion, guaranteeing Unix LF. Consistent with features 150-194 pattern. No external dependencies.
+
+  ### 3. Line Ending Normalization
+
+  **Chosen:** Text mode with newline="\n" parameter
+
+  **Rejected:**
+  - Binary mode with explicit bytes — more verbose, lower-level than necessary, requires manual byte encoding.
+  - os.linesep constant — platform-dependent, produces CRLF on Windows, violates Unix LF requirement.
+
+  **Rationale:** Python documentation confirms newline="\n" in text mode preserves LF without conversion. Guarantees Unix line endings across platforms. Simpler than binary mode. Existing codebase uses this approach (write_text defaults to respecting line endings set via newline parameter).
+
+  ### 4. Validation Strategy
+
+  **Chosen:** Comprehensive validation before git operations
+
+  Validation checks:
+  - UTF-8 encoding without BOM (byte order mark)
+  - Unix LF line endings (no CRLF)
+  - H1 heading at start of file
+  - Exactly 2-3 sentences in prose content
+  - Trailing newline present
+  - File size 250-600 bytes (typical for this pattern)
+
+  **Rejected:**
+  - Basic validation (file exists) — insufficient, allows broken content to commit.
+  - No validation — too risky for file creation, violates spec requirements.
+
+  **Rationale:** Spec requires comprehensive validation. Aligns with quality standards of features 150-194. content_generators.validate_markdown_file() implements these checks. Running validation before git operations ensures quality and prevents malformed files from entering history. Adds minimal time overhead with significant quality benefit (2-3 minutes per spec estimate).
+
+  ### 5. Git Integration
+
+  **Chosen:** subprocess module with list-format arguments
+
+  Git operations:
+  - `git add test-2xz0x5.md`
+  - `git commit -m "feat(195): Create markdown file test-2xz0x5.md with title and prose content"`
+  - `git push -u origin HEAD`
+
+  **Rejected:**
+  - GitPython library — adds external dependency, violates spec requirement for standard library only.
+  - Direct shell invocation (shell=True) — security risk for command injection, less portable.
+
+  **Rationale:** subprocess is Python standard library and meets spec requirements. List-format arguments prevent command injection. Feature 193 and other implementations use this pattern successfully. Simple git operations (add, commit, push) don't require GitPython's object-oriented layer. Well-established, reliable pattern in codebase.
+
+  ### 6. Markdown Structure
+
+  **Chosen:** H1 heading + blank line + exactly 2-3 sentences
+
+  Example structure:
+  ```markdown
+  # Title Text
+
+  This is the first sentence. This is the second sentence. This is the third sentence.
+  ```
+
+  **Rejected:**
+  - H2 heading instead of H1 — violates explicit FR-2 requirement, differs from all precedent files.
+  - No blank line separator — reduces readability, differs from all 195+ existing files.
+  - 4+ sentences or variable count — violates spec requirement for exactly 2-3 sentences.
+
+  **Rationale:** Exact match to all 195+ existing test files (e.g., test-9zebfj.md, test-xgtwtq.md) ensures output is "indistinguishable from existing files" (spec requirement). H1 heading is explicit spec requirement. Blank line separator is standard markdown convention and present in all precedents. 2-3 sentence count is validated consistently across codebase.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O, path handling | **Use** | Python standard library, idiomatic, cross-platform, no external dependencies |
+  | subprocess | Git command execution | **Use** | Python standard library, secure with list arguments, established pattern in codebase |
+  | Claude API | Content generation | **Use** | Already integrated via CrewAI in content_generators module, produces quality output |
+  | re (regex) | Sentence/structure validation | **Use** | Python standard library, useful for pattern matching and validation |
+  | os | System operations | **Limited use** | Use pathlib for file operations; use for environment/platform detection only |
+  | GitPython | Advanced git operations | **Reject** | External dependency; subprocess sufficient for simple add/commit/push operations |
+  | External markdown libraries | Markdown parsing | **Reject** | CommonMark is simple; no parsing library needed for generation or basic validation |
+
+  ## Security Considerations
+
+  ### Input Validation
+  - **Filename validation:** Verify filename matches pattern `test-[a-z0-9]{6}.md` to prevent directory traversal or unexpected file names
+  - **API response validation:** Ensure Claude API response conforms to markdown format before writing to disk
+  - **Path safety:** Use pathlib (prevents directory traversal) and validate filename has no path separators
+
+  ### Output Safety
+  - **Encoding guarantee:** UTF-8 encoding ensures no null bytes or binary content injected
+  - **Line ending control:** Explicit LF-only line endings prevent platform-specific issues
+  - **No shell execution:** subprocess list format prevents command injection
+
+  ### File System Safety
+  - **Exclusive creation:** Check file does not exist before writing (prevents overwriting)
+  - **Atomic writes:** pathlib.write_text() is atomic on most systems
+  - **Permissions:** File created with default umask (typically readable by user, potentially group/world depending on system)
+
+  ## Performance Implications
+
+  ### File Creation
+  - File write: ~1-2 ms (small file, ~350-550 bytes)
+  - Encoding: Included in write operation, negligible overhead
+  - No performance bottleneck
+
+  ### Validation
+  - Binary read: ~0.5 ms for 350-550 byte file
+  - Text validation (sentence counting, regex): ~1 ms
+  - Total validation: ~3-5 ms
+  - Negligible overhead, well worth the quality assurance
+
+  ### API Calls
+  - Claude API call: ~2-5 seconds (dominant time factor)
+  - Includes network latency, model inference
+  - Per spec estimate: 3-5 minutes for content generation phase
+
+  ### Git Operations
+  - git add: ~5-50 ms (local file system operation)
+  - git commit: ~10-100 ms (local operation, no network)
+  - git push: ~1-5 seconds (network bound, uploads to remote)
+  - Total git time: ~2-5 minutes per spec estimate
+
+  ### Overall Performance
+  - Feature 195 follows identical pattern to 150-194
+  - Expected execution time: 10-15 minutes (per spec estimate)
+  - Dominant factors: Claude API call (~2-5s), git push (~1-5s)
+  - File operations and validation: <50 ms, negligible
+  - Bottleneck: Claude API and network operations (not within codebase control)
+
+  ## Architecture Notes
+
+  ### Integration Points
+  - **content_generators module:** Use `generate_markdown_content()` for prose generation
+  - **Validation functions:** Use `validate_markdown_file()` for comprehensive validation
+  - **Git tools:** Use subprocess (standard library) or GitCommitTool/GitPushTool from existing tools
+  - **Logging:** Use sheep.observability.logging.get_logger() for observability
+
+  ### Consistency with Existing Pattern
+  - Feature 193 (most recent) provides exact template for implementation
+  - File structure, validation logic, git workflow all proven in production
+  - 195+ test files demonstrate reliability of the approach
+  - No architectural changes needed; feature fits existing pattern perfectly
+
+  ### Codebase Patterns
+  - **Content generation:** content_generators.generate_markdown_content() — established, tested
+  - **File validation:** content_generators.validate_markdown_file() — comprehensive, proven
+  - **Git integration:** subprocess with list arguments — secure, standard
+  - **Error handling:** Fail-fast with clear messages — consistent with features 150-194
+
+  ## Implementation Recommendation
+
+  **Approach: Follow the Feature 193 template exactly**
+
+  The implementation pattern from feature 193 (feature_193_markdown_file_creation.py) should be adapted for feature 195 with these changes:
+  - Update FILENAME to "test-2xz0x5.md"
+  - Update TITLE, PROSE, and commit message with new content
+  - All validation functions, git operations, and structure remain identical
+
+  Alternatively, implement using content_generators module for even cleaner integration:
+  - Call `generate_markdown_content()` to generate prose
+  - Call `write_markdown_file("test-2xz0x5.md")` to write file
+  - Call `validate_markdown_file()` to validate
+  - Use subprocess or git tools for add/commit/push
+
+  Both approaches are valid; choice depends on whether integration with content_generators module is preferred (cleaner) or direct implementation like feature 193 (more explicit).
+
+  ---
+
+  **Research Phase Complete — Ready for Implementation**
+
+  All technical decisions documented with clear rationale. Infrastructure exists in codebase
+  to support implementation. Pattern established in features 150-194 is proven and reliable.
+  Feature 195 will follow identical approach with high confidence of success.
