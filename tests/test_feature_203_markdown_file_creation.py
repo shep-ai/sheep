@@ -12,6 +12,7 @@ This test suite covers:
 
 import tempfile
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
@@ -35,8 +36,13 @@ from sheep.features.feature_203_markdown_file_creation import (
     validate_markdown_file,
     generate_title,
     generate_prose,
+    git_add_file,
+    git_commit,
+    git_push,
     FILENAME,
     FEATURE_NUMBER,
+    COMMIT_MESSAGE,
+    BRANCH_NAME,
 )
 
 
@@ -633,3 +639,121 @@ class TestTaskTen:
                     validate_markdown_file("test.md")
             finally:
                 os.chdir(original_cwd)
+
+
+class TestTaskEleven:
+    """Tests for task-11: Git integration functions."""
+
+    def test_git_add_file_calls_git_add(self):
+        """Test that git_add_file calls git add with correct arguments."""
+        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            git_add_file("test.md")
+
+            # Verify subprocess.run was called with correct git add command
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ["git", "add", "test.md"]
+            assert call_args[1]["check"] is True
+            assert call_args[1]["capture_output"] is True
+            assert call_args[1]["text"] is True
+
+    def test_git_add_file_raises_on_failure(self):
+        """Test that git_add_file raises CalledProcessError on git failure."""
+        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+            error = subprocess.CalledProcessError(1, ["git", "add"], stderr="fatal: not a git repository")
+            mock_run.side_effect = error
+
+            with pytest.raises(subprocess.CalledProcessError):
+                git_add_file("test.md")
+
+    def test_git_commit_calls_git_commit(self):
+        """Test that git_commit calls git commit with correct message."""
+        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            test_message = "feat(203): Test commit message"
+            git_commit("test.md", test_message)
+
+            # Verify subprocess.run was called with correct git commit command
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ["git", "commit", "-m", test_message]
+            assert call_args[1]["check"] is True
+            assert call_args[1]["capture_output"] is True
+            assert call_args[1]["text"] is True
+
+    def test_git_commit_uses_default_message(self):
+        """Test that git_commit uses COMMIT_MESSAGE constant when not provided."""
+        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            git_commit()
+
+            # Verify subprocess.run was called with default COMMIT_MESSAGE
+            call_args = mock_run.call_args
+            assert COMMIT_MESSAGE in call_args[0][0]
+
+    def test_git_commit_raises_on_failure(self):
+        """Test that git_commit raises CalledProcessError on failure."""
+        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+            error = subprocess.CalledProcessError(1, ["git", "commit"], stderr="nothing to commit")
+            mock_run.side_effect = error
+
+            with pytest.raises(subprocess.CalledProcessError):
+                git_commit()
+
+    def test_git_push_calls_git_push(self):
+        """Test that git_push calls git push with correct branch."""
+        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            test_branch = "feat/test-branch"
+            git_push(test_branch)
+
+            # Verify subprocess.run was called with correct git push command
+            mock_run.assert_called_once()
+            call_args = mock_run.call_args
+            assert call_args[0][0] == ["git", "push", "-u", "origin", test_branch]
+            assert call_args[1]["check"] is True
+            assert call_args[1]["capture_output"] is True
+            assert call_args[1]["text"] is True
+
+    def test_git_push_uses_default_branch(self):
+        """Test that git_push uses BRANCH_NAME constant when not provided."""
+        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+            git_push()
+
+            # Verify subprocess.run was called with default BRANCH_NAME
+            call_args = mock_run.call_args
+            assert BRANCH_NAME in call_args[0][0]
+
+    def test_git_push_raises_on_failure(self):
+        """Test that git_push raises CalledProcessError on failure."""
+        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+            error = subprocess.CalledProcessError(1, ["git", "push"], stderr="rejected by remote")
+            mock_run.side_effect = error
+
+            with pytest.raises(subprocess.CalledProcessError):
+                git_push()
+
+    def test_git_operations_raise_on_failure(self):
+        """Test that all git operations properly raise exceptions on failure."""
+        with patch("sheep.features.feature_203_markdown_file_creation.subprocess.run") as mock_run:
+            error = subprocess.CalledProcessError(1, ["git"], stderr="error message")
+            mock_run.side_effect = error
+
+            # Test git_add_file raises
+            with pytest.raises(subprocess.CalledProcessError):
+                git_add_file("test.md")
+
+            # Test git_commit raises
+            with pytest.raises(subprocess.CalledProcessError):
+                git_commit()
+
+            # Test git_push raises
+            with pytest.raises(subprocess.CalledProcessError):
+                git_push()
