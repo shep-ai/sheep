@@ -224,8 +224,46 @@ def verify_file_exists(filename: str = FILENAME) -> None:
         raise FileNotFoundError(f"File {filename} does not exist")
 
 
+def validate_markdown_format(filename: str = FILENAME) -> None:
+    """Validate markdown file structure: H1 heading, blank line, prose.
+
+    Checks that:
+    1. File starts with exactly one H1 heading (# Title)
+    2. Line 2 is blank (separator between heading and prose)
+    3. Exactly one H1 heading exists in the file
+
+    Args:
+        filename: Path to markdown file to validate
+
+    Raises:
+        ValueError: If markdown format is invalid
+        FileNotFoundError: If file does not exist
+    """
+    file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {filename} does not exist")
+
+    content = file_path.read_text(encoding="utf-8")
+    lines = content.split("\n")
+
+    # Check first line is H1 heading
+    if not lines or not lines[0].startswith("# "):
+        raise ValueError("File must start with H1 heading (# Title)")
+
+    # Check second line is blank (blank line separator)
+    if len(lines) < 2 or lines[1].strip() != "":
+        raise ValueError("Second line must be blank (separator between heading and prose)")
+
+    # Check exactly one H1 heading exists
+    h1_count = sum(1 for line in lines if line.startswith("# ") and not line.startswith("# #"))
+    if h1_count != 1:
+        raise ValueError(f"File must contain exactly one H1 heading, found {h1_count}")
+
+
 def verify_h1_heading(filename: str = FILENAME) -> None:
     """Verify file contains exactly one H1 heading at start.
+
+    Wrapper for validate_markdown_format() for backward compatibility.
 
     Args:
         filename: Path to file to verify
@@ -233,34 +271,85 @@ def verify_h1_heading(filename: str = FILENAME) -> None:
     Raises:
         ValueError: If H1 heading is missing or not at start
     """
+    validate_markdown_format(filename)
+
+
+def extract_prose_content(filename: str = FILENAME) -> str:
+    """Extract prose content from markdown file.
+
+    Extracts the text content that appears after the H1 heading and blank line.
+    This helper function is used by other validation functions.
+
+    Args:
+        filename: Path to markdown file
+
+    Returns:
+        Prose content as string (empty if no prose found)
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If file structure is invalid
+    """
     file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {filename} does not exist")
+
     content = file_path.read_text(encoding="utf-8")
     lines = content.split("\n")
 
-    if not lines or not lines[0].startswith("# "):
-        raise ValueError("File must start with H1 heading (# Title)")
+    # Find blank line after heading (should be at index 1)
+    blank_line_idx = None
+    for i, line in enumerate(lines):
+        if line.strip() == "" and i > 0:
+            blank_line_idx = i
+            break
+
+    if blank_line_idx is None:
+        raise ValueError("No blank line separator found after heading")
+
+    # Extract prose content (all lines after blank line)
+    prose_lines = lines[blank_line_idx + 1:]
+    prose_text = "\n".join(prose_lines).strip()
+
+    return prose_text
 
 
-def verify_prose_content(filename: str = FILENAME) -> None:
-    """Verify file contains exactly 2-3 sentences of prose.
+def count_sentences(prose: str) -> int:
+    """Count sentences in prose text using period counting.
+
+    Counts the number of periods (.) in the prose content. This is a simple
+    but effective approach for validating sentence count in typical prose.
+
+    Args:
+        prose: Text content to count sentences in
+
+    Returns:
+        Number of periods found in the prose
+
+    Raises:
+        ValueError: If prose is empty
+    """
+    if not prose:
+        raise ValueError("Prose content is empty")
+
+    return prose.count(".")
+
+
+def validate_sentence_count(filename: str = FILENAME) -> None:
+    """Validate file contains exactly 2-3 sentences of prose.
+
+    Extracts prose content and counts periods to validate exactly 2-3 sentences.
+    This function uses the extract_prose_content() and count_sentences() helpers.
 
     Args:
         filename: Path to file to verify
 
     Raises:
         ValueError: If sentence count is not 2-3
+        FileNotFoundError: If file does not exist
     """
-    file_path = Path(filename)
-    content = file_path.read_text(encoding="utf-8")
-    lines = content.split("\n")
-
-    # Get prose content (lines after heading and blank line)
-    prose_lines = []
-    if len(lines) > 2:
-        prose_lines = lines[2:]
-
-    prose_text = "\n".join(prose_lines).strip()
-    sentence_count = prose_text.count(".")
+    prose_text = extract_prose_content(filename)
+    sentence_count = count_sentences(prose_text)
 
     if not (2 <= sentence_count <= 3):
         raise ValueError(
@@ -268,16 +357,38 @@ def verify_prose_content(filename: str = FILENAME) -> None:
         )
 
 
-def verify_utf8_encoding(filename: str = FILENAME) -> None:
-    """Verify file is UTF-8 encoded without BOM.
+def verify_prose_content(filename: str = FILENAME) -> None:
+    """Verify file contains exactly 2-3 sentences of prose.
+
+    Wrapper for validate_sentence_count() for backward compatibility.
 
     Args:
         filename: Path to file to verify
 
     Raises:
+        ValueError: If sentence count is not 2-3
+    """
+    validate_sentence_count(filename)
+
+
+def validate_encoding(filename: str = FILENAME) -> None:
+    """Validate file is UTF-8 encoded without BOM.
+
+    Checks that:
+    1. File does not start with UTF-8 BOM (byte order mark)
+    2. File can be decoded as valid UTF-8
+
+    Args:
+        filename: Path to file to validate
+
+    Raises:
         ValueError: If file has BOM or is not valid UTF-8
+        FileNotFoundError: If file does not exist
     """
     file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {filename} does not exist")
+
     binary_content = file_path.read_bytes()
 
     # Check for UTF-8 BOM
@@ -291,16 +402,39 @@ def verify_utf8_encoding(filename: str = FILENAME) -> None:
         raise ValueError(f"File contains invalid UTF-8 encoding: {e}") from e
 
 
-def verify_lf_line_endings(filename: str = FILENAME) -> None:
-    """Verify file uses Unix LF line endings exclusively.
+def verify_utf8_encoding(filename: str = FILENAME) -> None:
+    """Verify file is UTF-8 encoded without BOM.
+
+    Wrapper for validate_encoding() for backward compatibility.
 
     Args:
         filename: Path to file to verify
 
     Raises:
+        ValueError: If file has BOM or is not valid UTF-8
+    """
+    validate_encoding(filename)
+
+
+def validate_line_endings(filename: str = FILENAME) -> None:
+    """Validate file uses Unix LF line endings exclusively.
+
+    Checks that:
+    1. File does not contain CRLF (\\r\\n) Windows line endings
+    2. File does not contain CR (\\r) Mac line endings
+    3. File uses only LF (\\n) Unix line endings
+
+    Args:
+        filename: Path to file to validate
+
+    Raises:
         ValueError: If file contains CRLF or CR line endings
+        FileNotFoundError: If file does not exist
     """
     file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {filename} does not exist")
+
     binary_content = file_path.read_bytes()
 
     if b"\r\n" in binary_content:
@@ -310,8 +444,51 @@ def verify_lf_line_endings(filename: str = FILENAME) -> None:
         raise ValueError("File contains Mac CR (\\r) line endings")
 
 
+def verify_lf_line_endings(filename: str = FILENAME) -> None:
+    """Verify file uses Unix LF line endings exclusively.
+
+    Wrapper for validate_line_endings() for backward compatibility.
+
+    Args:
+        filename: Path to file to verify
+
+    Raises:
+        ValueError: If file contains CRLF or CR line endings
+    """
+    validate_line_endings(filename)
+
+
+def validate_file_size(filename: str = FILENAME, min_bytes: int = 250, max_bytes: int = 600) -> None:
+    """Validate file size is within acceptable range.
+
+    Checks that file size is between min_bytes and max_bytes (inclusive).
+    Default range: 250-600 bytes (per specification).
+
+    Args:
+        filename: Path to file to validate
+        min_bytes: Minimum acceptable file size in bytes (default: 250)
+        max_bytes: Maximum acceptable file size in bytes (default: 600)
+
+    Raises:
+        ValueError: If file size is outside the acceptable range
+        FileNotFoundError: If file does not exist
+    """
+    file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {filename} does not exist")
+
+    file_size = file_path.stat().st_size
+
+    if not (min_bytes <= file_size <= max_bytes):
+        raise ValueError(
+            f"File size {file_size} bytes outside acceptable range {min_bytes}-{max_bytes} bytes"
+        )
+
+
 def verify_file_size(filename: str = FILENAME, min_bytes: int = 250, max_bytes: int = 600) -> None:
     """Verify file size is within acceptable range.
+
+    Wrapper for validate_file_size() for backward compatibility.
 
     Args:
         filename: Path to file to verify
@@ -321,13 +498,71 @@ def verify_file_size(filename: str = FILENAME, min_bytes: int = 250, max_bytes: 
     Raises:
         ValueError: If file size is outside the acceptable range
     """
-    file_path = Path(filename)
-    file_size = file_path.stat().st_size
+    validate_file_size(filename, min_bytes, max_bytes)
 
-    if not (min_bytes <= file_size <= max_bytes):
-        raise ValueError(
-            f"File size {file_size} bytes outside acceptable range {min_bytes}-{max_bytes} bytes"
-        )
+
+def validate_markdown_file(filename: str = FILENAME) -> None:
+    """Comprehensive validation pipeline for markdown file.
+
+    Runs all validation checks required by the specification:
+    1. File exists at the specified path
+    2. Markdown format is valid (H1 heading, blank line, prose)
+    3. Sentence count is exactly 2-3
+    4. File encoding is UTF-8 without BOM
+    5. File uses Unix LF line endings
+    6. File size is 250-600 bytes
+
+    This function validates all success criteria and fails fast on the first
+    error, providing clear error messages for debugging.
+
+    Args:
+        filename: Path to markdown file to validate
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If any validation check fails
+    """
+    _logger.info(f"Starting comprehensive validation pipeline for {filename}")
+
+    try:
+        # Check 1: File exists
+        _logger.info("Check 1: Verifying file exists")
+        verify_file_exists(filename)
+        _logger.debug(f"✓ File exists: {filename}")
+
+        # Check 2: Markdown format (H1 heading, blank line, prose)
+        _logger.info("Check 2: Validating markdown format")
+        validate_markdown_format(filename)
+        _logger.debug("✓ Markdown format is valid")
+
+        # Check 3: Sentence count (2-3 sentences)
+        _logger.info("Check 3: Validating sentence count")
+        validate_sentence_count(filename)
+        _logger.debug("✓ Sentence count is valid (2-3)")
+
+        # Check 4: UTF-8 encoding without BOM
+        _logger.info("Check 4: Validating file encoding")
+        validate_encoding(filename)
+        _logger.debug("✓ File encoding is valid UTF-8 without BOM")
+
+        # Check 5: Unix LF line endings
+        _logger.info("Check 5: Validating line endings")
+        validate_line_endings(filename)
+        _logger.debug("✓ File uses Unix LF line endings")
+
+        # Check 6: File size (250-600 bytes)
+        _logger.info("Check 6: Validating file size")
+        validate_file_size(filename)
+        _logger.debug("✓ File size is within valid range")
+
+        _logger.info(f"All validation checks passed for {filename}")
+
+    except FileNotFoundError as e:
+        _logger.error(f"File validation failed - file not found: {e}")
+        raise
+    except ValueError as e:
+        _logger.error(f"File validation failed: {e}")
+        raise
 
 
 def main() -> None:
@@ -351,33 +586,15 @@ def main() -> None:
         filepath = create_markdown_file()
         print(f"✓ File created: {filepath}")
 
-        # Step 2: Verify file exists
-        _logger.info("Step 2: Verifying file exists")
-        verify_file_exists()
-        print(f"✓ File {FILENAME} exists in repo root")
-
-        # Step 3: Verify markdown structure
-        _logger.info("Step 3: Verifying markdown structure")
-        verify_h1_heading()
-        print("✓ File contains exactly one H1 heading")
-
-        verify_prose_content()
-        print("✓ File contains 2-3 sentences of prose")
-
-        # Step 4: Verify encoding
-        _logger.info("Step 4: Verifying file encoding")
-        verify_utf8_encoding()
-        print("✓ File is UTF-8 encoded without BOM")
-
-        # Step 5: Verify line endings
-        _logger.info("Step 5: Verifying line endings")
-        verify_lf_line_endings()
-        print("✓ File uses Unix LF line endings")
-
-        # Step 6: Verify file size
-        _logger.info("Step 6: Verifying file size")
-        verify_file_size()
-        print("✓ File size within valid range (250-600 bytes)")
+        # Step 2: Run comprehensive validation pipeline
+        _logger.info("Step 2: Running comprehensive validation pipeline")
+        validate_markdown_file()
+        print("✓ File validation passed:")
+        print("  - Markdown format (H1 heading + blank line)")
+        print("  - Sentence count (2-3 sentences)")
+        print("  - UTF-8 encoding without BOM")
+        print("  - Unix LF line endings")
+        print("  - File size (250-600 bytes)")
 
         print()
         print("=" * 60)
