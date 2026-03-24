@@ -260,7 +260,6 @@ class DirectoryTreeTool(BaseTool):
                 for i, entry in enumerate(entries):
                     is_last = i == len(entries) - 1 and not truncated
                     connector = "└── " if is_last else "├── "
-                    new_prefix = prefix + ("    " if is_last else "│   ")
 
                     self._build_tree(
                         entry,
