@@ -6,7 +6,9 @@ Tests create_file() and validate_file() functions.
 
 import pytest
 import tempfile
+import subprocess
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 from create_markdown_file_190 import create_file, validate_file, TITLE, PROSE
 
 
@@ -335,6 +337,254 @@ class TestIntegration:
                 setup(test_file)
                 with pytest.raises(ValueError, match=expected_error):
                     validate_file(test_file)
+
+
+class TestGitOperations:
+    """Test suite for git operation functions."""
+
+    def test_git_add_with_valid_file(self):
+        """Test git_add executes correct command."""
+        from create_markdown_file_190 import git_add
+
+        with patch("subprocess.run") as mock_run:
+            git_add("test.md")
+
+            # Verify subprocess.run was called with correct arguments
+            mock_run.assert_called_once_with(["git", "add", "test.md"], check=True)
+
+    def test_git_add_raises_on_failure(self):
+        """Test git_add raises CalledProcessError on failure."""
+        from create_markdown_file_190 import git_add
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.CalledProcessError(128, ["git", "add", "test.md"])
+
+            with pytest.raises(subprocess.CalledProcessError):
+                git_add("test.md")
+
+    def test_git_commit_with_message(self):
+        """Test git_commit executes correct command with message."""
+        from create_markdown_file_190 import git_commit
+
+        with patch("subprocess.run") as mock_run:
+            test_message = "feat(190): test commit"
+            git_commit(test_message)
+
+            # Verify subprocess.run was called with correct arguments
+            mock_run.assert_called_once_with(
+                ["git", "commit", "-m", test_message],
+                check=True
+            )
+
+    def test_git_commit_raises_on_failure(self):
+        """Test git_commit raises CalledProcessError on failure."""
+        from create_markdown_file_190 import git_commit
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.CalledProcessError(1, ["git", "commit"])
+
+            with pytest.raises(subprocess.CalledProcessError):
+                git_commit("test message")
+
+    def test_git_push_default_command(self):
+        """Test git_push executes correct command."""
+        from create_markdown_file_190 import git_push
+
+        with patch("subprocess.run") as mock_run:
+            git_push()
+
+            # Verify subprocess.run was called with correct arguments
+            mock_run.assert_called_once_with(
+                ["git", "push", "-u", "origin", "HEAD"],
+                check=True
+            )
+
+    def test_git_push_raises_on_failure(self):
+        """Test git_push raises CalledProcessError on failure."""
+        from create_markdown_file_190 import git_push
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.side_effect = subprocess.CalledProcessError(128, ["git", "push"])
+
+            with pytest.raises(subprocess.CalledProcessError):
+                git_push()
+
+    def test_git_add_accepts_different_filenames(self):
+        """Test git_add works with different filenames."""
+        from create_markdown_file_190 import git_add
+
+        with patch("subprocess.run") as mock_run:
+            # Test with different filenames
+            git_add("file1.md")
+            git_add("file2.md")
+
+            # Verify calls were made with correct filenames
+            assert mock_run.call_count == 2
+            calls = mock_run.call_args_list
+            assert calls[0][0][0] == ["git", "add", "file1.md"]
+            assert calls[1][0][0] == ["git", "add", "file2.md"]
+
+
+class TestMainOrchestrator:
+    """Test suite for main orchestrator function."""
+
+    def test_main_complete_workflow_success(self, tmp_path):
+        """Test main successfully orchestrates complete workflow."""
+        from create_markdown_file_190 import main, FILENAME
+
+        # Change to temp directory for test
+        import os
+        original_dir = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+
+            # Mock git operations
+            with patch("subprocess.run"):
+                # Run main
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                # Should exit with 0 on success
+                assert exc_info.value.code == 0
+
+                # File should exist
+                assert (tmp_path / FILENAME).exists()
+        finally:
+            os.chdir(original_dir)
+
+    def test_main_exits_with_1_on_file_exists(self, tmp_path):
+        """Test main exits with code 1 when file already exists."""
+        from create_markdown_file_190 import main, FILENAME
+
+        import os
+        original_dir = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+
+            # Create file first
+            (tmp_path / FILENAME).write_text("# Title\n\nContent.\n")
+
+            # Run main
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+
+            # Should exit with 1 when file exists
+            assert exc_info.value.code == 1
+        finally:
+            os.chdir(original_dir)
+
+    def test_main_exits_with_1_on_validation_error(self, tmp_path):
+        """Test main exits with code 1 on validation error."""
+        from create_markdown_file_190 import main, FILENAME
+
+        import os
+        original_dir = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+
+            # Mock create_file to succeed but validation to fail
+            def create_side_effect(filename):
+                Path(filename).write_text("# Title\n\nOne.\n")  # Only 1 sentence
+                return True
+
+            with patch("create_markdown_file_190.create_file", side_effect=create_side_effect):
+                # Run main
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                # Should exit with 1 on validation error
+                assert exc_info.value.code == 1
+        finally:
+            os.chdir(original_dir)
+
+    def test_main_exits_with_1_on_git_failure(self, tmp_path):
+        """Test main exits with code 1 on git command failure."""
+        from create_markdown_file_190 import main
+
+        import os
+        original_dir = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+
+            # Mock git_add to raise CalledProcessError
+            with patch("create_markdown_file_190.create_file", return_value=True):
+                with patch("create_markdown_file_190.validate_file", return_value=True):
+                    with patch(
+                        "create_markdown_file_190.git_add",
+                        side_effect=subprocess.CalledProcessError(1, ["git", "add"])
+                    ):
+                        # Run main
+                        with pytest.raises(SystemExit) as exc_info:
+                            main()
+
+                        # Should exit with 1 on git failure
+                        assert exc_info.value.code == 1
+        finally:
+            os.chdir(original_dir)
+
+    def test_main_calls_functions_in_order(self, tmp_path):
+        """Test main calls functions in correct order."""
+        from create_markdown_file_190 import main
+
+        import os
+        original_dir = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+
+            # Create call order tracker
+            call_order = []
+
+            def track_create(*args, **kwargs):
+                call_order.append("create_file")
+                return True
+
+            def track_validate(*args, **kwargs):
+                call_order.append("validate_file")
+                return True
+
+            def track_add(*args, **kwargs):
+                call_order.append("git_add")
+
+            def track_commit(*args, **kwargs):
+                call_order.append("git_commit")
+
+            def track_push(*args, **kwargs):
+                call_order.append("git_push")
+
+            with patch("create_markdown_file_190.create_file", side_effect=track_create):
+                with patch("create_markdown_file_190.validate_file", side_effect=track_validate):
+                    with patch("create_markdown_file_190.git_add", side_effect=track_add):
+                        with patch("create_markdown_file_190.git_commit", side_effect=track_commit):
+                            with patch("create_markdown_file_190.git_push", side_effect=track_push):
+                                # Run main
+                                with pytest.raises(SystemExit) as exc_info:
+                                    main()
+
+                                # Verify call order
+                                assert call_order == ["create_file", "validate_file", "git_add", "git_commit", "git_push"]
+                                assert exc_info.value.code == 0
+        finally:
+            os.chdir(original_dir)
+
+    def test_main_with_oserror(self, tmp_path):
+        """Test main exits with 1 on OSError."""
+        from create_markdown_file_190 import main
+
+        import os
+        original_dir = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+
+            # Mock create_file to raise OSError
+            with patch("create_markdown_file_190.create_file", side_effect=OSError("Permission denied")):
+                # Run main
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                # Should exit with 1 on OSError
+                assert exc_info.value.code == 1
+        finally:
+            os.chdir(original_dir)
 
 
 if __name__ == "__main__":
