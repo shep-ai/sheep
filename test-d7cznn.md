@@ -1,0 +1,3 @@
+# The Art of Sustainable Coffee Sourcing
+
+The global coffee industry has undergone a remarkable transformation over the past decade, shifting from purely profit-driven practices toward more ethical and sustainable sourcing models. Small-scale farmers in regions like Ethiopia, Colombia, and Kenya are now receiving fair compensation for their beans while maintaining traditional cultivation methods that preserve biodiversity. This collaborative approach between roasters and growers creates a positive feedback loop that improves both livelihoods and environmental stewardship across coffee-producing regions worldwide.
