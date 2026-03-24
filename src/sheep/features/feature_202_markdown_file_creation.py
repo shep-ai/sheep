@@ -565,26 +565,121 @@ def validate_markdown_file(filename: str = FILENAME) -> None:
         raise
 
 
+def git_add_file(filename: str = FILENAME) -> None:
+    """Stage file for commit using git add.
+
+    Args:
+        filename: Path to file to stage (defaults to FILENAME)
+
+    Raises:
+        subprocess.CalledProcessError: If git add fails
+    """
+    _logger.info(f"Staging file with git: {filename}")
+
+    try:
+        result = subprocess.run(
+            ["git", "add", filename],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"Successfully staged {filename}")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git add failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise subprocess.CalledProcessError(
+            e.returncode, e.cmd, output=error_msg
+        ) from e
+
+
+def git_commit(filename: str = FILENAME, message: str = COMMIT_MESSAGE) -> None:
+    """Create a commit with conventional commit message.
+
+    Args:
+        filename: Name of file being committed (for logging)
+        message: Commit message (defaults to COMMIT_MESSAGE)
+
+    Raises:
+        subprocess.CalledProcessError: If git commit fails
+    """
+    _logger.info(f"Creating commit: {message}")
+
+    try:
+        result = subprocess.run(
+            ["git", "commit", "-m", message],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"Successfully committed changes")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git commit failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise subprocess.CalledProcessError(
+            e.returncode, e.cmd, output=error_msg
+        ) from e
+
+
+def git_push(branch: str = BRANCH_NAME) -> None:
+    """Push changes to remote branch.
+
+    Args:
+        branch: Branch name to push to (defaults to BRANCH_NAME)
+
+    Raises:
+        subprocess.CalledProcessError: If git push fails
+    """
+    _logger.info(f"Pushing to branch: {branch}")
+
+    try:
+        result = subprocess.run(
+            ["git", "push", "-u", "origin", branch],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"Successfully pushed to {branch}")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git push failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise subprocess.CalledProcessError(
+            e.returncode, e.cmd, output=error_msg
+        ) from e
+
+
 def main() -> None:
-    """Main orchestration function for feature 202 phase 1.
+    """Main orchestration function for feature 202 (all phases).
 
     Executes the complete workflow:
     1. Generate markdown content (title + prose)
     2. Create markdown file with UTF-8 encoding and LF line endings
     3. Validate all success criteria before committing
+    4. Stage file with git add
+    5. Create commit with conventional message
+    6. Push to feature branch
 
     Raises:
         ValueError: If any generation or validation check fails
         OSError: If file operations fail
+        subprocess.CalledProcessError: If git operations fail
     """
     try:
-        print("Phase 1: Content Generation & File Creation")
         print("=" * 60)
+        print("Feature 202: Create Markdown File test-b1weep.md")
+        print("=" * 60)
+
+        # Phase 1: Content Generation & File Creation
+        print("\nPhase 1: Content Generation & File Creation")
+        print("-" * 60)
 
         # Step 1: Create markdown file
         _logger.info("Step 1: Creating markdown file with generated content")
         filepath = create_markdown_file()
         print(f"✓ File created: {filepath}")
+
+        # Phase 2: Validation Pipeline
+        print("\nPhase 2: Validation Pipeline")
+        print("-" * 60)
 
         # Step 2: Run comprehensive validation pipeline
         _logger.info("Step 2: Running comprehensive validation pipeline")
@@ -596,11 +691,31 @@ def main() -> None:
         print("  - Unix LF line endings")
         print("  - File size (250-600 bytes)")
 
+        # Phase 3: Git Integration & Orchestration
+        print("\nPhase 3: Git Integration & Orchestration")
+        print("-" * 60)
+
+        # Step 3: Stage file
+        _logger.info("Step 3: Staging file with git add")
+        git_add_file(FILENAME)
+        print(f"✓ File staged: git add {FILENAME}")
+
+        # Step 4: Commit changes
+        _logger.info("Step 4: Creating commit with conventional message")
+        git_commit(FILENAME, COMMIT_MESSAGE)
+        print(f"✓ Commit created: {COMMIT_MESSAGE}")
+
+        # Step 5: Push to remote
+        _logger.info("Step 5: Pushing to remote branch")
+        git_push(BRANCH_NAME)
+        print(f"✓ Pushed to branch: {BRANCH_NAME}")
+
         print()
         print("=" * 60)
-        print("✓ Feature 202 Phase 1 Complete!")
-        print("  File created and all validations passed.")
-        print(f"  Ready for Phase 2 (Validation) and Phase 3 (Git Integration)")
+        print("✓ Feature 202 Complete (All Phases)!")
+        print("  - File created and validated")
+        print("  - Changes committed and pushed")
+        print("=" * 60)
 
     except FileExistsError as e:
         print(f"✗ Error: {e}", file=sys.stderr)
@@ -610,6 +725,9 @@ def main() -> None:
         sys.exit(1)
     except OSError as e:
         print(f"✗ File operation failed: {e}", file=sys.stderr)
+        sys.exit(1)
+    except subprocess.CalledProcessError as e:
+        print(f"✗ Git operation failed: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"✗ Unexpected error: {e}", file=sys.stderr)
