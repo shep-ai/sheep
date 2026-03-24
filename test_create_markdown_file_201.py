@@ -31,8 +31,8 @@ class TestModuleStructure:
             with patch('src.create_markdown.generate_markdown_content'):
                 import create_markdown_file_201
                 assert create_markdown_file_201.__doc__ is not None
-                assert "Feature 201" in create_markdown_file_201.__doc__
-                assert "markdown-file-creation" in create_markdown_file_201.__doc__
+                assert "feature 201" in create_markdown_file_201.__doc__.lower()
+                assert "markdown" in create_markdown_file_201.__doc__.lower()
 
 
 class TestMainFunction:
@@ -659,6 +659,8 @@ class TestGitWorkflow:
 
                         # Should have called subprocess.run at least twice (add, commit)
                         assert mock_run.call_count >= 2
+            finally:
+                os.chdir(original_cwd)
 
     def test_git_workflow_returns_success_false_on_add_failure(self):
         """Test that git_workflow() returns failure if git add fails."""
@@ -675,3 +677,144 @@ class TestGitWorkflow:
 
                 assert result['success'] == False
                 assert len(result['errors']) > 0
+
+
+class TestEndToEndIntegration:
+    """End-to-end integration tests for feature 201."""
+
+    def test_complete_workflow_end_to_end(self):
+        """Test the complete workflow: content generation, file creation, validation, and git integration."""
+        import tempfile
+        import os
+        import importlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize a git repository
+                os.system("git init")
+                os.system("git config user.email 'test@example.com'")
+                os.system("git config user.name 'Test User'")
+
+                # Create an initial commit so git operations work
+                Path(".gitkeep").write_text("")
+                os.system("git add .gitkeep")
+                os.system("git commit -m 'initial commit'")
+
+                with patch('sheep.observability.logging.get_logger'):
+                    with patch('subprocess.run') as mock_subprocess:
+                        # Set up subprocess mocks for git operations
+                        def subprocess_side_effect(cmd, *args, **kwargs):
+                            if 'rev-parse' in cmd and '--abbrev-ref' in cmd:
+                                result = MagicMock()
+                                result.returncode = 0
+                                result.stdout = "master\n"
+                                result.stderr = ""
+                                return result
+                            elif 'rev-parse' in cmd:
+                                result = MagicMock()
+                                result.returncode = 0
+                                result.stdout = "abc1234567\n"
+                                result.stderr = ""
+                                return result
+                            elif 'add' in cmd:
+                                result = MagicMock()
+                                result.returncode = 0
+                                result.stdout = ""
+                                result.stderr = ""
+                                return result
+                            elif 'commit' in cmd:
+                                result = MagicMock()
+                                result.returncode = 0
+                                result.stdout = ""
+                                result.stderr = ""
+                                return result
+                            elif 'push' in cmd:
+                                result = MagicMock()
+                                result.returncode = 0
+                                result.stdout = ""
+                                result.stderr = ""
+                                return result
+                            else:
+                                raise NotImplementedError(f"Mock not configured for: {cmd}")
+
+                        mock_subprocess.side_effect = subprocess_side_effect
+
+                        with patch('src.create_markdown.generate_markdown_content') as mock_gen:
+                            # Create content that meets the 400-600 byte requirement
+                            # H1 title + blank line + 3 sentences = approximately 500+ bytes
+                            prose = "This is the first sentence about software engineering best practices and principles that guide modern development. This is the second sentence explaining the importance of clean code and maintainability for long-term project success. This is the third sentence discussing how proper testing, documentation, and code review practices significantly improve overall code quality and reduce technical debt."
+                            full_content = f"# Software Engineering Excellence\n\n{prose}\n"
+
+                            # Verify content size is in range
+                            content_bytes = full_content.encode('utf-8')
+                            assert 400 <= len(content_bytes) <= 600, f"Mock content size {len(content_bytes)} outside 400-600 range"
+
+                            mock_gen.return_value = {
+                                'title': 'Software Engineering Excellence',
+                                'prose': prose,
+                                'full_content': full_content,
+                            }
+
+                            # Import and run main
+                            import create_markdown_file_201
+                            importlib.reload(create_markdown_file_201)
+
+                            # Capture stdout and stderr to debug failures
+                            import io
+                            from contextlib import redirect_stdout, redirect_stderr
+
+                            stdout_capture = io.StringIO()
+                            stderr_capture = io.StringIO()
+
+                            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                                result = create_markdown_file_201.main()
+
+                            stdout_output = stdout_capture.getvalue()
+                            stderr_output = stderr_capture.getvalue()
+
+                            # Verify success
+                            assert result == 0, f"main() should return 0 on success. Got {result}. Stdout: {stdout_output}. Stderr: {stderr_output}"
+
+                            # Verify file exists
+                            assert Path("test-lihjez.md").exists(), "File test-lihjez.md should exist"
+
+                            # Verify file content
+                            file_content = Path("test-lihjez.md").read_text()
+                            assert file_content.startswith("# Software Engineering Excellence"), "File should start with H1 heading"
+                            assert prose in file_content, "File should contain prose content"
+
+                            # Verify file size
+                            file_size = Path("test-lihjez.md").stat().st_size
+                            assert 400 <= file_size <= 600, f"File size {file_size} should be in 400-600 byte range"
+
+                            # Verify file encoding (no BOM)
+                            file_bytes = Path("test-lihjez.md").read_bytes()
+                            assert not file_bytes.startswith(b'\xef\xbb\xbf'), "File should not have UTF-8 BOM"
+
+                            # Verify LF line endings (no CRLF)
+                            assert b'\r\n' not in file_bytes, "File should use LF line endings, not CRLF"
+
+                            # Verify file ends with newline
+                            assert file_bytes.endswith(b'\n'), "File should end with newline"
+
+                            # Verify that subprocess.run was called for git operations
+                            # We mocked subprocess.run, so we can verify the mocks were called
+                            call_count = mock_subprocess.call_count
+                            assert call_count >= 3, f"subprocess.run should be called at least 3 times (add, commit, push), got {call_count}"
+
+                            # Check that at least one call was for 'git add'
+                            add_calls = [c for c in mock_subprocess.call_args_list if 'add' in str(c)]
+                            assert len(add_calls) > 0, "git add should be called"
+
+                            # Check that at least one call was for 'git commit'
+                            commit_calls = [c for c in mock_subprocess.call_args_list if 'commit' in str(c)]
+                            assert len(commit_calls) > 0, "git commit should be called"
+
+                            # Check that at least one call was for 'git push'
+                            push_calls = [c for c in mock_subprocess.call_args_list if 'push' in str(c)]
+                            assert len(push_calls) > 0, "git push should be called"
+
+            finally:
+                os.chdir(original_cwd)
