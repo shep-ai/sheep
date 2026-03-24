@@ -328,3 +328,279 @@ def _parse_markdown_content(content: str) -> tuple[str, str]:
         raise ValueError("Prose content is empty after parsing")
 
     return title, prose
+
+
+def create_markdown_file(content: str, filename: str = "test-nttet0.md", filepath: Optional[str] = None) -> str:
+    """
+    Create a markdown file with proper UTF-8 encoding and Unix LF line endings.
+
+    Writes validated content to disk at the specified filepath using pathlib.Path.write_text()
+    with explicit encoding="utf-8" and newline="\n" parameters. This ensures the file meets
+    encoding and line-ending requirements by design.
+
+    Args:
+        content: The markdown content to write (should be validated before calling).
+        filename: The filename for the markdown file (default: "test-nttet0.md").
+        filepath: Optional full filepath. If not provided, uses current working directory.
+                 If provided as a directory, appends filename. If provided as a full path,
+                 uses it as-is.
+
+    Returns:
+        The absolute path to the created file as a string.
+
+    Raises:
+        FileExistsError: If the file already exists (fail-safe behavior).
+        ValueError: If content is empty or filepath is invalid.
+        IOError: If file cannot be written due to permissions or disk issues.
+    """
+    from pathlib import Path
+
+    if not content or not content.strip():
+        raise ValueError("Content cannot be empty")
+
+    # Determine the target filepath
+    if filepath is None:
+        target_path = Path.cwd() / filename
+    else:
+        target_path = Path(filepath)
+        # If filepath is a directory (or looks like one), append filename
+        if target_path.is_dir() or str(target_path).endswith('/'):
+            target_path = target_path / filename
+        # If filepath is just a directory name without trailing slash, append filename
+        elif not str(target_path).endswith('.md'):
+            target_path = target_path / filename
+
+    # Check if file already exists (fail-safe)
+    if target_path.exists():
+        raise FileExistsError(f"File already exists: {target_path}")
+
+    # Ensure parent directory exists
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write file with explicit UTF-8 encoding and Unix LF line endings
+    try:
+        target_path.write_text(content, encoding='utf-8', newline='\n')
+        _logger.info(f"Created markdown file: {target_path}")
+        return str(target_path.absolute())
+    except IOError as e:
+        _logger.error(f"Failed to write markdown file: {e}")
+        raise IOError(f"Cannot write to {target_path}: {e}")
+
+
+def validate_file_encoding(filepath: str) -> dict[str, any]:
+    """
+    Validate file encoding and line endings.
+
+    Checks that the file is valid UTF-8 without BOM and uses Unix LF line endings.
+
+    Args:
+        filepath: Path to the file to validate.
+
+    Returns:
+        Dictionary with keys:
+        - 'is_valid': Boolean indicating if encoding and line endings are correct
+        - 'errors': List of validation errors
+        - 'details': Dict with details (has_bom, line_ending_type, encoding)
+    """
+    from pathlib import Path
+
+    errors = []
+    details = {
+        'has_bom': False,
+        'line_ending_type': None,
+        'encoding': None,
+        'file_size_bytes': 0,
+    }
+
+    target_path = Path(filepath)
+
+    if not target_path.exists():
+        errors.append(f"File does not exist: {filepath}")
+        return {'is_valid': False, 'errors': errors, 'details': details}
+
+    try:
+        # Read file as bytes to check encoding and line endings
+        raw_bytes = target_path.read_bytes()
+        details['file_size_bytes'] = len(raw_bytes)
+
+        # Check for UTF-8 BOM (byte order mark: EF BB BF)
+        if raw_bytes.startswith(b'\xef\xbb\xbf'):
+            errors.append("File contains UTF-8 BOM (byte order mark) - should be plain UTF-8")
+            details['has_bom'] = True
+
+        # Check for CRLF line endings (Windows style)
+        if b'\r\n' in raw_bytes:
+            errors.append("File contains CRLF line endings (Windows style) - must use LF (Unix style)")
+            details['line_ending_type'] = 'CRLF'
+        elif b'\n' in raw_bytes:
+            details['line_ending_type'] = 'LF'
+        else:
+            # File has no line endings (single line or empty)
+            details['line_ending_type'] = 'none'
+
+        # Try to decode as UTF-8
+        try:
+            raw_bytes.decode('utf-8')
+            details['encoding'] = 'UTF-8'
+        except UnicodeDecodeError as e:
+            errors.append(f"File is not valid UTF-8: {e}")
+
+    except IOError as e:
+        errors.append(f"Cannot read file: {e}")
+
+    is_valid = len(errors) == 0
+    if is_valid:
+        _logger.debug(f"File encoding validation passed: {details['encoding']}, {details['line_ending_type']} line endings")
+    else:
+        _logger.warning(f"File encoding validation failed: {', '.join(errors)}")
+
+    return {
+        'is_valid': is_valid,
+        'errors': errors,
+        'details': details,
+    }
+
+
+def validate_file_structure(filepath: str) -> dict[str, any]:
+    """
+    Validate markdown file structure and content.
+
+    Checks that the file contains:
+    - H1 heading at the start
+    - Blank line separator
+    - Exactly 2-3 sentences of prose
+    - File size in expected range (250-600 bytes)
+
+    Args:
+        filepath: Path to the file to validate.
+
+    Returns:
+        Dictionary with keys:
+        - 'is_valid': Boolean indicating if structure is correct
+        - 'errors': List of validation errors
+        - 'details': Dict with structure details
+    """
+    from pathlib import Path
+
+    errors = []
+    details = {
+        'file_size_bytes': 0,
+        'has_h1_heading': False,
+        'heading_text': None,
+        'has_blank_line_separator': False,
+        'sentence_count': 0,
+        'prose_length': 0,
+    }
+
+    target_path = Path(filepath)
+
+    if not target_path.exists():
+        errors.append(f"File does not exist: {filepath}")
+        return {'is_valid': False, 'errors': errors, 'details': details}
+
+    try:
+        # Read file as text with UTF-8 encoding
+        content = target_path.read_text(encoding='utf-8')
+        details['file_size_bytes'] = len(content.encode('utf-8'))
+
+        # Check file size (250-600 bytes is typical for this pattern)
+        if details['file_size_bytes'] < 250:
+            errors.append(f"File is too small ({details['file_size_bytes']} bytes, minimum 250)")
+        elif details['file_size_bytes'] > 600:
+            errors.append(f"File is too large ({details['file_size_bytes']} bytes, maximum 600)")
+
+        # Parse content into lines
+        lines = content.strip().split('\n')
+
+        # Check H1 heading at start
+        if not lines or not lines[0].startswith("# "):
+            errors.append("File must start with H1 heading (format: # Title)")
+            return {'is_valid': False, 'errors': errors, 'details': details}
+
+        details['has_h1_heading'] = True
+        details['heading_text'] = lines[0][2:].strip()
+
+        # Check blank line separator
+        if len(lines) > 1:
+            if lines[1] != '':
+                errors.append("Second line must be blank (separator between heading and prose)")
+            else:
+                details['has_blank_line_separator'] = True
+        else:
+            errors.append("File must have content after heading (at least blank line + prose)")
+
+        # Extract prose
+        prose_start_idx = 2 if len(lines) > 2 and lines[1] == '' else 1
+        prose_lines = lines[prose_start_idx:]
+
+        # Remove trailing empty lines
+        while prose_lines and prose_lines[-1].strip() == '':
+            prose_lines.pop()
+
+        if not prose_lines:
+            errors.append("No prose content found after heading")
+            return {'is_valid': False, 'errors': errors, 'details': details}
+
+        prose = '\n'.join(prose_lines).strip()
+        details['prose_length'] = len(prose)
+
+        # Validate sentence count
+        sentence_count = _count_sentences(prose)
+        details['sentence_count'] = sentence_count
+
+        if sentence_count < 2 or sentence_count > 3:
+            errors.append(f"Prose must contain exactly 2-3 sentences (found {sentence_count})")
+
+    except IOError as e:
+        errors.append(f"Cannot read file: {e}")
+    except Exception as e:
+        errors.append(f"Error validating file structure: {e}")
+
+    is_valid = len(errors) == 0
+    if is_valid:
+        _logger.debug(f"File structure validation passed: H1 heading, {details['sentence_count']} sentences, {details['file_size_bytes']} bytes")
+    else:
+        _logger.warning(f"File structure validation failed: {', '.join(errors)}")
+
+    return {
+        'is_valid': is_valid,
+        'errors': errors,
+        'details': details,
+    }
+
+
+def validate_markdown_file(filepath: str) -> dict[str, any]:
+    """
+    Comprehensive validation of markdown file (encoding + structure).
+
+    Validates both encoding characteristics (UTF-8 without BOM, LF line endings)
+    and file structure (H1 heading, blank line separator, 2-3 sentences, file size).
+
+    Args:
+        filepath: Path to the file to validate.
+
+    Returns:
+        Dictionary with keys:
+        - 'is_valid': Boolean indicating if file passes all validations
+        - 'errors': List of all validation errors
+        - 'encoding': Result from validate_file_encoding()
+        - 'structure': Result from validate_file_structure()
+    """
+    encoding_result = validate_file_encoding(filepath)
+    structure_result = validate_file_structure(filepath)
+
+    # Combine results
+    all_errors = encoding_result['errors'] + structure_result['errors']
+    is_valid = encoding_result['is_valid'] and structure_result['is_valid']
+
+    if is_valid:
+        _logger.info(f"Comprehensive markdown validation passed: {filepath}")
+    else:
+        _logger.warning(f"Comprehensive validation failed with {len(all_errors)} errors")
+
+    return {
+        'is_valid': is_valid,
+        'errors': all_errors,
+        'encoding': encoding_result,
+        'structure': structure_result,
+    }

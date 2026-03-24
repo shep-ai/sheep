@@ -2,12 +2,19 @@
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
+from pathlib import Path
+import tempfile
+import os
 
 from src.create_markdown import (
     generate_markdown_content,
     validate_content,
     validate_sentence_count,
     validate_prose_length,
+    create_markdown_file,
+    validate_file_encoding,
+    validate_file_structure,
+    validate_markdown_file,
 )
 
 
@@ -502,3 +509,379 @@ class TestValidationEdgeCases:
         # Length calculation should work with special characters
         assert isinstance(length, int)
         assert length > 0
+
+
+class TestFileCreation:
+    """Tests for task-3: Create markdown file with proper UTF-8/LF encoding."""
+
+    def test_create_markdown_file_creates_file_at_repository_root(self):
+        """Test that create_markdown_file creates file at repository root."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = "# Test Title\n\nFirst sentence. Second sentence. Third sentence."
+            filepath = os.path.join(tmpdir, "test.md")
+
+            result = create_markdown_file(content, filename="test.md", filepath=tmpdir)
+
+            # Verify file was created
+            assert os.path.exists(filepath)
+            assert result == str(Path(filepath).absolute())
+
+    def test_create_markdown_file_writes_utf8_encoding(self):
+        """Test that create_markdown_file writes file with UTF-8 encoding."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = "# UTF-8 Test\n\nThis file contains UTF-8 characters: café, naïve, résumé."
+            filepath = os.path.join(tmpdir, "utf8_test.md")
+
+            create_markdown_file(content, filename="utf8_test.md", filepath=tmpdir)
+
+            # Read file as bytes and verify UTF-8 encoding
+            raw_bytes = Path(filepath).read_bytes()
+            decoded = raw_bytes.decode('utf-8')  # Should not raise exception
+            assert "café" in decoded
+
+    def test_create_markdown_file_writes_lf_line_endings(self):
+        """Test that create_markdown_file writes file with LF line endings (not CRLF)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = "# Multi-line Test\n\nLine one. Line two. Line three."
+            filepath = os.path.join(tmpdir, "lf_test.md")
+
+            create_markdown_file(content, filename="lf_test.md", filepath=tmpdir)
+
+            # Read file as bytes and verify LF only (no CRLF)
+            raw_bytes = Path(filepath).read_bytes()
+            assert b'\r\n' not in raw_bytes  # No CRLF
+            assert b'\n' in raw_bytes  # Has LF
+
+    def test_create_markdown_file_raises_error_if_file_exists(self):
+        """Test that create_markdown_file raises FileExistsError if file already exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = "# Test Title\n\nFirst sentence. Second sentence. Third sentence."
+            filepath = os.path.join(tmpdir, "existing.md")
+
+            # Create file first
+            create_markdown_file(content, filename="existing.md", filepath=tmpdir)
+
+            # Try to create same file again
+            with pytest.raises(FileExistsError):
+                create_markdown_file(content, filename="existing.md", filepath=tmpdir)
+
+    def test_create_markdown_file_raises_error_if_content_empty(self):
+        """Test that create_markdown_file raises ValueError if content is empty."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with pytest.raises(ValueError) as exc_info:
+                create_markdown_file("", filename="empty.md", filepath=tmpdir)
+
+            assert "empty" in str(exc_info.value).lower()
+
+    def test_create_markdown_file_uses_default_filename(self):
+        """Test that create_markdown_file uses default filename 'test-nttet0.md' when not specified."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = "# Default Name Test\n\nUsing default filename. That is the second sentence. Here is the third."
+            filepath = os.path.join(tmpdir, "test-nttet0.md")
+
+            result = create_markdown_file(content, filepath=tmpdir)
+
+            # Verify default filename was used
+            assert os.path.exists(filepath)
+            assert "test-nttet0.md" in result
+
+    def test_create_markdown_file_content_is_preserved(self):
+        """Test that create_markdown_file preserves exact content written."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = "# Exact Content\n\nFirst sentence with specific words. Second sentence also specific. Third sentence too."
+            filepath = os.path.join(tmpdir, "content_test.md")
+
+            create_markdown_file(content, filename="content_test.md", filepath=tmpdir)
+
+            # Read back and verify exact match
+            read_content = Path(filepath).read_text(encoding='utf-8')
+            assert read_content == content
+
+    def test_create_markdown_file_creates_parent_directories(self):
+        """Test that create_markdown_file creates parent directories if they don't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = "# Parent Dir Test\n\nCreating parent directories. That is the second sentence. Third sentence here."
+            nested_path = os.path.join(tmpdir, "nested", "deep", "directory")
+
+            create_markdown_file(content, filename="nested.md", filepath=nested_path)
+
+            # Verify file was created in nested path
+            assert os.path.exists(os.path.join(nested_path, "nested.md"))
+
+    def test_create_markdown_file_returns_absolute_path(self):
+        """Test that create_markdown_file returns absolute path as string."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            content = "# Path Test\n\nReturning absolute path. That is the second sentence. Third sentence included."
+            filepath = os.path.join(tmpdir, "path_test.md")
+
+            result = create_markdown_file(content, filename="path_test.md", filepath=tmpdir)
+
+            # Verify result is absolute path string
+            assert isinstance(result, str)
+            assert os.path.isabs(result)
+            assert os.path.exists(result)
+
+
+class TestFileEncodingValidation:
+    """Tests for task-4: File encoding and line ending validation."""
+
+    def test_validate_file_encoding_accepts_utf8_without_bom(self):
+        """Test that validate_file_encoding accepts pure UTF-8 without BOM."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "utf8_clean.md")
+            # Write with UTF-8 encoding, no BOM
+            Path(filepath).write_text("# Clean UTF-8\n\nFirst sentence. Second sentence. Third sentence.", encoding='utf-8', newline='\n')
+
+            result = validate_file_encoding(filepath)
+
+            assert result['is_valid'] is True
+            assert len(result['errors']) == 0
+            assert result['details']['has_bom'] is False
+            assert result['details']['encoding'] == 'UTF-8'
+
+    def test_validate_file_encoding_rejects_utf8_with_bom(self):
+        """Test that validate_file_encoding rejects UTF-8 with BOM."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "utf8_bom.md")
+            # Write with UTF-8 BOM
+            with open(filepath, 'wb') as f:
+                f.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+                f.write("# BOM Test\n\nFirst sentence. Second sentence. Third sentence.".encode('utf-8'))
+
+            result = validate_file_encoding(filepath)
+
+            assert result['is_valid'] is False
+            assert any("BOM" in error for error in result['errors'])
+            assert result['details']['has_bom'] is True
+
+    def test_validate_file_encoding_rejects_crlf_line_endings(self):
+        """Test that validate_file_encoding rejects CRLF line endings (Windows style)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "crlf_test.md")
+            # Write with CRLF line endings
+            with open(filepath, 'wb') as f:
+                f.write(b"# CRLF Test\r\n\r\nFirst sentence. Second sentence. Third sentence.")
+
+            result = validate_file_encoding(filepath)
+
+            assert result['is_valid'] is False
+            assert any("CRLF" in error for error in result['errors'])
+            assert result['details']['line_ending_type'] == 'CRLF'
+
+    def test_validate_file_encoding_accepts_lf_line_endings(self):
+        """Test that validate_file_encoding accepts LF line endings (Unix style)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "lf_test.md")
+            # Write with LF line endings
+            Path(filepath).write_text("# LF Test\n\nFirst sentence. Second sentence. Third sentence.", encoding='utf-8', newline='\n')
+
+            result = validate_file_encoding(filepath)
+
+            assert result['is_valid'] is True
+            assert result['details']['line_ending_type'] == 'LF'
+
+    def test_validate_file_encoding_returns_file_size(self):
+        """Test that validate_file_encoding returns file size in bytes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "size_test.md")
+            content = "# Size Test\n\nFirst sentence. Second sentence. Third sentence."
+            Path(filepath).write_text(content, encoding='utf-8', newline='\n')
+
+            result = validate_file_encoding(filepath)
+
+            assert result['details']['file_size_bytes'] > 0
+            assert result['details']['file_size_bytes'] == len(content.encode('utf-8'))
+
+    def test_validate_file_encoding_handles_nonexistent_file(self):
+        """Test that validate_file_encoding handles nonexistent file gracefully."""
+        result = validate_file_encoding("/nonexistent/path/to/file.md")
+
+        assert result['is_valid'] is False
+        assert any("not exist" in error for error in result['errors'])
+
+
+class TestFileStructureValidation:
+    """Tests for comprehensive file structure validation."""
+
+    def test_validate_file_structure_accepts_valid_file(self):
+        """Test that validate_file_structure accepts valid markdown file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "valid.md")
+            # Content must be 250-600 bytes to pass validation
+            content = "# Test Title\n\nFirst sentence here with detailed information about the topic being discussed in depth. Second sentence now provides additional context and understanding of the subject matter. Third sentence finally concludes with comprehensive explanation and meaningful insights."
+            Path(filepath).write_text(content, encoding='utf-8', newline='\n')
+
+            result = validate_file_structure(filepath)
+
+            assert result['is_valid'] is True
+            assert len(result['errors']) == 0
+            assert result['details']['has_h1_heading'] is True
+            assert result['details']['sentence_count'] == 3
+
+    def test_validate_file_structure_requires_h1_heading(self):
+        """Test that validate_file_structure requires H1 heading."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "no_h1.md")
+            content = "## Wrong Heading Level\n\nFirst sentence. Second sentence. Third sentence."
+            Path(filepath).write_text(content, encoding='utf-8', newline='\n')
+
+            result = validate_file_structure(filepath)
+
+            assert result['is_valid'] is False
+            assert any("H1" in error for error in result['errors'])
+
+    def test_validate_file_structure_requires_blank_line_separator(self):
+        """Test that validate_file_structure requires blank line after heading."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "no_blank_line.md")
+            content = "# Title\nNo blank line before prose."
+            Path(filepath).write_text(content, encoding='utf-8', newline='\n')
+
+            result = validate_file_structure(filepath)
+
+            assert result['is_valid'] is False
+            assert any("blank" in error.lower() for error in result['errors'])
+
+    def test_validate_file_structure_validates_sentence_count(self):
+        """Test that validate_file_structure validates exactly 2-3 sentences."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Test with too few sentences
+            filepath = os.path.join(tmpdir, "one_sentence.md")
+            content = "# Title\n\nOnly one sentence."
+            Path(filepath).write_text(content, encoding='utf-8', newline='\n')
+
+            result = validate_file_structure(filepath)
+
+            assert result['is_valid'] is False
+            assert any("sentence" in error.lower() for error in result['errors'])
+
+    def test_validate_file_structure_checks_file_size_minimum(self):
+        """Test that validate_file_structure checks file size minimum (250 bytes)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "small.md")
+            content = "# Tiny\n\nS."  # Very small content
+            Path(filepath).write_text(content, encoding='utf-8', newline='\n')
+
+            result = validate_file_structure(filepath)
+
+            assert result['is_valid'] is False
+            assert any("too small" in error.lower() for error in result['errors'])
+
+    def test_validate_file_structure_checks_file_size_maximum(self):
+        """Test that validate_file_structure checks file size maximum (600 bytes)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "large.md")
+            # Create content larger than 600 bytes
+            large_content = "# Title\n\n" + ("This is a very long sentence that goes on and on and contains many words. " * 20)
+            Path(filepath).write_text(large_content, encoding='utf-8', newline='\n')
+
+            result = validate_file_structure(filepath)
+
+            assert result['is_valid'] is False
+            assert any("too large" in error.lower() for error in result['errors'])
+
+    def test_validate_file_structure_returns_heading_text(self):
+        """Test that validate_file_structure extracts and returns heading text."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "heading.md")
+            content = "# Specific Heading Text\n\nFirst sentence here. Second sentence now. Third sentence finally."
+            Path(filepath).write_text(content, encoding='utf-8', newline='\n')
+
+            result = validate_file_structure(filepath)
+
+            assert result['details']['heading_text'] == "Specific Heading Text"
+
+    def test_validate_file_structure_returns_sentence_count(self):
+        """Test that validate_file_structure returns accurate sentence count."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "sentences.md")
+            content = "# Title\n\nFirst. Second. Third."
+            Path(filepath).write_text(content, encoding='utf-8', newline='\n')
+
+            result = validate_file_structure(filepath)
+
+            assert result['details']['sentence_count'] == 3
+
+    def test_validate_file_structure_handles_nonexistent_file(self):
+        """Test that validate_file_structure handles nonexistent file gracefully."""
+        result = validate_file_structure("/nonexistent/path/to/file.md")
+
+        assert result['is_valid'] is False
+        assert any("not exist" in error for error in result['errors'])
+
+
+class TestComprehensiveFileValidation:
+    """Tests for comprehensive markdown file validation (encoding + structure)."""
+
+    def test_validate_markdown_file_accepts_valid_file(self):
+        """Test that validate_markdown_file accepts completely valid file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "valid_complete.md")
+            # Content must be 250-600 bytes to pass validation
+            content = "# Complete Validation\n\nThis file passes all encoding requirements by using proper UTF-8 text encoding throughout. It contains proper text structure with appropriate content length and meaningful information. The line endings are correct with Unix LF style throughout the entire document structure."
+            create_markdown_file(content, filename="valid_complete.md", filepath=tmpdir)
+
+            result = validate_markdown_file(filepath)
+
+            assert result['is_valid'] is True
+            assert len(result['errors']) == 0
+            assert result['encoding']['is_valid'] is True
+            assert result['structure']['is_valid'] is True
+
+    def test_validate_markdown_file_combines_encoding_and_structure_errors(self):
+        """Test that validate_markdown_file combines errors from both checks."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "multiple_errors.md")
+            # Create file with multiple issues: wrong heading level + CRLF
+            with open(filepath, 'wb') as f:
+                f.write(b"## Wrong Heading\r\nNo blank line")
+
+            result = validate_markdown_file(filepath)
+
+            assert result['is_valid'] is False
+            # Should have errors from both encoding (CRLF) and structure (heading)
+            assert len(result['errors']) >= 2
+
+    def test_validate_markdown_file_returns_detailed_results(self):
+        """Test that validate_markdown_file returns detailed results from both validators."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "detailed.md")
+            content = "# Detailed Results\n\nValidation provides detailed information. This includes encoding details. And structure details too."
+            create_markdown_file(content, filename="detailed.md", filepath=tmpdir)
+
+            result = validate_markdown_file(filepath)
+
+            # Verify all expected keys exist
+            assert 'is_valid' in result
+            assert 'errors' in result
+            assert 'encoding' in result
+            assert 'structure' in result
+
+            # Verify nested structure
+            assert 'details' in result['encoding']
+            assert 'details' in result['structure']
+
+    def test_validate_markdown_file_fails_on_encoding_error(self):
+        """Test that validate_markdown_file fails overall if encoding is invalid."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "bad_encoding.md")
+            # Write with CRLF (bad encoding)
+            with open(filepath, 'wb') as f:
+                f.write(b"# Title\r\n\r\nFirst sentence. Second sentence. Third sentence.")
+
+            result = validate_markdown_file(filepath)
+
+            assert result['is_valid'] is False
+            assert result['encoding']['is_valid'] is False
+
+    def test_validate_markdown_file_fails_on_structure_error(self):
+        """Test that validate_markdown_file fails overall if structure is invalid."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "bad_structure.md")
+            # Write with LF (good encoding) but wrong structure
+            Path(filepath).write_text("## Wrong Heading\n\nOnly one.", encoding='utf-8', newline='\n')
+
+            result = validate_markdown_file(filepath)
+
+            assert result['is_valid'] is False
+            assert result['structure']['is_valid'] is False
