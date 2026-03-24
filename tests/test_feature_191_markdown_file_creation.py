@@ -61,3 +61,112 @@ class TestFeature191Constants:
 
         # Feature 191 spec requires 450-550 bytes
         assert 450 <= content_size <= 550, f"Content should be 450-550 bytes, got {content_size}"
+
+
+class TestFeature191FileCreation:
+    """Tests for task 2: Implement markdown file creation with UTF-8 and Unix LF."""
+
+    def setup_method(self):
+        """Clean up any existing test file before each test."""
+        from sheep.features.feature_191_markdown_file_creation import FILENAME
+
+        test_file = Path(FILENAME)
+        if test_file.exists():
+            test_file.unlink()
+
+    def teardown_method(self):
+        """Clean up test file after each test."""
+        from sheep.features.feature_191_markdown_file_creation import FILENAME
+
+        test_file = Path(FILENAME)
+        if test_file.exists():
+            test_file.unlink()
+
+    def test_create_markdown_file_creates_file(self):
+        """Test that create_markdown_file() creates the file at correct path."""
+        from sheep.features.feature_191_markdown_file_creation import (
+            FILENAME,
+            create_markdown_file,
+        )
+
+        result = create_markdown_file()
+
+        assert Path(FILENAME).exists(), f"File {FILENAME} should exist after creation"
+        assert result == str(Path(FILENAME).absolute())
+
+    def test_create_markdown_file_content_structure(self):
+        """Test that file contains H1 heading, blank line, and prose."""
+        from sheep.features.feature_191_markdown_file_creation import (
+            FILENAME,
+            TITLE,
+            PROSE,
+            create_markdown_file,
+        )
+
+        create_markdown_file()
+        content = Path(FILENAME).read_text(encoding="utf-8")
+
+        expected_content = f"# {TITLE}\n\n{PROSE}\n"
+        assert content == expected_content
+
+    def test_create_markdown_file_utf8_encoding(self):
+        """Test that file is encoded as UTF-8 without BOM."""
+        from sheep.features.feature_191_markdown_file_creation import (
+            FILENAME,
+            create_markdown_file,
+        )
+
+        create_markdown_file()
+        binary_content = Path(FILENAME).read_bytes()
+
+        # Check for UTF-8 BOM
+        assert not binary_content.startswith(b"\xef\xbb\xbf"), "File should not have UTF-8 BOM"
+
+        # Verify UTF-8 decoding works
+        try:
+            binary_content.decode("utf-8")
+        except UnicodeDecodeError:
+            pytest.fail("File must be valid UTF-8")
+
+    def test_create_markdown_file_unix_lf_line_endings(self):
+        """Test that file uses Unix LF line endings, not CRLF."""
+        from sheep.features.feature_191_markdown_file_creation import (
+            FILENAME,
+            create_markdown_file,
+        )
+
+        create_markdown_file()
+        binary_content = Path(FILENAME).read_bytes()
+
+        # Check that there are no CRLF sequences
+        assert b"\r\n" not in binary_content, "File must use Unix LF line endings (no CRLF)"
+
+        # Verify file ends with LF, not CR
+        assert binary_content.endswith(b"\n"), "File must end with LF"
+        assert not binary_content.endswith(b"\r\n"), "File must not end with CRLF"
+
+    def test_create_markdown_file_raises_if_exists(self):
+        """Test that create_markdown_file() raises error if file already exists."""
+        from sheep.features.feature_191_markdown_file_creation import (
+            FILENAME,
+            create_markdown_file,
+        )
+
+        # Create file once
+        create_markdown_file()
+
+        # Attempting to create again should raise error
+        with pytest.raises(FileExistsError):
+            create_markdown_file()
+
+    def test_create_markdown_file_file_size_in_range(self):
+        """Test that created file is in the expected size range (450-550 bytes)."""
+        from sheep.features.feature_191_markdown_file_creation import (
+            FILENAME,
+            create_markdown_file,
+        )
+
+        create_markdown_file()
+        file_size = Path(FILENAME).stat().st_size
+
+        assert 450 <= file_size <= 550, f"File size should be 450-550 bytes, got {file_size}"
