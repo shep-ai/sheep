@@ -408,3 +408,244 @@ class TestGitOperations:
 
             with pytest.raises(subprocess.CalledProcessError):
                 git_push()
+
+
+class TestMain:
+    """Test suite for main() function and error handling."""
+
+    def test_main_fails_when_file_already_exists(self, capsys):
+        """Test main() prints error and exits(1) when file already exists."""
+        from create_markdown_file_191 import main
+
+        # Mock create_file to return None (indicating file already exists)
+        # Make sys.exit raise SystemExit with the provided code
+        def mock_exit_func(code=0):
+            raise SystemExit(code)
+
+        with patch("create_markdown_file_191.create_file", return_value=None):
+            with patch("sys.exit", side_effect=mock_exit_func):
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+        # Verify exit code was 1
+        assert exc_info.value.code == 1
+
+        # Verify error message was printed
+        captured = capsys.readouterr()
+        assert "already exists" in captured.err.lower()
+
+    def test_main_fails_on_validation_error(self, capsys):
+        """Test main() prints validation error and exits(1) when validation fails."""
+        from create_markdown_file_191 import main
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "invalid.md"
+
+            # Mock create_file to create an invalid file (missing heading)
+            def create_invalid_file(filename):
+                Path(filename).write_text("Content without heading.\n", encoding="utf-8", newline="\n")
+                return True
+
+            with patch("sys.exit") as mock_exit:
+                with patch("create_markdown_file_191.create_file", create_invalid_file):
+                    with patch("create_markdown_file_191.FILENAME", str(test_file)):
+                        main()
+
+                # Verify exit(1) was called
+                mock_exit.assert_called_once_with(1)
+
+                # Verify validation error message was printed
+                captured = capsys.readouterr()
+                assert "validation" in captured.err.lower() or "failed" in captured.err.lower()
+
+    def test_main_fails_on_git_add_failure(self, capsys):
+        """Test main() prints git error and exits(1) when git add fails."""
+        from create_markdown_file_191 import main
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "test.md"
+
+            # Mock functions to reach git_add failure
+            def create_valid_file(filename):
+                create_file(test_file)
+                return True
+
+            def mock_git_add_failure(filename):
+                raise subprocess.CalledProcessError(128, ["git", "add", filename], stderr="Permission denied")
+
+            with patch("sys.exit") as mock_exit:
+                with patch("create_markdown_file_191.create_file", create_valid_file):
+                    with patch("create_markdown_file_191.validate_file", return_value=True):
+                        with patch("create_markdown_file_191.git_add", mock_git_add_failure):
+                            with patch("create_markdown_file_191.FILENAME", str(test_file)):
+                                main()
+
+                # Verify exit(1) was called
+                mock_exit.assert_called_once_with(1)
+
+                # Verify git error message was printed
+                captured = capsys.readouterr()
+                assert "git" in captured.err.lower() or "failed" in captured.err.lower()
+
+    def test_main_fails_on_git_commit_failure(self, capsys):
+        """Test main() prints git error and exits(1) when git commit fails."""
+        from create_markdown_file_191 import main
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "test.md"
+
+            # Mock functions to reach git_commit failure
+            def create_valid_file(filename):
+                create_file(test_file)
+                return True
+
+            def mock_git_commit_failure(message):
+                raise subprocess.CalledProcessError(1, ["git", "commit"], stderr="Nothing to commit")
+
+            with patch("sys.exit") as mock_exit:
+                with patch("create_markdown_file_191.create_file", create_valid_file):
+                    with patch("create_markdown_file_191.validate_file", return_value=True):
+                        with patch("create_markdown_file_191.git_add", return_value=True):
+                            with patch("create_markdown_file_191.git_commit", mock_git_commit_failure):
+                                with patch("create_markdown_file_191.FILENAME", str(test_file)):
+                                    main()
+
+                # Verify exit(1) was called
+                mock_exit.assert_called_once_with(1)
+
+                # Verify git error message was printed
+                captured = capsys.readouterr()
+                assert "git" in captured.err.lower() or "failed" in captured.err.lower()
+
+    def test_main_fails_on_git_push_failure(self, capsys):
+        """Test main() prints git error and exits(1) when git push fails."""
+        from create_markdown_file_191 import main
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "test.md"
+
+            # Mock functions to reach git_push failure
+            def create_valid_file(filename):
+                create_file(test_file)
+                return True
+
+            def mock_git_push_failure():
+                raise subprocess.CalledProcessError(128, ["git", "push"], stderr="Network error")
+
+            with patch("sys.exit") as mock_exit:
+                with patch("create_markdown_file_191.create_file", create_valid_file):
+                    with patch("create_markdown_file_191.validate_file", return_value=True):
+                        with patch("create_markdown_file_191.git_add", return_value=True):
+                            with patch("create_markdown_file_191.git_commit", return_value=True):
+                                with patch("create_markdown_file_191.git_push", mock_git_push_failure):
+                                    with patch("create_markdown_file_191.FILENAME", str(test_file)):
+                                        main()
+
+                # Verify exit(1) was called
+                mock_exit.assert_called_once_with(1)
+
+                # Verify git error message was printed
+                captured = capsys.readouterr()
+                assert "git" in captured.err.lower() or "failed" in captured.err.lower()
+
+    def test_main_succeeds_with_all_steps(self, capsys):
+        """Test main() succeeds when all workflow steps complete successfully."""
+        from create_markdown_file_191 import main
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "test.md"
+
+            # Mock all operations to succeed
+            def create_valid_file(filename):
+                create_file(test_file)
+                return True
+
+            with patch("sys.exit") as mock_exit:
+                with patch("create_markdown_file_191.create_file", create_valid_file):
+                    with patch("create_markdown_file_191.validate_file", return_value=True):
+                        with patch("create_markdown_file_191.git_add", return_value=True):
+                            with patch("create_markdown_file_191.git_commit", return_value=True):
+                                with patch("create_markdown_file_191.git_push", return_value=True):
+                                    with patch("create_markdown_file_191.FILENAME", str(test_file)):
+                                        main()
+
+                # Verify exit(0) was called (success)
+                mock_exit.assert_called_once_with(0)
+
+                # Verify success message was printed
+                captured = capsys.readouterr()
+                output = captured.out + captured.err
+                assert "success" in output.lower() or "created" in output.lower()
+
+    def test_main_error_messages_are_descriptive(self, capsys):
+        """Test main() error messages provide useful debugging information."""
+        from create_markdown_file_191 import main
+
+        # Test ValueError error message
+        with patch("sys.exit"):
+            with patch("create_markdown_file_191.create_file", return_value=True):
+                with patch("create_markdown_file_191.validate_file", side_effect=ValueError("Invalid encoding: UTF-8 BOM detected")):
+                    with patch("create_markdown_file_191.FILENAME", "test.md"):
+                        main()
+
+        captured = capsys.readouterr()
+        assert "validation" in captured.err.lower()
+        assert "utf-8" in captured.err.lower() or "bom" in captured.err.lower() or "encoding" in captured.err.lower()
+
+    def test_main_handles_oserror(self, capsys):
+        """Test main() catches and reports OSError properly."""
+        from create_markdown_file_191 import main
+
+        with patch("sys.exit") as mock_exit:
+            with patch("create_markdown_file_191.create_file", side_effect=OSError("Permission denied: cannot write to /root/test.md")):
+                with patch("create_markdown_file_191.FILENAME", "test.md"):
+                    main()
+
+        # Verify exit(1) was called
+        mock_exit.assert_called_once_with(1)
+
+        # Verify error message was printed
+        captured = capsys.readouterr()
+        assert "i/o" in captured.err.lower() or "error" in captured.err.lower()
+
+    def test_main_workflow_orchestration(self, capsys):
+        """Test that main() calls functions in correct order."""
+        from create_markdown_file_191 import main
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "test.md"
+
+            call_order = []
+
+            def mock_create(filename):
+                call_order.append("create")
+                create_file(test_file)
+                return True
+
+            def mock_validate(filename):
+                call_order.append("validate")
+                return True
+
+            def mock_add(filename):
+                call_order.append("git_add")
+                return True
+
+            def mock_commit(message):
+                call_order.append("git_commit")
+                return True
+
+            def mock_push():
+                call_order.append("git_push")
+                return True
+
+            with patch("sys.exit"):
+                with patch("create_markdown_file_191.create_file", mock_create):
+                    with patch("create_markdown_file_191.validate_file", mock_validate):
+                        with patch("create_markdown_file_191.git_add", mock_add):
+                            with patch("create_markdown_file_191.git_commit", mock_commit):
+                                with patch("create_markdown_file_191.git_push", mock_push):
+                                    with patch("create_markdown_file_191.FILENAME", str(test_file)):
+                                        main()
+
+            # Verify functions were called in correct order
+            assert call_order == ["create", "validate", "git_add", "git_commit", "git_push"]
