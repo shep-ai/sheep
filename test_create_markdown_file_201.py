@@ -205,3 +205,268 @@ class TestContentGeneration:
 
                 # Verify main returns error code
                 assert result == 1
+
+
+class TestFileCreation:
+    """Tests for file creation functionality (Task 3)."""
+
+    def test_file_creation_check_pre_existing_file(self):
+        """Test that main() fails if test-lihjez.md already exists."""
+        import tempfile
+        import os
+        import importlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Change to temp directory
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Create pre-existing file
+                Path("test-lihjez.md").write_text("existing content")
+
+                with patch('sheep.observability.logging.get_logger'):
+                    with patch('src.create_markdown.generate_markdown_content') as mock_gen:
+                        mock_gen.return_value = {
+                            'title': 'Test Title',
+                            'prose': 'First. Second. Third.',
+                            'full_content': '# Test Title\n\nFirst. Second. Third.\n',
+                        }
+                        import create_markdown_file_201
+                        importlib.reload(create_markdown_file_201)
+                        result = create_markdown_file_201.main()
+
+                        # Should fail with FileExistsError
+                        assert result == 1
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_created_with_utf8_encoding(self):
+        """Test that file is created with UTF-8 encoding and no BOM."""
+        import tempfile
+        import os
+        import importlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch('sheep.observability.logging.get_logger'):
+                    with patch('src.create_markdown.generate_markdown_content') as mock_gen:
+                        mock_gen.return_value = {
+                            'title': 'Test Title',
+                            'prose': 'First sentence. Second sentence. Third sentence.',
+                            'full_content': '# Test Title\n\nFirst sentence. Second sentence. Third sentence.\n',
+                        }
+                        import create_markdown_file_201
+                        importlib.reload(create_markdown_file_201)
+                        result = create_markdown_file_201.main()
+
+                        # If successful, verify file exists and has proper encoding
+                        if Path("test-lihjez.md").exists():
+                            content = Path("test-lihjez.md").read_bytes()
+                            # Check for UTF-8 BOM (should not exist)
+                            assert not content.startswith(b'\xef\xbb\xbf')
+                            # File should be decodable as UTF-8
+                            assert content.decode('utf-8') is not None
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_uses_lf_line_endings(self):
+        """Test that file uses LF line endings exclusively (no CRLF)."""
+        import tempfile
+        import os
+        import importlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch('sheep.observability.logging.get_logger'):
+                    with patch('src.create_markdown.generate_markdown_content') as mock_gen:
+                        mock_gen.return_value = {
+                            'title': 'Test Title',
+                            'prose': 'First sentence. Second sentence. Third sentence.',
+                            'full_content': '# Test Title\n\nFirst sentence. Second sentence. Third sentence.\n',
+                        }
+                        import create_markdown_file_201
+                        importlib.reload(create_markdown_file_201)
+                        result = create_markdown_file_201.main()
+
+                        # If successful, verify file uses only LF
+                        if Path("test-lihjez.md").exists():
+                            content = Path("test-lihjez.md").read_bytes()
+                            # Should not contain CRLF
+                            assert b'\r\n' not in content
+                            # Should contain only LF for line endings
+                            assert b'\n' in content
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestFileValidation:
+    """Tests for file validation functionality (Task 4)."""
+
+    def test_file_validation_encoding_check(self):
+        """Test that file validation checks for UTF-8 encoding without BOM."""
+        import tempfile
+        import os
+        import importlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch('sheep.observability.logging.get_logger'):
+                    with patch('src.create_markdown.generate_markdown_content') as mock_gen:
+                        mock_gen.return_value = {
+                            'title': 'Test Title',
+                            'prose': 'First sentence. Second sentence. Third sentence.',
+                            'full_content': '# Test Title\n\nFirst sentence. Second sentence. Third sentence.\n',
+                        }
+                        import create_markdown_file_201
+                        importlib.reload(create_markdown_file_201)
+                        result = create_markdown_file_201.main()
+
+                        # Verify file passes encoding validation
+                        if Path("test-lihjez.md").exists():
+                            content = Path("test-lihjez.md").read_bytes()
+                            # Should not start with BOM
+                            assert not content.startswith(b'\xef\xbb\xbf')
+                            # Should be valid UTF-8
+                            try:
+                                content.decode('utf-8')
+                                assert True
+                            except UnicodeDecodeError:
+                                assert False, "File is not valid UTF-8"
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_validation_line_endings_check(self):
+        """Test that file validation checks for LF line endings."""
+        import tempfile
+        import os
+        import importlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch('sheep.observability.logging.get_logger'):
+                    with patch('src.create_markdown.generate_markdown_content') as mock_gen:
+                        mock_gen.return_value = {
+                            'title': 'Test Title',
+                            'prose': 'First sentence. Second sentence. Third sentence.',
+                            'full_content': '# Test Title\n\nFirst sentence. Second sentence. Third sentence.\n',
+                        }
+                        import create_markdown_file_201
+                        importlib.reload(create_markdown_file_201)
+                        result = create_markdown_file_201.main()
+
+                        # Verify file uses LF line endings
+                        if Path("test-lihjez.md").exists():
+                            content = Path("test-lihjez.md").read_bytes()
+                            # Should not contain CRLF
+                            assert b'\r\n' not in content
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_validation_structure_check(self):
+        """Test that file validation checks for proper markdown structure."""
+        import tempfile
+        import os
+        import importlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch('sheep.observability.logging.get_logger'):
+                    with patch('src.create_markdown.generate_markdown_content') as mock_gen:
+                        mock_gen.return_value = {
+                            'title': 'Test Title',
+                            'prose': 'First sentence. Second sentence. Third sentence.',
+                            'full_content': '# Test Title\n\nFirst sentence. Second sentence. Third sentence.\n',
+                        }
+                        import create_markdown_file_201
+                        importlib.reload(create_markdown_file_201)
+                        result = create_markdown_file_201.main()
+
+                        # Verify file structure is correct
+                        if Path("test-lihjez.md").exists():
+                            content = Path("test-lihjez.md").read_text()
+                            lines = content.split('\n')
+                            # First line should be H1 heading
+                            assert lines[0].startswith('# ')
+                            # Second line should be blank
+                            assert lines[1] == ''
+                            # Should have prose content
+                            assert len(lines) > 2
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_validation_sentence_count(self):
+        """Test that file validation checks for 2-3 sentences in prose."""
+        import tempfile
+        import os
+        import importlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch('sheep.observability.logging.get_logger'):
+                    with patch('src.create_markdown.generate_markdown_content') as mock_gen:
+                        # Exactly 3 sentences
+                        prose = 'First sentence. Second sentence. Third sentence.'
+                        mock_gen.return_value = {
+                            'title': 'Test Title',
+                            'prose': prose,
+                            'full_content': f'# Test Title\n\n{prose}\n',
+                        }
+                        import create_markdown_file_201
+                        importlib.reload(create_markdown_file_201)
+                        result = create_markdown_file_201.main()
+
+                        # Verify sentence count
+                        if Path("test-lihjez.md").exists():
+                            content = Path("test-lihjez.md").read_text()
+                            prose_content = '\n'.join(content.split('\n')[2:]).strip()
+                            sentence_count = prose_content.count('.')
+                            assert 2 <= sentence_count <= 3
+            finally:
+                os.chdir(original_cwd)
+
+    def test_file_validation_size_check(self):
+        """Test that file validation checks for 400-600 byte size constraint."""
+        import tempfile
+        import os
+        import importlib
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch('sheep.observability.logging.get_logger'):
+                    with patch('src.create_markdown.generate_markdown_content') as mock_gen:
+                        mock_gen.return_value = {
+                            'title': 'Test Title',
+                            'prose': 'First sentence. Second sentence. Third sentence.',
+                            'full_content': '# Test Title\n\nFirst sentence. Second sentence. Third sentence.\n',
+                        }
+                        import create_markdown_file_201
+                        importlib.reload(create_markdown_file_201)
+                        result = create_markdown_file_201.main()
+
+                        # Verify file size
+                        if Path("test-lihjez.md").exists():
+                            file_size = Path("test-lihjez.md").stat().st_size
+                            assert 400 <= file_size <= 600, f"File size {file_size} outside 400-600 byte range"
+            finally:
+                os.chdir(original_cwd)

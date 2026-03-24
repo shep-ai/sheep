@@ -20,7 +20,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from sheep.observability.logging import get_logger
-from src.create_markdown import generate_markdown_content
+from src.create_markdown import (
+    generate_markdown_content,
+    create_markdown_file,
+    validate_markdown_file,
+    stage_and_commit_file,
+    push_to_feature_branch,
+)
 
 # Module-level constants
 FILENAME = "test-lihjez.md"
@@ -59,15 +65,83 @@ def main():
         print(f"  Title: {content_result['title']}")
         print(f"  Prose length: {len(content_result['prose'])} characters")
 
-        # More phases will be implemented in subsequent tasks
-        print("\nPhase 1 Complete: Content generation successful")
+        # Phase 2: File creation and validation
+        _logger.info("Phase 2: Creating markdown file with proper encoding and validation...")
+
+        # Check for pre-existing file
+        if Path(FILENAME).exists():
+            raise FileExistsError(f"File already exists: {FILENAME}")
+
+        # Create the markdown file with UTF-8 encoding and LF line endings
+        full_content = content_result['full_content']
+        filepath = create_markdown_file(
+            content=full_content,
+            filename=FILENAME,
+            filepath=None  # Use current working directory
+        )
+        _logger.info(f"File created successfully: {filepath}")
+        print(f"✓ Phase 2a: File created with UTF-8 encoding and LF line endings")
+
+        # Validate the created file
+        _logger.info("Phase 2b: Validating markdown file...")
+        validation_result = validate_markdown_file(filepath)
+
+        if not validation_result['is_valid']:
+            error_messages = '\n  '.join(validation_result['errors'])
+            raise ValueError(f"File validation failed:\n  {error_messages}")
+
+        _logger.info(f"File validation passed for: {filepath}")
+        print(f"✓ Phase 2b: File validation passed")
+        print(f"  - Encoding: UTF-8 without BOM ✓")
+        print(f"  - Line endings: LF only ✓")
+        print(f"  - Structure: H1 heading, blank line, prose, final newline ✓")
+        print(f"  - Sentence count: 2-3 sentences ✓")
+        print(f"  - File size: {Path(filepath).stat().st_size} bytes (400-600 range) ✓")
+
+        # Phase 3: Git integration
+        _logger.info("Phase 3: Git integration (add, commit, push)...")
+
+        # Stage the file
+        _logger.info(f"Staging file: {FILENAME}")
+        stage_result = stage_and_commit_file(
+            filename=FILENAME,
+            commit_message=COMMIT_MESSAGE
+        )
+        _logger.info(f"File staged and committed: {stage_result}")
+        print(f"✓ Phase 3a: File staged with git add")
+        print(f"✓ Phase 3b: File committed with message: {COMMIT_MESSAGE}")
+
+        # Push to feature branch
+        _logger.info("Pushing to feature branch...")
+        push_result = push_to_feature_branch()
+        _logger.info(f"Push result: {push_result}")
+        print(f"✓ Phase 3c: Pushed to remote origin")
+
+        # Success
+        print("\n" + "=" * 60)
+        print("Successfully completed Feature 201")
+        print(f"File {FILENAME} has been created, validated, staged, committed, and pushed.")
         print("=" * 60)
 
         return 0
 
+    except FileExistsError as e:
+        _logger.error(f"File already exists: {e}")
+        print(f"✗ File creation failed: {e}", file=sys.stderr)
+        return 1
     except ValueError as e:
-        _logger.error(f"Content generation failed: {e}")
-        print(f"✗ Content generation failed: {e}", file=sys.stderr)
+        _logger.error(f"Validation or content generation failed: {e}")
+        print(f"✗ Validation failed: {e}", file=sys.stderr)
+        return 1
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Git command failed: {e.cmd}")
+        print(f"✗ Git command failed: {e.cmd}", file=sys.stderr)
+        if e.stderr:
+            print(f"  Error: {e.stderr}", file=sys.stderr)
+        return 1
+    except OSError as e:
+        _logger.error(f"File I/O error: {e}")
+        print(f"✗ File I/O error: {e}", file=sys.stderr)
         return 1
     except Exception as e:
         _logger.error(f"Unexpected error: {e}", exc_info=True)
