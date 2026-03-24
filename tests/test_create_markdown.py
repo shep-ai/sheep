@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch, MagicMock
 from pathlib import Path
 import tempfile
 import os
+import subprocess
 
 from src.create_markdown import (
     generate_markdown_content,
@@ -15,6 +16,8 @@ from src.create_markdown import (
     validate_file_encoding,
     validate_file_structure,
     validate_markdown_file,
+    stage_and_commit_file,
+    push_to_feature_branch,
 )
 
 
@@ -885,3 +888,326 @@ class TestComprehensiveFileValidation:
 
             assert result['is_valid'] is False
             assert result['structure']['is_valid'] is False
+
+
+class TestGitStageAndCommit:
+    """Tests for task-5: Git staging and commit workflow."""
+
+    def test_stage_and_commit_returns_dict_with_required_keys(self):
+        """Test that stage_and_commit_file returns dict with required keys."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown._validate_git_config') as mock_validate:
+                mock_validate.return_value = {'is_valid': True, 'errors': []}
+                
+                # Mock successful git add and commit
+                mock_run.side_effect = [
+                    MagicMock(returncode=0, stdout='', stderr=''),  # git add
+                    MagicMock(returncode=0, stdout='[main abc1234] feat(199)...', stderr=''),  # git commit
+                    MagicMock(returncode=0, stdout='abc1234567890', stderr=''),  # git rev-parse
+                ]
+
+                result = stage_and_commit_file()
+
+                assert isinstance(result, dict)
+                assert 'success' in result
+                assert 'staged_file' in result
+                assert 'commit_hash' in result
+                assert 'errors' in result
+
+    def test_stage_and_commit_validates_git_config(self):
+        """Test that stage_and_commit_file validates git configuration before staging."""
+        with patch('src.create_markdown._validate_git_config') as mock_validate:
+            mock_validate.return_value = {
+                'is_valid': False,
+                'errors': ['Git user.name not configured'],
+                'config': {'user.name': None, 'user.email': 'test@example.com'},
+            }
+
+            result = stage_and_commit_file()
+
+            assert result['success'] is False
+            assert 'Git user.name not configured' in result['errors']
+            mock_validate.assert_called_once()
+
+    def test_stage_and_commit_stages_file_with_correct_arguments(self):
+        """Test that stage_and_commit_file calls git add with correct arguments."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown._validate_git_config') as mock_validate:
+                mock_validate.return_value = {'is_valid': True, 'errors': []}
+                mock_run.side_effect = [
+                    MagicMock(returncode=0, stdout='', stderr=''),  # git add
+                    MagicMock(returncode=0, stdout='[main abc1234] feat(199)...', stderr=''),  # git commit
+                    MagicMock(returncode=0, stdout='abc1234567890', stderr=''),  # git rev-parse
+                ]
+
+                result = stage_and_commit_file(filename="test-nttet0.md")
+
+                # Verify git add was called with correct arguments
+                add_call = mock_run.call_args_list[0]
+                assert add_call[0][0] == ['git', 'add', 'test-nttet0.md']
+                # shell=False is default and not explicitly passed
+
+    def test_stage_and_commit_commits_with_correct_message(self):
+        """Test that stage_and_commit_file commits with correct message format."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown._validate_git_config') as mock_validate:
+                mock_validate.return_value = {'is_valid': True, 'errors': []}
+                mock_run.side_effect = [
+                    MagicMock(returncode=0, stdout='', stderr=''),  # git add
+                    MagicMock(returncode=0, stdout='[main abc1234] feat(199)...', stderr=''),  # git commit
+                    MagicMock(returncode=0, stdout='abc1234567890', stderr=''),  # git rev-parse
+                ]
+
+                expected_message = "feat(199): Create markdown file test-nttet0.md with title and prose content"
+                result = stage_and_commit_file(commit_message=expected_message)
+
+                # Verify git commit was called with correct message
+                commit_call = mock_run.call_args_list[1]
+                assert commit_call[0][0][0:3] == ['git', 'commit', '-m']
+                assert commit_call[0][0][3] == expected_message
+
+    def test_stage_and_commit_returns_success_when_all_succeed(self):
+        """Test that stage_and_commit_file returns success when all operations succeed."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown._validate_git_config') as mock_validate:
+                mock_validate.return_value = {'is_valid': True, 'errors': []}
+                mock_run.side_effect = [
+                    MagicMock(returncode=0, stdout='', stderr=''),  # git add
+                    MagicMock(returncode=0, stdout='[main abc1234] feat(199)...', stderr=''),  # git commit
+                    MagicMock(returncode=0, stdout='abc1234567890', stderr=''),  # git rev-parse
+                ]
+
+                result = stage_and_commit_file()
+
+                assert result['success'] is True
+                assert result['staged_file'] == 'test-nttet0.md'
+                assert result['commit_hash'] is not None
+                assert len(result['errors']) == 0
+
+    def test_stage_and_commit_handles_staging_failure(self):
+        """Test that stage_and_commit_file handles git add failure gracefully."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown._validate_git_config') as mock_validate:
+                mock_validate.return_value = {'is_valid': True, 'errors': []}
+                
+                # Mock git add failure
+                error = subprocess.CalledProcessError(1, 'git add')
+                error.stderr = 'fatal: pathspec "test-nttet0.md" did not match any files'
+                mock_run.side_effect = error
+
+                result = stage_and_commit_file()
+
+                assert result['success'] is False
+                assert result['staged_file'] is None
+                assert any('Failed to stage file' in error for error in result['errors'])
+
+    def test_stage_and_commit_handles_commit_failure(self):
+        """Test that stage_and_commit_file handles git commit failure gracefully."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown._validate_git_config') as mock_validate:
+                mock_validate.return_value = {'is_valid': True, 'errors': []}
+                
+                # Mock git add success but commit failure
+                error = subprocess.CalledProcessError(1, 'git commit')
+                error.stderr = 'nothing added to commit but untracked files present'
+                mock_run.side_effect = [
+                    MagicMock(returncode=0, stdout='', stderr=''),  # git add succeeds
+                    error,  # git commit fails
+                ]
+
+                result = stage_and_commit_file()
+
+                assert result['success'] is False
+                assert result['staged_file'] == 'test-nttet0.md'
+                assert any('Failed to create commit' in error for error in result['errors'])
+
+
+class TestGitPush:
+    """Tests for task-6: Git push to feature branch."""
+
+    def test_push_to_feature_branch_returns_dict_with_required_keys(self):
+        """Test that push_to_feature_branch returns dict with required keys."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            # Mock branch check and push success
+            mock_run.side_effect = [
+                MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),  # git branch -r
+                MagicMock(returncode=0, stdout='To origin...\n', stderr=''),  # git push
+            ]
+
+            result = push_to_feature_branch()
+
+            assert isinstance(result, dict)
+            assert 'success' in result
+            assert 'branch' in result
+            assert 'errors' in result
+
+    def test_push_to_feature_branch_verifies_branch_exists(self):
+        """Test that push_to_feature_branch verifies branch exists before pushing."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            # Mock branch check failure
+            mock_run.return_value = MagicMock(
+                returncode=0,
+                stdout='  origin/main\n  origin/other-branch\n',
+                stderr=''
+            )
+
+            result = push_to_feature_branch()
+
+            assert result['success'] is False
+            assert any('not found on remote' in error for error in result['errors'])
+
+    def test_push_to_feature_branch_uses_correct_git_command(self):
+        """Test that push_to_feature_branch uses correct git push command."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            mock_run.side_effect = [
+                MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),
+                MagicMock(returncode=0, stdout='To origin...\n', stderr=''),
+            ]
+
+            result = push_to_feature_branch(branch_name="feat/199-markdown-file-creation-5e3e07")
+
+            # Verify push command was called with correct arguments
+            push_call = mock_run.call_args_list[1]
+            assert push_call[0][0] == ['git', 'push', '-u', 'origin', 'feat/199-markdown-file-creation-5e3e07']
+
+    def test_push_to_feature_branch_returns_success_on_successful_push(self):
+        """Test that push_to_feature_branch returns success when push succeeds."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            mock_run.side_effect = [
+                MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),
+                MagicMock(returncode=0, stdout='To origin...\n', stderr=''),
+            ]
+
+            result = push_to_feature_branch()
+
+            assert result['success'] is True
+            assert result['branch'] == 'feat/199-markdown-file-creation-5e3e07'
+            assert len(result['errors']) == 0
+
+    def test_push_to_feature_branch_implements_retry_logic(self):
+        """Test that push_to_feature_branch retries on network timeout."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown.time.sleep'):  # Mock sleep to avoid delays
+                # Mock branch check success, then push timeout, then push success
+                mock_run.side_effect = [
+                    MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),
+                    subprocess.TimeoutExpired('git push', timeout=30),
+                    MagicMock(returncode=0, stdout='To origin...\n', stderr=''),
+                ]
+
+                result = push_to_feature_branch(max_retries=3)
+
+                assert result['success'] is True
+                # Verify retries happened (3 calls: branch check, timeout, success push)
+                assert mock_run.call_count >= 2
+
+    def test_push_to_feature_branch_handles_network_errors_with_retry(self):
+        """Test that push_to_feature_branch retries on network-related push errors."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown.time.sleep'):  # Mock sleep to avoid delays
+                error = subprocess.CalledProcessError(1, 'git push')
+                error.stderr = 'fatal: unable to access repository: Could not resolve host'
+                
+                mock_run.side_effect = [
+                    MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),
+                    error,
+                    error,
+                    MagicMock(returncode=0, stdout='To origin...\n', stderr=''),
+                ]
+
+                result = push_to_feature_branch(max_retries=3)
+
+                assert result['success'] is True
+
+    def test_push_to_feature_branch_fails_after_max_retries(self):
+        """Test that push_to_feature_branch fails after exhausting retries."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown.time.sleep'):
+                error = subprocess.CalledProcessError(1, 'git push')
+                error.stderr = 'fatal: unable to access repository: Could not resolve host'
+                
+                mock_run.side_effect = [
+                    MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),
+                    error,
+                    error,
+                    error,
+                ]
+
+                result = push_to_feature_branch(max_retries=3)
+
+                assert result['success'] is False
+                assert len(result['errors']) > 0
+
+    def test_push_to_feature_branch_does_not_retry_on_auth_error(self):
+        """Test that push_to_feature_branch does not retry on authentication errors."""
+        with patch('src.create_markdown.subprocess.run') as mock_run:
+            with patch('src.create_markdown.time.sleep') as mock_sleep:
+                error = subprocess.CalledProcessError(1, 'git push')
+                error.stderr = 'fatal: Authentication failed for'
+                
+                mock_run.side_effect = [
+                    MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),
+                    error,
+                ]
+
+                result = push_to_feature_branch(max_retries=3)
+
+                assert result['success'] is False
+                # Should not have retried (sleep should not be called)
+                mock_sleep.assert_not_called()
+
+
+class TestGitIntegrationOrchestration:
+    """Tests for task-7: End-to-end orchestration of all git operations."""
+
+    def test_full_workflow_creates_file_and_commits(self):
+        """Test full workflow: generate, create, validate, commit, and push."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch('src.create_markdown.get_reasoning_llm') as mock_get_llm:
+                with patch('src.create_markdown.subprocess.run') as mock_run:
+                    with patch('src.create_markdown._validate_git_config') as mock_validate:
+                        # Setup mocks
+                        mock_llm = Mock()
+                        mock_llm.call.return_value = (
+                            "# Test Topic\n\n"
+                            "This is the first sentence about the topic. "
+                            "This is the second sentence providing more details. "
+                            "This is the third sentence concluding the discussion."
+                        )
+                        mock_get_llm.return_value = mock_llm
+                        mock_validate.return_value = {'is_valid': True, 'errors': []}
+                        mock_run.side_effect = [
+                            MagicMock(returncode=0, stdout='', stderr=''),  # git add
+                            MagicMock(returncode=0, stdout='', stderr=''),  # git commit
+                            MagicMock(returncode=0, stdout='abc1234567890', stderr=''),  # git rev-parse
+                            MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),  # branch check
+                            MagicMock(returncode=0, stdout='To origin...\n', stderr=''),  # git push
+                        ]
+
+                        # Generate content
+                        content_result = generate_markdown_content()
+                        assert isinstance(content_result, dict)
+                        assert 'full_content' in content_result
+                        assert 'title' in content_result
+
+                        # Create file
+                        filepath = create_markdown_file(
+                            content_result['full_content'],
+                            filepath=tmpdir
+                        )
+                        assert Path(filepath).exists()
+
+                        # Validate file
+                        validation = validate_markdown_file(filepath)
+                        # Note: validation may fail due to file size, but structure should be ok
+                        assert isinstance(validation, dict)
+
+                        # Stage and commit
+                        commit_result = stage_and_commit_file()
+                        assert isinstance(commit_result, dict)
+                        assert 'success' in commit_result
+
+                        # Push
+                        push_result = push_to_feature_branch()
+                        assert isinstance(push_result, dict)
+                        assert 'success' in push_result

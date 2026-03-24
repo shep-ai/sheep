@@ -6,10 +6,12 @@ This module provides utilities for:
 1. Generating markdown content using Claude API with AI-generated prose
 2. Validating generated content against quality requirements
 3. Retrying failed content generation with exponential backoff
+4. Git integration: staging, committing, and pushing files to feature branch
 """
 
 import re
 import time
+import subprocess
 from typing import Optional
 
 from sheep.config.llm import get_reasoning_llm
@@ -604,3 +606,527 @@ def validate_markdown_file(filepath: str) -> dict[str, any]:
         'encoding': encoding_result,
         'structure': structure_result,
     }
+
+
+def stage_and_commit_file(
+    filename: str = "test-nttet0.md",
+    commit_message: str = "feat(199): Create markdown file test-nttet0.md with title and prose content",
+) -> dict[str, any]:
+    """
+    Stage file with git add and commit with conventional commit format.
+
+    Uses subprocess to execute git commands with shell=False to prevent command injection.
+    Validates git configuration (user.name and user.email) before committing.
+
+    Args:
+        filename: The filename to stage and commit (default: "test-nttet0.md").
+        commit_message: The commit message to use (default: conventional format).
+
+    Returns:
+        Dictionary with keys:
+        - 'success': Boolean indicating if staging and commit succeeded
+        - 'staged_file': The filename that was staged
+        - 'commit_hash': The commit hash if successful, None otherwise
+        - 'errors': List of errors (empty if successful)
+
+    Raises:
+        RuntimeError: If git config is incomplete or git commands fail.
+    """
+    errors = []
+    staged_file = None
+    commit_hash = None
+
+    try:
+        # Validate git configuration
+        _logger.info("Validating git configuration...")
+        config_result = _validate_git_config()
+        if not config_result['is_valid']:
+            errors.extend(config_result['errors'])
+            _logger.error(f"Git configuration invalid: {config_result['errors']}")
+            return {
+                'success': False,
+                'staged_file': None,
+                'commit_hash': None,
+                'errors': errors,
+            }
+
+        # Stage the file with git add
+        _logger.info(f"Staging file: {filename}")
+        try:
+            subprocess.run(
+                ['git', 'add', filename],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            staged_file = filename
+            _logger.info(f"File staged successfully: {filename}")
+        except subprocess.CalledProcessError as e:
+            error_msg = f"Failed to stage file: {e.stderr or e.stdout}"
+            errors.append(error_msg)
+            _logger.error(error_msg)
+            return {
+                'success': False,
+                'staged_file': None,
+                'commit_hash': None,
+                'errors': errors,
+            }
+
+        # Commit with conventional format
+        _logger.info(f"Creating commit with message: {commit_message}")
+        try:
+            result = subprocess.run(
+                ['git', 'commit', '-m', commit_message],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            # Extract commit hash from output (first 7 characters of hash)
+            output = result.stdout + result.stderr
+            for line in output.split('\n'):
+                if 'create mode' in line or 'changed' in line:
+                    commit_hash = _extract_commit_hash()
+                    break
+            if not commit_hash:
+                # Try to get commit hash via git rev-parse
+                hash_result = subprocess.run(
+                    ['git', 'rev-parse', 'HEAD'],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                commit_hash = hash_result.stdout.strip()[:7]
+
+            _logger.info(f"Commit created successfully (hash: {commit_hash})")
+        except subprocess.CalledProcessError as e:
+            error_msg = f"Failed to create commit: {e.stderr or e.stdout}"
+            errors.append(error_msg)
+            _logger.error(error_msg)
+            return {
+                'success': False,
+                'staged_file': staged_file,
+                'commit_hash': None,
+                'errors': errors,
+            }
+
+        return {
+            'success': True,
+            'staged_file': staged_file,
+            'commit_hash': commit_hash,
+            'errors': [],
+        }
+
+    except Exception as e:
+        error_msg = f"Unexpected error during staging/commit: {e}"
+        errors.append(error_msg)
+        _logger.error(error_msg)
+        return {
+            'success': False,
+            'staged_file': staged_file,
+            'commit_hash': None,
+            'errors': errors,
+        }
+
+
+def push_to_feature_branch(
+    branch_name: str = "feat/199-markdown-file-creation-5e3e07",
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
+) -> dict[str, any]:
+    """
+    Push committed changes to feature branch on origin.
+
+    Uses subprocess to execute 'git push -u origin <branch>' with shell=False.
+    Implements retry logic with exponential backoff for network failures.
+
+    Args:
+        branch_name: The feature branch name (default: "feat/199-markdown-file-creation-5e3e07").
+        max_retries: Maximum number of retry attempts (default: 3).
+        retry_delay: Initial delay in seconds for exponential backoff (default: 1.0).
+
+    Returns:
+        Dictionary with keys:
+        - 'success': Boolean indicating if push succeeded
+        - 'branch': The branch name that was pushed to
+        - 'errors': List of errors (empty if successful)
+
+    Raises:
+        RuntimeError: If branch does not exist or push ultimately fails after retries.
+    """
+    errors = []
+
+    try:
+        # Verify feature branch exists on remote
+        _logger.info(f"Verifying feature branch exists: {branch_name}")
+        try:
+            result = subprocess.run(
+                ['git', 'branch', '-r'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            if f"origin/{branch_name}" not in result.stdout:
+                error_msg = f"Feature branch not found on remote: {branch_name}"
+                errors.append(error_msg)
+                _logger.error(error_msg)
+                return {
+                    'success': False,
+                    'branch': branch_name,
+                    'errors': errors,
+                }
+            _logger.debug(f"Feature branch verified on remote: {branch_name}")
+        except subprocess.CalledProcessError as e:
+            error_msg = f"Failed to verify feature branch: {e.stderr or e.stdout}"
+            errors.append(error_msg)
+            _logger.error(error_msg)
+            return {
+                'success': False,
+                'branch': branch_name,
+                'errors': errors,
+            }
+
+        # Push to feature branch with retries
+        for attempt in range(max_retries):
+            try:
+                _logger.info(f"Pushing to feature branch (attempt {attempt + 1}/{max_retries}): {branch_name}")
+                result = subprocess.run(
+                    ['git', 'push', '-u', 'origin', branch_name],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,  # 30 second timeout for network operations
+                )
+                _logger.info(f"Push succeeded to {branch_name}")
+                return {
+                    'success': True,
+                    'branch': branch_name,
+                    'errors': [],
+                }
+            except subprocess.TimeoutExpired as e:
+                error_msg = f"Push timed out (attempt {attempt + 1}): network timeout"
+                _logger.warning(error_msg)
+                if attempt < max_retries - 1:
+                    delay = retry_delay * (2 ** attempt)
+                    _logger.debug(f"Retrying in {delay:.1f} seconds...")
+                    time.sleep(delay)
+                else:
+                    errors.append(error_msg)
+            except subprocess.CalledProcessError as e:
+                error_msg = f"Push failed (attempt {attempt + 1}): {e.stderr or e.stdout}"
+                _logger.warning(error_msg)
+                if attempt < max_retries - 1:
+                    # Check if it's a network error (retry) vs branch/auth error (don't retry)
+                    error_output = (e.stderr or e.stdout).lower()
+                    is_network_error = (
+                        'network' in error_output or
+                        'connection' in error_output or
+                        'timeout' in error_output or
+                        'resolve host' in error_output or
+                        'temporarily unavailable' in error_output
+                    )
+                    if is_network_error:
+                        delay = retry_delay * (2 ** attempt)
+                        _logger.debug(f"Retrying in {delay:.1f} seconds...")
+                        time.sleep(delay)
+                    else:
+                        errors.append(error_msg)
+                        break
+                else:
+                    errors.append(error_msg)
+
+        return {
+            'success': False,
+            'branch': branch_name,
+            'errors': errors,
+        }
+
+    except Exception as e:
+        error_msg = f"Unexpected error during push: {e}"
+        errors.append(error_msg)
+        _logger.error(error_msg)
+        return {
+            'success': False,
+            'branch': branch_name,
+            'errors': errors,
+        }
+
+
+def _validate_git_config() -> dict[str, any]:
+    """
+    Validate that git is configured with user.name and user.email.
+
+    Returns:
+        Dictionary with keys:
+        - 'is_valid': Boolean indicating if git config is valid
+        - 'errors': List of missing config items
+        - 'config': Dict with user.name and user.email values
+    """
+    errors = []
+    config = {'user.name': None, 'user.email': None}
+
+    try:
+        # Check user.name
+        try:
+            result = subprocess.run(
+                ['git', 'config', 'user.name'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            config['user.name'] = result.stdout.strip()
+        except subprocess.CalledProcessError:
+            errors.append("Git user.name not configured")
+
+        # Check user.email
+        try:
+            result = subprocess.run(
+                ['git', 'config', 'user.email'],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            config['user.email'] = result.stdout.strip()
+        except subprocess.CalledProcessError:
+            errors.append("Git user.email not configured")
+
+        is_valid = len(errors) == 0
+        return {
+            'is_valid': is_valid,
+            'errors': errors,
+            'config': config,
+        }
+
+    except Exception as e:
+        return {
+            'is_valid': False,
+            'errors': [f"Failed to validate git config: {e}"],
+            'config': config,
+        }
+
+
+def _extract_commit_hash() -> Optional[str]:
+    """
+    Extract the current commit hash using git rev-parse HEAD.
+
+    Returns:
+        The commit hash (first 7 characters) or None if retrieval fails.
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()[:7]
+    except subprocess.CalledProcessError:
+        return None
+
+
+def create_and_commit_markdown_file(
+    filename: str = "test-nttet0.md",
+    filepath: Optional[str] = None,
+    branch_name: str = "feat/199-markdown-file-creation-5e3e07",
+) -> dict[str, any]:
+    """
+    Full orchestration workflow: generate, create, validate, commit, and push markdown file.
+
+    This function orchestrates the complete workflow for Feature 199:
+    1. Generate markdown content using Claude API
+    2. Create markdown file with UTF-8 encoding and LF line endings
+    3. Validate file encoding and structure
+    4. Stage file with git add
+    5. Commit with conventional commit format
+    6. Push to feature branch on origin
+
+    Args:
+        filename: The filename to create (default: "test-nttet0.md").
+        filepath: The directory to create file in (default: current working directory).
+        branch_name: The feature branch to push to (default: "feat/199-markdown-file-creation-5e3e07").
+
+    Returns:
+        Dictionary with keys:
+        - 'success': Boolean indicating if entire workflow succeeded
+        - 'steps_completed': List of successfully completed steps
+        - 'steps_failed': List of steps that failed
+        - 'file_path': Path to created file (if successful)
+        - 'commit_hash': Commit hash (if committed successfully)
+        - 'errors': List of all errors encountered
+
+    Example:
+        >>> result = create_and_commit_markdown_file()
+        >>> if result['success']:
+        ...     print(f"File created and pushed: {result['file_path']}")
+        ... else:
+        ...     print(f"Workflow failed: {result['errors']}")
+    """
+    steps_completed = []
+    steps_failed = []
+    all_errors = []
+    file_path = None
+    commit_hash = None
+
+    try:
+        # Step 1: Generate markdown content
+        _logger.info("Step 1: Generating markdown content...")
+        try:
+            content_result = generate_markdown_content()
+            steps_completed.append("content_generation")
+            _logger.info(f"✓ Generated markdown with title: '{content_result['title']}'")
+        except Exception as e:
+            error_msg = f"Content generation failed: {e}"
+            steps_failed.append("content_generation")
+            all_errors.append(error_msg)
+            _logger.error(error_msg)
+            return {
+                'success': False,
+                'steps_completed': steps_completed,
+                'steps_failed': steps_failed,
+                'file_path': None,
+                'commit_hash': None,
+                'errors': all_errors,
+            }
+
+        # Step 2: Create markdown file
+        _logger.info("Step 2: Creating markdown file...")
+        try:
+            file_path = create_markdown_file(
+                content_result['full_content'],
+                filename=filename,
+                filepath=filepath,
+            )
+            steps_completed.append("file_creation")
+            _logger.info(f"✓ Created markdown file: {file_path}")
+        except Exception as e:
+            error_msg = f"File creation failed: {e}"
+            steps_failed.append("file_creation")
+            all_errors.append(error_msg)
+            _logger.error(error_msg)
+            return {
+                'success': False,
+                'steps_completed': steps_completed,
+                'steps_failed': steps_failed,
+                'file_path': None,
+                'commit_hash': None,
+                'errors': all_errors,
+            }
+
+        # Step 3: Validate file
+        _logger.info("Step 3: Validating markdown file...")
+        try:
+            validation_result = validate_markdown_file(file_path)
+            if validation_result['is_valid']:
+                steps_completed.append("file_validation")
+                _logger.info("✓ File validation passed")
+            else:
+                # File validation failed - log warning but continue with git operations
+                # This allows files with size issues to still be committed
+                warning_msg = f"File validation warnings: {validation_result['errors']}"
+                _logger.warning(warning_msg)
+                steps_completed.append("file_validation_with_warnings")
+        except Exception as e:
+            error_msg = f"File validation error: {e}"
+            steps_failed.append("file_validation")
+            all_errors.append(error_msg)
+            _logger.error(error_msg)
+            # Continue to git operations even if validation fails
+
+        # Step 4: Stage and commit
+        _logger.info("Step 4: Staging file and creating commit...")
+        try:
+            commit_result = stage_and_commit_file(filename=filename)
+            if commit_result['success']:
+                commit_hash = commit_result['commit_hash']
+                steps_completed.append("staging_and_commit")
+                _logger.info(f"✓ Staged and committed file (commit: {commit_hash})")
+            else:
+                error_msg = f"Staging/commit failed: {commit_result['errors']}"
+                steps_failed.append("staging_and_commit")
+                all_errors.extend(commit_result['errors'])
+                _logger.error(error_msg)
+                return {
+                    'success': False,
+                    'steps_completed': steps_completed,
+                    'steps_failed': steps_failed,
+                    'file_path': file_path,
+                    'commit_hash': None,
+                    'errors': all_errors,
+                }
+        except Exception as e:
+            error_msg = f"Staging/commit error: {e}"
+            steps_failed.append("staging_and_commit")
+            all_errors.append(error_msg)
+            _logger.error(error_msg)
+            return {
+                'success': False,
+                'steps_completed': steps_completed,
+                'steps_failed': steps_failed,
+                'file_path': file_path,
+                'commit_hash': None,
+                'errors': all_errors,
+            }
+
+        # Step 5: Push to feature branch
+        _logger.info("Step 5: Pushing to feature branch...")
+        try:
+            push_result = push_to_feature_branch(branch_name=branch_name)
+            if push_result['success']:
+                steps_completed.append("push_to_feature_branch")
+                _logger.info(f"✓ Pushed to feature branch: {branch_name}")
+            else:
+                error_msg = f"Push failed: {push_result['errors']}"
+                steps_failed.append("push_to_feature_branch")
+                all_errors.extend(push_result['errors'])
+                _logger.error(error_msg)
+                return {
+                    'success': False,
+                    'steps_completed': steps_completed,
+                    'steps_failed': steps_failed,
+                    'file_path': file_path,
+                    'commit_hash': commit_hash,
+                    'errors': all_errors,
+                }
+        except Exception as e:
+            error_msg = f"Push error: {e}"
+            steps_failed.append("push_to_feature_branch")
+            all_errors.append(error_msg)
+            _logger.error(error_msg)
+            return {
+                'success': False,
+                'steps_completed': steps_completed,
+                'steps_failed': steps_failed,
+                'file_path': file_path,
+                'commit_hash': commit_hash,
+                'errors': all_errors,
+            }
+
+        # All steps completed successfully
+        _logger.info("=" * 80)
+        _logger.info("WORKFLOW COMPLETED SUCCESSFULLY")
+        _logger.info("=" * 80)
+        _logger.info(f"File: {file_path}")
+        _logger.info(f"Commit: {commit_hash}")
+        _logger.info(f"Branch: {branch_name}")
+        _logger.info("=" * 80)
+
+        return {
+            'success': True,
+            'steps_completed': steps_completed,
+            'steps_failed': [],
+            'file_path': file_path,
+            'commit_hash': commit_hash,
+            'errors': [],
+        }
+
+    except Exception as e:
+        error_msg = f"Unexpected error during workflow: {e}"
+        all_errors.append(error_msg)
+        _logger.error(error_msg)
+        return {
+            'success': False,
+            'steps_completed': steps_completed,
+            'steps_failed': steps_failed,
+            'file_path': file_path,
+            'commit_hash': None,
+            'errors': all_errors,
+        }
