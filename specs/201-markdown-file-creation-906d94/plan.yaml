@@ -1,0 +1,175 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-906d94"
+summary: >
+  "Implementation plan for feature 201: Create test-lihjez.md markdown file with validated structure,
+  using existing utilities from features 199-200. The implementation follows a three-phase approach:
+  content generation via Claude API, file creation and validation, and git integration."
+
+# Relationships
+relatedFeatures:
+  - "199-markdown-file-creation"
+  - "200-markdown-file-creation"
+  - "190-189-markdown-file-series"
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI (>=0.86.0)"
+  - "Anthropic Claude API (reasoning model)"
+  - "subprocess (standard library)"
+  - "pathlib (standard library)"
+
+relatedLinks:
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "Anthropic Claude API Guide"
+    url: "https://docs.anthropic.com/claude/"
+
+# Structured implementation phases
+phases:
+  - id: "phase-1"
+    name: "Content Generation Setup"
+    description: "Set up the main implementation script and orchestrate content generation using existing Claude API integration. This phase establishes the script structure, logging, and calls reused utilities from features 199-200 to generate a valid title and prose content."
+    parallel: false
+
+  - id: "phase-2"
+    name: "File Creation and Validation"
+    description: "Check for pre-existing file, write test-lihjez.md with UTF-8 encoding and LF line endings, then execute sequential validation checks (encoding, line endings, structure, size). This phase ensures file meets all technical requirements before git integration."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Git Integration"
+    description: "Stage file using git add, commit with conventional message format, and push to origin feature branch. This phase completes the workflow by integrating the created file into version control."
+    parallel: false
+
+  - id: "phase-4"
+    name: "Integration Testing"
+    description: "Execute end-to-end test of the complete workflow to verify all phases work together correctly and produce the expected output file with passing validations."
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - "create_markdown_file_201.py"
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  Feature 201 integrates seamlessly into the established markdown file creation pipeline (features 190-200).
+  The implementation reuses proven patterns and utilities:
+
+  - **Content generation**: Calls `generate_markdown_content()` from `src/create_markdown.py`, which handles
+    Claude API integration via `sheep.config.llm.get_reasoning_llm()` with retry logic and response parsing.
+  - **File validation**: Uses validation utilities from `src/create_markdown.py` for encoding, line endings,
+    structure, and size checks.
+  - **Git workflow**: Uses `subprocess.run()` for `git add`, `git commit`, `git push` commands, matching
+    the pattern established in feature 198.
+  - **Logging**: Uses `sheep.observability.logging.get_logger()` for structured logging with Langfuse
+    integration.
+
+  The feature creates a new file `create_markdown_file_201.py` as the main orchestration script. This script:
+  1. Generates content using existing utilities (phase 1)
+  2. Creates and validates the file on disk (phase 2)
+  3. Integrates with git (phase 3)
+  4. Reports success or specific validation errors
+
+  ## Key Design Decisions
+
+  ### 1. Reuse Existing Utilities from src/create_markdown.py
+
+  **Chosen:** Reuse `generate_markdown_content()` and validation functions from existing module.
+
+  **Rationale:** Features 199-200 established proven abstractions with retry logic, response parsing, and
+  comprehensive validation. Reusing them:
+  - Validates the abstraction through repeated use across multiple features
+  - Ensures consistency across features 190-200
+  - Reduces implementation time and bug surface
+  - Leverages tested code rather than duplicating logic
+
+  **Implementation:** Import `generate_markdown_content` from `src.create_markdown` and validation functions.
+  Call with appropriate parameters and handle return values.
+
+  ### 2. File Size Constraint (400-600 bytes)
+
+  **Chosen:** Generate content, validate byte size, fail fast if outside range.
+
+  **Rationale:** The 400-600 byte constraint is strict and non-negotiable. Claude-generated prose
+  (typically 100-300 characters) plus H1 heading plus structural formatting typically lands in this range.
+  If validation fails, report the exact byte count for user visibility rather than attempting correction.
+  This follows fail-fast principles and maintains transparency.
+
+  ### 3. Sequential Validation Order
+
+  **Chosen:** Validate in order: encoding (UTF-8 BOM check) → line-endings (LF vs CRLF) → structure
+  (H1 heading, blank line, prose, final newline) → size (400-600 bytes).
+
+  **Rationale:** This ordering catches fundamental issues first (encoding), then structural issues,
+  then constraints. Each validation is independent and can fail fast with a specific error message.
+  Ordering from most fundamental to least fundamental aids debugging.
+
+  ### 4. Error Handling Strategy
+
+  **Chosen:** Fail immediately with specific, actionable error messages.
+
+  **Rationale:** Use specific exception types (FileExistsError, ValueError, subprocess.CalledProcessError)
+  with descriptive messages. This ensures users can see exactly what failed and adjust accordingly.
+
+  ### 5. Integration with CrewAI and Claude API
+
+  **Chosen:** Use `sheep.config.llm.get_reasoning_llm()` via existing `src/create_markdown.py` utility.
+
+  **Rationale:** The sheep platform provides pre-configured LLM access through this module. Using it
+  ensures feature 201 integrates with platform configuration, API key management, and observability
+  (Langfuse tracing). The reasoning LLM (temperature=0.2) is appropriate for coherent prose generation.
+
+  ### 6. Git Operations with subprocess
+
+  **Chosen:** Use `subprocess.run()` for `git add`, `git commit`, `git push` commands.
+
+  **Rationale:** Feature 198 pattern uses subprocess successfully. The commands are simple and subprocess
+  provides excellent error handling via CalledProcessError. This keeps implementation lightweight and
+  consistent with established patterns.
+
+  ## Implementation Strategy
+
+  ### Phase 1: Content Generation
+  Create the main script (`create_markdown_file_201.py`) with:
+  - Imports: pathlib, subprocess, sheep modules
+  - Entry point: `main()` function
+  - Content generation: call `generate_markdown_content()` from `src/create_markdown.py`
+  - Logging: use `sheep.observability.logging.get_logger()` to log major operations
+
+  ### Phase 2: File Creation and Validation
+  Implement in sequence:
+  1. Pre-flight check: Raise FileExistsError if `test-lihjez.md` already exists
+  2. File creation: Write content with UTF-8 encoding (no BOM) and LF line endings using pathlib
+  3. Validation: Execute sequential checks for encoding, line endings, structure, and size
+  4. Error handling: Fail immediately on first validation error with specific message
+
+  ### Phase 3: Git Integration
+  After all validations pass:
+  1. `git add test-lihjez.md`
+  2. `git commit -m "feat(201): create markdown file test-lihjez.md..."`
+  3. `git push -u origin HEAD`
+  4. Log success or git operation errors
+
+  ### Phase 4: Integration Testing
+  Run the complete workflow end-to-end to verify all phases work together and produce expected output.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | File size validation fails | Report specific byte count. User can adjust or accept failure. No retry loops masking issues. |
+  | Pre-existing file causes issues | Fail immediately if file exists. Alert user to investigate branch state inconsistency. |
+  | Git operations fail | Use subprocess.run() with CalledProcessError for specific error reporting. Log git output. |
+  | Claude API call fails | Use existing `generate_markdown_content()` utility which includes retry logic (max 3 attempts). |
+  | Validation functions missing | Implement validation functions inline if utilities unavailable. Keep logic consistent with features 199-200. |
+  | Encoding/line-ending issues | Use pathlib with explicit UTF-8 encoding and LF line terminator. Validate on disk post-creation. |
+  | Logging integration incomplete | Use sheep.observability.logging.get_logger() as established pattern. Test logs appear in traces. |
