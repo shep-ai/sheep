@@ -45,43 +45,40 @@ openQuestions:
     resolved: true
     options:
       - option: "LLM-generated via Claude API"
-        description: "Use Claude API to generate original, thematically coherent prose content. Ensures high-quality, varied output that matches the style of existing test files. Fits the automated platform pattern and requires API access (already available in Sheep infrastructure)."
+        description: "Use Claude API to generate a unique, meaningful title and 2-3 sentences of thematically coherent prose. Aligns with Sheep's automated pattern, leverages existing infrastructure, ensures quality and variety comparable to 200+ precedents, produces meaningful prose without requiring predefined templates or user input."
         selected: true
-      - option: "Predefined template library"
-        description: "Use a curated set of prose templates that can be selected or combined. Faster execution, deterministic output, but less variation and may feel repetitive across 200+ test files."
+      - option: "Hardcoded or templated content"
+        description: "Use fixed prose content or fill-in-the-blank templates. Faster initial implementation but reduces variety, requires manual content management, and diverges from the platform's LLM-first automation approach demonstrated in feature implementations."
         selected: false
-      - option: "Manual specification"
-        description: "Accept prose content as explicit input parameter. Maximum control and flexibility, but requires additional user input and slower execution."
-        selected: false
-    selectionRationale: "LLM generation is recommended because it aligns with Sheep's automated implementation pattern, leverages existing Claude API infrastructure, ensures content quality and variety comparable to the 200+ precedent files, and produces semantically meaningful prose without additional user input. The platform is designed for agent-driven automation, making this the natural approach."
+    selectionRationale: "LLM-generated content via Claude API is recommended because it maintains consistency with the Sheep platform's automated implementation pattern, ensures quality at scale across 200+ test files, provides variety without manual effort, and leverages existing Claude API infrastructure already integrated into the platform."
     answer: "LLM-generated via Claude API"
 
-  - question: "What validation scope should be applied after file creation?"
+  - question: "What validation scope should be applied before committing the file?"
     resolved: true
     options:
-      - option: "Basic validation"
-        description: "Verify only that the file exists and is readable. Fast execution (< 1 minute), minimal complexity. Risk: could miss format errors, encoding issues, or content quality problems that would be inconsistent with precedents."
-        selected: false
       - option: "Comprehensive validation"
-        description: "Verify file existence, markdown format (exactly one H1 heading), prose content (exactly 2-3 sentences), UTF-8 encoding, LF line endings, and file size (250-600 bytes). Ensures quality consistency with 200+ precedent files. Adds ~1-2 minutes to execution."
+        description: "Validate file existence, markdown syntax (H1 heading count and position), prose content (sentence count), UTF-8 encoding without BOM, Unix LF line endings, and file size (250-600 bytes). Adds ~1-2 minutes to feature execution but critical for quality consistency across 200+ test file suite, catches regressions early, and maintains platform reliability."
         selected: true
-      - option: "No validation"
-        description: "Skip all post-creation checks. Fastest execution but highest risk of format/quality issues. Not recommended for a platform demonstrating consistency and reliability."
+      - option: "Minimal validation"
+        description: "Only verify file exists and is committed successfully. Faster execution but risks encoding issues, line ending corruption, or malformed markdown slipping through, which could cause problems in the test file suite and downstream consumers of these files."
         selected: false
-    selectionRationale: "Comprehensive validation is recommended because feature 202 is part of a 200+ test file suite where consistency and quality are critical success metrics. The feature serves as a demonstration of the Sheep platform's ability to produce high-quality, conformant output. Validation overhead (~1-2 minutes) is acceptable for a 10-15 minute feature and ensures no regressions in output quality. The 200+ precedents establish a clear format standard that this feature must match."
+      - option: "No validation"
+        description: "Skip all validation steps and trust that file creation worked correctly. Fastest approach but defeats the purpose of automated quality control and could introduce bugs that propagate across the platform."
+        selected: false
+    selectionRationale: "Comprehensive validation is recommended because it is critical for quality consistency across the 200+ test file suite, the ~1-2 minute overhead is acceptable for a 10-15 minute feature, catches encoding and format issues early, and ensures no regressions. The Sheep platform prioritizes reproducibility and reliability, making thorough validation essential."
     answer: "Comprehensive validation"
 
-  - question: "Should the generated prose content be deterministic or randomized?"
+  - question: "Should prose generation be deterministic or randomized across feature executions?"
     resolved: true
     options:
-      - option: "Deterministic (same topic/content each execution)"
-        description: "Generate the same prose content every time the feature is executed. Improves reproducibility, makes testing/debugging easier, enables exact git diff prediction. Trade-off: less variety across the 200+ test files, though topic can still vary by feature number if desired."
+      - option: "Deterministic generation"
+        description: "Use a seed (e.g., based on feature number or spec hash) to generate identical prose every time this feature runs. Improves reproducibility, enables exact diff prediction, supports reliable testing and CI/CD patterns, simplifies debugging. Variety is provided through unique topics per feature number."
         selected: true
-      - option: "Randomized (different content each execution)"
-        description: "Generate different prose content each time, selecting from varied topics and themes. Increases variety across the test file collection, more closely mirrors real-world file creation. Trade-off: less reproducible, harder to predict diffs, makes testing less deterministic."
+      - option: "Randomized generation"
+        description: "Generate different prose each time the feature runs without using a fixed seed. Provides variety in prose content but reduces reproducibility, makes diffs unpredictable, complicates testing and CI/CD validation, and requires additional handling for exact comparison in regression tests."
         selected: false
-    selectionRationale: "Deterministic generation is recommended because Sheep is an automated implementation platform where reproducibility and predictability are critical values. Deterministic output enables exact verification of results, consistent git history, and reliable testing. Each feature in the 200+ series can have a unique fixed topic (e.g., derived from the feature number or spec hash), providing variety without sacrificing reproducibility. Determinism also aligns with the testing and CI/CD patterns used in automated systems."
-    answer: "Deterministic (same topic/content each execution)"
+    selectionRationale: "Deterministic generation is recommended because it improves reproducibility and enables exact diff prediction, which is critical for reliable testing and CI/CD integration. Since each feature has a unique number, deterministic generation per feature still provides variety across the 200+ test files. Reproducibility is more valuable than randomization for an automated platform where consistency and testability matter."
+    answer: "Deterministic generation"
 
 content: |
   ## Problem Statement
@@ -107,122 +104,36 @@ content: |
   ## Functional Requirements
 
   - **FR-1**: Create a markdown file named `test-1u4gfg.md` at the repository root using Python `pathlib.Path()`
-  - **FR-2**: Generate a unique, meaningful title (H1 markdown heading) for the file content
-  - **FR-3**: Generate 2-3 sentences of coherent prose content that is thematically related to the title
-  - **FR-4**: Write the file with UTF-8 encoding and explicit Unix LF line endings (\n) using pathlib's `write_text()` method
-  - **FR-5**: Validate file creation: verify file exists and is accessible at the correct path
-  - **FR-6**: Validate markdown format: confirm exactly one H1 heading appears at the start of the file
-  - **FR-7**: Validate prose content: count sentences and confirm exactly 2-3 sentences are present
-  - **FR-8**: Validate encoding: verify file is UTF-8 encoded without BOM
-  - **FR-9**: Validate line endings: verify file contains only Unix LF newlines, not CRLF or CR
-  - **FR-10**: Validate file size: confirm file is between 250-600 bytes
-  - **FR-11**: Stage the file using `git add test-1u4gfg.md` command
+  - **FR-2**: Generate a unique, meaningful title (H1 markdown heading) using Claude API with deterministic output based on feature number
+  - **FR-3**: Generate 2-3 sentences of coherent prose content that is thematically related to the title using Claude API
+  - **FR-4**: Write the file with UTF-8 encoding and explicit Unix LF line endings (\n) using pathlib's `write_text()` method with `newline="\n"` parameter
+  - **FR-5**: Validate file creation: verify file exists and is accessible at the correct path in the repository root
+  - **FR-6**: Validate markdown format: confirm exactly one H1 heading appears at the start of the file followed by a blank line
+  - **FR-7**: Validate prose content: count sentences and confirm exactly 2-3 sentences are present using sentence boundary detection
+  - **FR-8**: Validate encoding: verify file is UTF-8 encoded without BOM by reading file in binary mode and checking for BOM bytes
+  - **FR-9**: Validate line endings: verify file contains only Unix LF newlines (\n), not CRLF (\r\n) or CR (\r)
+  - **FR-10**: Validate file size: confirm file is between 250-600 bytes inclusive
+  - **FR-11**: Stage the file using `git add test-1u4gfg.md` command with no additional flags
   - **FR-12**: Create a commit with conventional commit message format: `feat(202): Create markdown file test-1u4gfg.md with title and prose content`
-  - **FR-13**: Push the commit to the feature branch `feat/202-markdown-file-creation-05a473`
+  - **FR-13**: Push the commit to the feature branch `feat/202-markdown-file-creation-05a473` using `git push origin feat/202-markdown-file-creation-05a473`
 
   ## Non-Functional Requirements
 
-  - **NFR-1**: Markdown content must be valid CommonMark format with no syntax errors
-  - **NFR-2**: Prose content must be original, meaningful, and stylistically consistent with existing test files in the repository
-  - **NFR-3**: File creation and validation must complete in approximately 10-15 minutes of wall-clock execution time
-  - **NFR-4**: Git operations must use standard, well-documented commands without custom flags or workarounds (except `--no-verify` when required by CI)
-  - **NFR-5**: All file I/O operations must use Python standard library only (pathlib, no external dependencies)
-  - **NFR-6**: Prose generation should be deterministic — same feature execution should produce identical output for reproducibility and testing
-  - **NFR-7**: All error messages and logs must be clear and actionable, enabling quick debugging if any step fails
-  - **NFR-8**: The feature implementation must demonstrate compliance with the Sheep platform's quality standards, as evidenced by the 200+ existing test files
-
-  ## Product Questions & AI Recommendations
-
-  | # | Question | AI Recommendation | Rationale |
-  | --- | --------- | ------------------- | --------- |
-  | 1 | How should prose content be generated? | LLM-generated via Claude API | Aligns with Sheep's automated pattern, leverages existing infrastructure, ensures quality and variety comparable to 200+ precedents, produces meaningful prose without user input |
-  | 2 | What validation scope should be applied? | Comprehensive validation | Critical for quality consistency across 200+ test file suite; ~1-2 min overhead is acceptable for a 10-15 min feature; ensures no regressions |
-  | 3 | Should prose be deterministic or randomized? | Deterministic generation | Improves reproducibility, enables exact diff prediction, supports reliable testing and CI/CD patterns; variety provided through unique topics per feature |
-
-  ## Codebase Analysis
-
-  ### Project Structure
-
-  **Repository Organization:**
-  - Root directory contains 200+ test markdown files following pattern `test-*.md`
-  - Examples: `test-xgtwtq.md`, `test-ir293z.md`, `test-p27cj6.md`, etc.
-  - Main directories: `src/sheep/` (platform source code), `specs/` (feature specifications), `tests/` (test suite), `.github/` (CI/CD)
-  - Configuration files: `pyproject.toml`, `.env.example`, `docker-compose.yml`, `.gitignore`
-
-  **Spec Directory Structure:**
-  - `specs/` contains 202 feature specifications as subdirectories
-  - Format: `NNN-feature-name-hash/spec.yaml`
-  - This spec is located at: `specs/202-markdown-file-creation-05a473/spec.yaml`
-
-  **Source Code Structure:**
-  - `src/sheep/` contains the main Sheep platform code:
-    - `agents/` - Agent definitions (code_agents.py, general_agents.py)
-    - `flows/` - Flow orchestration (code_implementation.py, chat.py)
-    - `config/` - Configuration (settings.py, llm.py)
-    - `tools/` - Agent tools (git_tools.py, file_tools.py, web_tools.py)
-    - `observability/` - Tracing and logging (langfuse_client.py, logging.py)
-    - `cli.py` - Command-line interface
-
-  ### Architecture Patterns
-
-  **Test File Format (200+ precedents):**
-  - All test markdown files follow identical structure:
-    - Line 1: `# Title (H1 Heading)` - must be exactly one H1 heading
-    - Line 2: Blank line
-    - Lines 3-5: Exactly 2-3 sentences of prose content
-    - File size: typically 300-600 bytes
-  - Proven examples:
-    - `test-p27cj6.md` contains H1 "The Power of Effective Communication" followed by 3 sentences
-    - `test-niog0h.md` shows same pattern with theme-aligned prose
-
-  **File Naming Convention:**
-  - Pattern: `test-<6-character-alphanumeric-id>.md`
-  - Target filename: `test-1u4gfg.md` (fixed by user query)
-
-  **Git Workflow Pattern:**
-  - File is created in repository root (same level as .git, src/, specs/)
-  - File is staged with `git add <filename>`
-  - Commit uses conventional commit format: `feat(###): Create markdown file <filename> with prose content` or `feat(###): Create markdown file <filename> with title and prose content`
-  - Changes are pushed to feature branch `feat/###-<feature-name>`
-  - Feature branch pre-created: `feat/202-markdown-file-creation-05a473`
-
-  ### Relevant Technologies
-
-  **File I/O:**
-  - Python `pathlib.Path` for cross-platform file operations
-  - Standard library in Python 3.11+ (no external dependencies)
-  - Simple text file write with UTF-8 encoding (Python default) and explicit LF newlines
-
-  **Markdown Format:**
-  - CommonMark-compatible format (https://spec.commonmark.org/)
-  - Simple structure: H1 heading + plain text prose
-  - No complex markdown features required (no lists, code blocks, tables, links, etc.)
-  - UTF-8 encoding without BOM (Byte Order Mark)
-  - Unix LF line endings (\n) not CRLF
-
-  **Git Integration:**
-  - Standard git commands: `git add`, `git commit`, `git push`
-  - Feature branch pre-created: `feat/202-markdown-file-creation-05a473`
-  - Conventional Commits specification (https://www.conventionalcommits.org/)
-  - No advanced git features needed (no merging, rebasing, or conflict resolution)
-
-  **Prose Generation:**
-  - Claude API for LLM-based content generation
-  - Ensures deterministic output with consistent quality
-  - Aligns with Sheep platform's CrewAI-based agent architecture
-
-  **Project Infrastructure:**
-  - CrewAI-based agentic platform (pyproject.toml shows crewai[anthropic,google-genai,tools] dependency)
-  - No source code modifications required for this feature
-  - Feature is pure file creation with no code/logic components
-  - Sheep platform uses agents for research, implementation, and review phases
+  - **NFR-1**: Markdown content must be valid CommonMark format (https://spec.commonmark.org/) with no syntax errors
+  - **NFR-2**: Prose content must be original, meaningful, and stylistically consistent with existing test files in the repository (e.g., professional but accessible tone, single topic per file)
+  - **NFR-3**: File creation and validation must complete in approximately 10-15 minutes of wall-clock execution time including Claude API calls
+  - **NFR-4**: Git operations must use standard, well-documented git commands without custom flags or workarounds (--no-verify is acceptable if required by CI hooks)
+  - **NFR-5**: All file I/O operations must use Python standard library only (pathlib module, no external dependencies) for cross-platform compatibility
+  - **NFR-6**: Prose generation must be deterministic — running this feature with the same feature number must produce identical prose output, using a fixed seed derived from feature number 202
+  - **NFR-7**: All error messages and logs must be clear and actionable, enabling quick debugging if any validation step fails (e.g., specify which encoding issue was detected)
+  - **NFR-8**: Feature implementation must demonstrate compliance with Sheep platform's quality standards as evidenced by the 200+ existing test files matching identical patterns
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
   | Repository Root Directory | Low | Adds one new markdown file to existing collection of 200+ test files; no modifications to existing files or directory structure |
-  | File System | Low | Single file creation operation (~350-550 bytes); no directory structure changes, no deletions or overwrites |
+  | File System | Low | Single file creation operation (~300-550 bytes); no directory structure changes, no deletions or overwrites |
   | Git Repository | Low | Standard single commit and push following established pattern from features 150-201; no branch/merge complexity, no destructive operations |
   | Source Code (src/sheep/) | None | Feature is purely file creation; does not depend on or impact any source code in /src/sheep/ or elsewhere |
   | Specs Directory | Low | Updates only this spec.yaml file during analysis phase; no impact on other specs or configurations |
@@ -233,25 +144,25 @@ content: |
   ## Dependencies
 
   **Required:**
-  - Git repository with feature branch `feat/202-markdown-file-creation-05a473` (pre-created)
-  - Write access to repository root directory (already available)
-  - Python 3.11+ with `pathlib` and `subprocess` (standard library, no external packages)
-  - Git configuration with user.name and user.email set for commits
-  - Claude API access with valid authentication credentials (for LLM prose generation)
-  - Target filename: `test-1u4gfg.md` (specified in user query)
+  - Git repository with feature branch `feat/202-markdown-file-creation-05a473` (pre-created and checked out)
+  - Write access to repository root directory (already available in current working directory)
+  - Python 3.11+ with `pathlib` module (standard library, included by default)
+  - Git configuration with user.name and user.email set for commits (required by git)
+  - Claude API access with valid authentication credentials for LLM prose generation
+  - Target filename: `test-1u4gfg.md` (specified in user query, fixed requirement)
 
   **Reference/Precedent:**
-  - 200+ existing test markdown files (test-*.md) provide clear pattern to follow
-  - Previous feature implementations (150-201) demonstrate successful execution of identical pattern
-  - Recent commits (200-201) show exact templates and working examples
-  - Feature 201 implementation provides direct code precedent for implementation approach
+  - 200+ existing test markdown files (test-*.md) in repository root provide clear pattern to follow
+  - Previous feature implementations (150-201) demonstrate successful execution of identical markdown file creation pattern
+  - Recent commits (200-201) show exact templates and working examples of completed features
+  - Feature 201 implementation provides direct code precedent for implementation approach and validation patterns
 
   **Not Required:**
-  - No source code dependencies
-  - No new external package dependencies beyond Claude API access
-  - No modifications to configuration files
+  - No source code modifications or dependencies
+  - No new external package dependencies beyond Claude API access (already integrated into platform)
+  - No modifications to configuration files or environment variables
   - No changes to src/sheep/ directory
-  - No test framework integration
+  - No test framework integration or unit test creation
 
   ## Size Estimate
 
@@ -259,39 +170,39 @@ content: |
 
   This is a minimal-effort, single-file creation feature with well-established precedents from 200+ existing test files:
 
-  - **Content generation**: ~3-5 minutes (generate title and 2-3 sentences via Claude API with deterministic seed)
-  - **File creation and encoding**: ~1-2 minutes (write file with UTF-8 encoding and LF line endings using pathlib)
-  - **Validation**: ~2-3 minutes (verify markdown syntax, sentence count, encoding, line endings, file size)
-  - **Git workflow**: ~2-5 minutes (stage file, commit with conventional message, push to feature branch)
+  - **Content generation**: ~3-5 minutes (generate title and 2-3 sentences via Claude API with deterministic seed based on feature number 202)
+  - **File creation and encoding**: ~1-2 minutes (write file with UTF-8 encoding and LF line endings using pathlib.write_text() with explicit parameters)
+  - **Validation**: ~2-3 minutes (verify markdown syntax, sentence count, encoding, line endings, and file size using programmatic checks)
+  - **Git workflow**: ~2-5 minutes (stage file, create conventional commit message, push to feature branch)
   - **Total estimate**: 10-15 minutes of actual work
 
   **Justification:**
-  - Well-established pattern with 200+ identical test files providing clear precedent
+  - Well-established pattern with 200+ identical test files providing clear precedent and reference implementations
   - Flexible topic selection with no research or architectural decisions required
-  - Single file with minimal, well-understood content format (one H1 heading + 2-3 sentences)
+  - Single file with minimal, well-understood content format (one H1 heading + 2-3 sentences of prose)
   - No testing, documentation, or configuration changes required
-  - Recent feature implementations (200-201) demonstrate efficient execution in 10-15 minutes
-  - No git merge conflicts or branch management complexity
+  - Recent feature implementations (200-201) demonstrate efficient execution in 10-15 minute range
+  - No git merge conflicts or branch management complexity (branch pre-created)
   - Feature 201 implementation serves as direct working precedent for all implementation patterns
   - File creation and git operations use only Python standard library (pathlib, subprocess) and standard git commands
-  - Claude API for prose generation reduces content creation time and ensures quality
+  - Claude API for prose generation reduces content creation time and ensures quality output
 
   ## Implementation Approach
 
   **File Creation:**
-  1. Generate deterministic prose using Claude API (with seed based on feature number or spec hash)
-  2. Create a meaningful, thematically coherent title (H1 heading)
-  3. Use Python `pathlib.Path()` to reference repository root: `Path("/path/to/repo") / "test-1u4gfg.md"`
+  1. Generate deterministic prose using Claude API with seed derived from feature number 202
+  2. Create a meaningful, thematically coherent title (H1 heading) via Claude API
+  3. Use Python `pathlib.Path()` to reference repository root and target filename: `Path.cwd() / "test-1u4gfg.md"`
   4. Write file with explicit encoding and newline parameters: `path.write_text(content, encoding="utf-8", newline="\n")`
 
   **Validation (before commit):**
-  1. Verify file exists at repository root
-  2. Validate markdown syntax (exactly one H1 heading at start, blank line after heading)
-  3. Count sentences (must be exactly 2-3)
-  4. Verify UTF-8 encoding without BOM
-  5. Verify LF line endings only (no CRLF or CR)
-  6. Check file size (target 250-600 bytes)
-  7. Log validation results and any errors
+  1. Verify file exists at repository root using `Path.exists()`
+  2. Validate markdown syntax: exactly one H1 heading at start, blank line after heading
+  3. Count sentences using sentence boundary detection (regex or NLTK if available, or simple heuristic)
+  4. Verify UTF-8 encoding without BOM by reading in binary mode and checking file bytes
+  5. Verify LF line endings only using byte-level inspection (should contain \n, not \r\n or \r)
+  6. Check file size is 250-600 bytes using `Path.stat().st_size`
+  7. Log validation results and any errors discovered
 
   **Git Workflow:**
   1. Stage file: `git add test-1u4gfg.md`
