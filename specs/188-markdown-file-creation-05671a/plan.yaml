@@ -1,0 +1,169 @@
+name: "markdown-file-creation-05671a"
+summary: >
+  Implementation of feature 188: create markdown file test-66bea4.md with H1 title and prose content.
+  The feature follows the orchestration pattern established by features 101-187, delegating to
+  existing content_generators utilities for content generation, file I/O, validation, and git operations.
+  No architectural changes or new dependencies required. Estimated effort: 50 minutes across 3 phases.
+
+relatedFeatures: []
+technologies:
+  - "Python 3.11+"
+  - "pathlib"
+  - "structlog"
+  - "CrewAI (via content_generators)"
+  - "Claude API (via content_generators)"
+  - "GitPython (via content_generators)"
+
+relatedLinks:
+  - title: "Feature 187 implementation reference"
+    url: "src/sheep/features/feature_187_markdown_file_creation.py"
+  - title: "Feature 186 implementation reference"
+    url: "src/sheep/features/feature_186_markdown_file_creation.py"
+  - title: "Content generators module"
+    url: "src/sheep/content_generators.py"
+  - title: "Observability logging"
+    url: "src/sheep/observability/logging.py"
+
+phases:
+  - id: "phase-1"
+    name: "Module Foundation & Setup"
+    description: "Create feature module with imports, logger, constants, and function skeleton with proper type hints and docstring"
+    parallel: false
+  - id: "phase-2"
+    name: "Orchestration & Logging Implementation"
+    description: "Implement the orchestration function that coordinates content generation, file I/O, validation, and git operations with structured logging at each step"
+    parallel: false
+  - id: "phase-3"
+    name: "Testing, Validation & Deployment"
+    description: "Test the implementation locally, verify code quality (ruff, mypy), and commit/push to remote"
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_188_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 188 follows the proven orchestration pattern established by features 101-187:
+
+  ```
+  Input: repo_path (optional)
+    ↓
+  [1. Generate Content] → LLM generates H1 title + 2-3 sentences via content_generators
+    ↓
+  [2. Write to Disk] → UTF-8 encoded markdown file with Unix LF line endings via content_generators
+    ↓
+  [3. Validate] → Verify structure (H1, blank line, 2-3 sentences), encoding, and line endings via content_generators
+    ↓
+  [4. Commit] → Stage and commit with conventional message via content_generators
+    ↓
+  [5. Push] → Push to remote origin on feature branch via content_generators
+    ↓
+  Output: dict with filepath, content, commit_message, push_result
+  ```
+
+  The feature module acts as a lightweight orchestrator that:
+  - Calls existing content_generators utilities in sequence
+  - Adds structured logging at each step (INFO for major steps, DEBUG for details)
+  - Returns a dict with full observability into what was accomplished
+  - Raises exceptions for validation failures (fail-fast pattern)
+  - Supports standalone execution via __main__ block
+
+  No new infrastructure or utilities are created — 100% code reuse from content_generators.
+
+  ## Key Design Decisions
+
+  ### 1. Orchestration Function Pattern
+  **Chosen:** Single orchestration function that calls content_generators utilities in sequence
+  **Rationale:** Proven pattern across 187 prior features. Provides clear separation of concerns, enables testability,
+  and centralizes error handling. Simple, maintainable structure consistent with codebase conventions.
+
+  ### 2. Error Handling Strategy
+  **Chosen:** Fail-fast exception propagation with structured error logging
+  **Rationale:** Ensures data integrity. Prevents invalid files from being committed. Exceptions preserve full context
+  for debugging. The __main__ block catches exceptions for user-friendly console output.
+
+  ### 3. Return Type & Observability
+  **Chosen:** Dictionary with explicit keys: filepath, content, commit_message, push_result
+  **Rationale:** Enables full observability into pipeline execution. Supports testing and debugging. Explicit keys
+  are self-documenting. Matches features 101-187 pattern.
+
+  ### 4. Logging Strategy
+  **Chosen:** Structured logging via structlog with INFO-level console output + DEBUG details
+  **Rationale:** Provides useful user feedback during testing, follows standard CLI conventions, enables observability
+  integration (Langfuse, etc.). Aligns with product decision in spec.
+
+  ### 5. Content Generation & Utilities
+  **Chosen:** 100% delegation to content_generators for: generate_markdown_content(), write_markdown_file(),
+  validate_markdown_file(), commit_markdown_file(), push_markdown_file()
+  **Rationale:** No reimplementation needed. Utilities are already tested, documented, and proven across 187 features.
+  Feature module adds only orchestration and logging. Avoids maintenance burden and ensures consistency.
+
+  ### 6. Code Organization
+  **Chosen:** ~100-line module with: docstring (18 lines) + imports (8 lines) + logger (1 line) +
+  constants (4 lines) + orchestration function (50 lines) + __main__ block (5 lines)
+  **Rationale:** Simple, clean structure matching 101-187 pattern. No internal helper functions or separate utilities.
+  Stays within 100-line target by delegating complex operations to content_generators.
+
+  ### 7. Type Hints
+  **Chosen:** Python 3.11+ union syntax (str | None) with explicit dict keys in docstring
+  **Rationale:** Provides type safety and mypy compatibility without extra imports. Dict return type is sufficient
+  (no need for TypedDict) and matches existing pattern.
+
+  ## Implementation Strategy
+
+  ### Phase 1: Module Foundation & Setup
+  Create the feature module skeleton with all imports, module-level logger, constants (FEATURE_NUMBER, MARKDOWN_FILENAME,
+  COMMIT_MESSAGE), and the function signature with docstring. This establishes the structure and type hints.
+
+  ### Phase 2: Orchestration & Logging Implementation
+  Implement the orchestration function body:
+  - Call content_generators utilities in sequence (generate → write → validate → commit → push)
+  - Add INFO-level logging for each major step
+  - Add DEBUG-level logging for file paths and details
+  - Implement try/except for error handling and logging
+  - Return dict with filepath, content, commit_message, push_result
+  - Add __main__ block for standalone execution
+
+  ### Phase 3: Testing, Validation & Deployment
+  - Execute the feature locally to verify the file is created with correct properties
+  - Run ruff and mypy to ensure code quality
+  - Verify file existence, content structure, encoding, and line endings
+  - Commit with conventional commit message
+  - Push to remote origin
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Content generation fails (API error) | content_generators.generate_markdown_content() already handles retries and errors. Feature module logs and re-raises exceptions. |
+  | File write fails (permission, disk space) | content_generators.write_markdown_file() validates path and handles errors. Feature module catches and logs. |
+  | Validation fails (wrong structure) | This should not happen if content_generators.generate_markdown_content() returns well-formed content. Validation catches any issues. |
+  | Git operations fail (network, auth) | content_generators.commit/push utilities handle git errors. Feature module logs and re-raises. Deployment can retry or debug. |
+  | Code doesn't pass ruff/mypy | Test locally before committing. Use Python 3.11+ syntax only. Delegate to content_generators to minimize custom code. |
+  | Module not discovered on import | Place in src/sheep/features/ like all 187 prior features. Follow exact naming pattern. |
+
+  ## Fit Within Existing Codebase
+
+  - **Location**: src/sheep/features/feature_188_markdown_file_creation.py (same directory as features 101-187)
+  - **Imports**: Only from sheep.content_generators and sheep.observability.logging (both exist, tested)
+  - **Pattern**: Identical to features 101-187 — function signature, orchestration, logging, __main__ block
+  - **No dependencies added**: All utilities already in pyproject.toml
+  - **No infrastructure changes**: Uses existing git, logging, and content generation infrastructure
+  - **Code reuse**: 100% delegation to content_generators utilities (zero reimplementation)
+
+  ## Success Criteria
+
+  Upon completion, the feature will satisfy all spec requirements:
+  - File test-66bea4.md exists at repository root with correct structure, encoding, and content
+  - Module src/sheep/features/feature_188_markdown_file_creation.py exists and follows established pattern
+  - Function create_feature_188_markdown_file(repo_path=None) -> dict is implemented and callable
+  - Structured logging via structlog with INFO and DEBUG levels
+  - Standalone execution via python -m sheep.features.feature_188_markdown_file_creation
+  - Code passes ruff (formatting, imports) and mypy (type checking)
+  - Git commit with conventional message format
+  - All changes pushed to remote origin on feature branch
