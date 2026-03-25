@@ -402,3 +402,144 @@ def validate_markdown_file(filename: str = FILENAME) -> None:
     except (FileNotFoundError, ValueError) as e:
         _logger.error(f"Validation failed: {e}")
         raise
+
+
+def git_add_file(filename: str = FILENAME) -> None:
+    """Stage file for commit using git add.
+
+    Executes: git add <filename>
+
+    Args:
+        filename: Name of file to stage (default: FILENAME)
+
+    Raises:
+        subprocess.CalledProcessError: If git add fails
+
+    Example:
+        >>> git_add_file("test-xvuuel.md")
+    """
+    _logger.info(f"Staging file with git: {filename}")
+
+    try:
+        result = subprocess.run(
+            ["git", "add", filename],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"Successfully staged file: {filename}")
+    except subprocess.CalledProcessError as e:
+        _logger.error(
+            f"Failed to stage file {filename}: {e.stderr or e.stdout}"
+        )
+        raise
+
+
+def git_commit(message: str = COMMIT_MESSAGE) -> None:
+    """Commit staged changes with conventional commit message.
+
+    Executes: git commit -m <message>
+
+    Args:
+        message: Commit message (default: COMMIT_MESSAGE)
+
+    Raises:
+        subprocess.CalledProcessError: If git commit fails
+
+    Example:
+        >>> git_commit("feat(209): Create markdown file test-xvuuel.md")
+    """
+    _logger.info(f"Committing changes: {message}")
+
+    try:
+        result = subprocess.run(
+            ["git", "commit", "-m", message],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info("Successfully committed changes")
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Failed to commit: {e.stderr or e.stdout}")
+        raise
+
+
+def git_push() -> None:
+    """Push commit to remote with upstream tracking.
+
+    Executes: git push -u origin HEAD
+
+    Uses HEAD to push to the current branch, eliminating the need to
+    explicitly specify the branch name. The -u flag sets upstream tracking.
+
+    Raises:
+        subprocess.CalledProcessError: If git push fails
+
+    Example:
+        >>> git_push()
+    """
+    _logger.info("Pushing commit to remote")
+
+    try:
+        result = subprocess.run(
+            ["git", "push", "-u", "origin", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info("Successfully pushed to remote")
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Failed to push: {e.stderr or e.stdout}")
+        raise
+
+
+def main() -> int:
+    """Orchestrate complete feature 209 workflow.
+
+    Executes three phases in sequence:
+    1. Create: Generate and write markdown file (Phase 1)
+    2. Validate: Comprehensive validation checks (Phase 2)
+    3. Git: Stage, commit, and push to remote (Phase 3)
+
+    Returns:
+        0 on success, 1 on any failure
+
+    Each phase must succeed before the next phase begins.
+    Validation must pass before git operations are executed.
+    """
+    try:
+        _logger.info("Starting feature 209 workflow: Create markdown file")
+
+        # Phase 1: Create
+        _logger.info("=== Phase 1: Create ===")
+        create_markdown_file()
+
+        # Phase 2: Validate
+        _logger.info("=== Phase 2: Validate ===")
+        validate_markdown_file()
+
+        # Phase 3: Git Integration
+        _logger.info("=== Phase 3: Git Integration ===")
+        git_add_file()
+        git_commit()
+        git_push()
+
+        _logger.info("Feature 209 workflow completed successfully")
+        return 0
+
+    except FileNotFoundError as e:
+        _logger.error(f"File not found error: {e}")
+        return 1
+    except ValueError as e:
+        _logger.error(f"Validation error: {e}")
+        return 1
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Git operation error: {e}")
+        return 1
+    except Exception as e:
+        _logger.error(f"Unexpected error: {e}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
