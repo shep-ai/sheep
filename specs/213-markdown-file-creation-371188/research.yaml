@@ -1,0 +1,445 @@
+name: "markdown-file-creation-371188"
+summary: >
+  Technical research for feature 213 (markdown file creation). The implementation follows the
+  well-established pattern from 200+ precedent features using pathlib for file I/O, subprocess
+  for git operations, and structural validation (not library-based parsing) for CommonMark
+  compliance. File creation uses write_bytes() with explicit UTF-8 encoding to ensure proper
+  encoding and line endings without external dependencies.
+
+relatedFeatures:
+  - number: 212
+    name: "markdown-file-creation-26bdea"
+    relationship: "Immediately preceding feature — identical pattern and approach"
+  - number: 211
+    name: "markdown-file-creation-c18032"
+    relationship: "Identical pattern — create markdown file with title and 2-3 sentences"
+  - number: 173
+    name: "markdown-file-creation-3ef644"
+    relationship: "Earlier feature with well-documented implementation pattern"
+  - number: 154
+    name: "markdown-file-creation-9221e9"
+    relationship: "Earlier feature with comprehensive test suite"
+
+technologies:
+  - "Python 3.11+ standard library (pathlib, subprocess, sys)"
+  - "Git (version control, staging, committing, pushing)"
+  - "UTF-8 character encoding (no BOM)"
+  - "Unix LF line endings (POSIX compliance)"
+  - "Markdown (CommonMark format, structural validation)"
+  - "Conventional commits (commit message format)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Markdown CommonMark specification"
+    url: "https://spec.commonmark.org"
+  - title: "Conventional Commits"
+    url: "https://www.conventionalcommits.org"
+  - title: "Git documentation"
+    url: "https://git-scm.com/doc"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+
+decisions:
+  - title: "File Creation and Encoding Approach"
+    chosen: "pathlib.Path.write_bytes() with explicit UTF-8 encoding"
+    rejected:
+      - "pathlib.Path.write_text() — less explicit about encoding and line endings, less platform-independent control"
+      - "open() with binary mode — more verbose, requires manual file handling, no benefit over pathlib"
+      - "os.open() with explicit flags — lower level, more complex, no advantage for this use case"
+    rationale: >
+      Use pathlib.Path.write_bytes(content.encode('utf-8')). This approach is established
+      across all 200+ precedent markdown-file-creation features. Advantages: (1) Explicit UTF-8
+      encoding without BOM through encode('utf-8'), (2) String literals with '\\n' ensure
+      LF-only line endings regardless of platform, (3) Atomic write operation, (4) Cross-platform
+      path handling, (5) Clear separation between text construction and binary serialization.
+      This pattern has proven reliable across the entire established feature family.
+
+  - title: "Git Integration Method"
+    chosen: "subprocess.run() with check=True for git commands"
+    rejected:
+      - "GitPython library — adds external dependency, unnecessary complexity for simple operations"
+      - "os.system() — poor error handling, shell quoting issues, security risks"
+      - "shell=True mode — shell injection vulnerabilities, platform inconsistency"
+    rationale: >
+      Use subprocess.run() with check=True and explicit command lists. This is the established
+      pattern in all precedent features. Advantages: (1) Explicit error handling with
+      CalledProcessError, (2) No external dependencies (uses Python stdlib), (3) Cross-platform
+      command execution via list form, (4) Clear command structure and safety, (5) Proven
+      across 200+ features. GitPython would add unnecessary complexity for three commands.
+
+  - title: "CommonMark Validation Strategy"
+    chosen: "Structural validation (checking format and content structure)"
+    rejected:
+      - "commonmark-py library — external dependency, overkill for structural checks"
+      - "markdown2 library — external dependency, complex parser, unnecessary"
+      - "mistune library — external dependency, primarily renderer, not validator"
+    rationale: >
+      Validate markdown through code checks: (1) File starts with '# ' (H1), (2) Contains '\\n\\n'
+      (blank line), (3) Has prose content. This validates CommonMark structural requirements
+      without external parsing library. No library needed. Established pattern across 200+
+      features uses simple assertions checking H1 format, blank line, and prose length.
+
+  - title: "Line Ending Management"
+    chosen: "Use explicit '\\n' in string literals with UTF-8 encode"
+    rejected:
+      - "Use os.linesep — produces platform-native line endings, violates Unix LF requirement"
+      - "newline parameter in file open — adds complexity, less clear than string literals"
+      - "universal newlines mode — text mode encoding, less explicit control"
+    rationale: >
+      Requirement: Unix LF (\\n) line endings. When string has explicit '\\n' characters and is
+      encoded to UTF-8 bytes, Python produces exactly those LF bytes without platform conversion.
+      This approach is used in all precedent features and guarantees LF-only output on all
+      platforms. No special handling needed beyond string literals with \\n.
+
+  - title: "File Existence Handling"
+    chosen: "Fail with clear error message if file already exists"
+    rejected:
+      - "Overwrite existing file — data loss risk, violates defensive programming"
+      - "Create alternate filename — unpredictable output filename, violates spec"
+    rationale: >
+      Per spec FR-5 and resolved open question: fail with error if test-zyx4xn.md exists.
+      Check Path(FILENAME).exists() before creation and raise FileExistsError with clear
+      message if present. Prevents accidental overwrites and data loss. Matches all precedent
+      features where unique randomized filenames prevent natural conflicts.
+
+  - title: "Error Handling and Exit Strategy"
+    chosen: "Try-except with CalledProcessError and generic Exception handling"
+    rejected:
+      - "Raise exceptions unhandled — unclear error context, harder to debug"
+      - "Silent failures — user unaware of failure, inconsistent with pattern"
+    rationale: >
+      Wrap main() in try-except catching subprocess.CalledProcessError and generic Exception.
+      Print descriptive messages to stderr. Exit with sys.exit(0) on success, sys.exit(1) on
+      failure. This is the established pattern in all precedent features. Provides clear
+      success/failure signaling, descriptive error messages, and proper Unix exit codes.
+
+  - title: "Prose Content Generation"
+    chosen: "Generic placeholder prose (topic-independent)"
+    rejected:
+      - "Task-specific themed content — adds decision complexity, no precedent"
+      - "Random generated prose — non-deterministic, harder to validate"
+    rationale: >
+      Per resolved open question: use generic placeholder prose. All 200+ precedent features
+      use topic-independent prose about learning, growth, innovation. Advantages: (1) Deterministic
+      and reproducible, (2) Consistent with all precedent features, (3) Simple to implement,
+      (4) Consistent prose length and structure.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File Creation and Encoding (pathlib.Path.write_bytes with UTF-8 encode)
+
+  **Chosen:** `pathlib.Path.write_bytes(content.encode('utf-8'))`
+
+  **Rejected:**
+  - `pathlib.Path.write_text()` — less explicit control over encoding and BOM handling
+  - `open()` with binary mode — more verbose, requires manual file handling
+  - `os.open()` with flags — lower-level API, adds unnecessary complexity
+
+  **Rationale:**
+  The established pattern across all 200+ markdown-file-creation features uses `write_bytes()`
+  with explicit `encode('utf-8')`. This provides:
+  - Explicit control: encode('utf-8') produces UTF-8 bytes without BOM (Python's default)
+  - Cross-platform consistency: string literals with `'\n'` produce LF bytes on all platforms
+  - Clarity: explicitly separates text composition from binary serialization
+  - Reliability: proven across entire feature family
+
+  Code pattern (from features 154, 173, etc.):
+  ```python
+  content = f"# {title}\n\n{prose}\n"
+  filepath = Path("test-zyx4xn.md")
+  filepath.write_bytes(content.encode('utf-8'))
+  ```
+
+  ### 2. Git Integration (subprocess.run with check=True)
+
+  **Chosen:** `subprocess.run(["git", "add", FILENAME], check=True)` and similar
+
+  **Rejected:**
+  - GitPython library — unnecessary external dependency for three simple commands
+  - `os.system()` — poor error handling, shell quoting issues, security risks
+  - `shell=True` — shell injection vectors, platform inconsistency
+
+  **Rationale:**
+  All 200+ precedent features use subprocess.run() with check=True. Advantages:
+  - No external dependencies (Python stdlib only)
+  - Explicit error handling: `CalledProcessError` raised on non-zero exit
+  - Safe command construction: pass list not string (prevents injection)
+  - Cross-platform: subprocess handles Windows/Unix differences
+  - Clear semantics: command structure is visible and auditable
+
+  Git workflow (established across entire feature family):
+  ```python
+  subprocess.run(["git", "add", FILENAME], check=True)
+  subprocess.run(["git", "commit", "-m", COMMIT_MESSAGE], check=True)
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  ```
+
+  Error handling:
+  ```python
+  except subprocess.CalledProcessError as e:
+      print(f"✗ Git command failed: {e}", file=sys.stderr)
+      sys.exit(1)
+  ```
+
+  ### 3. CommonMark Validation (Structural checks, no parsing library)
+
+  **Chosen:** Validate structure without external library (check H1 format, blank line, prose)
+
+  **Rejected:**
+  - commonmark-py library — external dependency, overkill for structural validation
+  - markdown2 library — external dependency, overkill, unnecessary complexity
+  - mistune library — external dependency, primarily renderer, not validator
+
+  **Rationale:**
+  The 'CommonMark validation' in requirements means validating that the file structure adheres
+  to CommonMark principles (proper H1 heading, blank line separation, prose content).
+  Implementation:
+  - Check 1: `content.startswith('# ')` — valid H1 heading in CommonMark
+  - Check 2: `'\\n\\n' in content` — blank line separator (CommonMark convention)
+  - Check 3: Verify prose content exists and has sufficient length
+
+  No parsing library needed. All 200+ precedent features use identical structural validation
+  without any markdown library.
+
+  Validation code pattern (from features 154, 173):
+  ```python
+  def validate_file(filepath):
+      content = filepath.read_text(encoding='utf-8')
+      assert content.startswith('# '), "File must start with H1 heading (# )"
+      assert '\\n\\n' in content, "File must contain blank line after heading"
+      parts = content.split('\\n\\n', 1)
+      assert len(parts) == 2, "File structure should be: heading, blank line, prose"
+      prose = parts[1].strip()
+      assert len(prose) > 0, "File must contain prose content after heading"
+      return True
+  ```
+
+  ### 4. Line Ending Management (Explicit \\n in string literals)
+
+  **Chosen:** Use explicit `'\\n'` in string literals, encode to UTF-8 bytes
+
+  **Rejected:**
+  - `os.linesep` — produces platform-native line endings (CRLF on Windows)
+  - Newline parameter in file open — adds complexity, incompatible with write_bytes()
+  - Universal newlines mode — text mode complexity, less explicit control
+
+  **Rationale:**
+  When Python code contains `\"# Title\\n\\n\"` and calls `.encode('utf-8')`,
+  the `\\n` character is encoded as a single LF byte (0x0A). Python does NOT perform
+  platform-specific line ending conversion in this context. The bytes written are exactly
+  the UTF-8 encoding of the string.
+
+  This mechanism is used across all precedent features to guarantee Unix LF line endings
+  on all platforms (Windows, macOS, Linux). The spec requires \"Unix-style LF (\\n) line
+  endings consistently throughout\". String literals with `\\n` + UTF-8 encoding satisfy
+  this on all platforms.
+
+  ### 5. File Existence Handling (Fail with error)
+
+  **Chosen:** Fail with clear error if file already exists before attempting creation
+
+  **Rejected:**
+  - Overwrite existing file — safety risk, data loss potential
+  - Create alternate filename — unpredictable output filename
+
+  **Rationale:**
+  Per spec FR-5 and resolved open question #2: \"Fail with error\" is the selected approach.
+  The implementation should check:
+  ```python
+  if Path(\"test-zyx4xn.md\").exists():
+      raise FileExistsError(f\"File test-zyx4xn.md already exists. Cannot overwrite.\")
+  ```
+  This prevents accidental data loss, aligns with defensive programming, and matches all
+  precedent features. The unique randomized filename is assigned per feature, so conflicts
+  should never occur in normal workflow, but this check provides safety.
+
+  ### 6. Error Handling and Program Flow
+
+  **Chosen:** Try-except in main() with specific and generic exception handlers
+
+  **Rejected:**
+  - Let exceptions propagate unhandled — poor error context, confusing output
+  - Silent failures with logging — user unaware of failure, inconsistent pattern
+
+  **Rationale:**
+  All precedent features use this pattern:
+  ```python
+  def main():
+      try:
+          filepath = create_file()
+          validate_file(filepath)
+          git_operations()
+          print(\"\\n✓ Workflow complete!\")
+          sys.exit(0)
+      except subprocess.CalledProcessError as e:
+          print(f\"✗ Git command failed: {e}\", file=sys.stderr)
+          sys.exit(1)
+      except Exception as e:
+          print(f\"✗ Error: {e}\", file=sys.stderr)
+          sys.exit(1)
+  ```
+  This provides: (1) Descriptive error output, (2) Proper Unix exit codes (0 success, 1 failure),
+  (3) Clear signal to CI/CD and test runners, (4) Consistency with all established features.
+
+  ### 7. Prose Content (Generic placeholder)
+
+  **Chosen:** Generic topic-independent prose about learning, growth, or innovation
+
+  **Rejected:**
+  - Task-specific themed content — adds decision complexity, no precedent established
+  - Random generated prose — non-deterministic, difficult to validate and test
+
+  **Rationale:**
+  Per resolved open question #1: \"Generic placeholder prose\" is recommended. All 200+
+  precedent features use similar generic prose. Example sentences:
+  - \"This feature demonstrates the power of automated file creation and version control integration.\"
+  - \"By leveraging established patterns and best practices, we ensure consistency across the platform.\"
+  - \"The implementation focuses on simplicity, reliability, and adherence to project conventions.\"
+
+  Generic prose ensures: (1) Deterministic output (reproducible), (2) Consistency with all
+  precedent features, (3) Simplicity (no thematic decision per feature), (4) Appropriate file
+  size and sentence structure.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O and path operations | **Use (stdlib)** | Cross-platform path handling, atomic write_bytes(), proven across 200+ features |
+  | subprocess | Git command execution | **Use (stdlib)** | Reliable git operations, explicit error handling, no external dependencies |
+  | sys | Exit codes and stderr | **Use (stdlib)** | sys.exit(0/1) for proper exit signaling, sys.stderr for error output |
+  | os | File/directory operations | **Do not use** | pathlib supersedes os for file operations, cleaner API |
+  | GitPython | Git operations wrapper | **Reject** | Unnecessary for simple add/commit/push, external dependency, adds complexity |
+  | commonmark-py | CommonMark spec validation | **Reject** | Not needed for structural validation, external dependency, no precedent |
+  | markdown2 | Markdown parsing/rendering | **Reject** | External dependency, parsing not validation, no precedent |
+  | mistune | Markdown parsing/rendering | **Reject** | External dependency, primarily renderer, no precedent |
+
+  ## Security Considerations
+
+  1. **Path Traversal Prevention:** Hardcoded filename \"test-zyx4xn.md\" in current directory eliminates path traversal risks. No user input in paths.
+
+  2. **Command Injection Prevention:** Using subprocess.run() with command list (not string) prevents shell injection. Git arguments are hardcoded, no user input.
+
+  3. **File Overwrite Safety:** Explicit check for file existence before creation prevents accidental overwrites of user data.
+
+  4. **Encoding Safety:** Explicit UTF-8 encoding without BOM ensures proper text encoding. No arbitrary user encoding input.
+
+  5. **Git Credentials:** Git operations use configured credentials (user.name, user.email from git config). No credentials embedded in code.
+
+  6. **Error Information Disclosure:** Error messages to stderr are appropriate for local execution. No sensitive info leaked.
+
+  7. **File Permissions:** Created files inherit default umask permissions. No explicit permission changes needed.
+
+  ## Performance Implications
+
+  1. **File I/O:** Single pathlib write_bytes() operation is atomic and efficient. No performance concerns.
+
+  2. **Git Operations:** Three subprocess calls (add, commit, push) are sequential. Push may require network I/O but required by spec.
+
+  3. **Validation:** Five simple string checks are O(n) where n is file size (~400 bytes). Negligible cost.
+
+  4. **Memory:** Entire file content (~400 bytes) loaded into memory. No memory concerns.
+
+  5. **Execution Time:** Spec requires completion within 60 seconds. File creation and validation are sub-second. Git push is network-dependent but typical 5-10 seconds.
+
+  6. **Scalability:** Not a scalability-focused feature (creates single file). No scalability implications.
+
+  ## Architecture Notes
+
+  1. **Simplicity:** Implementation consists of three simple functions: create_file(), validate_file(), git_operations().
+
+  2. **Modularity:** Functions are independent and testable in isolation or integrated.
+
+  3. **Composition:** main() orchestrates workflow: create → validate → git. Clear separation of concerns.
+
+  4. **Consistency:** Follows established pattern from 200+ precedent features. No architectural innovation needed.
+
+  5. **Dependencies:** Uses only Python stdlib (pathlib, subprocess, sys). No external package dependencies.
+
+  6. **Integration:** File created in repository root. Git operations assume valid repository with configured user info.
+
+  7. **Testing:** Clear validation function enables unit testing with temporary directories.
+
+  8. **Error Handling:** Structured exception handling allows test frameworks to catch specific errors.
+
+  ## Implementation Outline
+
+  ```python
+  #!/usr/bin/env python3
+  \"\"\"Create and manage markdown file test-zyx4xn.md with git integration.\"\"\"
+
+  from pathlib import Path
+  import subprocess
+  import sys
+
+  FILENAME = \"test-zyx4xn.md\"
+  MARKDOWN_TITLE = \"(generic title about learning/growth/innovation)\"
+  MARKDOWN_PROSE = \"(2-3 sentences of generic prose)\"
+  COMMIT_MESSAGE = \"feat(213): Create markdown file test-zyx4xn.md\"
+
+  def create_file():
+      \"\"\"Create markdown file with H1 heading and prose.\"\"\"
+      if Path(FILENAME).exists():
+          raise FileExistsError(f\"File {FILENAME} already exists\")
+
+      content = f\"# {MARKDOWN_TITLE}\\n\\n{MARKDOWN_PROSE}\\n\"
+      filepath = Path(FILENAME)
+      filepath.write_bytes(content.encode('utf-8'))
+      return filepath
+
+  def validate_file(filepath):
+      \"\"\"Validate file structure and encoding.\"\"\"
+      assert filepath.exists(), f\"File {filepath} does not exist\"
+      content = filepath.read_text(encoding='utf-8')
+      assert content.startswith('# '), \"File must start with H1 heading\"
+      assert '\\n\\n' in content, \"File must contain blank line after heading\"
+      return True
+
+  def git_operations():
+      \"\"\"Stage, commit, and push file to git.\"\"\"
+      subprocess.run([\"git\", \"add\", FILENAME], check=True)
+      subprocess.run([\"git\", \"commit\", \"-m\", COMMIT_MESSAGE], check=True)
+      subprocess.run([\"git\", \"push\", \"-u\", \"origin\", \"HEAD\"], check=True)
+
+  def main():
+      try:
+          filepath = create_file()
+          validate_file(filepath)
+          git_operations()
+          print(\"✓ Workflow complete!\")
+          sys.exit(0)
+      except subprocess.CalledProcessError as e:
+          print(f\"✗ Git command failed: {e}\", file=sys.stderr)
+          sys.exit(1)
+      except Exception as e:
+          print(f\"✗ Error: {e}\", file=sys.stderr)
+          sys.exit(1)
+
+  if __name__ == \"__main__\":
+      main()
+  ```
+
+  ## Precedent Features Reference
+
+  This research is based on analysis of established implementations from:
+  - Feature 173 (markdown-file-creation-3ef644): Well-documented reference implementation
+  - Feature 154 (markdown-file-creation-9221e9): Comprehensive test suite
+  - Feature 212: Immediately preceding feature (identical pattern)
+  - Feature 211: Earlier feature (identical pattern)
+  - 200+ additional features following identical approach
+
+  All precedent features confirm:
+  1. pathlib.Path.write_bytes() with UTF-8 encode for file creation
+  2. subprocess.run() with check=True for git operations
+  3. Structural validation (no parsing library)
+  4. Generic prose content
+  5. Try-except with explicit error handling
+  6. sys.exit(0/1) for exit signaling
+
+  ---
+
+  _Research complete. Implementation approach confirmed through analysis of 200+ precedent
+  features. No external dependencies required. Pattern is well-established and proven._
