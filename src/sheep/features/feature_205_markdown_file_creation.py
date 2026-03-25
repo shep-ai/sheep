@@ -461,7 +461,7 @@ def git_push(branch_name: str = BRANCH_NAME) -> None:
         raise
 
 
-def main() -> None:
+def main() -> int:
     """Orchestration function for complete feature 205 workflow.
 
     Coordinates the following steps:
@@ -471,13 +471,10 @@ def main() -> None:
     4. Commit file with conventional commit message
     5. Push commit to remote branch
 
-    Exits with status code 1 on any failure (fail-fast principle).
-    Logs all major workflow steps and validation results.
+    Returns:
+        0 on success, 1 on any failure (fail-fast principle).
 
-    Raises:
-        FileNotFoundError: If file creation fails
-        ValueError: If validation fails
-        subprocess.CalledProcessError: If any git operation fails
+    Logs all major workflow steps and validation results.
     """
     _logger.info("Starting feature 205 implementation workflow")
 
@@ -497,13 +494,14 @@ def main() -> None:
         git_push()
 
         _logger.info("✓ Feature 205 implementation completed successfully")
+        return 0
 
     except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as e:
         _logger.error(f"Feature 205 workflow failed: {e}")
-        sys.exit(1)
+        return 1
     except Exception as e:
         _logger.error(f"Unexpected error in feature 205 workflow: {e}")
-        sys.exit(1)
+        return 1
 
 
 if __name__ == "__main__":

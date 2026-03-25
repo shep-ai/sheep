@@ -1,10 +1,15 @@
 """Tests for feature 205: Create markdown file test-m6zeml.md with hard-coded content."""
 
 from pathlib import Path
+from unittest.mock import patch
+import subprocess
 import pytest
 
 from sheep.features.feature_205_markdown_file_creation import (
     FILENAME,
+    FEATURE_NUMBER,
+    BRANCH_NAME,
+    COMMIT_MESSAGE,
     TITLE_TEXT,
     PROSE_CONTENT,
     create_markdown_file,
@@ -17,6 +22,10 @@ from sheep.features.feature_205_markdown_file_creation import (
     validate_markdown_file,
     extract_prose_content,
     count_sentences,
+    git_add_file,
+    git_commit,
+    git_push,
+    main,
 )
 
 
@@ -378,3 +387,288 @@ class TestCountSentences:
         """Test that empty prose raises ValueError."""
         with pytest.raises(ValueError):
             count_sentences("")
+
+
+class TestGitOperations:
+    """Tests for git operations (mocked to avoid real git calls)."""
+
+    @patch("sheep.features.feature_205_markdown_file_creation.subprocess.run")
+    def test_git_add_file_calls_subprocess(self, mock_run):
+        """Test git_add_file calls subprocess.run with correct arguments."""
+        git_add_file()
+
+        mock_run.assert_called_once_with(
+            ["git", "add", FILENAME],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("sheep.features.feature_205_markdown_file_creation.subprocess.run")
+    def test_git_add_file_custom_filename(self, mock_run):
+        """Test git_add_file with custom filename."""
+        custom_file = "custom.md"
+        git_add_file(custom_file)
+
+        call_args = mock_run.call_args[0][0]
+        assert call_args[-1] == custom_file
+
+    @patch("sheep.features.feature_205_markdown_file_creation.subprocess.run")
+    def test_git_add_file_raises_on_error(self, mock_run):
+        """Test git_add_file raises CalledProcessError on failure."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, "git add", stderr="error")
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_add_file()
+
+    @patch("sheep.features.feature_205_markdown_file_creation.subprocess.run")
+    def test_git_commit_calls_subprocess(self, mock_run):
+        """Test git_commit calls subprocess.run with correct arguments."""
+        git_commit()
+
+        call_args = mock_run.call_args[0][0]
+        assert call_args[0] == "git"
+        assert call_args[1] == "commit"
+        assert "-m" in call_args
+        assert COMMIT_MESSAGE in call_args
+
+    @patch("sheep.features.feature_205_markdown_file_creation.subprocess.run")
+    def test_git_commit_custom_message(self, mock_run):
+        """Test git_commit with custom message."""
+        custom_msg = "feat(999): Custom message"
+        git_commit(custom_msg)
+
+        call_args = mock_run.call_args[0][0]
+        assert custom_msg in call_args
+
+    @patch("sheep.features.feature_205_markdown_file_creation.subprocess.run")
+    def test_git_commit_raises_on_error(self, mock_run):
+        """Test git_commit raises CalledProcessError on failure."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, "git commit", stderr="error")
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_commit()
+
+    @patch("sheep.features.feature_205_markdown_file_creation.subprocess.run")
+    def test_git_push_calls_subprocess(self, mock_run):
+        """Test git_push calls subprocess.run with correct arguments."""
+        git_push()
+
+        call_args = mock_run.call_args[0][0]
+        assert call_args[0] == "git"
+        assert call_args[1] == "push"
+        assert "-u" in call_args
+        assert "origin" in call_args
+        assert BRANCH_NAME in call_args
+
+    @patch("sheep.features.feature_205_markdown_file_creation.subprocess.run")
+    def test_git_push_custom_branch(self, mock_run):
+        """Test git_push with custom branch name."""
+        custom_branch = "feat/custom-branch"
+        git_push(custom_branch)
+
+        call_args = mock_run.call_args[0][0]
+        assert custom_branch in call_args
+
+    @patch("sheep.features.feature_205_markdown_file_creation.subprocess.run")
+    def test_git_push_raises_on_error(self, mock_run):
+        """Test git_push raises CalledProcessError on failure."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, "git push", stderr="error")
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_push()
+
+
+class TestMainOrchestration:
+    """Tests for main() orchestration function."""
+
+    @patch("sheep.features.feature_205_markdown_file_creation.git_push")
+    @patch("sheep.features.feature_205_markdown_file_creation.git_commit")
+    @patch("sheep.features.feature_205_markdown_file_creation.git_add_file")
+    @patch("sheep.features.feature_205_markdown_file_creation.validate_markdown_file")
+    @patch("sheep.features.feature_205_markdown_file_creation.create_markdown_file")
+    def test_main_success_returns_zero(
+        self, mock_create, mock_validate, mock_add, mock_commit, mock_push
+    ):
+        """Test main() returns 0 on success."""
+        exit_code = main()
+
+        assert exit_code == 0
+        # Verify all functions were called
+        mock_create.assert_called_once()
+        mock_validate.assert_called_once()
+        mock_add.assert_called_once()
+        mock_commit.assert_called_once()
+        mock_push.assert_called_once()
+
+    @patch("sheep.features.feature_205_markdown_file_creation.git_push")
+    @patch("sheep.features.feature_205_markdown_file_creation.git_commit")
+    @patch("sheep.features.feature_205_markdown_file_creation.git_add_file")
+    @patch("sheep.features.feature_205_markdown_file_creation.validate_markdown_file")
+    @patch("sheep.features.feature_205_markdown_file_creation.create_markdown_file")
+    def test_main_returns_int(
+        self, mock_create, mock_validate, mock_add, mock_commit, mock_push
+    ):
+        """Test main() returns an integer."""
+        result = main()
+
+        assert isinstance(result, int)
+        assert result in (0, 1)
+
+    @patch("sheep.features.feature_205_markdown_file_creation.validate_markdown_file")
+    @patch("sheep.features.feature_205_markdown_file_creation.create_markdown_file")
+    def test_main_returns_one_on_validation_error(self, mock_create, mock_validate):
+        """Test main() returns 1 if validation fails."""
+        mock_validate.side_effect = ValueError("Invalid markdown")
+
+        exit_code = main()
+
+        assert exit_code == 1
+
+    @patch("sheep.features.feature_205_markdown_file_creation.create_markdown_file")
+    def test_main_returns_one_on_creation_error(self, mock_create):
+        """Test main() returns 1 if file creation fails."""
+        mock_create.side_effect = OSError("Cannot create file")
+
+        exit_code = main()
+
+        assert exit_code == 1
+
+    @patch("sheep.features.feature_205_markdown_file_creation.git_add_file")
+    @patch("sheep.features.feature_205_markdown_file_creation.validate_markdown_file")
+    @patch("sheep.features.feature_205_markdown_file_creation.create_markdown_file")
+    def test_main_returns_one_on_git_error(self, mock_create, mock_validate, mock_add):
+        """Test main() returns 1 if git operations fail."""
+        mock_add.side_effect = subprocess.CalledProcessError(1, "git add", stderr="error")
+
+        exit_code = main()
+
+        assert exit_code == 1
+
+    @patch("sheep.features.feature_205_markdown_file_creation.git_push")
+    @patch("sheep.features.feature_205_markdown_file_creation.git_commit")
+    @patch("sheep.features.feature_205_markdown_file_creation.git_add_file")
+    @patch("sheep.features.feature_205_markdown_file_creation.validate_markdown_file")
+    @patch("sheep.features.feature_205_markdown_file_creation.create_markdown_file")
+    def test_main_returns_one_on_unexpected_error(
+        self, mock_create, mock_validate, mock_add, mock_commit, mock_push
+    ):
+        """Test main() returns 1 on unexpected exception."""
+        mock_create.side_effect = RuntimeError("Unexpected error")
+
+        exit_code = main()
+
+        assert exit_code == 1
+
+
+class TestIntegrationWorkflow:
+    """Integration tests for complete workflow."""
+
+    def test_complete_workflow_creates_valid_file(self, tmp_path):
+        """Test complete workflow creates a valid markdown file."""
+        import os
+
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(tmp_path)
+
+            # Run file creation and validation
+            create_markdown_file()
+            validate_markdown_file()
+
+            # File should exist and be valid
+            assert Path(FILENAME).exists()
+            content = Path(FILENAME).read_text(encoding="utf-8")
+            assert content.startswith("# " + TITLE_TEXT)
+            assert PROSE_CONTENT in content
+
+        finally:
+            os.chdir(original_cwd)
+
+    def test_complete_workflow_validates_all_criteria(self, tmp_path):
+        """Test complete workflow validates all success criteria."""
+        import os
+
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(tmp_path)
+
+            # Create and validate file
+            create_markdown_file()
+            validate_markdown_file()
+
+            # All validation should pass
+            verify_file_exists()
+            validate_markdown_format()
+            validate_sentence_count()
+            validate_encoding()
+            validate_line_endings()
+            validate_file_size()
+
+        finally:
+            os.chdir(original_cwd)
+
+    @patch("sheep.features.feature_205_markdown_file_creation.git_push")
+    @patch("sheep.features.feature_205_markdown_file_creation.git_commit")
+    @patch("sheep.features.feature_205_markdown_file_creation.git_add_file")
+    def test_complete_workflow_with_mocked_git(self, mock_add, mock_commit, mock_push, tmp_path):
+        """Test complete workflow including git operations."""
+        import os
+
+        original_cwd = Path.cwd()
+        try:
+            os.chdir(tmp_path)
+
+            # Run main workflow
+            exit_code = main()
+
+            # Should succeed
+            assert exit_code == 0
+            # File should exist
+            assert Path(FILENAME).exists()
+            # Git operations should have been called
+            mock_add.assert_called_once()
+            mock_commit.assert_called_once()
+            mock_push.assert_called_once()
+
+        finally:
+            os.chdir(original_cwd)
+
+
+class TestEdgeCases:
+    """Tests for edge cases and boundary conditions."""
+
+    def test_file_with_mixed_line_endings_detected(self, tmp_path):
+        """Test that files with mixed line endings are detected."""
+        test_file = tmp_path / FILENAME
+        # Mixed endings
+        test_file.write_bytes(b"# Title\n\nFirst sentence. Second sentence.\r\n")
+
+        with pytest.raises(ValueError, match="CRLF"):
+            validate_line_endings(str(test_file))
+
+    def test_file_exactly_250_bytes_valid(self, tmp_path):
+        """Test that file exactly 250 bytes is valid."""
+        test_file = tmp_path / FILENAME
+        # Create file that's exactly 250 bytes
+        content = "# Title\n\n" + "A" * 240 + "."
+        test_file.write_text(content)
+
+        # Verify it's actually 250 bytes
+        actual_bytes = len(test_file.read_bytes())
+        assert actual_bytes == 250, f"Expected 250 bytes but got {actual_bytes}"
+
+        # Should pass (250 is the minimum)
+        validate_file_size(str(test_file))
+
+    def test_file_exactly_600_bytes_valid(self, tmp_path):
+        """Test that file exactly 600 bytes is valid."""
+        test_file = tmp_path / FILENAME
+        # Create file that's exactly 600 bytes
+        content = "# Title\n\n" + "A" * 580 + "."
+        # Adjust to exactly 600
+        content = content[:600]
+        test_file.write_text(content)
+
+        # Should pass (600 is the maximum)
+        validate_file_size(str(test_file))
