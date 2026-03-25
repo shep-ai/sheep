@@ -1,0 +1,184 @@
+name: "markdown-file-creation-9f7556"
+summary: >
+  Feature 208 implements markdown file creation using Claude API with temperature=0 for deterministic
+  content generation. The implementation follows the established pattern from feature 207, with content
+  generation via Anthropic's Claude API replacing hard-coded content. The module creates test-mujic0.md
+  with an H1 title and 2-3 sentences of prose, validates the output comprehensively, stages/commits/pushes
+  via Git. All decisions prioritize determinism, NFR compliance, consistency with features 200-207, and
+  platform infrastructure reuse (sheep.config.llm, sheep.observability.logging, pathlib, subprocess).
+
+relatedFeatures:
+  - 207
+  - 206
+  - 205
+  - 204
+  - 203
+  - 202
+  - 201
+  - 200
+
+technologies:
+  - "Python 3.10+"
+  - "Claude API (Anthropic)"
+  - "pathlib (file I/O)"
+  - "subprocess (git operations)"
+  - "sheep.config.llm (LLM factory)"
+  - "sheep.observability.logging (structured logging)"
+  - "Markdown"
+  - "Git"
+
+relatedLinks:
+  - title: "Feature 207 Implementation (Reference Pattern)"
+    url: "src/sheep/features/feature_207_markdown_file_creation.py"
+  - title: "Feature 208 Specification"
+    url: "specs/208-markdown-file-creation-9f7556/feature.yaml"
+  - title: "Anthropic Claude API Documentation"
+    url: "https://docs.anthropic.com"
+  - title: "Sheep LLM Configuration Module"
+    url: "src/sheep/config/llm.py"
+
+phases:
+  - id: "phase-1-foundation"
+    name: "Foundation & Module Setup"
+    description: "Create the feature module with imports, constants, logger setup, and helper functions (e.g., content extraction and sentence counting). This foundation enables all subsequent phases."
+    parallel: false
+
+  - id: "phase-2-content-generation"
+    name: "Content Generation via Claude API"
+    description: "Implement generate_content() function that calls Claude API with temperature=0 to produce deterministic, formatted markdown output (title + prose). Ensures consistent output across executions."
+    parallel: false
+
+  - id: "phase-3-file-operations"
+    name: "File Creation & Validation Framework"
+    description: "Implement file creation, validation orchestration, and modular validators (markdown format, sentence count, encoding, line endings, file size). Each validator has single responsibility with clear error messages."
+    parallel: false
+
+  - id: "phase-4-git-integration"
+    name: "Git Integration"
+    description: "Implement git_add_file(), git_commit(), and git_push() functions using subprocess.run(). Enables staging, committing, and pushing the generated file to remote."
+    parallel: false
+
+  - id: "phase-5-orchestration"
+    name: "Integration & Orchestration"
+    description: "Implement main() function that orchestrates complete workflow (create -> validate -> git ops) with comprehensive error handling and logging. Verify end-to-end functionality through manual testing."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_208_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 208 extends the markdown file creation pattern established in features 200-207 by introducing
+  Claude API integration for deterministic, AI-generated content. The architecture maintains strict
+  consistency with existing patterns while adding LLM capabilities through the sheep platform's
+  centralized LLM factory.
+
+  ### Module Organization
+
+  The feature is implemented as a single module (`feature_208_markdown_file_creation.py`) in
+  `src/sheep/features/` following the established convention. The module contains:
+
+  1. **Constants & Configuration** — Feature metadata (filename, feature number, branch name, commit message)
+  2. **Content Generation** — `generate_content()` function calling Claude API with temperature=0
+  3. **File Operations** — `create_markdown_file()` creating file with proper encoding
+  4. **Validation Layer** — Seven functions validating different aspects (markdown format, sentence count, encoding, line endings, file size)
+  5. **Git Operations** — Three functions for staging, committing, pushing (subprocess-based)
+  6. **Orchestration** — `main()` function coordinating complete workflow
+
+  This organization mirrors feature 207 exactly, ensuring consistency (NFR-5) and developer familiarity.
+
+  ### Key Architectural Decisions
+
+  **1. Claude API with temperature=0 for Determinism**
+  - **Decision:** Use `sheep.config.llm.create_llm(model="claude-3-5-sonnet-20241022", temperature=0)` for content generation
+  - **Rationale:** Temperature=0 ensures identical output across multiple executions (NFR-7), required for reproducible workflows in the Sheep platform. Features 200-207 demand deterministic output; this feature extends that requirement to LLM-based generation.
+  - **Alternative Rejected:** Hard-coded content (feature 207 approach) — Feature 208 spec explicitly requires Claude API to demonstrate LLM integration capabilities
+
+  **2. Single API Call for Complete Content**
+  - **Decision:** One Claude API call generates both H1 title and 2-3 sentences in properly formatted markdown
+  - **Rationale:** Simpler than separate calls, fewer failure points, lower API cost, temperature=0 ensures consistent formatting
+  - **Alternative Rejected:** Separate API calls for title and prose — Higher cost/latency with no benefit when temperature=0 guarantees consistent format in single call
+
+  **3. Modular Validation Functions**
+  - **Decision:** Seven independent validation functions (verify_file_exists, validate_markdown_format, validate_sentence_count, validate_encoding, validate_line_endings, validate_file_size) orchestrated by validate_markdown_file()
+  - **Rationale:** Each function has single responsibility; reusable for testing; clear error messages identify failing check; comprehensive coverage (NFR-9); matches feature 207 pattern (NFR-5)
+  - **Alternative Rejected:** Monolithic validation function — Harder to debug; less reusable; poorer separation of concerns
+
+  **4. Infrastructure Reuse**
+  - **Decision:** Use sheep.config.llm.create_llm() for LLM access, sheep.observability.logging.get_logger() for logging, pathlib.Path for file I/O, subprocess.run() for git operations
+  - **Rationale:** Platform standard abstraction layers; centralized configuration management; Langfuse integration for observability; consistency with existing codebase; no external dependencies (NFR-6)
+  - **Alternative Rejected:** Direct anthropic SDK calls — Bypasses platform abstraction and configuration management
+
+  **5. Fail-Fast Error Handling**
+  - **Decision:** Raise specific exceptions (ValueError, FileNotFoundError, subprocess.CalledProcessError) with detailed logging; no retry logic
+  - **Rationale:** Temperature=0 ensures deterministic behavior (retries won't improve output); clear error messages enable debugging (NFR-9); aligns with Sheep platform philosophy; matches feature 207 pattern
+  - **Alternative Rejected:** Retry logic with exponential backoff — Unnecessary for deterministic API calls; adds complexity; increases latency
+
+  ## Implementation Strategy
+
+  ### Phase Ordering
+
+  The implementation follows a **dependency-driven, bottom-up approach**:
+
+  1. **Foundation (Phase 1)** — Create module structure, constants, imports, and helper functions (content extraction, sentence counting). These are prerequisites for all subsequent phases.
+
+  2. **Content Generation (Phase 2)** — Implement Claude API integration as earliest substantive feature. Content generation is independent of other concerns and must work before validation can test output.
+
+  3. **File Operations & Validation (Phase 3)** — Implement file creation and comprehensive validators. Validation requires generated content from Phase 2; validation functions are independent and can be tested individually.
+
+  4. **Git Integration (Phase 4)** — Implement git operations (add, commit, push). These operate on the file created in Phase 3 and are independent of content generation details.
+
+  5. **Orchestration (Phase 5)** — Implement main() function coordinating all phases. Final phase because it depends on all prior phases being complete and tested.
+
+  ### Key Dependencies
+
+  - Content generation must precede file creation (file contains generated content)
+  - File creation must precede all validation functions (validators read the created file)
+  - Validation must precede git operations (we validate before staging)
+  - All prior phases must complete before main() orchestration
+
+  ### Testing Strategy (TDD)
+
+  Each task follows RED-GREEN-REFACTOR cycle:
+  - **RED:** Write tests that fail because function doesn't exist or is incomplete
+  - **GREEN:** Implement minimal code to pass the tests
+  - **REFACTOR:** Clean up code, extract helpers, improve naming without changing behavior
+
+  Tests verify:
+  - Correct API calls with proper parameters (Claude API tests)
+  - File creation with proper encoding and line endings
+  - Each validation function's specific checks
+  - Git command execution with proper arguments
+  - Main() orchestration flow and error handling
+
+  ## Risk Mitigation
+
+  | Risk | Likelihood | Impact | Mitigation |
+  | ---- | ---------- | ------ | ---------- |
+  | Claude API rate limiting or timeout | Low | Medium | Fail-fast with clear error message; operator can retry at workflow level |
+  | Generated content doesn't match validation constraints | Low | High | Temperature=0 ensures deterministic, well-formatted output; prompt explicitly specifies format requirements |
+  | File encoding/line ending issues on different platforms | Very Low | Medium | pathlib.Path.write_text() handles platform differences automatically; explicit validation checks encoding and line endings |
+  | Git operations fail (missing credentials, permission issues) | Very Low | Medium | subprocess.run() with check=True raises CalledProcessError; clear error messages from stderr; validation runs before git ops |
+  | Module import failures or missing dependencies | Very Low | High | All dependencies are existing platform infrastructure (sheep.config.llm, sheep.observability.logging); no external packages required |
+  | Validation passes but file doesn't match spec intent | Very Low | Low | Comprehensive validator set (6 checks) covering all NFRs; failing any check stops workflow (fail-fast) |
+  | Generated content size outside expected range | Low | Low | validate_file_size() checks range (250-600 bytes); prompt designed to produce content in expected range |
+
+  ## Success Criteria
+
+  - ✅ File `test-mujic0.md` created at repository root with correct filename
+  - ✅ File contains exactly one H1 markdown title (format: `# [Title]`)
+  - ✅ File contains exactly 2 or 3 grammatically correct sentences after title
+  - ✅ File encoding is UTF-8 without BOM (verified by validation)
+  - ✅ File line endings are Unix LF only (verified by validation)
+  - ✅ File size within acceptable range (250-600 bytes)
+  - ✅ File staged and committed with conventional message `feat(208): [description]`
+  - ✅ Commit pushed to remote branch `feat/208-markdown-file-creation-9f7556`
+  - ✅ All validation checks pass (7 validators run successfully)
+  - ✅ Module structure matches feature 207 pattern exactly
+  - ✅ Comprehensive error handling with clear messages (NFR-9)
+  - ✅ Structured logging throughout with sheep.observability.logging (NFR-10)
