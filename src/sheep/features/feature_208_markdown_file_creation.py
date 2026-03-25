@@ -94,3 +94,101 @@ def count_sentences(prose: str) -> int:
         2
     """
     return prose.count(".")
+
+
+def generate_content() -> tuple[str, str]:
+    """Generate H1 title and 2-3 sentences of prose using Claude API with temperature=0.
+
+    Uses Claude API with temperature=0 for deterministic, reproducible output.
+    Same execution produces identical content on repeated calls.
+
+    The function:
+    1. Calls Claude API with markdown generation prompt
+    2. Parses response to extract H1 title and prose
+    3. Validates sentence count (2-3 periods)
+    4. Returns tuple of (title_text, prose_text)
+
+    Returns:
+        Tuple of (title, prose) where:
+        - title: H1 heading text (without # prefix)
+        - prose: 2-3 sentences of prose content
+
+    Raises:
+        ValueError: If API response format is invalid or requirements not met
+        Exception: If Claude API call fails
+
+    Example:
+        >>> title, prose = generate_content()
+        >>> print(f"# {title}\\n\\n{prose}")
+        # Example Title
+        <BLANKLINE>
+        This is a sentence. This is another sentence.
+    """
+    _logger.info("Generating markdown content using Claude API (temperature=0)")
+
+    try:
+        # Create LLM with temperature=0 for deterministic generation
+        llm = create_llm(temperature=0)
+
+        # Call Claude API with the generation prompt
+        response = llm.call([{"role": "user", "content": MARKDOWN_GENERATION_PROMPT}])
+
+        # Extract response text
+        if isinstance(response, dict):
+            content = str(response.get("content", str(response)))
+        else:
+            content = str(response)
+
+        _logger.debug(f"Raw LLM response (first 100 chars): {content[:100]}...")
+
+        # Parse markdown content
+        lines = content.strip().split("\n")
+
+        # Find and extract H1 title (first line should start with "# ")
+        if not lines or not lines[0].startswith("# "):
+            raise ValueError(
+                "Generated content must start with H1 heading (# Title)"
+            )
+
+        title = lines[0].replace("# ", "").strip()
+        if not title:
+            raise ValueError("Generated title is empty")
+
+        # Find blank line separator (should be after title)
+        blank_line_idx = None
+        for i, line in enumerate(lines):
+            if line.strip() == "" and i > 0:
+                blank_line_idx = i
+                break
+
+        if blank_line_idx is None:
+            raise ValueError(
+                "Generated content missing blank line separator after heading"
+            )
+
+        # Extract prose content (all lines after blank line)
+        prose_lines = lines[blank_line_idx + 1 :]
+        prose = "\n".join(prose_lines).strip()
+
+        if not prose:
+            raise ValueError("Generated prose content is empty")
+
+        # Validate sentence count (2-3 periods)
+        sentence_count = prose.count(".")
+        if not (2 <= sentence_count <= 3):
+            raise ValueError(
+                f"Generated prose has {sentence_count} sentences, expected 2-3"
+            )
+
+        _logger.info(
+            f"Successfully generated content: title='{title}', "
+            f"prose_length={len(prose)}, sentence_count={sentence_count}"
+        )
+        return (title, prose)
+
+    except ValueError:
+        _logger.error(f"Validation failed in generate_content: {ValueError}")
+        raise
+    except Exception as e:
+        _logger.error(f"Failed to generate content: {e}")
+        raise
