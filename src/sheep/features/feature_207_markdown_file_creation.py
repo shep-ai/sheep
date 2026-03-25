@@ -312,3 +312,67 @@ def validate_file_size(
         raise ValueError(
             f"File size {file_size} bytes exceeds maximum {max_bytes} bytes"
         )
+
+
+def validate_markdown_file(filename: str = FILENAME) -> None:
+    """Comprehensive validation pipeline for markdown file.
+
+    Runs all validation checks required by the specification:
+    1. File exists at the specified path
+    2. Markdown format is valid (H1 heading, blank line, prose)
+    3. Sentence count is exactly 2-3
+    4. File encoding is UTF-8 without BOM
+    5. File uses Unix LF line endings
+    6. File size is 250-600 bytes
+
+    This function validates all success criteria and fails fast on the first
+    error, providing clear error messages for debugging.
+
+    Args:
+        filename: Path to markdown file to validate
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If any validation check fails
+    """
+    _logger.info(f"Starting comprehensive validation pipeline for {filename}")
+
+    try:
+        # Check 1: File exists
+        _logger.info("Check 1: Verifying file exists")
+        verify_file_exists(filename)
+        _logger.debug(f"✓ File exists: {filename}")
+
+        # Check 2: Markdown format (H1 heading, blank line, prose)
+        _logger.info("Check 2: Validating markdown format")
+        validate_markdown_format(filename)
+        _logger.debug("✓ Markdown format is valid")
+
+        # Check 3: Sentence count (2-3 sentences)
+        _logger.info("Check 3: Validating sentence count")
+        validate_sentence_count(filename)
+        _logger.debug("✓ Sentence count is valid (2-3)")
+
+        # Check 4: UTF-8 encoding without BOM
+        _logger.info("Check 4: Validating file encoding")
+        validate_encoding(filename)
+        _logger.debug("✓ File encoding is valid UTF-8 without BOM")
+
+        # Check 5: Unix LF line endings
+        _logger.info("Check 5: Validating line endings")
+        validate_line_endings(filename)
+        _logger.debug("✓ File uses Unix LF line endings")
+
+        # Check 6: File size (250-600 bytes)
+        _logger.info("Check 6: Validating file size")
+        validate_file_size(filename)
+        _logger.debug("✓ File size is within valid range")
+
+        _logger.info(f"All validation checks passed for {filename}")
+
+    except FileNotFoundError as e:
+        _logger.error(f"File validation failed - file not found: {e}")
+        raise
+    except ValueError as e:
+        _logger.error(f"File validation failed: {e}")
+        raise

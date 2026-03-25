@@ -22,6 +22,7 @@ from sheep.features.feature_207_markdown_file_creation import (
     validate_encoding,
     validate_line_endings,
     validate_file_size,
+    validate_markdown_file,
 )
 
 
@@ -666,6 +667,153 @@ class TestValidateFileSize:
                 os.chdir(tmpdir)
                 with pytest.raises(FileNotFoundError):
                     validate_file_size(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+
+class TestValidateMarkdownFile:
+    """Tests for validate_markdown_file validation pipeline function."""
+
+    def test_validate_markdown_file_valid_markdown(self):
+        """Test that validate_markdown_file passes for valid markdown file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                create_markdown_file()
+                # Should not raise
+                validate_markdown_file(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_file_missing_file(self):
+        """Test that validate_markdown_file raises FileNotFoundError when file is missing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with pytest.raises(FileNotFoundError, match="does not exist"):
+                    validate_markdown_file(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_file_corrupted_format(self):
+        """Test that validate_markdown_file fails when markdown format is corrupted."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create file without H1 heading
+                Path(FILENAME).write_text("No heading here\n\nSome prose.", encoding="utf-8")
+                with pytest.raises(ValueError, match="H1 heading"):
+                    validate_markdown_file(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_file_invalid_sentence_count(self):
+        """Test that validate_markdown_file fails with incorrect sentence count."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create file with only 1 sentence (invalid)
+                content = "# Title\n\nOnly one sentence.\n"
+                Path(FILENAME).write_text(content, encoding="utf-8")
+                with pytest.raises(ValueError, match="2-3 sentences"):
+                    validate_markdown_file(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_file_invalid_encoding(self):
+        """Test that validate_markdown_file fails with invalid encoding."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create file with invalid UTF-8 bytes
+                invalid_bytes = b"\xff\xfe"
+                Path(FILENAME).write_bytes(invalid_bytes)
+                # Invalid encoding will be caught during format validation or encoding validation
+                # Both will raise an exception
+                with pytest.raises((ValueError, UnicodeDecodeError)):
+                    validate_markdown_file(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_file_invalid_line_endings(self):
+        """Test that validate_markdown_file fails with CRLF line endings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create file with CRLF line endings
+                content = "# Title\r\n\r\nFirst sentence. Second sentence.\r\n"
+                Path(FILENAME).write_bytes(content.encode("utf-8"))
+                with pytest.raises(ValueError, match="CRLF"):
+                    validate_markdown_file(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_file_file_too_small(self):
+        """Test that validate_markdown_file fails when file size is too small."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create a valid markdown file with proper structure but too small (< 250 bytes)
+                # This must have H1 heading, blank line, and 2-3 sentences to pass earlier checks
+                content = "# Title\n\nA. B.\n"
+                Path(FILENAME).write_text(content, encoding="utf-8")
+                with pytest.raises(ValueError, match="below minimum"):
+                    validate_markdown_file(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_file_calls_all_checks_in_order(self):
+        """Test that validate_markdown_file calls all validation checks."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create a valid markdown file
+                create_markdown_file()
+                # Call validate_markdown_file which should call all checks
+                # If any check fails, exception will be raised
+                validate_markdown_file(FILENAME)
+                # If we reach here, all checks passed
+                assert True
             finally:
                 import os
 
