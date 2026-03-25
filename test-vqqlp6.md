@@ -1,0 +1,3 @@
+# The Art of Software Craftsmanship
+
+Software craftsmanship is the practice of writing clean, maintainable code with careful attention to quality and design principles. It represents a shift in mindset from viewing programming as a purely mechanical task to embracing it as a disciplined art form. Through deliberate practice, continuous learning, and a commitment to excellence, engineers can create systems that are not only functional but elegant and sustainable for years to come.
