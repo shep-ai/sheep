@@ -1,0 +1,319 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-521e88"
+summary: >
+  "Feature 207 implements deterministic markdown file creation using Claude API with
+  temperature=0 for dynamic, reproducible content generation. The architecture follows
+  the established pattern from features 200-206, with comprehensive heuristic validation
+  (no external markdown parsers), proper encoding/line-ending handling, and integrated
+  git workflows. Key decision: use Claude API generation (following features 203-204
+  pattern) rather than hard-coded content (206 pattern), since the spec explicitly
+  requires temperature=0 generation and allows freely-chosen topics."
+
+# Relationships
+relatedFeatures:
+  - 206
+  - 205
+  - 204
+  - 203
+  - 202
+  - 201
+  - 200
+
+technologies:
+  - "Claude API (Anthropic)"
+  - "Python 3.10+"
+  - "pathlib"
+  - "subprocess"
+  - "structlog"
+  - "CrewAI LLM wrapper"
+  - "Git"
+  - "Markdown (plain text format)"
+
+relatedLinks:
+  - title: "Feature 204 Implementation (Claude API + temperature=0 pattern)"
+    url: "src/sheep/features/feature_204_markdown_file_creation.py"
+  - title: "Feature 206 Implementation (hard-coded content pattern)"
+    url: "src/sheep/features/feature_206_markdown_file_creation.py"
+  - title: "LLM Configuration Factory"
+    url: "src/sheep/config/llm.py"
+  - title: "Structured Logging"
+    url: "src/sheep/observability/logging.py"
+  - title: "Feature 207 Specification"
+    url: "specs/207-markdown-file-creation-521e88/spec.yaml"
+
+# Structured technology decisions
+decisions:
+  - title: "Content Generation Approach"
+    chosen: "Claude API with temperature=0 (dynamic generation)"
+    rejected:
+      - "Hard-coded content — Violates explicit specification requirement (FR-9: \"Generate prose content using Claude API with temperature=0\"). While simpler and guaranteed deterministic (feature 206 pattern), the spec clearly mandates Claude API usage."
+      - "Random topic selector with predefined prose — Adds unnecessary complexity; the spec indicates topic selection should be part of Claude's generative capability (\"freely chosen by Claude\"), not constrained to predefined categories."
+    rationale: >
+      "Feature 207 specification explicitly requires Claude API generation with temperature=0
+      in FR-9, and product decision states topics should be freely chosen by Claude. This
+      follows the pattern established by features 203-204, which achieve determinism via
+      temperature=0 while supporting dynamic topic selection. The sheep.config.llm.create_llm
+      factory function provides the necessary abstraction with automatic API key handling.
+      Temperature=0 ensures identical input produces identical output on repeated calls,
+      satisfying both determinism and specification requirements."
+
+  - title: "Markdown Format Validation Strategy"
+    chosen: "Heuristic validation using regex and string matching"
+    rejected:
+      - "External markdown parser library (mistune, markdown, etc.) — Violates project constraint \"no external dependencies beyond existing infrastructure\". The project intentionally avoids parser libraries for simplicity."
+      - "Trust Claude generation (minimal validation) — Loses error detection capability; fails to catch malformed markdown before git operations. Comprehensive validation pipeline is critical for fail-fast behavior per product decision."
+    rationale: >
+      "Project constraint explicitly states \"no external dependencies beyond existing
+      infrastructure\". Heuristic validation using regex and string methods is simple,
+      effective, and matches the established pattern from features 200-206. Pattern checks:
+      H1 heading present (^# ), blank line separator, sentence count via period counting,
+      no multiple H1 headings. This catches real issues while maintaining minimal complexity.
+      Feature 206 demonstrates this pattern successfully with functions like
+      validate_markdown_format, count_sentences, etc."
+
+  - title: "File Size Validation Approach"
+    chosen: "Soft validation with logging warnings (allow but warn if outside 200-700 bytes)"
+    rejected:
+      - "Hard rejection (fail if outside range) — Specification's product decision explicitly selects soft validation. Hard rejection would unnecessarily block valid commits where prose length varies naturally (2 vs 3 sentences can cause ~100 byte variation)."
+      - "No validation (trust generation) — Loses observability. Soft validation provides visibility into edge cases without blocking, aligning with NFR-10 (proper logging via get_logger)."
+    rationale: >
+      "Product decision explicitly selects soft validation because it provides observability
+      without blocking valid commits. File size varies naturally with prose length (2 sentences
+      ~250 bytes, 3 sentences ~350-400 bytes). Soft validation allows the commit to proceed
+      while logging warnings if size deviates significantly, maintaining transparency per
+      logging requirements (NFR-10). This approach provides visibility without unnecessary
+      constraints."
+
+  - title: "Error Handling Strategy"
+    chosen: "Fail-fast with explicit error messages and proper logging"
+    rejected:
+      - "Automatic retry with improved prompts — Adds significant complexity with retry logic and prompt refinement. Product decision explicitly states \"fail fast and require manual intervention\" for transparency and debuggability."
+      - "Silent error handling with fallbacks — Violates NFR-11 (clear, actionable error messages). Would mask issues and make debugging difficult."
+    rationale: >
+      "Product decision explicitly recommends fail-fast approach because it aligns with
+      feature module pattern from 200-206, makes failures transparent to users, and avoids
+      hidden content modifications. All exceptions are caught at main() orchestration level
+      with clear error messages. This follows feature 204/206 pattern where validation failures
+      raise ValueError with descriptive messages, and git operation failures preserve
+      subprocess.CalledProcessError with stderr output. Proper logging via get_logger()
+      at each step enables rapid debugging."
+
+  - title: "LLM Integration Pattern"
+    chosen: "Use sheep.config.llm.create_llm(temperature=0) factory function"
+    rejected:
+      - "Direct Claude API client import — The project uses CrewAI's LLM wrapper (create_llm factory) which provides abstraction, configuration management, and API key handling. Direct imports would bypass this infrastructure."
+      - "Environment-based LLM selection — The factory function automatically uses configured default model and API keys from settings. Manual selection adds unnecessary complexity."
+    rationale: >
+      "The codebase provides sheep.config.llm.create_llm() factory which handles model
+      selection, temperature configuration, and API key injection. Features 203-204 demonstrate
+      this pattern: llm = create_llm(temperature=0). This factory abstracts model selection
+      (Claude, GPT, etc.) and automatically retrieves API keys from settings. Temperature=0
+      ensures deterministic output as required by FR-9 and product decision. The LLM.call()
+      method accepts messages in standard format [{'role': 'user', 'content': prompt_text}]."
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-25
+  - **Status:** Complete — all technical decisions documented with rationale
+
+  ## Technology Decisions
+
+  ### 1. Content Generation via Claude API (temperature=0)
+
+  **Chosen:** Claude API with temperature=0 for deterministic, dynamic content generation
+
+  **Rejected:**
+  - Hard-coded content — Violates explicit specification requirement (FR-9: \"Generate prose content using Claude API with temperature=0\")
+  - Random topic selector — Adds unnecessary complexity; topic selection should remain part of Claude's generative capability
+
+  **Rationale:** The specification explicitly requires Claude API usage with temperature=0 in
+  FR-9, and the product decision clearly states topics should be freely chosen by Claude.
+  This follows the architectural pattern established by features 203-204. The
+  `sheep.config.llm.create_llm(temperature=0)` factory function provides the necessary
+  abstraction, with automatic API key handling and model selection from settings.
+  Temperature=0 ensures deterministic output: identical input produces identical output
+  on repeated calls, satisfying both the determinism requirement and specification.
+
+  ### 2. Markdown Validation via Heuristic Patterns (No External Libraries)
+
+  **Chosen:** Heuristic validation using regex and string matching (no external markdown parsers)
+
+  **Rejected:**
+  - Markdown parser libraries (mistune, markdown) — Violates project constraint \"no external dependencies beyond existing infrastructure\"
+  - Minimal validation (trust Claude) — Loses error detection; fails fast principle requires early validation
+
+  **Rationale:** Project architecture explicitly avoids external markdown parser libraries
+  to minimize dependencies. Heuristic validation is simple, effective, and matches all
+  prior features (200-206). Validation checks: H1 heading present, blank line separator,
+  2-3 sentences (period counting), no duplicate H1 headings, valid UTF-8 without BOM,
+  Unix LF line endings only. These checks catch real markdown issues while maintaining
+  simplicity. Feature 206 demonstrates this pattern: functions like `validate_markdown_format()`,
+  `count_sentences()`, `validate_encoding()`, `validate_line_endings()` use only string
+  operations and binary byte checking—no external libraries.
+
+  ### 3. File Size Validation with Soft Warnings
+
+  **Chosen:** Soft validation—log warnings if outside 200-700 byte range, but allow commit to proceed
+
+  **Rejected:**
+  - Hard rejection (fail if outside range) — Specification's product decision explicitly selects soft validation
+  - No validation — Loses observability into edge cases; violates NFR-10 (proper logging)
+
+  **Rationale:** Product decision explicitly recommends soft validation because it provides
+  observability without unnecessarily blocking valid commits. File size naturally varies
+  with prose content (2 sentences ~250 bytes, 3 sentences ~350-400 bytes). Soft validation
+  logs warnings via `get_logger().warning()` if size deviates significantly, maintaining
+  transparency while preventing false negatives. This aligns with the specification's
+  intent: \"File size is within expected range 200-700 bytes (soft validation; warnings
+  logged if outside)\".
+
+  ### 4. Fail-Fast Error Handling with Clear Messages
+
+  **Chosen:** Fail-fast approach with explicit error messages and structured logging
+
+  **Rejected:**
+  - Automatic retry with refined prompts — Adds significant complexity; product decision explicitly recommends fail-fast
+  - Silent error handling with fallbacks — Violates NFR-11 (clear, actionable error messages); masks issues
+
+  **Rationale:** Product decision explicitly states \"Fail fast and require manual intervention\"
+  because it aligns with the feature module pattern, makes failures transparent to users,
+  and avoids hidden content modifications that could complicate debugging. All exceptions
+  are caught at the main() orchestration level and logged with descriptive messages.
+  Validation failures raise ValueError with clear context (e.g., \"Expected 2-3 sentences,
+  found 1\"). Git operation failures preserve subprocess.CalledProcessError with stderr
+  output for debugging. This enables rapid iteration and clear problem identification.
+
+  ## Library Analysis
+
+  | Library/Component | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | Claude API (Anthropic) | LLM inference for content generation | **Use** | Required by specification (FR-9); accessed via sheep.config.llm.create_llm factory with temperature=0 |
+  | sheep.config.llm.create_llm() | LLM factory with configuration management | **Use** | Handles model selection, temperature setting, and API key injection; standard pattern in project |
+  | structlog (via sheep.observability.logging) | Structured logging and observability | **Use** | Project standard for logging via get_logger(); required by NFR-10 for all functions |
+  | CrewAI LLM wrapper | Abstraction layer for multiple LLM providers | **Use** | Provides unified interface across Claude, GPT, Gemini; required for clean architecture |
+  | pathlib.Path | File I/O operations | **Use** | Python built-in; handles encoding/line-ending correctly; standard in project (all features 200-206) |
+  | subprocess | Git command execution | **Use** | Python built-in; enables secure command execution with shell=False; used by all features for git operations |
+  | Markdown parser libraries | Markdown validation | **Reject** | Violates project constraint \"no external dependencies beyond existing infrastructure\"; heuristic validation sufficient |
+  | regex/re module | Pattern matching for heuristic validation | **Use** | Python built-in; sufficient for H1 detection and basic markdown structure validation |
+
+  ## Validation Function Architecture
+
+  The comprehensive validation pipeline follows the feature 206 pattern with dedicated
+  functions for each validation concern:
+
+  1. **verify_file_exists(filename)** — Check file exists at specified path
+  2. **validate_markdown_format(filename)** — Check H1 heading present, blank line separator, no duplicate H1s
+  3. **validate_sentence_count(filename)** — Extract prose, count periods, verify 2-3 sentences
+  4. **validate_encoding(filename)** — Check UTF-8 without BOM using binary byte inspection
+  5. **validate_line_endings(filename)** — Check only LF (\\n) present, no CRLF or CR
+  6. **validate_file_size(filename, min_bytes=200, max_bytes=700)** — Soft validation: warn if outside range
+  7. **validate_markdown_file(filename)** — Orchestration function calling all checks in sequence with logging
+
+  This modular approach enables targeted testing, clear error messages, and easy maintenance.
+
+  ## Content Generation Function Architecture
+
+  Following feature 203-204 pattern:
+
+  1. **generate_title()** — Call Claude API with generation prompt, parse H1 line, extract title text
+  2. **generate_prose()** — Call Claude API, parse prose lines after blank line, validate sentence count
+  3. **create_markdown_file()** — Combine generated title and prose with proper formatting: `# {title}\\n\\n{prose}\\n`
+
+  All functions use temperature=0 for deterministic output and include comprehensive error handling.
+
+  ## Git Operation Functions
+
+  Standard subprocess-based git operations used by all features:
+
+  1. **git_add_file(filename)** — `git add <filename>` with error handling
+  2. **git_commit(commit_message)** — `git commit -m <message>` with conventional commit format
+  3. **git_push(branch_name)** — `git push -u origin <branch>` to establish upstream tracking
+
+  All use subprocess.run(..., check=True, capture_output=True, text=True) pattern for
+  secure, fail-fast command execution with clear error reporting.
+
+  ## Security Considerations
+
+  1. **Subprocess Security** — All git commands use subprocess with shell=False to prevent command injection
+  2. **UTF-8 Validation** — File encoding is explicitly validated to prevent encoding-based attacks
+  3. **API Key Handling** — Claude API credentials handled by sheep.config.llm factory; not embedded in feature code
+  4. **File Write Permissions** — pathlib.Path.write_text() respects filesystem permissions; no privilege escalation
+  5. **Deterministic Output** — temperature=0 eliminates stochastic attack vectors; identical input always produces identical output
+
+  ## Performance Implications
+
+  1. **Claude API Latency** — Content generation via Claude API introduces ~1-2 second API call overhead compared to hard-coded approach (feature 206). Acceptable for this workflow.
+  2. **Determinism Benefit** — temperature=0 enables future caching; repeated calls with same prompt could be optimized
+  3. **Validation Performance** — Heuristic validation is O(n) where n=file size (~300-400 bytes typical); negligible overhead
+  4. **File I/O** — pathlib operations are optimized; single file read for validation incurs minimal overhead
+
+  ## Architecture Integration Notes
+
+  1. **Feature Module Pattern** — Feature 207 follows established pattern from features 200-206:
+     - Dedicated module: src/sheep/features/feature_207_markdown_file_creation.py
+     - Organized functions: generation, validation, git operations, orchestration
+     - Comprehensive error handling and logging
+     - main() function as entry point
+
+  2. **Logging Integration** — Uses `sheep.observability.logging.get_logger(__name__)` per NFR-10:
+     - All major steps logged at INFO level
+     - Validation checks logged at DEBUG level
+     - Errors logged at ERROR level with full context
+     - File size warnings logged at WARNING level (soft validation)
+
+  3. **LLM Configuration** — Uses existing infrastructure:
+     - `sheep.config.llm.create_llm(temperature=0)` provides Claude API access
+     - Temperature=0 ensures deterministic output
+     - API credentials managed by settings/environment
+     - No hardcoded API keys or model names
+
+  4. **Git Integration** — Subprocess-based commands:
+     - All commands use shell=False for security
+     - Capture output and stderr for error reporting
+     - Fail-fast behavior with check=True
+     - Conventional commit format enforced by COMMIT_MESSAGE constant
+
+  5. **File Encoding** — pathlib.Path handles correctly:
+     - `.write_text(content, encoding=\"utf-8\")` writes UTF-8 without BOM
+     - `.read_text(encoding=\"utf-8\")` reads UTF-8 correctly
+     - Line endings preserved as LF (Python text mode on Unix produces LF)
+
+  ## Testing Strategy
+
+  1. **Unit Tests** — Test each validation function independently with valid/invalid inputs
+  2. **Integration Tests** — Test complete workflow: generation → validation → git operations
+  3. **Determinism Tests** — Verify repeated calls with temperature=0 produce identical output
+  4. **Edge Cases** — Test file size boundaries (200, 700, outside range), sentence count boundaries (1, 2, 3, 4)
+  5. **Encoding Tests** — Verify BOM handling, CRLF rejection, UTF-8 enforcement
+
+  ## Implementation Priority
+
+  1. **Phase 1** — Implement content generation (generate_title, generate_prose) using Claude API
+  2. **Phase 2** — Implement comprehensive validation functions (all 6 validation functions)
+  3. **Phase 3** — Implement git operations (add, commit, push)
+  4. **Phase 4** — Implement main() orchestration and integrate all phases
+  5. **Phase 5** — Testing and validation
+
+  ## Estimated Complexity
+
+  **Size: S (1-2 hours)**
+
+  - Content generation: ~20 minutes (adapting feature 204 pattern)
+  - Validation functions: ~25 minutes (adapting feature 206 pattern, 6 functions total)
+  - Git operations: ~15 minutes (standard subprocess pattern, 3 functions)
+  - Main orchestration: ~10 minutes (standard pattern)
+  - Testing/validation: ~20 minutes
+
+  No new external dependencies, straightforward integration with existing infrastructure.
+
+  ---
+
+  _Research phase completed — ready for implementation_
