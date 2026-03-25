@@ -1,0 +1,387 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-cebbe6
+summary: "Technical analysis for markdown file creation (feature 207). This feature follows the established pattern from features 200-206, using hard-coded content, pathlib for file I/O, subprocess for git operations, and comprehensive validation functions. No external dependencies or API integrations required."
+
+# Relationships
+relatedFeatures:
+  - 206
+  - 205
+  - 204
+  - 203
+  - 202
+  - 201
+  - 200
+
+technologies:
+  - "Python 3.10+"
+  - "pathlib (built-in standard library)"
+  - "subprocess (built-in standard library)"
+  - "UTF-8 text encoding"
+  - "Markdown (plain text format)"
+  - "Git CLI"
+  - "sheep.observability.logging (existing infrastructure)"
+
+relatedLinks:
+  - title: "Feature 206 Implementation (Preceding Feature)"
+    url: "src/sheep/features/feature_206_markdown_file_creation.py"
+  - title: "Feature 205 Implementation (Validation Pattern Reference)"
+    url: "src/sheep/features/feature_205_markdown_file_creation.py"
+  - title: "Sheep Platform README"
+    url: "file:///README.md"
+
+# Structured technology decisions
+decisions:
+  - title: "File Creation Method"
+    chosen: "Use pathlib.Path.write_text() with explicit encoding=\"utf-8\""
+    rejected:
+      - "os.open() with manual file handling — More verbose, error-prone with encoding specification, requires explicit close() calls with try-finally blocks to prevent resource leaks, doesn't automatically enforce LF line endings"
+      - "open() with context manager — Slightly more complex syntax than pathlib, requires manual newline handling, doesn't automatically exclude BOM, less modern Python style"
+      - "External file writing library — Unnecessary external dependency, pathlib is built-in and sufficient for requirements"
+    rationale: "pathlib.Path.write_text() is the modern Python standard for file I/O, provides atomic writes, automatically handles UTF-8 encoding without BOM, and automatically uses LF line endings on all platforms (including Windows). It's the approach already established in features 200-206 and is robust, concise, and idiomatic. Encoding='utf-8' parameter explicitly prevents BOM insertion, and newline handling is automatic."
+
+  - title: "Content Generation Strategy"
+    chosen: "Hard-coded prose content in module constants (TITLE_TEXT and PROSE_CONTENT)"
+    rejected:
+      - "Claude API for dynamic generation — Adds external API dependency, introduces network latency and failure points, makes implementation non-deterministic, harder to review/audit generated content, violates NFR-7 (deterministic implementation)"
+      - "Random sentence generation — Non-deterministic output, harder to review/test, may generate grammatically incorrect sentences, doesn't align with established pattern from features 200-206"
+      - "Reading content from external file — Adds file I/O complexity, external file dependency, harder to verify content is included in repository"
+    rationale: "Hard-coded content is aligned with the established pattern from features 200-206. It ensures deterministic output (same file every run), transparent auditable content, simplified error handling (no network failures), faster execution, and reliable testing. The specification requires grammatically correct content, which hard-coded prose guarantees. Content is defined at module level as constants, making it explicit and reviewable."
+
+  - title: "Git Command Execution Method"
+    chosen: "subprocess.run() with shell=False and array argument format"
+    rejected:
+      - "GitPython library — Adds external dependency not required by existing codebase, GitPython is slower than subprocess for simple operations, creates unnecessary abstraction layer for basic git commands (add, commit, push)"
+      - "Shell command strings with shell=True — Security vulnerability (shell injection risk), harder to test, platform-dependent behavior, violates secure coding practices"
+      - "os.system() — Deprecated approach, poor error handling, returns exit code only (no output capture)"
+    rationale: "subprocess.run() with shell=False is the secure, modern Python standard. It prevents shell injection attacks (security critical), allows easy capture of stdout/stderr for logging, provides clear error codes via check=True, and is efficient. Array format ['git', 'add', 'filename'] is more readable and secure than shell strings. This approach matches feature 206 pattern and existing codebase conventions. Subprocess is a built-in library with no external dependencies."
+
+  - title: "Validation Architecture"
+    chosen: "Separate dedicated validation functions for each concern (file existence, format, sentence count, encoding, line endings, file size), called from central validate_markdown_file() orchestrator"
+    rejected:
+      - "Single monolithic validation function — Hard to identify which check failed, verbose error handling, difficult to test individual validation concerns, violates single responsibility principle, doesn't match established pattern from features 200-206"
+      - "Inline validation in main() — Scatters validation logic throughout orchestration, reduces code reusability, makes testing harder, violates NFR-5 (pattern matching)"
+      - "No validation — Violates specification requirements (success criteria explicitly require validation), no way to detect implementation errors, unsafe for production use"
+    rationale: "Separate validation functions match the established pattern from feature 206 and align with NFR-5 (pattern matching). Each function validates a single concern: verify_file_exists(), validate_markdown_format(), validate_sentence_count(), validate_encoding(), validate_line_endings(), validate_file_size(). Helper functions (extract_prose_content(), count_sentences()) enable reusable validation logic. Central orchestrator validate_markdown_file() calls all checks in sequence with logging, enabling fail-fast error detection. This approach provides clear error messages on validation failure (NFR-9) and comprehensive logging (NFR-10)."
+
+  - title: "Line Ending Strategy"
+    chosen: "Rely on pathlib.Path.write_text() automatic LF handling on all platforms"
+    rejected:
+      - "Manual line ending conversion after writing — Adds unnecessary complexity, requires re-writing file, error-prone if conversion is incorrect, unnecessary given pathlib behavior"
+      - "Platform-specific line ending handling — Complex conditional logic for Windows/Unix/Mac, harder to test cross-platform, violates requirement for consistent LF endings on all platforms"
+      - "Using open() with newline='' and manual \\\\n insertion — More verbose, doesn't provide benefits over pathlib approach, harder to read"
+    rationale: "pathlib.Path.write_text() on Python 3+ automatically uses platform-appropriate line endings internally, but when writing with universal newline mode (default), always converts to LF on file write to disk across all platforms. This is the documented behavior and aligns with feature 206 pattern. Validation function validate_line_endings() verifies no CRLF or CR sequences exist, providing assurance. This approach is simple, reliable, and ensures NFR-2 (LF line endings) without manual intervention."
+
+  - title: "Error Handling Strategy"
+    chosen: "Specific exception handling with try-catch blocks for FileNotFoundError, ValueError, subprocess.CalledProcessError, with logging at each level"
+    rejected:
+      - "Bare except clauses — Catches keyboard interrupts and system signals, masks unexpected errors, violates Python best practices"
+      - "Generic Exception handling only — Doesn't distinguish between error types, makes debugging harder, difficult to recover from specific failures"
+      - "No error handling — Violates specification requirements, makes errors cryptic, doesn't provide clear user feedback"
+    rationale: "Specific exception handling enables targeted recovery and clear error messages (NFR-9). FileNotFoundError catches missing files, ValueError catches validation failures (format, encoding, etc.), subprocess.CalledProcessError catches git command failures. Each validation function raises appropriate exceptions with descriptive messages. The main() orchestrator catches these and logs them at appropriate levels. This approach matches feature 206 pattern and provides fail-fast semantics: first validation error stops execution and reports clearly."
+
+  - title: "Logging Strategy"
+    chosen: "Use sheep.observability.logging.get_logger(__name__) with appropriate log levels (debug, info, warning, error)"
+    rejected:
+      - "print() statements — Not structured, no log levels, doesn't integrate with platform logging infrastructure, harder to filter/monitor"
+      - "Python logging module directly — Duplicates infrastructure already provided by sheep.observability.logging, doesn't use platform's logging configuration"
+      - "No logging — Violates NFR-10 (comprehensive logging), makes debugging impossible, no visibility into workflow execution"
+    rationale: "sheep.observability.logging.get_logger() is the established infrastructure in the Sheep platform (used in features 200-206). It provides structured logging, integrates with platform monitoring/observability, allows dynamic log level configuration, and enables filtering/searching logs. This approach satisfies NFR-10 (comprehensive logging) and matches the established pattern. Log levels used: info for major workflow phases, debug for detailed operation steps, error for exceptions."
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should sentence count validation support exactly 2 sentences, exactly 3 sentences, or flexible 2-3 sentences?"
+    resolved: true
+    options:
+      - option: "Exactly 2 sentences"
+        description: "Enforces consistent sentence count, simplifies validation logic, creates predictable file size. However, limits creative implementation and reduces content flexibility."
+        selected: false
+      - option: "Exactly 3 sentences"
+        description: "Ensures more substantive content, consistent with some feature implementations. However, may be unnecessarily strict and doesn't match some predecessor features."
+        selected: false
+      - option: "Flexible - allow 2 or 3 sentences"
+        description: "Provides implementation flexibility, accommodates different topic lengths, allows more creative content without artificial constraints. Matches pattern from features 200-206, reduces validation strictness, enables natural prose flow."
+        selected: true
+    selectionRationale: "The feature specification explicitly resolves this in openQuestions: 'Flexible support for both 2-3 sentences is recommended.' This aligns with the established pattern from features 200-206 which demonstrated variable content length. Validation logic is simple: check if count is 2 OR 3 using expression (2 <= sentence_count <= 3). This approach allows substantive prose without artificial constraints, matches predecessor features, and enables more natural implementation."
+
+  - question: "Should file size constraints be strict (exact byte count) or flexible (byte range)?"
+    resolved: true
+    options:
+      - option: "Exact byte count (e.g., 350 bytes)"
+        description: "Enforces exact file size, reduces variation, simpler comparison logic. However, makes content writing very difficult, requires precise word counting, inflexible for natural prose."
+        selected: false
+      - option: "Flexible byte range (200-700 bytes)"
+        description: "Allows natural variation in prose content, accommodates different sentence lengths, simpler to implement while still ensuring reasonable file size. Aligns with specification NFR-8."
+        selected: true
+      - option: "No file size constraint"
+        description: "Maximum flexibility in content generation, no validation overhead. However, violates specification NFR-8, could result in very large or trivial files, reduces consistency across feature series."
+        selected: false
+    selectionRationale: "Feature specification explicitly defines NFR-8: 'File size must be within range of 200-700 bytes, allowing for natural variation in sentence length.' The 200-700 byte range is flexible. This range is sufficient to ensure substantive content while allowing natural prose without artificial constraints. Validation uses simple comparison: (200 <= file_size <= 700)."
+
+  - question: "Should validation use simple period counting or more sophisticated sentence parsing?"
+    resolved: true
+    options:
+      - option: "Simple period counting"
+        description: "Count periods (.) in prose text. Simple, fast, reliable for typical prose. May miscount abbreviations or decimal numbers, but spec requires sentences to end with periods, making this sufficient."
+        selected: true
+      - option: "Regex-based sentence parsing"
+        description: "Use regex to detect sentence boundaries (periods followed by space). More sophisticated but fragile, harder to maintain, overkill for requirement of sentences ending in periods."
+        selected: false
+      - option: "NLP-based sentence tokenization"
+        description: "Use nltk or spacy library for proper sentence parsing. Over-engineered for this requirement, adds external dependency, significantly slower, unnecessary complexity."
+        selected: false
+    selectionRationale: "Simple period counting is the approach used in feature 206 and matches the specification requirement: 'Each sentence ends with a period.' Since the prose content is hard-coded and guaranteed to be grammatically correct, period counting is reliable and sufficient. The implementation count_sentences() simply returns prose.count('.'). This approach is fast, testable, and matches the established pattern. Spec explicitly requires sentences to end with periods, making other approaches unnecessary."
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. File Creation Method: pathlib.Path.write_text()
+
+  **Chosen:** pathlib.Path.write_text() with explicit encoding='utf-8'
+
+  **Rejected:**
+  - os.open() with manual file handling — More verbose, error-prone with encoding, requires explicit close() calls in try-finally blocks
+  - open() with context manager — Requires more complex syntax, manual newline handling, less modern style
+  - External file I/O libraries — Unnecessary dependency; pathlib is built-in
+
+  **Rationale:** pathlib is the modern Python standard (available since 3.4). It provides atomic writes, automatic UTF-8 encoding without BOM, and automatic LF line endings across all platforms (Windows, macOS, Linux). The approach is established in features 200-206, concise, readable, and idiomatic. Explicitly passing encoding='utf-8' ensures no BOM is inserted (default behavior), and newline handling is automatic.
+
+  **Implementation:**
+  ```python
+  markdown_content = f\"# {TITLE_TEXT}\\n\\n{PROSE_CONTENT}\\n\"
+  file_path = Path(FILENAME)
+  file_path.write_text(markdown_content, encoding=\"utf-8\")
+  ```
+
+  ### 2. Content Generation: Hard-Coded Strings
+
+  **Chosen:** Hard-coded module constants (TITLE_TEXT and PROSE_CONTENT)
+
+  **Rejected:**
+  - Claude API for dynamic generation — Adds network dependency, introduces latency, makes output non-deterministic, harder to review
+  - Random/procedural generation — Non-deterministic output, may produce grammatically incorrect content, violates NFR-7
+  - External file reading — Additional file I/O complexity, harder to verify inclusion in repository
+
+  **Rationale:** Hard-coded content ensures deterministic output (identical file every run), transparent auditable content, simplified error handling (no network failures), faster execution, and reliable testing/review. Matches established pattern from features 200-206. Content is defined as module-level constants, making it explicit and reviewable. Specification requires grammatically correct content, which hard-coded prose guarantees.
+
+  **Implementation:**
+  ```python
+  TITLE_TEXT = \"An interesting title about a topic\"
+  PROSE_CONTENT = (
+      \"First sentence of prose content. \"
+      \"Second sentence of prose content. \"
+      \"Optional third sentence of prose content.\"
+  )
+  ```
+
+  ### 3. Git Command Execution: subprocess.run()
+
+  **Chosen:** subprocess.run() with shell=False and array argument format
+
+  **Rejected:**
+  - GitPython library — Adds external dependency, slower than subprocess, unnecessary abstraction for simple commands
+  - Shell command strings (shell=True) — Security vulnerability (shell injection risk), platform-dependent, harder to test
+  - os.system() — Deprecated, poor error handling, only returns exit code
+
+  **Rationale:** subprocess.run() with shell=False is the secure Python standard. Array format prevents shell injection attacks (security critical), allows easy stdout/stderr capture for logging, provides clear error codes, and is efficient. No external dependencies required. Matches feature 206 pattern and existing codebase conventions.
+
+  **Implementation:**
+  ```python
+  subprocess.run(
+      [\"git\", \"add\", filename],
+      check=True,
+      capture_output=True,
+      text=True,
+  )
+  ```
+
+  ### 4. Validation Architecture: Dedicated Functions
+
+  **Chosen:** Separate validation function for each concern, orchestrated by central validate_markdown_file()
+
+  **Rejected:**
+  - Single monolithic validation function — Hard to identify which check failed, verbose error handling, difficult to test individual concerns
+  - Inline validation in main() — Scatters logic throughout orchestration, reduces reusability, violates pattern
+  - No validation — Violates specification requirements, unsafe
+
+  **Rationale:** Separate functions enable clear responsibility separation, testability, and fail-fast error detection. Central orchestrator provides comprehensive validation with logging. Matches feature 206 pattern and NFR-5 (pattern matching). Each function is self-contained and reusable.
+
+  **Validation Functions:**
+  - verify_file_exists() — Checks file exists at specified path
+  - validate_markdown_format() — Ensures H1 heading, blank line separator, single H1 only
+  - validate_sentence_count() — Verifies 2-3 sentences using period counting
+  - validate_encoding() — Checks UTF-8 encoding, no BOM
+  - validate_line_endings() — Verifies LF only, no CRLF or CR
+  - validate_file_size() — Ensures 200-700 byte range
+  - Helper functions: extract_prose_content(), count_sentences()
+
+  ### 5. Line Ending Handling: Platform-Agnostic Automatic
+
+  **Chosen:** Rely on pathlib.Path.write_text() automatic LF handling on all platforms
+
+  **Rejected:**
+  - Manual line ending conversion post-write — Adds complexity, requires re-writing file, error-prone
+  - Platform-specific conditional logic — Complex branching for Windows/Unix/Mac, harder to test
+  - open() with custom newline parameter — More verbose, no benefits over pathlib
+
+  **Rationale:** pathlib.Path.write_text() automatically ensures LF line endings on all platforms (Windows, macOS, Linux) when writing text. This is documented Python behavior. Validation function validate_line_endings() verifies no CRLF or CR sequences exist, providing assurance. Simple, reliable, and matches feature 206 pattern.
+
+  ### 6. Error Handling: Specific Exception Types
+
+  **Chosen:** Specific exception handling (FileNotFoundError, ValueError, subprocess.CalledProcessError) with try-catch blocks
+
+  **Rejected:**
+  - Bare except clauses — Catches KeyboardInterrupt, SystemExit; masks unexpected errors
+  - Generic Exception only — Doesn't distinguish error types, harder debugging, harder recovery
+  - No error handling — Violates specification, cryptic error messages
+
+  **Rationale:** Specific exceptions enable targeted recovery and clear error messages. FileNotFoundError catches missing files, ValueError catches validation failures, subprocess.CalledProcessError catches git failures. Matches feature 206 pattern. Fail-fast semantics: first error stops execution with clear message.
+
+  **Implementation:**
+  ```python
+  try:
+      validate_markdown_file()
+      git_add_file()
+      git_commit()
+      git_push()
+  except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as e:
+      _logger.error(f\"Workflow failed: {e}\")
+      return 1
+  ```
+
+  ### 7. Logging Strategy: Structured Platform Logging
+
+  **Chosen:** sheep.observability.logging.get_logger(__name__) with appropriate log levels (debug, info, warning, error)
+
+  **Rejected:**
+  - print() statements — Not structured, no levels, doesn't integrate with platform infrastructure
+  - Python logging module directly — Duplicates existing platform infrastructure
+  - No logging — Violates NFR-10, no visibility into execution
+
+  **Rationale:** sheep.observability.logging.get_logger() is the established platform infrastructure (used in features 200-206). Provides structured logging, integrates with platform monitoring, allows dynamic log level configuration. Satisfies NFR-10 (comprehensive logging) and matches established pattern.
+
+  **Log Levels Used:**
+  - info: Major workflow phases (starting feature, creating file, committing, pushing)
+  - debug: Detailed operation steps (file operations, git commands, validation checks)
+  - error: Exceptions and failures with context
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  |---------|---------|----------|-----------|
+  | pathlib | File I/O (creation, reading, validation) | Use (built-in) | Standard Python library, no external dependency, provides atomic writes, automatic UTF-8 + LF handling |
+  | subprocess | Git command execution | Use (built-in) | Standard Python library, secure (shell=False), allows output capture, clear error handling |
+  | sheep.observability.logging | Structured logging | Use (existing infrastructure) | Platform standard, integrates with monitoring, no new dependency |
+  | os | File and process operations | Use sparingly (built-in) | Only used for standard library imports; pathlib preferred for file ops |
+  | GitPython | Git operations wrapper | Reject | External dependency not justified, subprocess is simpler for basic commands |
+  | Markdown | Markdown parsing/validation | Reject | No parsing needed; plain text markdown is sufficient for specification |
+  | nltk / spacy | NLP sentence parsing | Reject | Over-engineered; simple period counting sufficient for requirement |
+
+  ---
+
+  ## Security Considerations
+
+  1. **Shell Injection Prevention:** subprocess.run() uses shell=False with array arguments, preventing shell injection attacks. Git commands are constructed as arrays, not strings. Critical for security when executing external processes.
+
+  2. **File Permissions:** pathlib.Path.write_text() creates files with default permissions (typically 0o644 on Unix). Specification doesn't require specific permissions; default is acceptable for non-sensitive content.
+
+  3. **UTF-8 Encoding:** Explicit encoding='utf-8' prevents BOM injection and ensures portable text files. Validation function validate_encoding() verifies no BOM exists, providing defense-in-depth.
+
+  4. **Content Integrity:** Hard-coded content is immutable at runtime. No external inputs (user, API) means no injection vectors. Content is reviewed during implementation, reducing attack surface.
+
+  5. **Git Authentication:** Uses local git configuration (no credentials in code). Assumes repository already authenticated; feature pushes to configured remote without explicit credentials.
+
+  ---
+
+  ## Performance Considerations
+
+  1. **File I/O:** Single file write operation (pathlib atomic write) is fast. File size 200-700 bytes is tiny; no performance concerns.
+
+  2. **Validation:** Six separate validation functions, each O(n) where n = file size (bytes/lines). With 200-700 byte files, all validations complete in microseconds. No performance bottleneck.
+
+  3. **Git Operations:** Three subprocess calls (add, commit, push). subprocess.run() is efficient. Network latency on push is dominant factor (external). No optimization needed for local operations.
+
+  4. **Logging:** Structured logging is efficient. Log levels allow runtime filtering (debug logs skipped if not enabled). No performance concern.
+
+  5. **Memory Usage:** Hard-coded strings in module scope; loaded once on import. File content (700 bytes max) fits easily in memory. No memory concerns.
+
+  **Conclusion:** Feature is performance-optimal. No caching, parallelization, or async needed. Simple synchronous workflow is appropriate for straightforward file creation task.
+
+  ---
+
+  ## Architecture Notes
+
+  ### How This Fits into Existing Codebase
+
+  1. **Feature Module Pattern:** Implementation follows established pattern from features 200-206. Module structure:
+     - Module docstring explaining purpose and approach
+     - Import statements (subprocess, pathlib, logging)
+     - Constants (FILENAME, FEATURE_NUMBER, BRANCH_NAME, COMMIT_MESSAGE, TITLE_TEXT, PROSE_CONTENT)
+     - File creation function (create_markdown_file)
+     - Validation functions (verify_file_exists, validate_markdown_format, validate_sentence_count, etc.)
+     - Git operation functions (git_add_file, git_commit, git_push)
+     - Orchestration function (main)
+     - if __name__ == \"__main__\" block
+
+  2. **Integration Points:**
+     - Uses established logging infrastructure (sheep.observability.logging)
+     - Creates file in repository root (standard location for test-*.md files)
+     - Uses Git commands via subprocess (standard platform approach)
+     - Returns exit codes (0 for success, 1 for failure) for scripting
+     - No new dependencies; uses only built-in Python libraries + existing platform infrastructure
+
+  3. **Consistency with Predecessors:** Directly mirrors features 206 and 205 structure, variable naming, error handling patterns, and workflow orchestration. Enables easy code review and maintenance.
+
+  4. **Modularity:** Each function has single responsibility, enabling unit testing and reuse. Central validate_markdown_file() orchestrator coordinates validation steps in sequence.
+
+  ### Data Flow
+
+  ```
+  Module Load
+    ↓
+  Import logging, subprocess, pathlib
+    ↓
+  Define constants (filename, feature number, branch, commit message, content)
+    ↓
+  main() orchestration
+    ├─ Phase 1: create_markdown_file()
+    │   └─ Path.write_text() → File created
+    ├─ Phase 2: validate_markdown_file()
+    │   ├─ verify_file_exists()
+    │   ├─ validate_markdown_format()
+    │   ├─ validate_sentence_count()
+    │   ├─ validate_encoding()
+    │   ├─ validate_line_endings()
+    │   └─ validate_file_size()
+    └─ Phase 3: Git operations
+        ├─ git_add_file() → subprocess git add
+        ├─ git_commit() → subprocess git commit
+        └─ git_push() → subprocess git push
+    ↓
+  Return exit code (0 = success, 1 = failure)
+  ```
+
+  ---
+
+  ## Implementation Roadmap
+
+  The implementation will follow these steps (during implementation phase):
+
+  1. Create feature_207_markdown_file_creation.py module in src/sheep/features/
+  2. Define all constants (filename, feature number, branch, commit message, content)
+  3. Implement helper functions (extract_prose_content, count_sentences)
+  4. Implement validation functions (verify_file_exists, validate_markdown_format, validate_sentence_count, etc.)
+  5. Implement file creation function (create_markdown_file)
+  6. Implement git operation functions (git_add_file, git_commit, git_push)
+  7. Implement orchestration function (main) coordinating all phases
+  8. Add module docstring and function docstrings with proper documentation
+  9. Test locally to verify all validation checks pass
+  10. Stage, commit, and push changes following the established workflow
+
+  ---
+
+  _Research phase completed — ready for implementation phase_
