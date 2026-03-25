@@ -10,6 +10,7 @@ The implementation uses Python standard library only (pathlib, subprocess)
 with no external dependencies.
 """
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from pathlib import Path
 FILENAME = "test-wyvzr1.md"
 MIN_SIZE = 300
 MAX_SIZE = 600
+HEADING_PATTERN = r'^# .+$'  # Regex for H1 heading validation
 
 # Prose about personal development (3 sentences, ~350 bytes total)
 PROSE_CONTENT = (
@@ -133,9 +135,9 @@ def validate_file(filepath):
     # 6. Check structure: H1 heading + blank line + prose
     lines = content.split('\n')
 
-    # Check H1 heading on first line
-    assert lines[0].startswith('# '), (
-        f"Missing H1 heading: first line should start with '# ' but found: {lines[0][:50]}"
+    # Check H1 heading on first line using regex
+    assert re.match(HEADING_PATTERN, lines[0]), (
+        f"Missing H1 heading: first line must match regex '{HEADING_PATTERN}' but found: {lines[0][:50]}"
     )
 
     # Check blank line after heading
@@ -154,10 +156,11 @@ def validate_file(filepath):
         f"Specification requires 300-600 byte range."
     )
 
-    # 8. Check for at least 2 sentences (periods)
-    period_count = prose.count('.')
-    assert period_count >= 2, (
-        f"Prose content should contain at least 2 sentences, but only found {period_count} period(s)."
+    # 8. Check sentence count (2-3 sentences by splitting on periods)
+    sentence_list = [s.strip() for s in prose.split('.') if s.strip()]
+    sentence_count = len(sentence_list)
+    assert 2 <= sentence_count <= 3, (
+        f"Prose content should contain 2-3 sentences, but found {sentence_count}."
     )
 
     return True
