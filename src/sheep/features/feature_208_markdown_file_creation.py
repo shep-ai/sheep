@@ -186,8 +186,8 @@ def generate_content() -> tuple[str, str]:
         )
         return (title, prose)
 
-    except ValueError:
-        _logger.error(f"Validation failed in generate_content: {ValueError}")
+    except ValueError as e:
+        _logger.error(f"Validation failed in generate_content: {e}")
         raise
     except Exception as e:
         _logger.error(f"Failed to generate content: {e}")
