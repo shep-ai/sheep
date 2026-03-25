@@ -84,3 +84,321 @@ def create_markdown_file() -> Path:
     except Exception as e:
         _logger.error(f"Failed to create markdown file: {e}")
         raise
+
+
+def verify_file_exists(filename: str = FILENAME) -> None:
+    """Verify that markdown file exists.
+
+    Args:
+        filename: Name of file to verify (default: FILENAME)
+
+    Raises:
+        FileNotFoundError: If file does not exist
+
+    Example:
+        >>> verify_file_exists("test-xvuuel.md")  # Raises if missing
+    """
+    _logger.debug(f"Verifying file exists: {filename}")
+
+    if not Path(filename).exists():
+        raise FileNotFoundError(f"File not found: {filename}")
+
+    _logger.debug(f"File exists: {filename}")
+
+
+def validate_markdown_format(filename: str = FILENAME) -> None:
+    """Validate markdown file structure: H1 heading, blank line, content.
+
+    Checks:
+    1. First line is H1 heading (starts with '# ')
+    2. Second line is blank
+    3. Exactly one H1 heading in entire file
+
+    Args:
+        filename: Name of file to validate (default: FILENAME)
+
+    Raises:
+        ValueError: If markdown format is invalid
+
+    Example:
+        >>> validate_markdown_format("test-xvuuel.md")
+    """
+    _logger.debug(f"Validating markdown format: {filename}")
+
+    try:
+        content = Path(filename).read_text(encoding="utf-8")
+        lines = content.split("\n")
+
+        # Check first line is H1 heading
+        if not lines or not lines[0].startswith("# "):
+            raise ValueError(
+                "File must start with H1 heading (line begins with '# ')"
+            )
+
+        # Check second line is blank
+        if len(lines) < 2 or lines[1].strip() != "":
+            raise ValueError(
+                "Second line must be blank (blank line after H1 heading)"
+            )
+
+        # Check exactly one H1 heading
+        h1_count = sum(1 for line in lines if line.startswith("# "))
+        if h1_count != 1:
+            raise ValueError(
+                f"File must contain exactly one H1 heading, found {h1_count}"
+            )
+
+        _logger.debug(f"Markdown format valid: {filename}")
+
+    except ValueError:
+        raise
+    except Exception as e:
+        _logger.error(f"Error validating markdown format: {e}")
+        raise ValueError(f"Error validating markdown format: {e}") from e
+
+
+def extract_prose_content(filename: str = FILENAME) -> str:
+    """Extract prose content from file (text after blank line).
+
+    Args:
+        filename: Name of file to extract from (default: FILENAME)
+
+    Returns:
+        Prose content (text after H1 heading and blank line)
+
+    Example:
+        >>> prose = extract_prose_content("test-xvuuel.md")
+        >>> print(prose)
+    """
+    content = Path(filename).read_text(encoding="utf-8")
+    lines = content.split("\n")
+
+    # Prose starts after the blank line (line 2)
+    # Join remaining lines, strip trailing whitespace
+    if len(lines) > 2:
+        prose = "\n".join(lines[2:]).strip()
+        return prose
+
+    return ""
+
+
+def count_sentences(prose: str) -> int:
+    """Count sentences in prose content (count punctuation marks).
+
+    Uses simple punctuation counting for human-written prose with proper punctuation.
+    Counts periods, exclamation marks, and question marks.
+
+    Args:
+        prose: Text content to analyze
+
+    Returns:
+        Number of sentence-ending punctuation marks (sentences) in prose
+
+    Example:
+        >>> count_sentences("First sentence. Second sentence.")
+        2
+        >>> count_sentences("What is this? An example! A statement.")
+        3
+    """
+    return prose.count(".") + prose.count("!") + prose.count("?")
+
+
+def validate_sentence_count(filename: str = FILENAME) -> None:
+    """Validate that file contains exactly 2-3 sentences.
+
+    Args:
+        filename: Name of file to validate (default: FILENAME)
+
+    Raises:
+        ValueError: If sentence count not 2-3
+
+    Example:
+        >>> validate_sentence_count("test-xvuuel.md")
+    """
+    _logger.debug(f"Validating sentence count: {filename}")
+
+    prose = extract_prose_content(filename)
+    sentence_count = count_sentences(prose)
+
+    if sentence_count not in (2, 3):
+        raise ValueError(
+            f"File must contain exactly 2 or 3 sentences, "
+            f"found {sentence_count}"
+        )
+
+    _logger.debug(f"Sentence count valid ({sentence_count}): {filename}")
+
+
+def validate_encoding(filename: str = FILENAME) -> None:
+    """Validate file is UTF-8 encoded without BOM (Byte Order Mark).
+
+    Checks:
+    1. File does not start with UTF-8 BOM (bytes: EF BB BF)
+    2. File decodes successfully as UTF-8
+
+    Args:
+        filename: Name of file to validate (default: FILENAME)
+
+    Raises:
+        ValueError: If encoding is invalid or BOM present
+
+    Example:
+        >>> validate_encoding("test-xvuuel.md")
+    """
+    _logger.debug(f"Validating encoding: {filename}")
+
+    binary_content = Path(filename).read_bytes()
+
+    # Check for UTF-8 BOM
+    if binary_content.startswith(b"\xef\xbb\xbf"):
+        raise ValueError(
+            "File must not contain UTF-8 BOM (Byte Order Mark)"
+        )
+
+    # Check valid UTF-8 decoding
+    try:
+        binary_content.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError(
+            f"File must be valid UTF-8 encoding: {e}"
+        ) from e
+
+    _logger.debug(f"Encoding valid (UTF-8 no BOM): {filename}")
+
+
+def validate_line_endings(filename: str = FILENAME) -> None:
+    """Validate file uses Unix LF line endings only (no CRLF or CR).
+
+    Checks:
+    1. File does not contain CRLF (Windows line ending: \\r\\n)
+    2. File does not contain CR (Mac line ending: \\r)
+
+    Args:
+        filename: Name of file to validate (default: FILENAME)
+
+    Raises:
+        ValueError: If non-LF line endings found
+
+    Example:
+        >>> validate_line_endings("test-xvuuel.md")
+    """
+    _logger.debug(f"Validating line endings: {filename}")
+
+    binary_content = Path(filename).read_bytes()
+
+    # Check for Windows CRLF
+    if b"\r\n" in binary_content:
+        raise ValueError(
+            "File must use Unix LF line endings only, "
+            "not Windows CRLF (\\r\\n)"
+        )
+
+    # Check for Mac CR
+    if b"\r" in binary_content:
+        raise ValueError(
+            "File must use Unix LF line endings only, "
+            "not Mac CR (\\r)"
+        )
+
+    _logger.debug(f"Line endings valid (LF only): {filename}")
+
+
+def validate_file_size(
+    filename: str = FILENAME, min_bytes: int = 300, max_bytes: int = 800
+) -> None:
+    """Validate file size is within acceptable range.
+
+    Args:
+        filename: Name of file to validate (default: FILENAME)
+        min_bytes: Minimum file size in bytes (default: 300)
+        max_bytes: Maximum file size in bytes (default: 800)
+
+    Raises:
+        ValueError: If file size outside range
+
+    Example:
+        >>> validate_file_size("test-xvuuel.md", min_bytes=300, max_bytes=800)
+    """
+    _logger.debug(
+        f"Validating file size: {filename} "
+        f"(range: {min_bytes}-{max_bytes} bytes)"
+    )
+
+    file_size = Path(filename).stat().st_size
+
+    if file_size < min_bytes:
+        raise ValueError(
+            f"File size {file_size} bytes is too small, "
+            f"minimum is {min_bytes} bytes"
+        )
+
+    if file_size > max_bytes:
+        raise ValueError(
+            f"File size {file_size} bytes is too large, "
+            f"maximum is {max_bytes} bytes"
+        )
+
+    _logger.debug(f"File size valid ({file_size} bytes): {filename}")
+
+
+def validate_markdown_file(filename: str = FILENAME) -> None:
+    """Orchestrate comprehensive validation of markdown file.
+
+    Runs all validation checks in sequence:
+    1. File exists
+    2. Markdown format (H1, blank line, single heading)
+    3. Sentence count (2-3 sentences)
+    4. UTF-8 encoding without BOM
+    5. Unix LF line endings
+    6. File size (300-800 bytes)
+
+    Provides fail-fast behavior: stops at first error.
+
+    Args:
+        filename: Name of file to validate (default: FILENAME)
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If any validation check fails
+
+    Example:
+        >>> validate_markdown_file("test-xvuuel.md")
+    """
+    _logger.info("Starting comprehensive validation of markdown file")
+
+    try:
+        # Check 1: File exists
+        _logger.info("Check 1: Verifying file exists")
+        verify_file_exists(filename)
+        _logger.debug("✓ File exists")
+
+        # Check 2: Markdown format
+        _logger.info("Check 2: Validating markdown format")
+        validate_markdown_format(filename)
+        _logger.debug("✓ Markdown format valid")
+
+        # Check 3: Sentence count
+        _logger.info("Check 3: Validating sentence count (2-3)")
+        validate_sentence_count(filename)
+        _logger.debug("✓ Sentence count valid")
+
+        # Check 4: UTF-8 encoding
+        _logger.info("Check 4: Validating UTF-8 encoding without BOM")
+        validate_encoding(filename)
+        _logger.debug("✓ Encoding valid")
+
+        # Check 5: Line endings
+        _logger.info("Check 5: Validating Unix LF line endings")
+        validate_line_endings(filename)
+        _logger.debug("✓ Line endings valid")
+
+        # Check 6: File size
+        _logger.info("Check 6: Validating file size (300-800 bytes)")
+        validate_file_size(filename)
+        _logger.debug("✓ File size valid")
+
+        _logger.info("All validation checks passed")
+
+    except (FileNotFoundError, ValueError) as e:
+        _logger.error(f"Validation failed: {e}")
+        raise
