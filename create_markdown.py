@@ -1,40 +1,43 @@
 #!/usr/bin/env python3
 """
-Create markdown file test-n49t8o.md following the established pattern.
+Feature 213: Create markdown file test-lyi2gl.md following the established pattern.
 
-This script:
-1. Creates test-n49t8o.md with hardcoded prose content (H1 heading + 2-3 sentences)
-2. Uses pathlib.Path for file I/O (per NFR-5)
-3. Validates file format (UTF-8, LF line endings, structure)
-4. Stages file with git add
-5. Commits with conventional message
-6. Pushes to remote origin
+This script implements Phase 1 (File Creation & Validation):
+1. Creates test-lyi2gl.md with hard-coded prose content (H1 heading + 2-3 sentences)
+2. Uses pathlib.Path for file I/O (automatic UTF-8, LF handling)
+3. Validates file format (UTF-8, LF line endings, structure, size 300-800 bytes)
+4. Fail-fast error handling with clear validation before git operations
 """
 
 from pathlib import Path
-import subprocess
 import sys
 
-# Hardcoded prose content: H1 heading + exactly 2-3 sentences
-# Topic: The Moon and its influence on Earth
-PROSE_CONTENT = """# The Moon and Its Impact on Earth
+# Hard-coded, deterministic prose content: H1 heading + exactly 2-3 sentences
+# Topic: Digital Communication and Connection
+PROSE_CONTENT = """# The Evolution of Digital Communication
 
-The Moon is Earth's only natural satellite and plays a crucial role in maintaining the conditions necessary for life. Its gravitational influence stabilizes Earth's axial tilt, preventing chaotic climate changes that would make complex life difficult to sustain. The Moon also regulates ocean tides, which have shaped marine ecosystems and human civilizations for millennia.
+Digital communication has transformed how humans connect across vast distances, enabling instantaneous exchange of ideas and information that would have been impossible just decades ago. The evolution from email to messaging platforms to social media reflects our fundamental desire to share experiences and maintain relationships despite geographical barriers. These technologies continue to shape society, creating both unprecedented opportunities for connection and novel challenges for maintaining meaningful engagement.
 """
 
-# Filename to create
-FILENAME = "test-n49t8o.md"
+# Target filename for feature 213
+FILENAME = "test-lyi2gl.md"
 
 
 def create_markdown_file():
-    """Create the markdown file using pathlib.Path.write_text()."""
+    """
+    Create the markdown file using pathlib.Path.write_text().
+
+    Uses default encoding (UTF-8) and line ending handling (LF) from pathlib.
+    Per the research and NFR-4: "Rely on pathlib.Path.write_text() defaults
+    (UTF-8, no BOM, LF line endings)".
+    """
     path = Path(FILENAME)
 
-    # Write file with explicit UTF-8 encoding
-    # write_text() handles file creation, closing, and encoding automatically
-    path.write_text(PROSE_CONTENT, encoding='utf-8')
+    # write_text() with newline='' ensures LF line endings on all platforms (Windows, Linux, macOS)
+    # Per NFR-2: "File line endings must be LF (line feed, \n) throughout"
+    path.write_text(PROSE_CONTENT, newline='')
 
-    print(f"✓ Created file: {FILENAME}")
+    print(f"[OK] Created file: {FILENAME}")
     return path
 
 
@@ -46,16 +49,16 @@ def validate_file(path):
 
     # Verify UTF-8 encoding (no BOM)
     assert not binary_content.startswith(b'\xef\xbb\xbf'), "File should not have BOM"
-    print("✓ File is UTF-8 encoded without BOM")
+    print("[OK] File is UTF-8 encoded without BOM")
 
     # Verify Unix-style LF line endings (not Windows CRLF)
     assert b'\r\n' not in binary_content, "File should use LF, not CRLF"
-    print("✓ File uses Unix-style LF line endings")
+    print("[OK] File uses Unix-style LF line endings")
 
-    # Verify file size is in expected range (400-600 bytes typical)
+    # Verify file size is in expected range (300-800 bytes per spec)
     file_size = len(binary_content)
-    assert 350 < file_size < 650, f"File size {file_size} is outside expected range"
-    print(f"✓ File size is {file_size} bytes (expected ~400-600)")
+    assert 300 <= file_size <= 800, f"File size {file_size} is outside 300-800 byte range"
+    print(f"[OK] File size is {file_size} bytes (300-800 byte range)")
 
     # Verify content structure
     lines = text_content.strip().split('\n')
@@ -66,49 +69,36 @@ def validate_file(path):
     prose_section = '\n'.join(lines[2:])
     sentence_count = prose_section.count('.')
     assert 2 <= sentence_count <= 3, f"Expected 2-3 sentences, found {sentence_count}"
-    print(f"✓ Content has correct structure: H1 heading + {sentence_count} sentences")
+    print(f"[OK] Content has correct structure: H1 heading + {sentence_count} sentences")
 
     return True
 
 
-def stage_and_commit():
-    """Stage file and commit with conventional message using subprocess."""
-    # Git add
-    subprocess.run(['git', 'add', FILENAME], check=True)
-    print(f"✓ Staged file with: git add {FILENAME}")
-
-    # Git commit with conventional message
-    commit_message = "feat(069): create markdown file test-n49t8o.md with prose content"
-    subprocess.run(['git', 'commit', '--no-verify', '-m', commit_message], check=True)
-    print(f"✓ Committed with message: {commit_message}")
-
-
-def push_to_remote():
-    """Push changes to remote origin."""
-    subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], check=True)
-    print("✓ Pushed to remote origin")
 
 
 def main():
-    """Main entry point: create file, validate, commit, and push."""
+    """
+    Phase 1: File Creation & Validation.
+
+    Implements:
+    - Task 1: Create markdown file with hard-coded content
+    - Task 2: Validate file encoding, line endings, and properties
+
+    Phase 2 (git integration) will follow after validation succeeds.
+    """
     try:
-        # Task 1-2: Create file
+        # Task 1: Create file using pathlib.write_text()
         path = create_markdown_file()
 
-        # Task 3: Validate
+        # Task 2: Validate file properties before git operations
         validate_file(path)
 
-        # Task 4: Git add and commit
-        stage_and_commit()
-
-        # Task 5: Git push
-        push_to_remote()
-
-        print("\n✓ Feature 069 complete: markdown file created, committed, and pushed")
+        print("\n[OK] Phase 1 complete: markdown file created and validated")
+        print("  Ready for Phase 2: Git integration (add/commit/push)")
         return 0
 
     except Exception as e:
-        print(f"✗ Error: {e}", file=sys.stderr)
+        print(f"[ERROR] {e}", file=sys.stderr)
         return 1
 
 
