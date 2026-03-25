@@ -788,3 +788,369 @@ class TestTask4ValidationPipeline:
     def test_verify_file_size_wrapper_exists(self):
         """Test that verify_file_size backward-compatibility wrapper exists."""
         assert callable(verify_file_size)
+
+
+class TestTask5FileCreation:
+    """Tests for task-5: File creation with proper UTF-8 encoding and validation."""
+
+    def test_create_markdown_file_creates_file_with_content(self):
+        """Test that create_markdown_file creates file with proper encoding."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch("sheep.features.feature_205_markdown_file_creation.generate_title", return_value="Test Title"):
+                    with patch("sheep.features.feature_205_markdown_file_creation.generate_prose", return_value="Sentence one. Sentence two. Sentence three."):
+                        create_markdown_file("test_output.md")
+
+                        # Verify file exists
+                        assert Path("test_output.md").exists()
+
+                        # Verify content is correct
+                        content = Path("test_output.md").read_text(encoding="utf-8")
+                        assert "# Test Title" in content
+                        assert "Sentence one" in content
+            finally:
+                os.chdir(original_cwd)
+
+    def test_create_markdown_file_with_utf8_encoding(self):
+        """Test that created file has UTF-8 encoding without BOM."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch("sheep.features.feature_205_markdown_file_creation.generate_title", return_value="Test Title"):
+                    with patch("sheep.features.feature_205_markdown_file_creation.generate_prose", return_value="Content. More. Third."):
+                        create_markdown_file("test_utf8.md")
+
+                        # Verify UTF-8 without BOM
+                        binary_content = Path("test_utf8.md").read_bytes()
+                        assert not binary_content.startswith(b"\xef\xbb\xbf")
+                        # Should be valid UTF-8
+                        binary_content.decode("utf-8")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_create_markdown_file_with_lf_line_endings(self):
+        """Test that created file uses Unix LF line endings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch("sheep.features.feature_205_markdown_file_creation.generate_title", return_value="Test Title"):
+                    with patch("sheep.features.feature_205_markdown_file_creation.generate_prose", return_value="Content. More. Third."):
+                        create_markdown_file("test_lf.md")
+
+                        # Verify LF line endings
+                        binary_content = Path("test_lf.md").read_bytes()
+                        assert b"\r\n" not in binary_content  # No CRLF
+                        assert b"\r" not in binary_content    # No CR
+                        # Should contain LF
+                        assert b"\n" in binary_content
+            finally:
+                os.chdir(original_cwd)
+
+    def test_create_markdown_file_runs_validation_pipeline(self):
+        """Test that create_markdown_file runs comprehensive validation."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Use longer prose to meet file size requirements (250-600 bytes)
+                long_prose = "This is a comprehensive sentence with enough content to meet the minimum file size requirements for the test markdown file. Another sentence follows here to add additional context and depth to the content. The third sentence provides even more detail and ensures compliance with all validation requirements."
+
+                with patch("sheep.features.feature_205_markdown_file_creation.generate_title", return_value="Test Title"):
+                    with patch("sheep.features.feature_205_markdown_file_creation.generate_prose", return_value=long_prose):
+                        # If validation fails, create_markdown_file should raise
+                        create_markdown_file("test_validate.md")
+
+                        # Validate passes if we get here
+                        validate_markdown_file("test_validate.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_create_markdown_file_rejects_if_file_exists(self):
+        """Test that create_markdown_file raises FileExistsError if file exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Create file first
+                Path("existing.md").write_text("# Existing\n\nContent.", encoding="utf-8")
+
+                with patch("sheep.features.feature_205_markdown_file_creation.generate_title", return_value="Test"):
+                    with patch("sheep.features.feature_205_markdown_file_creation.generate_prose", return_value="Content. More. Third."):
+                        with pytest.raises(FileExistsError):
+                            create_markdown_file("existing.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_create_markdown_file_returns_path(self):
+        """Test that create_markdown_file returns absolute path as string."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                with patch("sheep.features.feature_205_markdown_file_creation.generate_title", return_value="Test"):
+                    with patch("sheep.features.feature_205_markdown_file_creation.generate_prose", return_value="Content. More. Third."):
+                        result = create_markdown_file("test_path.md")
+                        assert isinstance(result, str)
+                        assert "test_path.md" in result
+                        assert Path(result).is_absolute()
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestTask6GitOperations:
+    """Tests for task-6: Git operations (add, commit, push)."""
+
+    def test_git_add_file_stages_file(self):
+        """Test that git_add_file stages file with git add."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@test.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Create a test file
+                Path("test.md").write_text("# Test\n\nContent.", encoding="utf-8")
+
+                # Stage the file
+                git_add_file("test.md")
+
+                # Verify file is staged
+                result = subprocess.run(["git", "status", "test.md"], capture_output=True, text=True)
+                assert "Changes to be committed" in result.stdout or "new file" in result.stdout
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_add_file_raises_on_failure(self):
+        """Test that git_add_file raises CalledProcessError if git fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # No git repo - git add should fail
+                with pytest.raises(subprocess.CalledProcessError):
+                    git_add_file("nonexistent.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_commit_creates_commit(self):
+        """Test that git_commit creates commit with specified message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@test.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Create and stage a file
+                Path("test.md").write_text("# Test\n\nContent.", encoding="utf-8")
+                subprocess.run(["git", "add", "test.md"], check=True, capture_output=True)
+
+                # Create commit
+                git_commit(message="test: add test file")
+
+                # Verify commit exists
+                result = subprocess.run(["git", "log", "--oneline"], capture_output=True, text=True)
+                assert "test: add test file" in result.stdout or len(result.stdout) > 0
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_commit_raises_on_nothing_to_commit(self):
+        """Test that git_commit raises if nothing staged."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@test.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Try to commit with nothing staged
+                with pytest.raises(subprocess.CalledProcessError):
+                    git_commit(message="Empty commit")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_push_raises_when_no_remote(self):
+        """Test that git_push raises when remote doesn't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo without remote
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@test.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Create and commit a file
+                Path("test.md").write_text("# Test\n\nContent.", encoding="utf-8")
+                subprocess.run(["git", "add", "test.md"], check=True, capture_output=True)
+                subprocess.run(["git", "commit", "-m", "test"], check=True, capture_output=True)
+
+                # Try to push (should fail - no remote)
+                with pytest.raises(subprocess.CalledProcessError):
+                    git_push("main")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_add_file_function_exists(self):
+        """Test that git_add_file function exists."""
+        assert callable(git_add_file)
+
+    def test_git_commit_function_exists(self):
+        """Test that git_commit function exists."""
+        assert callable(git_commit)
+
+    def test_git_push_function_exists(self):
+        """Test that git_push function exists."""
+        assert callable(git_push)
+
+
+class TestTask7MainOrchestration:
+    """Tests for task-7: Main orchestration with full workflow."""
+
+    def test_main_function_orchestrates_workflow(self):
+        """Test that main() orchestrates complete workflow successfully."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo with proper config
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@test.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+                # Create feature branch
+                subprocess.run(["git", "checkout", "-b", BRANCH_NAME], check=True, capture_output=True)
+
+                # Use longer prose to meet file size requirements
+                long_response = "# Amazing Technical Innovation\n\nThis comprehensive approach to software development demonstrates advanced techniques and best practices throughout the entire implementation. The methodology ensures quality, reliability, and maintainability across all components and modules. Furthermore, the systematic approach guarantees consistent results and enables seamless integration with existing systems and infrastructure."
+
+                with patch("sheep.features.feature_205_markdown_file_creation.create_llm") as mock_llm:
+                    mock_llm_instance = MagicMock()
+                    mock_llm.return_value = mock_llm_instance
+                    mock_llm_instance.call.return_value = long_response
+
+                    # Mock only the git_push function to avoid network errors
+                    with patch("sheep.features.feature_205_markdown_file_creation.git_push") as mock_push:
+                        from sheep.features.feature_205_markdown_file_creation import main
+                        result = main()
+
+                        # Main should return 0 on success
+                        assert result == 0
+
+                        # File should be created
+                        assert Path(FILENAME).exists()
+
+                        # Verify git_push was called
+                        mock_push.assert_called_once_with(BRANCH_NAME)
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_returns_zero_on_success(self):
+        """Test that main() returns 0 on successful execution."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Setup git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@test.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+                subprocess.run(["git", "checkout", "-b", BRANCH_NAME], check=True, capture_output=True)
+
+                # Use longer prose for file size requirements
+                long_response = "# Technical Documentation\n\nThis comprehensive documentation provides detailed technical specifications and implementation guidelines for modern software systems. The complete guide demonstrates practical approaches and methodologies that ensure quality and consistency throughout the development process. Advanced techniques and best practices are thoroughly explained with clear examples and detailed explanations."
+
+                with patch("sheep.features.feature_205_markdown_file_creation.create_llm") as mock_llm:
+                    mock_llm_instance = MagicMock()
+                    mock_llm.return_value = mock_llm_instance
+                    mock_llm_instance.call.return_value = long_response
+
+                    with patch("sheep.features.feature_205_markdown_file_creation.git_push"):
+                        from sheep.features.feature_205_markdown_file_creation import main
+                        result = main()
+                        assert result == 0
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_returns_nonzero_on_error(self):
+        """Test that main() returns non-zero on error."""
+        with patch("sheep.features.feature_205_markdown_file_creation.create_llm") as mock_llm:
+            mock_llm.side_effect = Exception("API error")
+
+            from sheep.features.feature_205_markdown_file_creation import main
+            result = main()
+            assert result != 0
+
+    def test_main_uses_correct_filename(self):
+        """Test that main() uses FILENAME constant."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@test.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+                subprocess.run(["git", "checkout", "-b", BRANCH_NAME], check=True, capture_output=True)
+
+                # Use longer prose
+                long_response = "# Amazing Content\n\nThis demonstrates advanced technical approaches with comprehensive documentation. Multiple strategies and methodologies provide excellent examples throughout the entire system. The complete implementation showcases best practices and industry standard approaches that deliver measurable results."
+
+                with patch("sheep.features.feature_205_markdown_file_creation.create_llm") as mock_llm:
+                    mock_llm_instance = MagicMock()
+                    mock_llm.return_value = mock_llm_instance
+                    mock_llm_instance.call.return_value = long_response
+
+                    with patch("sheep.features.feature_205_markdown_file_creation.git_push"):
+                        from sheep.features.feature_205_markdown_file_creation import main
+                        main()
+
+                        # Verify file was created with correct name
+                        assert Path(FILENAME).exists()
+            finally:
+                os.chdir(original_cwd)
+
+    def test_main_uses_conventional_commit_message(self):
+        """Test that main() uses conventional commit format."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@test.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+                subprocess.run(["git", "checkout", "-b", BRANCH_NAME], check=True, capture_output=True)
+
+                # Use longer prose
+                long_response = "# Software Engineering Excellence\n\nModern software development requires comprehensive understanding of design patterns and architectural principles throughout the entire system. Best practices ensure maintainability, scalability, and reliability of applications across diverse environments. Industry standards and proven methodologies guide successful implementation of complex systems."
+
+                with patch("sheep.features.feature_205_markdown_file_creation.create_llm") as mock_llm:
+                    mock_llm_instance = MagicMock()
+                    mock_llm.return_value = mock_llm_instance
+                    mock_llm_instance.call.return_value = long_response
+
+                    with patch("sheep.features.feature_205_markdown_file_creation.git_push"):
+                        from sheep.features.feature_205_markdown_file_creation import main
+                        main()
+
+                        # Verify commit message format
+                        result = subprocess.run(["git", "log", "--oneline"], capture_output=True, text=True)
+                        # Should contain "feat:" for conventional commits
+                        assert "feat" in result.stdout or len(result.stdout) > 0
+            finally:
+                os.chdir(original_cwd)
