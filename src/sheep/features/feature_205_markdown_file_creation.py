@@ -22,7 +22,7 @@ _logger = get_logger(__name__)
 # Feature 205 constants
 FILENAME = "test-axs39z.md"
 TITLE = "Markdown File Creation"
-PROSE_CONTENT = "This feature demonstrates markdown file creation with validation. The implementation uses Python pathlib for file operations and subprocess for git integration. All validation occurs before git operations to maintain repository quality."
+PROSE_CONTENT = "This feature demonstrates comprehensive markdown file creation with validation. The implementation uses Python pathlib for all file operations and subprocess for git integration. All validation checks occur before any git operations to maintain repository quality and prevent invalid commits."
 FEATURE_NUMBER = 205
 BRANCH_NAME = "feat/205-markdown-file-creation-e38c99"
 COMMIT_MESSAGE = f"feat({FEATURE_NUMBER}): create markdown file {FILENAME} with prose content"
