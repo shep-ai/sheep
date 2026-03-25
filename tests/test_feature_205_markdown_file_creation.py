@@ -28,6 +28,7 @@ from sheep.features.feature_205_markdown_file_creation import (
     git_add_file,
     git_commit,
     git_push,
+    run_git_command,
     validate_encoding,
     validate_file_size,
     validate_line_endings,
@@ -909,6 +910,39 @@ class TestTask5FileCreation:
 
 class TestTask6GitOperations:
     """Tests for task-6: Git operations (add, commit, push)."""
+
+    def test_run_git_command_executes_successfully(self):
+        """Test that run_git_command executes git commands successfully."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@test.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Create a test file
+                Path("test.md").write_text("# Test\n\nContent.", encoding="utf-8")
+
+                # Use run_git_command to add the file
+                run_git_command(["git", "add", "test.md"], "Stage test file")
+
+                # Verify file is staged
+                result = subprocess.run(["git", "status", "test.md"], capture_output=True, text=True)
+                assert "Changes to be committed" in result.stdout or "new file" in result.stdout
+            finally:
+                os.chdir(original_cwd)
+
+    def test_run_git_command_raises_on_failure(self):
+        """Test that run_git_command raises CalledProcessError on git failure."""
+        # Invalid git command - should fail
+        with pytest.raises(subprocess.CalledProcessError):
+            run_git_command(["git", "nonexistent-command"], "Invalid git command")
+
+    def test_run_git_command_function_exists(self):
+        """Test that run_git_command function exists and is callable."""
+        assert callable(run_git_command)
 
     def test_git_add_file_stages_file(self):
         """Test that git_add_file stages file with git add."""

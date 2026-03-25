@@ -554,6 +554,37 @@ def validate_markdown_file(filename: str = FILENAME) -> None:
         raise
 
 
+def run_git_command(args: list, description: str) -> None:
+    """Execute a git command via subprocess with fail-fast error handling.
+
+    Provides consistent error handling and logging for all git operations.
+
+    Args:
+        args: Command arguments as list, e.g., ["git", "add", "file.md"]
+        description: Description of operation for logging, e.g., "Stage file"
+
+    Raises:
+        subprocess.CalledProcessError: If git command fails with non-zero exit code
+    """
+    _logger.debug(f"Executing git command: {' '.join(args)}")
+
+    try:
+        result = subprocess.run(
+            args,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.debug(f"Git command succeeded: {' '.join(args)}")
+        if result.stdout:
+            _logger.debug(f"Git stdout: {result.stdout.strip()}")
+
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr if e.stderr else str(e)
+        _logger.error(f"Git command failed: {error_msg}")
+        raise
+
+
 def git_add_file(filename: str = FILENAME) -> None:
     """Stage file with git add.
 
@@ -564,22 +595,8 @@ def git_add_file(filename: str = FILENAME) -> None:
         subprocess.CalledProcessError: If git add fails
     """
     _logger.info(f"Staging file with git add: {filename}")
-
-    try:
-        result = subprocess.run(
-            ["git", "add", filename],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        _logger.info(f"Successfully staged file: {filename}")
-        if result.stdout:
-            _logger.debug(f"git add stdout: {result.stdout}")
-
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr if e.stderr else str(e)
-        _logger.error(f"Failed to stage file: {error_msg}")
-        raise
+    run_git_command(["git", "add", filename], f"Stage file {filename}")
+    _logger.info(f"Successfully staged file: {filename}")
 
 
 def git_commit(filename: str = FILENAME, message: str = COMMIT_MESSAGE) -> None:
@@ -593,22 +610,8 @@ def git_commit(filename: str = FILENAME, message: str = COMMIT_MESSAGE) -> None:
         subprocess.CalledProcessError: If git commit fails
     """
     _logger.info(f"Creating git commit: {message}")
-
-    try:
-        result = subprocess.run(
-            ["git", "commit", "-m", message],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        _logger.info(f"Successfully committed: {message}")
-        if result.stdout:
-            _logger.debug(f"git commit stdout: {result.stdout}")
-
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr if e.stderr else str(e)
-        _logger.error(f"Failed to commit: {error_msg}")
-        raise
+    run_git_command(["git", "commit", "-m", message], f"Commit with message: {message}")
+    _logger.info(f"Successfully committed: {message}")
 
 
 def git_push(branch: str = BRANCH_NAME) -> None:
@@ -621,22 +624,8 @@ def git_push(branch: str = BRANCH_NAME) -> None:
         subprocess.CalledProcessError: If git push fails
     """
     _logger.info(f"Pushing to remote branch: {branch}")
-
-    try:
-        result = subprocess.run(
-            ["git", "push", "-u", "origin", branch],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        _logger.info(f"Successfully pushed to branch: {branch}")
-        if result.stdout:
-            _logger.debug(f"git push stdout: {result.stdout}")
-
-    except subprocess.CalledProcessError as e:
-        error_msg = e.stderr if e.stderr else str(e)
-        _logger.error(f"Failed to push to branch: {error_msg}")
-        raise
+    run_git_command(["git", "push", "-u", "origin", branch], f"Push to branch {branch}")
+    _logger.info(f"Successfully pushed to branch: {branch}")
 
 
 def main() -> int:
