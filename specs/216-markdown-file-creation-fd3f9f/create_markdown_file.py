@@ -167,6 +167,13 @@ def validate_file(filepath):
 
 
 # ============================================================================
+# Git Operations Constants
+# ============================================================================
+
+COMMIT_MESSAGE = "feat(216): Create markdown file test-wyvzr1.md with prose content"
+
+
+# ============================================================================
 # Git Operations Function
 # ============================================================================
 
@@ -180,26 +187,46 @@ def git_operations():
     3. git push -u origin HEAD
 
     Raises:
-        subprocess.CalledProcessError: If any git command fails
+        subprocess.CalledProcessError: If any git command fails with descriptive error message
     """
-    # Stage the file
-    subprocess.run(
-        ["git", "add", FILENAME],
-        check=True
-    )
+    try:
+        # Stage the file for commit
+        subprocess.run(
+            ["git", "add", FILENAME],
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise subprocess.CalledProcessError(
+            e.returncode,
+            e.cmd,
+            output=f"git add failed: {e.stderr or 'Unable to stage file'}"
+        ) from e
 
-    # Commit with conventional commit message
-    commit_message = "feat(216): Create markdown file test-wyvzr1.md with prose content"
-    subprocess.run(
-        ["git", "commit", "-m", commit_message],
-        check=True
-    )
+    try:
+        # Commit with conventional commit message
+        subprocess.run(
+            ["git", "commit", "-m", COMMIT_MESSAGE],
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise subprocess.CalledProcessError(
+            e.returncode,
+            e.cmd,
+            output=f"git commit failed: {e.stderr or 'Unable to create commit'}"
+        ) from e
 
-    # Push to feature branch
-    subprocess.run(
-        ["git", "push", "-u", "origin", "HEAD"],
-        check=True
-    )
+    try:
+        # Push to feature branch
+        subprocess.run(
+            ["git", "push", "-u", "origin", "HEAD"],
+            check=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise subprocess.CalledProcessError(
+            e.returncode,
+            e.cmd,
+            output=f"git push failed: {e.stderr or 'Unable to push to remote'}"
+        ) from e
 
 
 # ============================================================================

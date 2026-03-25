@@ -20,6 +20,7 @@ test environments and invalid test files for comprehensive validation testing.
 """
 
 import os
+import subprocess
 import tempfile
 from pathlib import Path
 from unittest import mock
@@ -660,6 +661,120 @@ class TestIntegration:
 
                     # subprocess.run should not be called because validation failed before git_operations
                     assert mock_run.call_count == 0, "Git operations should not be called for invalid file"
+
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestGitErrorHandling:
+    """Tests for git operations error handling."""
+
+    def test_git_add_error_is_descriptive(self):
+        """Test that git add failure has descriptive error message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Create a valid file
+                create_file()
+
+                # Mock subprocess to raise error on first call (git add)
+                with mock.patch('subprocess.run') as mock_run:
+                    mock_run.side_effect = subprocess.CalledProcessError(
+                        1, ['git', 'add', 'test-wyvzr1.md'], stderr='Permission denied'
+                    )
+
+                    # git_operations should re-raise with descriptive message
+                    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+                        git_operations()
+
+                    assert 'git add failed' in str(exc_info.value.output)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_commit_error_is_descriptive(self):
+        """Test that git commit failure has descriptive error message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Create a valid file
+                create_file()
+
+                # Mock subprocess: succeed on add, fail on commit
+                with mock.patch('subprocess.run') as mock_run:
+                    def side_effect(cmd, *args, **kwargs):
+                        if cmd[1] == 'add':
+                            return None  # Success
+                        elif cmd[1] == 'commit':
+                            raise subprocess.CalledProcessError(
+                                1, cmd, stderr='No changes to commit'
+                            )
+                        return None
+
+                    mock_run.side_effect = side_effect
+
+                    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+                        git_operations()
+
+                    assert 'git commit failed' in str(exc_info.value.output)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_push_error_is_descriptive(self):
+        """Test that git push failure has descriptive error message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Create a valid file
+                create_file()
+
+                # Mock subprocess: succeed on add and commit, fail on push
+                with mock.patch('subprocess.run') as mock_run:
+                    def side_effect(cmd, *args, **kwargs):
+                        if cmd[1] == 'add' or cmd[1] == 'commit':
+                            return None  # Success
+                        elif cmd[1] == 'push':
+                            raise subprocess.CalledProcessError(
+                                1, cmd, stderr='Network error'
+                            )
+                        return None
+
+                    mock_run.side_effect = side_effect
+
+                    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+                        git_operations()
+
+                    assert 'git push failed' in str(exc_info.value.output)
+
+            finally:
+                os.chdir(original_cwd)
+
+    def test_git_operations_error_mentions_specific_operation(self):
+        """Test that error messages indicate which git operation failed."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                create_file()
+
+                # Test that add errors mention 'git add'
+                with mock.patch('subprocess.run') as mock_run:
+                    mock_run.side_effect = subprocess.CalledProcessError(
+                        1, ['git', 'add'], stderr='Failed'
+                    )
+
+                    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+                        git_operations()
+
+                    error_msg = str(exc_info.value.output)
+                    assert 'git add' in error_msg, "Error should mention git add operation"
 
             finally:
                 os.chdir(original_cwd)
