@@ -483,7 +483,7 @@ def git_push(branch_name: str = BRANCH_NAME) -> None:
         raise
 
 
-def main() -> None:
+def main() -> int:
     """Orchestrate complete feature 207 workflow: create, validate, and git operations.
 
     Workflow:
@@ -493,15 +493,20 @@ def main() -> None:
     4. Commit file with conventional commit message
     5. Push to remote branch
 
-    Raises:
-        FileNotFoundError: If file validation fails
-        ValueError: If file format validation fails
-        subprocess.CalledProcessError: If git operations fail
+    Returns:
+        0 on success, 1 on any failure (fail-fast principle)
+
+    Logs:
+        - 'Starting feature 207 implementation workflow' at info level
+        - Each phase (Phase 1, 2, 3) at info level
+        - Success message with checkmark at info level
+        - Errors at error level with exception details
 
     Example:
-        >>> main()  # Creates file, validates, commits, and pushes
+        >>> exit_code = main()  # Creates file, validates, commits, and pushes
+        >>> print(exit_code)  # 0 on success, 1 on failure
     """
-    _logger.info("=== Feature 207: Markdown File Creation ===")
+    _logger.info("Starting feature 207 implementation workflow")
 
     try:
         # Phase 1: Create markdown file
@@ -529,16 +534,16 @@ def main() -> None:
         git_push(BRANCH_NAME)
         _logger.info("✓ Changes pushed to remote")
 
-        _logger.info("=== Feature 207 Complete ===")
-        _logger.info(
-            f"Successfully created and committed {FILENAME} "
-            f"with conventional commit message"
-        )
+        _logger.info(f"✓ Feature 207 implementation completed successfully")
+        return 0
 
+    except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as e:
+        _logger.error(f"Feature 207 workflow failed: {e}")
+        return 1
     except Exception as e:
-        _logger.error(f"Feature 207 failed: {e}")
-        raise
+        _logger.error(f"Unexpected error in feature 207 workflow: {e}")
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

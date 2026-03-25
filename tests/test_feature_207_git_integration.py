@@ -190,7 +190,10 @@ class TestMain:
                     mock_run.return_value = MagicMock()
 
                     # Execute main workflow
-                    main()
+                    exit_code = main()
+
+                    # Verify return code is 0 on success
+                    assert exit_code == 0
 
                     # Verify git operations were called
                     # Should have 3 subprocess.run calls: git add, git commit, git push
@@ -227,7 +230,10 @@ class TestMain:
                     mock_run.return_value = MagicMock()
 
                     # Execute main workflow
-                    main()
+                    exit_code = main()
+
+                    # Verify return code is 0 on success
+                    assert exit_code == 0
 
                     # Verify file was created
                     assert Path(FILENAME).exists()
@@ -252,7 +258,10 @@ class TestMain:
                     mock_run.return_value = MagicMock()
 
                     # Execute main workflow
-                    main()
+                    exit_code = main()
+
+                    # Verify return code is 0 on success
+                    assert exit_code == 0
 
                     # Verify file validation passes
                     # If validation fails, this will raise
@@ -261,8 +270,8 @@ class TestMain:
             finally:
                 os.chdir(original_cwd)
 
-    def test_main_raises_on_validation_failure(self):
-        """Test main raises error if validation fails."""
+    def test_main_returns_1_on_validation_failure(self):
+        """Test main returns 1 if validation fails."""
         from sheep.features.feature_207_markdown_file_creation import (
             main,
             create_markdown_file,
@@ -281,11 +290,11 @@ class TestMain:
 
                     mock_create.side_effect = create_invalid_file
 
-                    try:
-                        main()
-                        assert False, "Should have raised ValueError during validation"
-                    except ValueError:
-                        pass  # Expected validation error
+                    # Execute main workflow
+                    exit_code = main()
+
+                    # Verify return code is 1 on failure
+                    assert exit_code == 1
 
             finally:
                 os.chdir(original_cwd)
