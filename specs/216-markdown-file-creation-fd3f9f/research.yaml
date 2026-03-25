@@ -1,0 +1,511 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-fd3f9f"
+summary: >
+  Python pathlib for cross-platform file I/O with UTF-8 + LF encoding, subprocess for
+  git operations (NFR-5 requires stdlib only), basic regex validation for H1 heading + sentence
+  count (no external parsing libraries), hardcoded coherent prose content. Feature follows
+  210+ established precedent pattern. Key decisions: pathlib.write_text() for file creation
+  with explicit newline parameter, subprocess.run() for git operations, simple regex + line
+  counting for validation, defensive FileExistsError before creation.
+
+relatedFeatures:
+  - number: 215
+    name: "markdown-file-creation-7f44b3"
+    relationship: "Immediately preceding feature — identical pattern, uses GitPython (which feature 216 avoids per NFR-5 stdlib requirement)"
+  - number: 214
+    name: "markdown-file-creation-41320b"
+    relationship: "Identical pattern — markdown file with H1 + blank line + 2-3 sentences, uses subprocess matching feature 216 stdlib requirement"
+  - number: 213
+    name: "markdown-file-creation-371188"
+    relationship: "Identical pattern — create markdown file with title and 2-3 sentences"
+
+technologies:
+  - "Python 3.11+ pathlib (file I/O, standard library)"
+  - "Python subprocess (git operations, standard library)"
+  - "Python re module (basic validation, standard library)"
+  - "Markdown format (plain text, CommonMark-compatible)"
+  - "Git CLI (version control and commits)"
+  - "UTF-8 encoding without BOM"
+  - "Unix line endings (LF only)"
+
+relatedLinks:
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3.11/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3.11/library/subprocess.html"
+  - title: "Python re Documentation"
+    url: "https://docs.python.org/3.11/library/re.html"
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits"
+    url: "https://www.conventionalcommits.org/"
+  - title: "Sheep Project Repository"
+    url: "https://github.com/jobnik/sheep"
+
+decisions:
+  - title: "File I/O Library Choice"
+    chosen: "Python pathlib.Path (standard library)"
+    rejected:
+      - "open() builtin function — lower-level, more verbose, less Pythonic for modern Python 3.11+"
+      - "os module functions — system-level calls, less readable, less suitable for cross-platform file operations"
+    rationale: >
+      pathlib.Path is the modern, idiomatic Python approach for file I/O in Python 3.11+ and is
+      explicitly required by the spec tech stack. Provides clean object-oriented API with
+      Path.write_text() method that handles both encoding (UTF-8) and line endings (LF) in a
+      single call, essential for meeting FR-6 (UTF-8) and FR-4 (LF line endings) requirements.
+      Cross-platform path handling and no external dependencies align with NFR-5 (stdlib only).
+      Matches implementation pattern from features 213-215.
+
+  - title: "Git Operations Method"
+    chosen: "subprocess.run() with git CLI commands (standard library)"
+    rejected:
+      - "GitPython library — violates NFR-5 (stdlib only); used in feature 215 but not applicable here"
+      - "Manual git command construction — more error-prone than subprocess wrapper"
+    rationale: >
+      NFR-5 explicitly requires \"Python standard library only, no external dependencies.\"
+      subprocess.run() is the standard library approach for invoking git commands. Provides
+      safe subprocess execution with check=True for error handling, clear error messages on
+      failure. Three git operations needed: add, commit, push. Simple, direct invocation of
+      git CLI is the appropriate choice when external libraries are prohibited. Matches
+      feature 214 which faced identical stdlib constraint.
+
+  - title: "Markdown Validation Approach"
+    chosen: "Basic regex + line counting (standard library re module)"
+    rejected:
+      - "markdown library with CommonMark parser — external dependency, violates NFR-5 (stdlib only); used in feature 215"
+      - "No validation — violates FR-7 requirement for basic format validation before git operations"
+      - "Strict NLP/grammar checking — excessive complexity beyond \"basic validation\" requirement"
+    rationale: >
+      Spec explicitly calls for \"basic validation only\" (FR-7), not strict CommonMark parsing.
+      Basic validation means: H1 heading detected, sentence count in range (2-3), no encoding
+      errors. Simple regex approach with Python's re module (stdlib) is appropriate. Validation
+      checks: (1) first line matches pattern \"^# .+$\" for H1 heading, (2) split prose by
+      periods and filter empties to count sentences, (3) file size in range 300-600 bytes,
+      (4) read as UTF-8 to verify encoding. Pre-commit validation (before git add) follows
+      defensive programming pattern. Matches feature 214 validation approach.
+
+  - title: "File Existence Error Handling"
+    chosen: "Defensive check with FileExistsError before creation"
+    rejected:
+      - "Overwrite silently — violates FR-5 requirement, risks accidental data loss"
+      - "Append with suffix — creates wrong filename (test-wyvzr1_1.md), violates spec"
+    rationale: >
+      FR-5 explicitly requires failing with clear error message if test-wyvzr1.md already
+      exists. Defensive approach: use pathlib.Path.exists() before write_text(), raise
+      FileExistsError with descriptive message like \"File 'test-wyvzr1.md' already exists.
+      Remove it to proceed.\" Prevents accidental overwrites and follows defensive programming
+      best practices. Idempotency requirement (NFR-6) means second execution must fail with
+      clear message, not overwrite. Matches pattern from features 213-215.
+
+  - title: "Line Ending Strategy"
+    chosen: "Use newline='\\n' parameter in pathlib.write_text() to enforce LF"
+    rejected:
+      - "Allow OS default line endings — violates FR-4 (explicit LF requirement), creates inconsistency across platforms"
+      - "Post-write conversion — unnecessary complexity, defeats pathlib benefits"
+    rationale: >
+      FR-4 explicitly requires Unix line endings (LF, \\n). pathlib.write_text() with
+      newline='\\n' parameter forces Unix-style line endings regardless of platform
+      (Windows/Linux/Mac), ensuring deterministic behavior. This is the standard Python approach
+      for platform-independent text files. Pre-commit hooks won't convert already-LF endings.
+      Simple, reliable, requires single parameter to Path.write_text(). Matches feature 214
+      approach.
+
+  - title: "UTF-8 Encoding Strategy"
+    chosen: "Use encoding='utf-8' in pathlib.write_text(), validate no BOM at file start"
+    rejected:
+      - "Use encoding='utf-8-sig' — adds UTF-8 BOM marker (EF BB BF bytes), violates FR-6 (no BOM)"
+      - "Binary mode with manual encoding — verbose, error-prone, defeats pathlib cleanliness"
+    rationale: >
+      FR-6 explicitly requires UTF-8 encoding without BOM (Byte Order Mark). pathlib.write_text()
+      with encoding='utf-8' creates clean UTF-8 file without BOM prefix. Python 3.11+ defaults
+      to UTF-8 text encoding, so explicit parameter is both clear and safe. Validation: read
+      file as bytes and verify first bytes are NOT UTF-8 BOM marker (hexadecimal EF BB BF).
+      Simple validation check ensures encoding correctness. Matches feature 214 pattern.
+
+  - title: "Prose Content Strategy"
+    chosen: "Hardcoded coherent prose (implementer-chosen topic at implementation time)"
+    rejected:
+      - "Template-based content generation — unnecessary complexity, template management overhead"
+      - "AI generation or random content — overkill for test file, introduces non-determinism"
+    rationale: >
+      Spec requirements phase explicitly allows implementer free choice of prose topic. No topic
+      specification needed. Hardcoding prose at implementation time is simplest approach: choose
+      any coherent, grammatically correct topic, write 2-3 sentences, store as constant. Pattern
+      from 210+ existing test files shows diverse, implementer-chosen topics work well. File must
+      contain genuine prose (not Lorem Ipsum, placeholders, or templates per FR-12). Example from
+      feature 214: \"Learning and Creativity\" topic with 3 clear sentences. Generic prose (~350
+      bytes) naturally fits file size target (300-600 bytes per FR-2).
+
+  - title: "Sentence Validation Logic"
+    chosen: "Count periods in prose content as simple sentence approximation"
+    rejected:
+      - "NLP-based sentence boundary detection — external library needed, violates NFR-5 (stdlib)"
+      - "Regex-based sentence parsing — complex to handle abbreviations, decimals, and edge cases correctly"
+    rationale: >
+      Basic validation requirement (FR-7) allows simple approximation. Sentence count validation:
+      split prose by periods, filter empty strings, count result. This simple approach works for
+      the 2-3 sentence requirement without external dependencies. False positives (abbreviations
+      like \"U.S.\" count as multiple sentences) are acceptable for basic validation. Matches
+      feature 214 approach which counted periods in prose. Proper sentence boundary detection is
+      overkill for basic validation on short prose (2-3 sentences is unmistakable).
+
+  - title: "Implementation Architecture"
+    chosen: "Inline Python script with functions for create, validate, git_ops"
+    rejected:
+      - "Full CrewAI agent orchestration — over-engineered for simple file creation, unnecessary platform complexity"
+      - "Shell script wrapper — less portable, harder to maintain, doesn't leverage Python standard library"
+    rationale: >
+      This is minimal file creation with straightforward workflow: create file → validate →
+      git add/commit/push. No business logic, agent coordination, or complex control flow needed.
+      Direct Python script structure with clear functions (create_file, validate_file,
+      git_operations) is most maintainable approach. Can be embedded as task function in agent
+      context or run as standalone script. Matches patterns from features 213-215 which all use
+      straightforward Python implementations with function decomposition.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-25
+  - **Analysis Complete:** Yes
+
+  ## Overview
+
+  Feature 216 is a minimal markdown file creation task following the established pattern from
+  210+ preceding test files (features 100-215). Task requires creating single file
+  (`test-wyvzr1.md`) in repository root with markdown H1 heading, blank line, and 2-3 sentences
+  of coherent prose content.
+
+  **Key characteristics:**
+  - Well-established precedent with 210+ identical files already in repository
+  - All functional/non-functional requirements defined and resolved in requirements phase
+  - Simple, single-file creation with no code/logic components
+  - Size estimate: Small (S) — 10-15 minutes of actual work
+  - Uses only Python standard library (pathlib, subprocess, re) per NFR-5
+  - No external package dependencies
+  - No modifications to production code or configuration
+
+  **Key difference from feature 215:**
+  Feature 216 explicitly requires stdlib-only implementation (NFR-5: "Python standard library
+  with no external dependencies") whereas feature 215 required GitPython >= 3.1.0. This
+  specification difference reflects different deployment/dependency constraints. Feature 216
+  uses subprocess for git operations to meet stdlib requirement, matching feature 214 approach.
+
+  ## Technology Decisions
+
+  ### 1. File I/O Library: pathlib.Path (Standard Library)
+
+  **Chosen:** Python `pathlib.Path` from standard library
+
+  **Rejected:**
+  - `open()` builtin function — lower-level API, more verbose, less Pythonic
+  - `os` module functions — system-level calls, less readable, less suitable
+
+  **Rationale:** pathlib.Path is the modern, idiomatic Python approach for file I/O in Python
+  3.11+. Provides clean object-oriented API with Path.write_text() method that handles both
+  encoding (UTF-8) and line endings (LF) in a single call, essential for FR-6 and FR-4
+  requirements. Cross-platform path handling, zero external dependencies, part of standard
+  library. Path.write_text(content, encoding='utf-8', newline='\n') ensures correct encoding
+  and line endings in one operation.
+
+  **Implementation approach:**
+  ```python
+  from pathlib import Path
+
+  filepath = Path("test-wyvzr1.md")
+  markdown_content = "# Title\n\nProse content here.\n"
+  filepath.write_text(markdown_content, encoding="utf-8", newline="\n")
+  ```
+
+  ### 2. Git Integration: subprocess.run() (Standard Library)
+
+  **Chosen:** `subprocess.run()` with git CLI commands (stdlib)
+
+  **Rejected:**
+  - GitPython library — violates NFR-5 (stdlib only), external dependency
+  - Manual command construction — more error-prone
+  - Shell invocation — less safe than subprocess module
+
+  **Rationale:** NFR-5 explicitly mandates "Python standard library only, no external
+  dependencies." subprocess.run() is the standard library approach for invoking system
+  commands like git. Three git operations required:
+
+  1. `git add test-wyvzr1.md`
+  2. `git commit -m "feat(216): Create markdown file test-wyvzr1.md with prose content"`
+  3. `git push -u origin HEAD`
+
+  subprocess.run() with check=True raises CalledProcessError on git failures, providing clear
+  error handling. Simple, direct invocation of git CLI is appropriate when external libraries
+  prohibited. Matches feature 214 implementation which faced identical stdlib constraint.
+
+  **Implementation approach:**
+  ```python
+  import subprocess
+
+  # Stage file
+  subprocess.run(["git", "add", "test-wyvzr1.md"], check=True)
+
+  # Commit
+  commit_msg = "feat(216): Create markdown file test-wyvzr1.md with prose content"
+  subprocess.run(["git", "commit", "-m", commit_msg], check=True)
+
+  # Push
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  ```
+
+  ### 3. Markdown Validation: Basic Regex + Line Counting (Standard Library)
+
+  **Chosen:** Python `re` module (stdlib) with simple regex and line counting
+
+  **Rejected:**
+  - markdown library — external dependency, violates NFR-5 (used in feature 215)
+  - No validation — violates FR-7 requirement for basic format validation
+  - Strict CommonMark parsing — overkill for "basic validation" requirement
+
+  **Rationale:** Spec explicitly requires "basic validation only" (FR-7), not full
+  CommonMark compliance. Basic validation means: (1) H1 heading present, (2) sentence count
+  2-3, (3) valid UTF-8 encoding. Simple regex approach with Python's re module (stdlib) is
+  appropriate and avoids external dependencies.
+
+  **Validation checks:**
+  1. First line matches `^# .+$` regex (H1 heading format)
+  2. Split prose by periods, count non-empty results (sentence count)
+  3. Verify sentence count is between 2-3
+  4. File size in range 300-600 bytes
+  5. File readable as UTF-8 (no encoding errors)
+  6. File contains only LF line endings (no CRLF)
+  7. First bytes are NOT UTF-8 BOM marker (EF BB BF)
+
+  Pre-commit validation (before git add) follows defensive programming pattern. Catches
+  obvious formatting mistakes without requiring full markdown parser.
+
+  **Implementation approach:**
+  ```python
+  import re
+  from pathlib import Path
+
+  def validate_file(filepath: Path) -> bool:
+      # Read file
+      content = filepath.read_text(encoding="utf-8")
+      lines = content.split('\n')
+
+      # Check H1 heading
+      if not re.match(r'^# .+$', lines[0]):
+          raise AssertionError("First line must be H1 heading (# Title)")
+
+      # Check blank line
+      if len(lines) < 2 or lines[1] != '':
+          raise AssertionError("Second line must be blank")
+
+      # Check sentence count
+      prose = '\n'.join(lines[2:]).strip()
+      sentence_count = len([s for s in prose.split('.') if s.strip()])
+      if not (2 <= sentence_count <= 3):
+          raise AssertionError(f"Need 2-3 sentences, found {sentence_count}")
+
+      # Check file size
+      file_size = filepath.stat().st_size
+      if not (300 < file_size < 600):
+          raise AssertionError(f"File size {file_size} outside 300-600 range")
+
+      return True
+  ```
+
+  ### 4. File Existence Error Handling: Defensive Check
+
+  **Chosen:** Check `Path.exists()` before creation, raise `FileExistsError` if exists
+
+  **Rejected:**
+  - Overwrite silently — violates FR-5, risks accidental data loss
+  - Append with suffix — creates wrong filename, violates idempotency
+
+  **Rationale:** FR-5 requires failing with clear error if file already exists. Defensive
+  check prevents accidental overwrites:
+
+  ```python
+  if filepath.exists():
+      raise FileExistsError(f"File '{filepath.name}' already exists. Remove it to proceed.")
+  ```
+
+  Idempotency requirement (NFR-6) means second execution must fail with clear message, not
+  overwrite. Matches defensive programming best practices and Unix-like file system conventions.
+
+  ### 5. Line Ending Strategy: LF Only
+
+  **Chosen:** Use `newline='\n'` parameter in `pathlib.write_text()`
+
+  **Rejected:**
+  - Allow OS default — violates FR-4 (explicit LF requirement)
+  - Post-write conversion — unnecessary complexity
+
+  **Rationale:** FR-4 explicitly requires Unix line endings (LF, \\n). pathlib.write_text()
+  with newline='\\n' forces Unix-style line endings regardless of platform (Windows/Linux/Mac),
+  ensuring deterministic behavior. Standard Python approach for cross-platform text files.
+  Pre-commit hooks won't alter already-LF endings.
+
+  ### 6. UTF-8 Encoding Strategy: No BOM
+
+  **Chosen:** Use `encoding='utf-8'` in `pathlib.write_text()`, validate no BOM bytes
+
+  **Rejected:**
+  - Use `utf-8-sig` — adds BOM marker, violates FR-6 (no BOM)
+  - Binary mode writing — verbose, error-prone
+
+  **Rationale:** FR-6 requires UTF-8 without BOM (Byte Order Mark). pathlib.write_text()
+  with encoding='utf-8' creates clean UTF-8 file without BOM prefix (unlike utf-8-sig which
+  adds 3-byte EF BB BF prefix). Python 3.11+ defaults to UTF-8. Simple validation checks
+  file bytes don't start with BOM marker.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O and path operations | Use (stdlib) | Modern Python standard for file ops; clean API; cross-platform; no external dependency; required by spec |
+  | subprocess | Git CLI command invocation | Use (stdlib) | Standard library approach for git operations; required by NFR-5 (no external dependencies); subprocess.run() with check=True handles errors |
+  | re | Basic regex validation | Use (stdlib) | Needed for H1 heading validation (^# .+$); simple sentence detection (count periods); no external parser needed |
+  | os | File utilities | Use as needed | Standard library; fallback for file size/stats checks if pathlib.stat() isn't sufficient |
+
+  **Explicitly NOT used (due to NFR-5):**
+  - GitPython — external dependency, violates stdlib-only requirement
+  - markdown library — external dependency, not needed for basic validation
+  - Any external parsing/validation libraries
+
+  ## Security Considerations
+
+  ### File Creation Security
+  - **File existence check (FR-5):** Prevents accidental overwrite, defensive programming
+  - **Fixed filename:** `test-wyvzr1.md` hardcoded with no user input → no path traversal risk
+  - **No executable content:** Markdown is plain text, no code execution possible
+  - **Controlled encoding:** UTF-8 explicitly specified, no encoding-based attacks
+
+  ### Git Integration Security
+  - **Uses existing git config:** subprocess.run() uses git CLI which reads user.name/user.email from git config (pre-configured)
+  - **Explicit branch:** Commits to existing feature branch (pre-created, not dynamic)
+  - **Standard git operations:** No custom git logic or shell injection risk
+  - **Subprocess safety:** subprocess.run() with list of args (not shell=True) prevents command injection
+  - **No credential handling:** Uses existing git credentials, no secrets in code
+
+  ### Data Safety
+  - **No sensitive content:** File contains only public markdown prose
+  - **No network exposure:** Local file operations, authenticated push only
+  - **Validation before commit:** Basic validation ensures well-formed markdown before staging
+  - **Defensive error handling:** FileExistsError prevents overwrites, clear error messages
+
+  ## Performance Implications
+
+  ### Execution Time Budget
+  - **File creation (pathlib):** < 1ms
+  - **Basic validation:** ~2-5ms (regex matching on first line, sentence counting on prose)
+  - **Git operations:** ~100-500ms (add/commit are local, push depends on network latency)
+  - **Total expected:** 150-600ms on typical system
+  - **NFR-1 requirement:** Must complete within 5 minutes ✓ (easily met)
+
+  ### Resource Usage
+  - **Memory:** ~0.5-2MB (pathlib, subprocess, small regex objects)
+  - **Disk:** ~350-450 bytes (single markdown file)
+  - **Network:** Single push to remote (minimal bandwidth, ~200-500 bytes for commit metadata)
+  - **CPU:** Negligible (single file operation, no loops or heavy computation)
+
+  ### Optimization Notes
+  - No caching needed (single execution, no repeated operations)
+  - No batching opportunity (single file)
+  - Validation inline with creation (pre-commit) is optimal
+  - No performance bottlenecks identified
+  - Subprocess overhead minimal for 3 simple git commands
+
+  ## Architecture Notes
+
+  ### Integration with Existing Patterns
+
+  Feature 216 follows established pattern from 210+ preceding test files (features 100-215):
+
+  **File Location Pattern:**
+  - All test files stored in repository root
+  - Named with pattern `test-<6-char-id>.md`
+  - Target: `test-wyvzr1.md`
+  - 210+ identical files as precedent
+
+  **Content Pattern:**
+  - H1 heading + blank line + 2-3 sentences of prose
+  - Real, coherent prose (not Lorem Ipsum or templates per FR-12)
+  - Implementer-chosen topic (spec allows free choice)
+  - File size target: 300-600 bytes
+  - UTF-8 encoding, LF line endings
+
+  **Git Workflow:**
+  1. Create file with Path.write_text() (FR-1)
+  2. Check file not already existing before creation (FR-5)
+  3. Validate basic format (FR-7)
+  4. Stage with `git add test-wyvzr1.md` (FR-8)
+  5. Commit with message `feat(216): Create markdown file test-wyvzr1.md with prose content` (FR-9)
+  6. Push to feature branch `feat/216-markdown-file-creation-fd3f9f` with `git push -u origin HEAD` (FR-10)
+
+  **Implementation Pattern:**
+  - Python script with pathlib, subprocess, re modules (stdlib only)
+  - Three main functions: create_file(), validate_file(), git_operations()
+  - Direct file I/O and git operations via subprocess
+  - No agents, orchestration, or complex workflows
+  - Matches feature 214 approach (closest precedent with stdlib constraint)
+
+  ### No Code/Logic Components
+
+  This feature is purely file creation — no new functions, classes, or business logic added
+  to source code. All implementation is file creation and git workflow.
+
+  ### Dependencies
+
+  **Required:**
+  - Python 3.11+ (spec requirement)
+  - Git CLI with user.name and user.email configured (standard setup)
+  - Feature branch `feat/216-markdown-file-creation-fd3f9f` already created
+
+  **External Dependencies:**
+  - NONE — Feature uses only Python standard library per NFR-5
+
+  **Libraries Already Available:**
+  - pathlib (Python 3.11+ stdlib)
+  - subprocess (Python stdlib)
+  - re (Python stdlib)
+  - os (Python stdlib)
+
+  ## Risk Assessment
+
+  **Identified Risks:** None
+
+  - Pattern well-established with 210+ successful precedents (features 100-215)
+  - Simple, straightforward operations (file create, validate, git add/commit/push)
+  - No complex logic, edge cases, or algorithmic challenges
+  - All success criteria defined and directly testable
+  - Defensive error handling (file exists check, validation before staging)
+  - Requirements phase resolved all ambiguous decisions
+  - stdlib-only approach removes dependency management risk
+
+  **Confidence Level:** Very High
+
+  **Dependency Risk:** None
+  - Uses only Python standard library (pathlib, subprocess, re)
+  - No external packages to install or manage
+  - No version conflicts possible
+  - Git CLI is external but standard system tool with no version constraints
+
+  ## Implementation Readiness
+
+  All technical decisions documented with clear rationale and alternatives evaluated. Feature
+  is ready to proceed to implementation phase. Implementation approach is straightforward:
+
+  1. Create Python script with three functions (create_file, validate_file, git_operations)
+  2. Compose markdown content (H1 heading + blank line + 2-3 sentence prose)
+  3. Implement validation checks (regex H1, sentence count, file size, encoding)
+  4. Execute git operations via subprocess.run() with check=True error handling
+  5. Return success with file path and commit hash
+
+  Estimated implementation time: 10-15 minutes (matches feature 214 precedent).
+
+  ---
+
+  _Research phase complete — all technical decisions documented with rationale and
+  alternatives. Implementation ready to proceed._
