@@ -397,3 +397,148 @@ def validate_markdown_file(filename: str = FILENAME) -> None:
     except (FileNotFoundError, ValueError) as e:
         _logger.error(f"Validation failed: {e}")
         raise
+
+
+def git_add_file(filename: str = FILENAME) -> None:
+    """Stage file for commit using git add.
+
+    Args:
+        filename: Name of file to stage (default: FILENAME)
+
+    Raises:
+        subprocess.CalledProcessError: If git add fails
+
+    Example:
+        >>> git_add_file("test-ywcbdk.md")
+    """
+    _logger.info(f"Staging file with git: {filename}")
+
+    try:
+        result = subprocess.run(
+            ["git", "add", filename],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.debug(f"File staged successfully: {filename}")
+
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Failed to stage file: {e.stderr}")
+        raise
+
+
+def git_commit(commit_message: str = COMMIT_MESSAGE) -> None:
+    """Commit staged changes with conventional commit message.
+
+    Args:
+        commit_message: Commit message (default: COMMIT_MESSAGE)
+
+    Raises:
+        subprocess.CalledProcessError: If git commit fails
+
+    Example:
+        >>> git_commit("feat(207): Create markdown file test-ywcbdk.md")
+    """
+    _logger.info(f"Committing changes: {commit_message}")
+
+    try:
+        result = subprocess.run(
+            ["git", "commit", "-m", commit_message],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.debug(f"Commit successful: {commit_message}")
+
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Failed to commit: {e.stderr}")
+        raise
+
+
+def git_push(branch_name: str = BRANCH_NAME) -> None:
+    """Push commit to remote branch using git push.
+
+    Args:
+        branch_name: Branch name to push (default: BRANCH_NAME)
+
+    Raises:
+        subprocess.CalledProcessError: If git push fails
+
+    Example:
+        >>> git_push("feat/markdown-file-creation-94cf63")
+    """
+    _logger.info(f"Pushing to remote branch: {branch_name}")
+
+    try:
+        result = subprocess.run(
+            ["git", "push", "-u", "origin", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.debug(f"Push successful: {branch_name}")
+
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Failed to push: {e.stderr}")
+        raise
+
+
+def main() -> None:
+    """Orchestrate complete feature 207 workflow: create, validate, and git operations.
+
+    Workflow:
+    1. Create markdown file with hard-coded content
+    2. Validate file structure, encoding, line endings, sentence count, size
+    3. Stage file with git add
+    4. Commit file with conventional commit message
+    5. Push to remote branch
+
+    Raises:
+        FileNotFoundError: If file validation fails
+        ValueError: If file format validation fails
+        subprocess.CalledProcessError: If git operations fail
+
+    Example:
+        >>> main()  # Creates file, validates, commits, and pushes
+    """
+    _logger.info("=== Feature 207: Markdown File Creation ===")
+
+    try:
+        # Phase 1: Create markdown file
+        _logger.info("Phase 1: Creating markdown file")
+        file_path = create_markdown_file()
+        _logger.info(f"✓ File created: {file_path}")
+
+        # Phase 2: Validate markdown file
+        _logger.info("Phase 2: Validating markdown file")
+        validate_markdown_file(FILENAME)
+        _logger.info("✓ File validation passed")
+
+        # Phase 3: Git operations
+        _logger.info("Phase 3: Git integration (add, commit, push)")
+
+        _logger.info("Step 3a: Stage file with git add")
+        git_add_file(FILENAME)
+        _logger.info("✓ File staged")
+
+        _logger.info("Step 3b: Commit file")
+        git_commit(COMMIT_MESSAGE)
+        _logger.info("✓ File committed")
+
+        _logger.info("Step 3c: Push to remote")
+        git_push(BRANCH_NAME)
+        _logger.info("✓ Changes pushed to remote")
+
+        _logger.info("=== Feature 207 Complete ===")
+        _logger.info(
+            f"Successfully created and committed {FILENAME} "
+            f"with conventional commit message"
+        )
+
+    except Exception as e:
+        _logger.error(f"Feature 207 failed: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    main()
