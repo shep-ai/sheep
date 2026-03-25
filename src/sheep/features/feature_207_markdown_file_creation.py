@@ -46,3 +46,40 @@ PROSE_CONTENT = (
     "user interfaces and efficient server applications. Modern programming languages and frameworks "
     "provide powerful abstractions like async/await that make asynchronous code easier to write and understand."
 )
+
+
+def create_markdown_file() -> Path:
+    """Create markdown file with proper encoding and line endings.
+
+    Creates file with H1 heading, blank line, and prose content.
+    Uses UTF-8 encoding and Unix LF line endings via pathlib.Path.write_text().
+
+    Returns:
+        Path object pointing to created file
+
+    Raises:
+        ValueError: If file creation fails
+        OSError: If file write operation fails
+    """
+    _logger.info(f"Creating markdown file: {FILENAME}")
+
+    try:
+        # Construct markdown content: # Title \n \n Prose
+        markdown_content = f"# {TITLE_TEXT}\n\n{PROSE_CONTENT}\n"
+
+        # Write file with UTF-8 encoding and LF line endings
+        file_path = Path(FILENAME)
+        file_path.write_text(markdown_content, encoding="utf-8")
+
+        # Verify file was created
+        if not file_path.exists():
+            raise OSError(f"File was not created: {file_path}")
+
+        file_size = file_path.stat().st_size
+        _logger.info(f"Successfully created {FILENAME} ({file_size} bytes)")
+
+        return file_path
+
+    except Exception as e:
+        _logger.error(f"Failed to create markdown file: {e}")
+        raise
