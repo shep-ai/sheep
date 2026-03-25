@@ -9,10 +9,15 @@ from unittest.mock import patch
 
 import pytest
 
+import subprocess
+from unittest.mock import patch, MagicMock
+
 from sheep.features.feature_207_markdown_file_creation import (
     FILENAME,
     PROSE_CONTENT,
     TITLE_TEXT,
+    BRANCH_NAME,
+    COMMIT_MESSAGE,
     create_markdown_file,
     verify_file_exists,
     validate_markdown_format,
@@ -23,6 +28,10 @@ from sheep.features.feature_207_markdown_file_creation import (
     validate_line_endings,
     validate_file_size,
     validate_markdown_file,
+    git_add_file,
+    git_commit,
+    git_push,
+    main,
 )
 
 
@@ -814,6 +823,265 @@ class TestValidateMarkdownFile:
                 validate_markdown_file(FILENAME)
                 # If we reach here, all checks passed
                 assert True
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+
+class TestGitAddFile:
+    """Tests for git_add_file git operation function."""
+
+    @patch("subprocess.run")
+    def test_git_add_file_calls_subprocess(self, mock_run):
+        """Test that git_add_file calls subprocess.run with correct arguments."""
+        git_add_file(FILENAME)
+        mock_run.assert_called_once_with(
+            ["git", "add", FILENAME],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("subprocess.run")
+    def test_git_add_file_uses_default_filename(self, mock_run):
+        """Test that git_add_file uses FILENAME as default parameter."""
+        git_add_file()
+        mock_run.assert_called_once_with(
+            ["git", "add", FILENAME],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("subprocess.run")
+    def test_git_add_file_raises_on_git_failure(self, mock_run):
+        """Test that git_add_file raises CalledProcessError when git add fails."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            1, ["git", "add"], stderr="fatal: not a git repository"
+        )
+        with pytest.raises(subprocess.CalledProcessError):
+            git_add_file(FILENAME)
+
+    @patch("subprocess.run")
+    def test_git_add_file_with_custom_filename(self, mock_run):
+        """Test that git_add_file accepts custom filename parameter."""
+        custom_file = "custom_file.md"
+        git_add_file(custom_file)
+        mock_run.assert_called_once_with(
+            ["git", "add", custom_file],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+
+class TestGitCommit:
+    """Tests for git_commit git operation function."""
+
+    @patch("subprocess.run")
+    def test_git_commit_calls_subprocess(self, mock_run):
+        """Test that git_commit calls subprocess.run with correct arguments."""
+        git_commit(COMMIT_MESSAGE)
+        mock_run.assert_called_once_with(
+            ["git", "commit", "-m", COMMIT_MESSAGE],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("subprocess.run")
+    def test_git_commit_uses_default_message(self, mock_run):
+        """Test that git_commit uses COMMIT_MESSAGE as default parameter."""
+        git_commit()
+        mock_run.assert_called_once_with(
+            ["git", "commit", "-m", COMMIT_MESSAGE],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("subprocess.run")
+    def test_git_commit_raises_on_git_failure(self, mock_run):
+        """Test that git_commit raises CalledProcessError when git commit fails."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            1, ["git", "commit"], stderr="fatal: not a git repository"
+        )
+        with pytest.raises(subprocess.CalledProcessError):
+            git_commit(COMMIT_MESSAGE)
+
+    @patch("subprocess.run")
+    def test_git_commit_with_custom_message(self, mock_run):
+        """Test that git_commit accepts custom commit message parameter."""
+        custom_message = "Custom commit message"
+        git_commit(custom_message)
+        mock_run.assert_called_once_with(
+            ["git", "commit", "-m", custom_message],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+
+class TestGitPush:
+    """Tests for git_push git operation function."""
+
+    @patch("subprocess.run")
+    def test_git_push_calls_subprocess(self, mock_run):
+        """Test that git_push calls subprocess.run with correct arguments."""
+        git_push(BRANCH_NAME)
+        mock_run.assert_called_once_with(
+            ["git", "push", "-u", "origin", BRANCH_NAME],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("subprocess.run")
+    def test_git_push_uses_default_branch(self, mock_run):
+        """Test that git_push uses BRANCH_NAME as default parameter."""
+        git_push()
+        mock_run.assert_called_once_with(
+            ["git", "push", "-u", "origin", BRANCH_NAME],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("subprocess.run")
+    def test_git_push_raises_on_git_failure(self, mock_run):
+        """Test that git_push raises CalledProcessError when git push fails."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            1, ["git", "push"], stderr="fatal: Authentication failed"
+        )
+        with pytest.raises(subprocess.CalledProcessError):
+            git_push(BRANCH_NAME)
+
+    @patch("subprocess.run")
+    def test_git_push_with_custom_branch(self, mock_run):
+        """Test that git_push accepts custom branch name parameter."""
+        custom_branch = "custom/branch-name"
+        git_push(custom_branch)
+        mock_run.assert_called_once_with(
+            ["git", "push", "-u", "origin", custom_branch],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+
+class TestMain:
+    """Tests for main orchestration function."""
+
+    def test_main_success_returns_zero(self):
+        """Test that main returns 0 on successful execution."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with patch("subprocess.run"):
+                    result = main()
+                    assert result == 0
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_main_creates_and_validates_file(self):
+        """Test that main creates and validates the markdown file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with patch("subprocess.run"):
+                    main()
+                    # Verify file was created
+                    assert Path(FILENAME).exists()
+                    # Verify it contains expected content
+                    content = Path(FILENAME).read_text()
+                    assert TITLE_TEXT in content
+                    assert PROSE_CONTENT in content
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_main_calls_git_operations(self):
+        """Test that main calls all git operations in sequence."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with patch("subprocess.run") as mock_run:
+                    main()
+                    # Verify git operations were called
+                    # Should have 3 git calls: add, commit, push
+                    assert mock_run.call_count == 3
+                    # Verify the calls were made in order: add, commit, push
+                    calls = mock_run.call_args_list
+                    assert calls[0][0][0] == ["git", "add", FILENAME]
+                    assert calls[1][0][0][0:3] == ["git", "commit", "-m"]
+                    assert calls[2][0][0] == ["git", "push", "-u", "origin", BRANCH_NAME]
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_main_fails_on_file_not_found(self):
+        """Test that main returns 1 when file creation fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with patch(
+                    "sheep.features.feature_207_markdown_file_creation.create_markdown_file",
+                    side_effect=FileNotFoundError("File creation failed"),
+                ):
+                    result = main()
+                    assert result == 1
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_main_fails_on_validation_error(self):
+        """Test that main returns 1 when validation fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with patch(
+                    "sheep.features.feature_207_markdown_file_creation.validate_markdown_file",
+                    side_effect=ValueError("Validation failed"),
+                ):
+                    result = main()
+                    assert result == 1
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_main_fails_on_git_error(self):
+        """Test that main returns 1 when git operations fail."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, ["git"])):
+                    result = main()
+                    assert result == 1
             finally:
                 import os
 
