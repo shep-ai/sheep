@@ -377,3 +377,94 @@ def validate_markdown_file(file_path: Path) -> bool:
     except ValueError as e:
         _logger.error(f"Validation failed: {e}")
         raise
+
+
+def git_add() -> None:
+    """Stage markdown file in git index using 'git add' command.
+
+    Uses subprocess.run() with check=True for fail-fast behavior. Any git
+    error raises CalledProcessError with stderr context for debugging.
+
+    Raises:
+        subprocess.CalledProcessError: If git add command fails (including
+            missing git, no repository, permission issues, etc.)
+    """
+    try:
+        _logger.debug(f"Staging file with git add: {FILENAME}")
+
+        result = subprocess.run(
+            ["git", "add", FILENAME],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        _logger.info(f"Successfully staged {FILENAME} with git add")
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git add failed: {e.stderr}" if e.stderr else str(e)
+        _logger.error(f"Failed to stage file: {error_msg}")
+        raise
+
+
+def git_commit() -> None:
+    """Create git commit with conventional commit message.
+
+    Uses subprocess.run() with check=True for fail-fast behavior. Commit
+    message follows conventional commits format: feat(206): description
+
+    Any git error raises CalledProcessError with stderr context for debugging.
+
+    Raises:
+        subprocess.CalledProcessError: If git commit command fails (including
+            no staged changes, git configuration issues, hook failures, etc.)
+    """
+    try:
+        _logger.debug(f"Creating git commit with message: {COMMIT_MESSAGE}")
+
+        result = subprocess.run(
+            ["git", "commit", "-m", COMMIT_MESSAGE],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        _logger.info(f"Successfully created commit: {COMMIT_MESSAGE}")
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git commit failed: {e.stderr}" if e.stderr else str(e)
+        _logger.error(f"Failed to commit file: {error_msg}")
+        raise
+
+
+def git_push() -> None:
+    """Push commit to feature branch using 'git push' command.
+
+    Uses subprocess.run() with check=True for fail-fast behavior. The -u flag
+    sets upstream tracking on the first push, establishing the relationship
+    between the local feature branch and remote tracking branch.
+
+    Any git error raises CalledProcessError with stderr context for debugging.
+    This captures network errors, authentication failures, branch protection
+    rules, and other push-related issues.
+
+    Raises:
+        subprocess.CalledProcessError: If git push command fails (including
+            network errors, authentication issues, branch protection, etc.)
+    """
+    try:
+        _logger.debug(f"Pushing commit to remote branch: {BRANCH_NAME}")
+
+        result = subprocess.run(
+            ["git", "push", "-u", "origin", BRANCH_NAME],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        _logger.info(f"Successfully pushed commit to {BRANCH_NAME}")
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git push failed: {e.stderr}" if e.stderr else str(e)
+        _logger.error(f"Failed to push commit: {error_msg}")
+        raise

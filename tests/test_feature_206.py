@@ -1,7 +1,9 @@
 """Tests for feature 206: Markdown file creation with hard-coded content."""
 
+import subprocess
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -10,6 +12,9 @@ from sheep.features.feature_206_markdown_file_creation import (
     PROSE_CONTENT,
     TITLE_TEXT,
     create_markdown_file,
+    git_add,
+    git_commit,
+    git_push,
     validate_blank_separator,
     validate_encoding,
     validate_file_size,
