@@ -1,0 +1,302 @@
+name: "markdown-file-creation-870df7"
+summary: >
+  Implementation plan for feature 205: Create a single markdown file (test-m6zeml.md)
+  with hard-coded H1 title and 2-3 sentences of prose. The implementation follows
+  the single-module pattern established in features 200-204, using pathlib.Path for
+  file I/O, subprocess.run() for git operations, and a comprehensive validation pipeline.
+  The feature demonstrates straightforward file creation within the Sheep workflow without
+  external dependencies (no Claude API calls).
+
+relatedFeatures:
+  - number: 204
+    name: "markdown-file-creation-946f62"
+    relationship: "Direct predecessor; establishes module architecture and validation patterns"
+  - number: 203
+    name: "markdown-file-creation-213afa"
+    relationship: "Earlier feature in series; establishes validation patterns"
+
+technologies:
+  - "Python 3.11+ (standard library: pathlib, subprocess, sys)"
+  - "pathlib.Path for file I/O and path management"
+  - "subprocess.run() for git command execution"
+  - "sheep.observability.logging for structured logging"
+  - "Markdown (CommonMark specification)"
+  - "Git command-line interface"
+  - "UTF-8 text encoding with Unix LF line endings"
+
+relatedLinks:
+  - title: "Feature 204 Implementation (Python module pattern)"
+    url: "file:///src/sheep/features/feature_204_markdown_file_creation.py"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+
+phases:
+  - id: phase-1
+    name: "Module Structure & Content Definition"
+    description: >
+      Create the feature module with hard-coded constants (filename, title, prose content),
+      set up imports (pathlib, subprocess, logging), and define the module-level constants
+      that will be used throughout. This phase establishes the foundation with no external
+      dependencies and ensures all content is transparent and auditable.
+    parallel: false
+
+  - id: phase-2
+    name: "File Creation & Validation Pipeline"
+    description: >
+      Implement the create_markdown_file() function to write the markdown file using
+      pathlib.Path.write_text(), then build the comprehensive validation pipeline
+      (validate_markdown_format, validate_sentence_count, validate_encoding,
+      validate_line_endings, validate_file_size). Validation runs before any git
+      operations to fail-fast on errors.
+    parallel: false
+
+  - id: phase-3
+    name: "Git Integration"
+    description: >
+      Implement git operations (git_add_file, git_commit, git_push) using subprocess.run()
+      with check=True for fail-fast behavior. These functions are called after successful
+      validation, ensuring only correct files are committed and pushed.
+    parallel: false
+
+  - id: phase-4
+    name: "Orchestration & Testing"
+    description: >
+      Implement the main() orchestration function that calls file creation, validation,
+      and git operations in sequence. Write comprehensive unit tests for all functions,
+      integration tests for the complete workflow, and edge-case tests for validation.
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_205_markdown_file_creation.py"
+  - "tests/features/test_feature_205_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 205 implements a single, focused module following the proven pattern established in
+  features 200-204. The architecture is straightforward and transparent:
+
+  **Module Location:** `src/sheep/features/feature_205_markdown_file_creation.py`
+
+  **Design Pattern:** Single-module architecture with separated concerns:
+  1. **Content Definition** — Module-level constants define filename, title text, and prose content
+  2. **File Creation** — create_markdown_file() writes the markdown file using pathlib.Path
+  3. **Validation Pipeline** — Multiple validation functions check format, encoding, line endings, etc.
+  4. **Git Operations** — Separate functions for git add, commit, and push
+  5. **Orchestration** — main() function coordinates the complete workflow
+
+  **Integration Points:**
+  - Uses `sheep.observability.logging.get_logger(__name__)` for structured logging
+  - No other sheep module dependencies (purely standalone)
+  - No external API calls (hard-coded content eliminates Claude API dependency)
+  - Minimal stdlib imports: pathlib, subprocess, sys
+
+  This approach aligns with the established pattern and ensures the module is:
+  - Easy to understand (all logic in one file)
+  - Easy to test (functions are independently testable)
+  - Transparent (hard-coded content is visible and auditable)
+  - Deterministic (identical output on repeated execution)
+
+  ## Key Design Decisions
+
+  ### Decision 1: Hard-Coded Deterministic Content
+
+  **Chosen:** Embed H1 title and prose content as module-level constants.
+
+  **Alternatives Considered:**
+  - Claude API with temperature=0 (feature 204 approach) — rejected because it adds API latency,
+    requires configuration, and violates the straightforward nature of this feature
+  - Random/generated content — rejected because it violates determinism requirement (spec requires
+    reproducible execution)
+
+  **Rationale:**
+  The feature specification explicitly resolves this decision with clear justification: determinism
+  enables reliable testing and review, matches the pattern in features 200-204, and provides
+  sufficient flexibility (implementation team can choose any appropriate topic) while maintaining
+  simplicity. Hard-coded content removes external dependencies and aligns with the feature's core
+  purpose: demonstrating straightforward file creation within the Sheep workflow.
+
+  **Implementation:**
+  ```python
+  TITLE_TEXT = "Understanding Code Documentation"
+  PROSE_CONTENT = "Effective documentation is essential for code maintainability and team collaboration. Clear, concise documentation helps new team members onboard quickly and reduces cognitive load for future developers. Writing good documentation is an investment that pays dividends throughout a project's lifecycle."
+  ```
+
+  ### Decision 2: File I/O via pathlib.Path
+
+  **Chosen:** Use `pathlib.Path(FILENAME).write_text(content, encoding='utf-8')`
+
+  **Alternatives Considered:**
+  - Sheep's FileWriteTool abstraction — valid but feature 204 uses direct pathlib for transparency
+  - io.open() with manual encoding/newline handling — more verbose, less idiomatic
+
+  **Rationale:**
+  Feature 204 establishes pathlib as the standard for this feature series. Benefits:
+  - Cross-platform compatibility (pathlib handles path separators)
+  - UTF-8 encoding is explicit and transparent
+  - LF line endings are native on Unix systems (pathlib doesn't introduce CRLF)
+  - Modern Python best practice (recommended for Python 3.4+)
+  - Validation functions verify actual bytes to confirm correct encoding and line endings
+
+  ### Decision 3: Comprehensive Validation Before Git Operations
+
+  **Chosen:** Implement separate validation functions that run before any git operations.
+
+  **Validation Functions:**
+  - verify_file_exists() — Confirms file was created
+  - validate_markdown_format() — Checks H1 heading structure and blank line separation
+  - validate_sentence_count() — Verifies exactly 2-3 sentences in prose
+  - validate_encoding() — Confirms UTF-8 encoding, no BOM
+  - validate_line_endings() — Confirms LF only (no CRLF/CR)
+  - validate_file_size() — Checks reasonable file size (250-600 bytes)
+  - validate_markdown_file() — Orchestration function that runs all validations
+
+  **Rationale:**
+  Specification defines detailed success criteria for markdown format, encoding, line endings,
+  and sentence count. Comprehensive validation:
+  - Detects errors immediately with specific error messages
+  - Creates an audit trail of all checks performed
+  - Matches the established pattern in features 200-204
+  - Uses only standard library (no external markdown parser)
+  - Enables fail-fast: exit on first validation error before git operations
+
+  ### Decision 4: Direct subprocess.run() for Git Operations
+
+  **Chosen:** Use `subprocess.run(['git', ...], check=True, capture_output=True, text=True)`
+
+  **Alternatives Considered:**
+  - Sheep's git tool abstractions — add indirection without proportional benefit
+  - GitPython library — external dependency, less transparent error reporting
+
+  **Rationale:**
+  Feature 204 establishes subprocess.run() as the standard. Benefits:
+  - Git commands are directly visible in code (transparency)
+  - Error messages from git are reported via stderr (immediate feedback)
+  - check=True ensures fail-fast: CalledProcessError on any failure
+  - Only standard library required
+  - Matches features 200-204 exactly
+
+  **Git Operations:**
+  - `git add test-m6zeml.md` — Stage the new file
+  - `git commit -m "feat(205): Create markdown file test-m6zeml.md"` — Commit with conventional message
+  - `git push -u origin feat/205-markdown-file-creation-870df7` — Push to remote branch
+
+  ### Decision 5: Single Module Design
+
+  **Chosen:** Create one module (`feature_205_markdown_file_creation.py`) with all logic.
+
+  **Alternatives Considered:**
+  - Multiple modules (generation.py, validation.py, git.py) — adds complexity and overhead
+  - Class-based OOP design — boilerplate (init, self) without matching established pattern
+
+  **Rationale:**
+  Features 200-204 consistently use single-module architecture. Benefits:
+  - All logic is visible in one file for clear understanding of complete workflow
+  - Functions can be tested independently without module coupling
+  - Follows proven pattern and codebase conventions
+  - Simpler to understand, maintain, and debug
+  - No unnecessary file overhead
+
+  **Module Structure:**
+  - Module docstring and imports
+  - Constants (FILENAME, TITLE_TEXT, PROSE_CONTENT, COMMIT_MESSAGE, etc.)
+  - File creation function
+  - Validation helper functions
+  - Git operation functions
+  - Orchestration (main function)
+  - Script entry point (if __name__ == "__main__")
+
+  ### Decision 6: Structured Logging via sheep.observability
+
+  **Chosen:** Use `sheep.observability.logging.get_logger(__name__)` for all logging.
+
+  **Rationale:**
+  Feature 204 and the broader sheep codebase use sheep.observability for structured logging
+  integrated with Langfuse observability. This provides:
+  - Correlation with other system components
+  - Structured fields for debugging
+  - Consistent pattern across all features
+  - Better observability in production
+
+  **Logging Levels:**
+  - INFO: Major workflow steps (file creation, validation phases, git operations)
+  - DEBUG: Detailed operation results (validation checks, git command output)
+  - ERROR: Full error context for debugging
+
+  ## Implementation Strategy
+
+  ### Phase Ordering Rationale
+
+  **Phase 1 (Module Structure & Content)** comes first because:
+  - Establishes the foundation with all constants in one place
+  - Module must exist before any other code can reference it
+  - Hard-coded content is transparent and requires no decisions downstream
+
+  **Phase 2 (File Creation & Validation)** comes next because:
+  - File must be created before it can be validated
+  - Validation runs before git operations to ensure correctness
+  - Validation functions are complex and need to be correct before use
+
+  **Phase 3 (Git Integration)** comes after validation because:
+  - Only validated files should be committed
+  - Git operations are simple and depend on file creation/validation working correctly
+
+  **Phase 4 (Orchestration & Testing)** comes last because:
+  - main() function coordinates all phases and should be tested end-to-end
+  - Tests verify all previous work
+  - Integration tests ensure phases work correctly together
+
+  ### Sequential Workflow
+
+  The implementation follows a fail-fast, linear workflow:
+
+  ```
+  1. Create markdown file (pathlib.Path.write_text)
+  2. Validate markdown file (comprehensive pipeline)
+  3. Git add file
+  4. Git commit with conventional message
+  5. Git push to remote branch
+  ```
+
+  If any step fails, the workflow stops immediately with an error message. This ensures:
+  - No partial/incomplete commits
+  - Clear error messages for debugging
+  - Simple, predictable execution flow
+  - Easy to test each phase independently
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | File encoding inconsistency (UTF-8 vs. other encodings) | Explicit `encoding='utf-8'` parameter in pathlib.write_text(); validation function checks actual file bytes for UTF-8 validity and absence of BOM |
+  | Line ending inconsistency (CRLF vs. LF) | pathlib.write_text() on Unix produces LF natively; validation function checks actual file bytes to ensure no CRLF/CR present |
+  | Hard-coded prose content is generic or low-quality | Implementation team chooses a clear, coherent topic (e.g., "Understanding Code Documentation"); review process validates prose quality |
+  | Git command fails silently | Use subprocess.run() with check=True for fail-fast behavior; CalledProcessError raised on any git failure with stderr output |
+  | Validation functions have bugs or miss requirements | Comprehensive unit tests for each validation function with edge cases; integration tests verify all success criteria |
+  | Module not discoverable by Sheep platform | Follow naming convention (feature_XXX_name.py); place in src/sheep/features/; implement main() function as entry point |
+  | Hard-coded path "test-m6zeml.md" causes issues | Use pathlib.Path(FILENAME) with FILENAME constant; no path traversal possible (fixed, known filename) |
+  | File already exists from previous run | Overwrite existing file (pathlib.write_text() truncates); validation confirms file is correct; git operations are idempotent (commit only if changes exist) |
+
+  ## Testing Strategy
+
+  **Unit Tests:** Test each function independently with various scenarios
+  - File creation with correct format
+  - Validation functions with invalid inputs (missing H1, wrong encoding, CRLF, wrong sentence count, etc.)
+  - Git operations (mocked subprocess.run calls)
+
+  **Integration Tests:** Test complete workflow end-to-end
+  - Create file → validate → commit → push (in temporary git repo)
+  - Verify file exists, has correct content, is committed with correct message
+
+  **Edge Cases:**
+  - File already exists (verify overwrite works)
+  - File with CRLF line endings (validation detects and fails)
+  - File with non-UTF-8 encoding (validation detects and fails)
+  - File with < 2 or > 3 sentences (validation detects and fails)
+  - Git command failures (subprocess.run raises CalledProcessError)
