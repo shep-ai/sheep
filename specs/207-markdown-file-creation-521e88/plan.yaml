@@ -1,0 +1,201 @@
+name: "markdown-file-creation-521e88"
+summary: >
+  "Feature 207 implements deterministic markdown file creation using Claude API with
+  temperature=0 for dynamic, reproducible content generation. The architecture follows
+  established patterns from features 200-206, with comprehensive heuristic validation
+  (no external markdown parsers), proper encoding/line-ending handling, and integrated
+  git workflows. Implementation uses four phases: foundation with Claude API integration,
+  comprehensive heuristic validation, git operations, and testing to ensure determinism."
+
+relatedFeatures:
+  - 206
+  - 205
+  - 204
+  - 203
+  - 202
+  - 201
+  - 200
+
+technologies:
+  - "Claude API (Anthropic)"
+  - "Python 3.10+"
+  - "pathlib"
+  - "subprocess"
+  - "structlog"
+  - "CrewAI LLM wrapper"
+  - "Git"
+  - "Markdown"
+
+relatedLinks:
+  - title: "Feature 204 Implementation (Claude API + temperature=0 pattern)"
+    url: "src/sheep/features/feature_204_markdown_file_creation.py"
+  - title: "Feature 206 Implementation (heuristic validation pattern)"
+    url: "src/sheep/features/feature_206_markdown_file_creation.py"
+  - title: "LLM Configuration Factory"
+    url: "src/sheep/config/llm.py"
+  - title: "Structured Logging"
+    url: "src/sheep/observability/logging.py"
+
+phases:
+  - id: "phase-1"
+    name: "Foundation & Content Generation"
+    description: "Set up feature module structure, implement Claude API integration for title and prose generation with deterministic temperature=0 settings. This phase establishes the core content generation pipeline following the feature 203-204 pattern."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Comprehensive Validation"
+    description: "Implement six dedicated validation functions (markdown format, encoding, line endings, sentence count, file size, orchestration). Uses heuristic validation approach (regex/string matching) with no external markdown parsers, following feature 206 pattern and project constraints."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Git Integration & Orchestration"
+    description: "Implement git operations (add, commit, push) via subprocess, and create main orchestration function that coordinates generation, validation, and git workflows. Includes proper error handling and logging at each step."
+    parallel: false
+
+  - id: "phase-4"
+    name: "Testing & Verification"
+    description: "Write integration tests for complete workflow and determinism tests with temperature=0. Verify that repeated calls produce identical output and that all validation and git operations work correctly."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_207_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 207 follows the established feature module pattern from features 200-206:
+
+  1. **Module Organization** — Single feature module (feature_207_markdown_file_creation.py) with organized function groups:
+     - Content generation (generate_title, generate_prose, create_markdown_file)
+     - Validation functions (validate_markdown_format, validate_encoding, validate_line_endings, validate_sentence_count, validate_file_size, validate_markdown_file)
+     - Git operations (git_add_file, git_commit, git_push)
+     - Main orchestration (main)
+
+  2. **LLM Integration** — Uses sheep.config.llm.create_llm(temperature=0) factory pattern:
+     - Provides automatic API key handling via settings
+     - Ensures deterministic output via temperature=0
+     - Follows the pattern established by features 203-204
+     - No hardcoded API keys or model names
+
+  3. **Validation Architecture** — Heuristic validation using regex and string operations (no external markdown parsers):
+     - Each validation concern is a dedicated function with single responsibility
+     - All functions return True on success or raise ValueError with clear error messages
+     - Follows feature 206 validation pattern
+     - Main orchestration function validate_markdown_file() calls all validators in sequence
+
+  4. **Git Integration** — Subprocess-based git operations with proper error handling:
+     - git add/commit/push via subprocess with shell=False for security
+     - Conventional commit format: feat(207): [description]
+     - Error output captured and preserved for debugging
+     - Fail-fast behavior with CalledProcessError preservation
+
+  5. **File I/O** — Uses pathlib.Path for proper encoding and line-ending handling:
+     - UTF-8 encoding without BOM via .write_text(encoding=\"utf-8\")
+     - Unix LF line endings preserved by Python text mode on Linux
+     - Binary read for encoding validation (check for BOM bytes)
+     - Binary read for line-ending validation (check for CRLF/CR patterns)
+
+  ## Key Design Decisions
+
+  ### 1. Content Generation via Claude API (temperature=0) vs Hard-Coded Content
+
+  **Chosen:** Claude API with temperature=0 for deterministic, dynamic content generation
+
+  **Rationale:**
+  - Specification explicitly requires Claude API usage with temperature=0 in FR-9
+  - Product decision requires freely-chosen topic selection by Claude
+  - Follows architectural pattern from features 203-204 which achieve determinism via temperature=0
+  - Simpler than hard-coded approach while maintaining full determinism
+  - sheep.config.llm.create_llm(temperature=0) factory provides necessary abstraction
+
+  **Alternative Rejected:** Hard-coded content (feature 206 pattern) would violate explicit specification requirement and reduce content variety despite determinism.
+
+  ### 2. Markdown Validation via Heuristic Patterns vs External Parser Library
+
+  **Chosen:** Heuristic validation using regex and string matching (no external markdown parsers)
+
+  **Rationale:**
+  - Project constraint explicitly states \"no external dependencies beyond existing infrastructure\"
+  - Heuristic validation is simple, effective, and matches patterns from features 200-206
+  - Checks: H1 heading present (regex ^# ), blank line separator, 2-3 sentences (period counting), no duplicate H1s
+  - Catches real markdown issues while minimizing complexity
+  - Feature 206 demonstrates this pattern successfully
+
+  **Alternative Rejected:** Markdown parser libraries (mistune, markdown) violate project dependency constraints.
+
+  ### 3. File Size Validation with Soft Warnings vs Hard Rejection
+
+  **Chosen:** Soft validation — log warnings if outside 200-700 byte range, but allow commit to proceed
+
+  **Rationale:**
+  - Specification's product decision explicitly recommends soft validation
+  - Provides observability without unnecessarily blocking valid commits
+  - File size naturally varies with prose content (2 sentences ~250 bytes, 3 sentences ~350-400 bytes)
+  - Soft validation logs warnings via get_logger().warning() if size deviates significantly
+  - Maintains transparency per logging standards (NFR-10) while preventing false negatives
+
+  **Alternative Rejected:** Hard rejection would violate product decision and unnecessarily block valid commits.
+
+  ### 4. Fail-Fast Error Handling with Clear Messages vs Automatic Retry
+
+  **Chosen:** Fail-fast approach with explicit error messages and structured logging
+
+  **Rationale:**
+  - Product decision explicitly recommends fail-fast approach
+  - Aligns with feature module pattern from 200-206
+  - Makes failures transparent to users and avoids hidden content modifications
+  - Enables rapid debugging via clear error messages and full exception context
+  - All exceptions caught at main() level with descriptive logging
+
+  **Alternative Rejected:** Automatic retry with prompt refinement adds significant complexity and obscures issues.
+
+  ## Implementation Strategy
+
+  ### Phase Ordering Rationale
+
+  1. **Phase 1 First (Foundation & Content Generation)** — Implement core content generation and file creation:
+     - Establishes basic file creation and validation patterns
+     - Phase 2 validators can test against files created by Phase 1 functions
+     - No dependencies on git operations; enables parallel development
+
+  2. **Phase 2 Second (Comprehensive Validation)** — Implement all validation functions:
+     - Depends on Phase 1's file creation capability
+     - Can be developed in parallel with Phase 3 (no git dependencies)
+     - Comprehensive validation enables Phase 3's main() orchestration to call validators
+
+  3. **Phase 3 Third (Git Integration & Orchestration)** — Implement git operations and main():
+     - Depends on Phase 1 (file creation) and Phase 2 (validation)
+     - main() function orchestrates generation → validation → git operations
+     - Each git operation tested independently before orchestration
+
+  4. **Phase 4 Last (Testing & Verification)** — Write integration and determinism tests:
+     - Depends on all previous phases
+     - Integration tests verify complete workflow
+     - Determinism tests confirm temperature=0 behavior
+     - No phase can proceed without complete Phase 3
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Claude API rate limiting or timeout during generation | Use temperature=0 for determinism; add timeout configuration. Feature size (S) makes failures low-impact. |
+  | Validation rejecting valid markdown due to overly strict heuristic rules | Test validators against feature 206's successful patterns; use permissive validation while enforcing critical rules. |
+  | Git operation failures (auth, network) due to remote branch not existing | Push creates branch automatically via `git push -u origin HEAD`; subprocess error handling preserves stderr. |
+  | UTF-8 BOM unexpectedly present | pathlib.Path.write_text(..., encoding=\"utf-8\") explicitly prevents BOM; validate_encoding() checks and rejects via binary inspection. |
+  | Line-ending normalization on Windows | Validation explicitly checks for CRLF/CR; CI/test environment is Linux (always LF). |
+  | Temperature=0 still produces minor variations | Temperature=0 is vendor-guaranteed deterministic in Claude API; verified by features 203-204 track record. |
+  | Integration test side effects (leftover files/commits) | Test uses isolated feature branch; cleanup via git reset or worktree isolation if needed. |
+
+  ## Dependencies & Integration Points
+
+  **No external dependencies** beyond existing project infrastructure:
+  - Git (system command)
+  - Claude API (via sheep.config.llm.create_llm)
+  - pathlib (Python built-in)
+  - subprocess (Python built-in)
+  - structlog (via sheep.observability.logging.get_logger)
+  - Feature 203-204 code patterns (reference only, no actual code dependency)
