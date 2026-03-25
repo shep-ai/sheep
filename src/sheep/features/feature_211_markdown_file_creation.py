@@ -418,7 +418,7 @@ def git_add_file(filename: str = FILENAME) -> None:
     _logger.info(f"Staging file with git: {filename}")
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["git", "add", filename],
             check=True,
             capture_output=True,
@@ -449,7 +449,7 @@ def git_commit(commit_message: str = COMMIT_MESSAGE) -> None:
     _logger.info(f"Committing changes: {commit_message}")
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["git", "commit", "-m", commit_message],
             check=True,
             capture_output=True,
@@ -481,7 +481,7 @@ def git_push(branch_name: str = BRANCH_NAME) -> None:
     _logger.info(f"Pushing to remote branch: {branch_name}")
 
     try:
-        result = subprocess.run(
+        subprocess.run(
             ["git", "push", "-u", "origin", "HEAD"],
             check=True,
             capture_output=True,
@@ -545,7 +545,7 @@ def main() -> int:
         git_push(BRANCH_NAME)
         _logger.info("✓ Changes pushed to remote")
 
-        _logger.info(f"✓ Feature 211 implementation completed successfully")
+        _logger.info("✓ Feature 211 implementation completed successfully")
         return 0
 
     except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as e:
