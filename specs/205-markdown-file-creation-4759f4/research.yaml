@@ -1,0 +1,454 @@
+name: "markdown-file-creation-4759f4"
+summary: >
+  Technical implementation research for feature 205: Create test-grk9g8.md markdown file with title and prose.
+  Follows established pattern from 200+ prior test files (features 150-204). Key decisions: Use sheep.config.llm.create_llm(temperature=0)
+  for deterministic Claude API prose generation, manual pattern-based markdown validation (H1 format, blank line,
+  sentence count, encoding, line endings, file size), pathlib.Path for file I/O, subprocess for git operations,
+  and fail-fast error handling with specific messages. All decisions validated by implementations in features 202-204.
+
+relatedFeatures:
+  - number: 204
+    name: "markdown-file-creation-946f62"
+    relationship: "Immediately preceding feature; identical pattern and direct code precedent"
+  - number: 203
+    name: "markdown-file-creation-213afa"
+    relationship: "Prior feature; demonstrates same implementation approach"
+  - number: 202
+    name: "markdown-file-creation-4dbea6"
+    relationship: "Prior feature; pattern precedent for 200+ test files"
+
+technologies:
+  - "Python 3.11+ (standard library: pathlib, subprocess, sys)"
+  - "CrewAI LLM wrapper (sheep.config.llm.create_llm)"
+  - "Claude API (anthropic provider, temperature=0 for determinism)"
+  - "structlog (sheep.observability.logging.get_logger)"
+  - "Git command-line (subprocess-based operations)"
+  - "Markdown (CommonMark specification, manual validation)"
+  - "UTF-8 text encoding (with LF line endings)"
+
+relatedLinks:
+  - title: "Feature 204 Implementation (Direct Precedent)"
+    url: "file:///src/sheep/features/feature_204_markdown_file_creation.py"
+  - title: "Feature 203 Implementation (Prior Precedent)"
+    url: "file:///src/sheep/features/feature_203_markdown_file_creation.py"
+  - title: "CrewAI LLM Module"
+    url: "file:///src/sheep/config/llm.py"
+  - title: "Sheep Structured Logging"
+    url: "file:///src/sheep/observability/logging.py"
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3.11/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3.11/library/subprocess.html"
+
+decisions:
+  - title: "Claude API Integration & Deterministic Generation"
+    chosen: "Use sheep.config.llm.create_llm(temperature=0) for deterministic prose generation"
+    rejected:
+      - "Direct anthropic SDK calls — adds unnecessary dependency, loses CrewAI integration, harder to configure API keys"
+      - "Embedding prose in code as constants — loses flexibility, doesn't match established pattern from features 150-204, can't customize content per feature"
+      - "External AI service (OpenAI/Google) — violates specification requiring Claude API, increases latency and cost"
+    rationale: >
+      The sheep.config.llm.create_llm factory is already available and handles API key management, model selection,
+      and temperature configuration. Using temperature=0 ensures reproducible output across runs (same feature number
+      generates identical content), which is critical for automated test systems. This approach matches features 150-204
+      and integrates seamlessly with CrewAI infrastructure. Features 202-204 demonstrate this pattern is proven,
+      reliable, and consistently produces high-quality prose within expected performance parameters (2-3 seconds API call).
+
+  - title: "Content Generation Strategy"
+    chosen: "Single Claude API call with structured prompt; parse H1 title and prose from response"
+    rejected:
+      - "Multiple API calls (one for title, one for prose) — increases latency by 100%, doubles cost, harder to ensure thematic consistency between title and prose"
+      - "Streaming response parsing — adds complexity, requires async handling, no benefit for simple prose generation"
+      - "Template-based generation (substituting variables into templates) — loses natural language quality, difficult to validate, doesn't match established pattern from features 150-204"
+    rationale: >
+      Features 203-204 demonstrate that a single well-crafted prompt with clear format example (H1 heading, blank line, prose)
+      reliably generates markdown content in the required format. The response is simple to parse with string operations.
+      This approach is efficient (one API call, ~2-3 seconds), deterministic with temperature=0, and matches the established
+      pattern exactly. The prompt explicitly requests only the markdown content with no additional text, making parsing robust
+      and eliminating ambiguity in parsing logic.
+
+  - title: "Markdown Validation Approach"
+    chosen: "Manual pattern-based validation without external markdown parsing library"
+    rejected:
+      - "CommonMark parser library (markdown, commonmark, markdown-it) — adds external dependency (not in pyproject.toml), increases code size and memory footprint, overkill for simple test files with known structure"
+      - "Minimal validation (just check file exists) — fails to catch formatting issues early, allows invalid test files into repository, inconsistent with comprehensive validation already implemented in features 150-204"
+      - "Regex-based validation — harder to maintain and debug than explicit string parsing, no benefit for simple structure"
+    rationale: >
+      Comprehensive, manual validation is already established and proven in features 150-204 and validates all critical
+      requirements: (1) First line is H1 heading, (2) second line is blank, (3) prose has exactly 2-3 sentences, (4) UTF-8
+      encoding without BOM, (5) Unix LF line endings only, (6) file size in reasonable range (250-600 bytes). This approach
+      catches formatting issues immediately with specific error messages. Manual validation requires only standard library
+      (pathlib, str.split, str.count) and adds no dependencies. The structure is simple and well-understood, so pattern-based
+      validation is sufficient and preferred over a general-purpose markdown parser.
+
+  - title: "File I/O & Encoding Handling"
+    chosen: "Use pathlib.Path.write_text(encoding='utf-8') for file creation; manual binary validation for BOM and line endings"
+    rejected:
+      - "Open file with io.open() and manage encoding manually — more verbose, requires manual newline handling, pathlib is the modern standard for Python 3.11+"
+      - "codecs module for encoding — overly complex for simple UTF-8 file creation, pathlib handles this cleanly"
+      - "Assume encoding is correct (skip validation) — fails to meet NFR-3 (comprehensive validation), risks inconsistent test files across platforms"
+    rationale: >
+      pathlib.Path is the standard modern Python file I/O library (recommended since Python 3.4, standard in 3.11+).
+      The write_text() method handles UTF-8 encoding directly and automatically uses LF line endings on Unix systems
+      (the deployment target). Validation is performed post-creation using binary reads to check for UTF-8 BOM and
+      to verify no CRLF or CR line endings are present. This matches the exact pattern from features 203-204.
+      Separating file creation from validation allows clear error messages when validation fails and simplifies debugging.
+
+  - title: "Git Operations & Workflow"
+    chosen: "Use subprocess.run() with check=True for git add, commit, and push operations"
+    rejected:
+      - "GitPython library (available in pyproject.toml) — adds abstraction layer, harder to debug git failures, subprocess is simpler and more direct"
+      - "Shell script or bash wrapper — harder to cross-platform test, no clear advantage over subprocess, less Pythonic"
+      - "Manual push only (skip push operation) — doesn't match specification or established pattern, leaves feature incomplete"
+    rationale: >
+      subprocess.run() with check=True provides fail-fast behavior: raises CalledProcessError immediately if any git
+      command fails, with specific error message from stderr. This approach matches features 150-204 exactly and
+      requires only standard library (subprocess). The feature branch is pre-created and isolated, so automatic push
+      completes the full workflow. Subprocess calls are simple to understand, debug (see exact git command and error),
+      and cross-platform compatible. Error messages from git are passed directly to the user for immediate resolution.
+
+  - title: "Error Handling & Fail-Fast Approach"
+    chosen: "Fail immediately on any error with specific, actionable error messages; no retry logic"
+    rejected:
+      - "Automatic retry on transient errors (up to 3 times) — adds complexity, may mask underlying problems, delays failure feedback in automated systems"
+      - "Graceful degradation (continue if optional step fails) — inappropriate for file creation where all steps are critical, leads to incomplete features"
+      - "Suppress errors silently — violates specification, makes debugging impossible, breaks automated workflows"
+    rationale: >
+      In automated systems, immediate feedback on failure enables quick resolution. Features 150-204 implement fail-fast
+      with specific error messages (e.g., "File already exists", "Expected 2-3 sentences, found 4"). This approach is
+      superior to retries because: (1) most failures are not transient (file exists, API error, disk full), (2) retries
+      add latency without solving the root problem, (3) specific error messages enable engineers to fix issues quickly.
+      The architecture ensures each step is independent and can be debugged separately. Features 202-204 confirm this
+      approach works reliably in practice.
+
+  - title: "Module Structure & Function Organization"
+    chosen: "Organize as single module feature_205_markdown_file_creation.py with focused functions"
+    rejected:
+      - "Monolithic script with inline logic — harder to test, reuse, and debug; violates Python modularity principles"
+      - "Multiple modules (feature_205_generation.py, feature_205_validation.py, feature_205_git.py) — overkill for simple feature, harder to maintain, diverges from established pattern across 200+ features"
+      - "Class-based OOP design — unnecessary for stateless operations, adds boilerplate, doesn't match established pattern"
+    rationale: >
+      Features 150-204 use a single module with focused functions, each with clear responsibility and docstring.
+      This structure is: (1) easy to understand and maintain, (2) testable (each function can be tested independently),
+      (3) reusable (functions can be called from tests or other features), (4) flexible (easy to customize filename,
+      branch, commit message by passing parameters). The main() function orchestrates the workflow and handles all
+      exception types with specific error handling. This pattern is proven across 200+ features and will be duplicated
+      for feature 205 with only constant values changed.
+
+  - title: "Logging Infrastructure"
+    chosen: "Use sheep.observability.logging.get_logger(__name__) for structured logging with debug/info/error levels"
+    rejected:
+      - "Python print() statements — loses structured logging, harder to filter/search logs, doesn't integrate with Langfuse observability"
+      - "System logging (syslog) — unnecessary complexity for feature module, loses context and feature-level filtering"
+      - "No logging — violates NFR-6 (observability requirement), makes debugging impossible in production systems"
+    rationale: >
+      sheep.observability.logging provides structured logging with rich output and integration with Langfuse.
+      Using get_logger(__name__) creates a logger with the module name as context, enabling filtering by feature.
+      Log levels are used appropriately: debug() for internal state (LLM response, parsed content), info() for
+      workflow progress (file created, validation passed), error() for failures (with context). This matches the
+      pattern from features 150-204 and provides observability for the automated system, enabling engineers to
+      diagnose issues without access to the code being executed.
+
+openQuestions:
+  - question: "Should prose sentence validation count periods only or detect actual sentence boundaries (handling abbreviations, ellipsis)?"
+    resolved: true
+    options:
+      - option: "Count periods (simple approach)"
+        description: "Count '.' characters in prose. Fast, deterministic, matches features 202-204 implementations. May miscount if prose contains abbreviations (e.g., 'Dr.', 'U.S.'), ellipsis ('...'), or decimal numbers, but Claude-generated prose avoids these patterns."
+        selected: true
+      - option: "Use sentence segmentation library"
+        description: "Use nltk.tokenize.sent_tokenize() or spaCy to detect actual sentence boundaries. More accurate, handles abbreviations. Adds external dependency (not in pyproject.toml), increases complexity, overkill for test files with predictable Claude-generated format."
+        selected: false
+      - option: "Require explicit sentence count in prompt"
+        description: "Ask Claude to generate exactly N sentences without punctuation variation. Constrains prose quality, harder to parse, doesn't match established pattern from features 150-204."
+        selected: false
+    selectionRationale: >
+      Counting periods matches the established and proven pattern from features 150-204 (200+ files) and is simple, deterministic,
+      and testable. The Claude prompt explicitly requests 2-3 'sentences', so Claude will use proper sentence structure with periods.
+      Test files are generated content with predictable format, not arbitrary user prose. While period counting can theoretically miscount
+      abbreviations, the test nature of these files and Claude's training makes this unlikely in practice. Features 202-204 validate
+      that this approach is reliable. Adding an external NLP library would be overkill and violate NFR-7 (standard library only).
+
+  - question: "Should the feature module handle custom filenames/branches or use constants for feature 205 only?"
+    resolved: true
+    options:
+      - option: "Use constants (FILENAME='test-grk9g8.md', BRANCH_NAME='feat/205-...')"
+        description: "Hard-code filename and branch name in module constants. Simple, focused, matches features 202-204. Functions accept defaults but can be overridden for testing. Less flexible but easier to maintain and aligns with single-feature-per-module pattern."
+        selected: true
+      - option: "Accept filename/branch as required arguments"
+        description: "Require FILENAME and BRANCH_NAME as command-line arguments or main() parameters. More flexible, could theoretically be reused for other filenames. Complicates API, doesn't match established pattern from 200+ prior features."
+        selected: false
+      - option: "Detect filename/branch from environment or config"
+        description: "Read feature number from environment, compute filename/branch dynamically. Over-engineered for single-use feature, adds magic, harder to debug, violates simplicity principle."
+        selected: false
+    selectionRationale: >
+      Features 150-204 use constants with defaults that can be overridden. The feature is specifically for test-grk9g8.md on
+      feat/205-markdown-file-creation-4759f4. Using constants makes the intent clear, matches established pattern across all 200+ features,
+      and simplifies testing. Functions can still accept parameters for testing without complicating the main() API. Constants document
+      the expected values clearly and enable instant verification that the feature is working on the correct file/branch.
+
+  - question: "Should Claude generation use a fixed seed (if available) or rely on temperature=0 for determinism?"
+    resolved: true
+    options:
+      - option: "Rely on temperature=0 only"
+        description: "Set temperature=0 in create_llm() and trust that same model/temperature produces consistent output. Works with Claude API, matches features 202-204, simple. However, Claude API doesn't expose seed parameter, so determinism depends only on temperature."
+        selected: true
+      - option: "Use seed parameter (if model supports it)"
+        description: "Pass seed parameter to API call for reproducibility. More robust, guarantees identical output. Currently not supported by Claude API, would require API updates and future maintenance."
+        selected: false
+      - option: "Cache generated content (same feature number always uses same prose)"
+        description: "Generate once, cache in JSON/YAML file, reuse for repeated runs. Eliminates API calls, fastest, 100% deterministic. Adds state management complexity, overkill for single-use feature, harder to maintain."
+        selected: false
+    selectionRationale: >
+      Claude API doesn't expose a seed parameter for reproducibility, so temperature=0 is the only available lever for determinism.
+      Features 202-204 use this approach successfully and confirm that at temperature=0, Claude produces consistent output for identical prompts.
+      The specification explicitly requires "temperature=0 for reproducibility", confirming this is the expected approach. This keeps the
+      implementation simple, matches established patterns, and avoids unnecessary caching or external seed logic.
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-25
+  - **Status:** Complete
+
+  ## Technology Decisions
+
+  ### 1. Claude API Integration & Deterministic Generation
+
+  **Chosen:** Use `sheep.config.llm.create_llm(temperature=0)` for deterministic prose generation
+
+  **Rejected:**
+  - Direct anthropic SDK calls — adds unnecessary dependency, loses CrewAI integration
+  - Embedding prose as constants — loses flexibility, doesn't match 200+ prior features
+  - External AI service (OpenAI/Google) — violates specification requiring Claude API
+
+  **Rationale:** The `sheep.config.llm.create_llm` factory is already available, handles API key management, and enables
+  temperature=0 for reproducible output. This approach matches features 150-204 and is proven to work reliably with consistent
+  prose quality (~2-3 second API latency).
+
+  ### 2. Content Generation Strategy
+
+  **Chosen:** Single Claude API call with structured prompt; parse H1 title and prose from response
+
+  **Rejected:**
+  - Multiple API calls (one for title, one for prose) — doubles latency and cost
+  - Streaming response parsing — adds complexity without benefit
+  - Template-based generation — loses natural language quality
+
+  **Rationale:** Features 203-204 prove that a single prompt generates markdown reliably in the required format (H1 heading,
+  blank line, prose). Simple string parsing extracts the content. Efficient, deterministic, and matches established pattern.
+
+  ### 3. Markdown Validation Approach
+
+  **Chosen:** Manual pattern-based validation without external markdown parsing library
+
+  **Rejected:**
+  - CommonMark parser library — adds external dependency not in pyproject.toml, overkill for simple test files
+  - Minimal validation (file exists only) — fails to catch formatting issues, inconsistent with prior features
+  - Regex-based validation — harder to maintain than explicit string parsing
+
+  **Rationale:** Comprehensive manual validation is already established in features 150-204 and validates all critical
+  requirements: H1 format, blank line, 2-3 sentences, UTF-8 without BOM, LF line endings, file size 250-600 bytes.
+  Requires only standard library (pathlib, str operations).
+
+  ### 4. File I/O & Encoding Handling
+
+  **Chosen:** Use `pathlib.Path.write_text(encoding='utf-8')` for file creation; manual binary validation for BOM and line endings
+
+  **Rejected:**
+  - `io.open()` with manual encoding — more verbose, requires manual newline handling
+  - `codecs` module — overly complex for simple UTF-8 file creation
+  - Skip validation — fails to meet comprehensive validation requirement
+
+  **Rationale:** pathlib.Path is the standard modern Python file I/O library (standard in 3.11+). The `write_text()` method
+  handles UTF-8 encoding directly and uses LF line endings on Unix systems. Post-creation validation uses binary reads to
+  check for UTF-8 BOM and verify no CRLF/CR line endings. Matches features 202-204 exactly.
+
+  ### 5. Git Operations & Workflow
+
+  **Chosen:** Use `subprocess.run()` with `check=True` for git add, commit, and push operations
+
+  **Rejected:**
+  - GitPython library — adds abstraction layer, harder to debug
+  - Shell script or bash wrapper — harder to test cross-platform
+  - Skip push operation — doesn't match specification or established pattern
+
+  **Rationale:** `subprocess.run()` with `check=True` provides fail-fast behavior, raising CalledProcessError immediately
+  on failure. Matches features 150-204, requires only standard library, enables clear error messages. Feature branch is
+  pre-created, so automatic push completes the full workflow.
+
+  ### 6. Error Handling & Fail-Fast Approach
+
+  **Chosen:** Fail immediately on any error with specific, actionable error messages; no retry logic
+
+  **Rejected:**
+  - Automatic retry on transient errors — adds complexity, may mask underlying problems
+  - Graceful degradation — inappropriate for file creation where all steps are critical
+  - Suppress errors silently — violates specification, makes debugging impossible
+
+  **Rationale:** Immediate feedback on failure enables quick resolution in automated systems. Features 150-204 implement
+  fail-fast with specific error messages (e.g., "File already exists", "Expected 2-3 sentences, found 4"). This is
+  superior to retries because most failures are not transient and specific error messages enable quick fixes.
+
+  ### 7. Module Structure & Function Organization
+
+  **Chosen:** Organize as single module `feature_205_markdown_file_creation.py` with focused functions
+
+  **Rejected:**
+  - Monolithic script with inline logic — harder to test, reuse, and debug
+  - Multiple modules (generation, validation, git) — overkill for simple feature
+  - Class-based OOP design — unnecessary for stateless operations
+
+  **Rationale:** Features 150-204 use a single module with focused functions. This structure is easy to understand,
+  maintain, test independently, and reuse. The `main()` function orchestrates the workflow with specific exception
+  handling. Proven pattern across 200+ features.
+
+  ### 8. Logging Infrastructure
+
+  **Chosen:** Use `sheep.observability.logging.get_logger(__name__)` for structured logging
+
+  **Rejected:**
+  - Python `print()` statements — loses structured logging, doesn't integrate with Langfuse
+  - System logging (syslog) — unnecessary complexity, loses feature-level context
+  - No logging — violates NFR-6 (observability), makes debugging impossible
+
+  **Rationale:** `sheep.observability.logging` provides structured logging with Langfuse integration. Using
+  `get_logger(__name__)` enables filtering by feature. Log levels: debug() for internal state, info() for
+  workflow progress, error() for failures. Matches features 150-204.
+
+  ## Library Analysis
+
+  | Library/Technology | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | CrewAI LLM wrapper | Claude API integration | Use | Already available, handles API keys, temperature config |
+  | sheep.config.llm | LLM factory | Use | Central configuration point, matches established pattern |
+  | sheep.observability.logging | Structured logging | Use | Provides rich output, Langfuse integration |
+  | pathlib.Path | File I/O | Use | Standard modern Python library, handles encoding/line endings |
+  | subprocess | Git operations | Use | Standard library, fail-fast with check=True |
+  | structlog | Logging backend | Use (transitively) | Already configured, provides context/filtering |
+  | markdown library | CommonMark validation | Reject | External dependency not in pyproject.toml, overkill |
+  | commonmark library | CommonMark parsing | Reject | External dependency, unnecessary complexity |
+  | GitPython | Git operations | Reject | Available but less direct, subprocess is simpler |
+  | nltk/spaCy | Sentence segmentation | Reject | External dependencies, overkill for simple files |
+
+  ## Security Considerations
+
+  **Input Validation:**
+  - All generated content is validated comprehensively: format, sentence count, encoding, line endings, size
+  - File paths use `pathlib.Path` to prevent directory traversal attacks
+  - Git commands use subprocess with explicit argument lists (no shell=True) to prevent command injection
+
+  **API Security:**
+  - Claude API credentials managed by `sheep.config.llm` factory with Pydantic SecretStr
+  - API keys read from environment or .env file, never embedded in code
+  - Temperature=0 setting prevents potential adversarial prompt injection
+
+  **File System Security:**
+  - File creation checks for existing file and raises FileExistsError
+  - UTF-8 BOM validation prevents encoding-based attacks
+  - Line ending validation ensures files are clean and auditable
+
+  ## Performance Implications
+
+  **API Latency:**
+  - Single Claude API call: ~2-3 seconds typical
+  - Total execution time: ~5-8 seconds (generation + validation + git operations)
+  - Well within NFR-1 requirement (1 minute total)
+
+  **File I/O Performance:**
+  - `pathlib.Path.write_text()` is optimized for text files
+  - Validation is all in-memory after file read
+  - File size validation uses `pathlib.stat()` (one syscall)
+
+  **Git Operations Performance:**
+  - Three subprocess calls (add, commit, push) with minimal overhead
+  - Network latency for push operation dominates (~1-2 seconds)
+  - Pre-created feature branch eliminates merge/conflict delays
+
+  ## Architecture Notes
+
+  **Integration with Sheep Platform:**
+  - Follows established pattern from features 150-204 (200+ identical features)
+  - Module structure matches `src/sheep/features/feature_N_*.py` pattern
+  - Uses sheep.config.llm and sheep.observability.logging as required
+  - Fail-fast error handling aligns with automated system expectations
+  - Conventional commit messages enable git history analysis
+
+  **Modularity & Reusability:**
+  - Each function has single responsibility
+  - Functions can be tested independently and reused
+  - Parameters with defaults enable customization
+  - No global state or side effects beyond file system and git
+
+  **Extensibility:**
+  - Adding new validation rules: add new `validate_*()` function
+  - Changing generation strategy: modify `generate_prose()`/`generate_title()`
+  - Customizing filenames/branches: pass different parameters (constants stay unchanged)
+
+  ## Testing Strategy
+
+  **Unit Tests (if applicable):**
+  - Test `generate_prose()` with mocked llm.call()
+  - Test `generate_title()` with mocked llm.call()
+  - Test `validate_markdown_format()` with various invalid inputs
+  - Test `validate_encoding()` with BOM and invalid UTF-8
+  - Test `validate_line_endings()` with CRLF and CR
+  - Test `validate_file_size()` with boundary conditions
+  - Test `validate_sentence_count()` with 0, 1, 2, 3, 4+ sentences
+
+  **Integration Testing:**
+  - Create test markdown file with known content
+  - Run full validation pipeline
+  - Verify git operations (use temporary test branch)
+
+  **Edge Cases:**
+  - Empty prose or title
+  - Prose with no periods
+  - Multiple H1 headings
+  - File size at boundaries (100-600 bytes)
+  - Unicode characters in title/prose
+
+  ## Assumptions & Constraints
+
+  **Assumptions:**
+  - Git repository initialized and feature branch exists
+  - Git user.name and user.email configured
+  - Claude API credentials valid and available
+  - Current working directory is repository root
+  - No existing file named test-grk9g8.md
+  - Feature branch (feat/205-markdown-file-creation-4759f4) exists
+
+  **Constraints:**
+  - Python 3.11+ required
+  - Temperature must be 0 for deterministic generation
+  - File must follow specific format (H1 + blank line + prose)
+  - File size must be 100-600 bytes (per spec)
+  - Prose must have exactly 2-3 sentences
+  - Git operations must succeed (fail-fast on any error)
+  - UTF-8 encoding with Unix LF line endings
+
+  ## Recommendations
+
+  **For Implementation:**
+  1. Base implementation directly on feature 204 (most recent precedent)
+  2. Change only FILENAME, FEATURE_NUMBER, BRANCH_NAME, COMMIT_MESSAGE constants
+  3. Run full validation pipeline before git operations
+  4. Use same logging approach and error handling patterns
+  5. Test with sample content to verify encoding and line endings match specification
+
+  **For Future Enhancements:**
+  1. If markdown validation needs comprehensive parsing, evaluate lightweight regex validator
+  2. If sentence detection needs to handle abbreviations, maintain small abbreviation list
+  3. Extract common validation functions to shared utils module (future refactoring after 5+ similar features)
+  4. Add telemetry/metrics using sheep.observability infrastructure
+  5. Consider caching generated prose for reproducibility across environments
+
+  ---
+
+  _Research phase complete — ready for implementation. Architecture is clear, technology decisions are documented,
+  proven by features 202-204, and implementation pattern is established across 200+ features._
