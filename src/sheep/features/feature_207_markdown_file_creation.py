@@ -591,7 +591,7 @@ def git_commit(commit_message: str = COMMIT_MESSAGE) -> None:
             capture_output=True,
             text=True,
         )
-        _logger.debug(f"✓ Successfully created commit")
+        _logger.debug("✓ Successfully created commit")
 
     except subprocess.CalledProcessError as e:
         _logger.error(f"Git commit failed: {e.stderr}")
@@ -685,7 +685,7 @@ def main() -> None:
 if __name__ == "__main__":
     try:
         main()
-        print(f"✓ Successfully completed feature 207 workflow")
+        print("✓ Successfully completed feature 207 workflow")
         sys.exit(0)
     except Exception as e:
         print(f"✗ Error: {e}")

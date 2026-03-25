@@ -6,24 +6,22 @@ This test suite covers:
 """
 
 import os
-import subprocess
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from sheep.features.feature_207_markdown_file_creation import (
-    FILENAME,
-    FEATURE_NUMBER,
     BRANCH_NAME,
     COMMIT_MESSAGE,
-    main,
+    FEATURE_NUMBER,
+    FILENAME,
     create_markdown_file,
-    validate_markdown_file,
-    generate_title,
     generate_prose,
+    generate_title,
+    main,
+    validate_markdown_file,
 )
-
 
 # Fixtures for consistent mock data
 MOCK_TITLE = "Test Title"
