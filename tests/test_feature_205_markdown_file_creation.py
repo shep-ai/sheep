@@ -384,3 +384,407 @@ class TestCreateMarkdownFile:
                         assert "First sentence. Second sentence. Third sentence." in content
             finally:
                 os.chdir(original_cwd)
+
+
+class TestTask3MarkdownFormatValidation:
+    """Tests for task-3: Implement markdown format validation."""
+
+    def test_validate_markdown_format_accepts_valid_format(self):
+        """Test that validate_markdown_format accepts valid H1 + blank line + prose."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Create valid markdown: H1 + blank line + prose
+                Path("test.md").write_text("# Valid Title\n\nThis is prose.", encoding="utf-8")
+                # Should not raise
+                validate_markdown_format("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_format_rejects_missing_h1(self):
+        """Test that validate_markdown_format raises ValueError if first line is not H1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Missing H1 heading
+                Path("test.md").write_text("Regular text\n\nProse content.", encoding="utf-8")
+                with pytest.raises(ValueError, match="H1|heading"):
+                    validate_markdown_format("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_format_rejects_non_blank_second_line(self):
+        """Test that validate_markdown_format raises ValueError if second line is not blank."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Second line is not blank
+                Path("test.md").write_text("# Title\nThis should be blank\nProse.", encoding="utf-8")
+                with pytest.raises(ValueError, match="blank|separator"):
+                    validate_markdown_format("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_format_rejects_empty_file(self):
+        """Test that validate_markdown_format raises ValueError for empty file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Empty file
+                Path("test.md").write_text("", encoding="utf-8")
+                with pytest.raises(ValueError):
+                    validate_markdown_format("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_format_rejects_multiple_h1_headings(self):
+        """Test that validate_markdown_format rejects files with multiple H1 headings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Multiple H1 headings
+                Path("test.md").write_text("# First Heading\n\nProse.\n\n# Second Heading\n\nMore prose.", encoding="utf-8")
+                with pytest.raises(ValueError, match="one H1"):
+                    validate_markdown_format("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_format_accepts_h2_as_secondary_heading(self):
+        """Test that validate_markdown_format allows H2 headings (counts only H1)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # One H1 and H2 subheading (valid structure)
+                Path("test.md").write_text("# Main Title\n\n## Section\n\nProse here.", encoding="utf-8")
+                # Should not raise - only one H1
+                validate_markdown_format("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_markdown_format_error_message_specific(self):
+        """Test that validation error messages are specific and actionable."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                Path("test.md").write_text("Bad header\n\nProse.", encoding="utf-8")
+                try:
+                    validate_markdown_format("test.md")
+                    assert False, "Should have raised ValueError"
+                except ValueError as e:
+                    # Error message should identify the specific issue
+                    assert "H1" in str(e) or "heading" in str(e)
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestTask4ValidationPipeline:
+    """Tests for task-4: Implement sentence count, encoding, line endings, and file size validation."""
+
+    # ===== Sentence Count Validation =====
+
+    def test_validate_sentence_count_accepts_exactly_2_sentences(self):
+        """Test that validate_sentence_count accepts exactly 2 sentences."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                Path("test.md").write_text("# Title\n\nFirst sentence. Second sentence.", encoding="utf-8")
+                # Should not raise
+                validate_sentence_count("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_sentence_count_accepts_exactly_3_sentences(self):
+        """Test that validate_sentence_count accepts exactly 3 sentences."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                Path("test.md").write_text("# Title\n\nFirst. Second. Third.", encoding="utf-8")
+                # Should not raise
+                validate_sentence_count("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_sentence_count_rejects_1_sentence(self):
+        """Test that validate_sentence_count rejects 1 sentence."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                Path("test.md").write_text("# Title\n\nOnly one sentence.", encoding="utf-8")
+                with pytest.raises(ValueError, match="2-3"):
+                    validate_sentence_count("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_sentence_count_rejects_4_sentences(self):
+        """Test that validate_sentence_count rejects 4 sentences."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                Path("test.md").write_text("# Title\n\nFirst. Second. Third. Fourth.", encoding="utf-8")
+                with pytest.raises(ValueError, match="2-3"):
+                    validate_sentence_count("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_sentence_count_error_message_shows_actual_count(self):
+        """Test that error message shows actual sentence count found."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                Path("test.md").write_text("# Title\n\nOnly one.", encoding="utf-8")
+                try:
+                    validate_sentence_count("test.md")
+                    assert False, "Should have raised ValueError"
+                except ValueError as e:
+                    error_msg = str(e)
+                    assert "1" in error_msg or "found" in error_msg
+            finally:
+                os.chdir(original_cwd)
+
+    # ===== Encoding Validation =====
+
+    def test_validate_encoding_accepts_valid_utf8(self):
+        """Test that validate_encoding accepts valid UTF-8 files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Valid UTF-8 content
+                Path("test.md").write_text("# Title\n\nContent with UTF-8: café.", encoding="utf-8")
+                # Should not raise
+                validate_encoding("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_encoding_rejects_utf8_bom(self):
+        """Test that validate_encoding rejects UTF-8 BOM."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Write file with UTF-8 BOM
+                content = "# Title\n\nContent."
+                file_path = Path("test.md")
+                file_path.write_bytes(b"\xef\xbb\xbf" + content.encode("utf-8"))
+
+                with pytest.raises(ValueError, match="BOM"):
+                    validate_encoding("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_encoding_rejects_invalid_utf8(self):
+        """Test that validate_encoding rejects invalid UTF-8 bytes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Write invalid UTF-8 bytes
+                file_path = Path("test.md")
+                file_path.write_bytes(b"# Title\n\n\xff\xfe invalid utf8")
+
+                with pytest.raises(ValueError, match="UTF-8"):
+                    validate_encoding("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    # ===== Line Endings Validation =====
+
+    def test_validate_line_endings_accepts_unix_lf(self):
+        """Test that validate_line_endings accepts Unix LF line endings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # LF line endings (Unix)
+                content = "# Title\n\nContent.\n"
+                Path("test.md").write_bytes(content.encode("utf-8"))
+                # Should not raise
+                validate_line_endings("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_line_endings_rejects_crlf(self):
+        """Test that validate_line_endings rejects CRLF Windows line endings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # CRLF line endings (Windows)
+                content = "# Title\r\n\r\nContent.\r\n"
+                Path("test.md").write_bytes(content.encode("utf-8"))
+
+                with pytest.raises(ValueError, match="CRLF|Windows"):
+                    validate_line_endings("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_line_endings_rejects_cr(self):
+        """Test that validate_line_endings rejects CR Mac line endings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # CR line endings (old Mac)
+                content = "# Title\r\rContent.\r"
+                Path("test.md").write_bytes(content.encode("utf-8"))
+
+                with pytest.raises(ValueError, match="CR|Mac"):
+                    validate_line_endings("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    # ===== File Size Validation =====
+
+    def test_validate_file_size_accepts_within_range(self):
+        """Test that validate_file_size accepts files within 250-600 byte range."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Content that creates file in valid range (~300 bytes)
+                content = "# A Comprehensive Title for Testing\n\nThis is the first sentence with enough content to reach the target file size. This is the second sentence that adds more content to the markdown file. This is the third sentence that ensures we meet the minimum byte requirement for valid test files.\n"
+                Path("test.md").write_text(content, encoding="utf-8")
+                file_size = Path("test.md").stat().st_size
+                assert 250 <= file_size <= 600, f"Test setup failed: file size {file_size} outside range"
+
+                # Should not raise
+                validate_file_size("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_file_size_rejects_too_small(self):
+        """Test that validate_file_size rejects files smaller than 250 bytes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Very small content
+                Path("test.md").write_text("# X\n\nA.", encoding="utf-8")
+                file_size = Path("test.md").stat().st_size
+                assert file_size < 250, f"Test setup failed: file size {file_size} not below 250"
+
+                with pytest.raises(ValueError, match="250|range"):
+                    validate_file_size("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_file_size_rejects_too_large(self):
+        """Test that validate_file_size rejects files larger than 600 bytes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Very large content
+                large_content = "# Title\n\n" + ("X" * 600)
+                Path("test.md").write_text(large_content, encoding="utf-8")
+                file_size = Path("test.md").stat().st_size
+                assert file_size > 600, f"Test setup failed: file size {file_size} not above 600"
+
+                with pytest.raises(ValueError, match="600|range"):
+                    validate_file_size("test.md")
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_file_size_error_shows_actual_size(self):
+        """Test that error message shows actual file size."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                Path("test.md").write_text("# X\n\nA.", encoding="utf-8")
+                try:
+                    validate_file_size("test.md")
+                    assert False, "Should have raised ValueError"
+                except ValueError as e:
+                    error_msg = str(e)
+                    # Should show the actual byte count
+                    assert any(str(i) in error_msg for i in range(10, 50))
+            finally:
+                os.chdir(original_cwd)
+
+    def test_validate_file_size_with_custom_range(self):
+        """Test that validate_file_size respects custom min/max parameters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                content = "# Title for Testing\n\nSentence one with content. Sentence two with content. Sentence three with content to reach file size target.\n"
+                Path("test.md").write_text(content, encoding="utf-8")
+                file_size = Path("test.md").stat().st_size
+
+                # Should pass with custom range that includes file_size
+                validate_file_size("test.md", min_bytes=50, max_bytes=1000)
+
+                # Should fail with custom range that excludes file_size
+                with pytest.raises(ValueError):
+                    validate_file_size("test.md", min_bytes=1000, max_bytes=2000)
+            finally:
+                os.chdir(original_cwd)
+
+    # ===== Helper Functions =====
+
+    def test_count_sentences_counts_periods(self):
+        """Test that count_sentences counts periods correctly."""
+        assert count_sentences("First. Second. Third.") == 3
+        assert count_sentences("One. Two.") == 2
+        assert count_sentences("Only one.") == 1
+
+    def test_count_sentences_raises_on_empty(self):
+        """Test that count_sentences raises ValueError on empty prose."""
+        with pytest.raises(ValueError):
+            count_sentences("")
+
+    def test_extract_prose_content_extracts_correctly(self):
+        """Test that extract_prose_content extracts prose after blank line."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                Path("test.md").write_text("# Title\n\nExpected prose content here.", encoding="utf-8")
+                prose = extract_prose_content("test.md")
+                assert prose == "Expected prose content here."
+            finally:
+                os.chdir(original_cwd)
+
+    def test_extract_prose_content_multiline(self):
+        """Test that extract_prose_content handles multiline prose."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                Path("test.md").write_text("# Title\n\nLine one.\nLine two.\nLine three.", encoding="utf-8")
+                prose = extract_prose_content("test.md")
+                assert "Line one" in prose
+                assert "Line three" in prose
+            finally:
+                os.chdir(original_cwd)
+
+    # ===== Backward Compatibility =====
+
+    def test_verify_utf8_encoding_wrapper_exists(self):
+        """Test that verify_utf8_encoding backward-compatibility wrapper exists."""
+        assert callable(verify_utf8_encoding)
+
+    def test_verify_lf_line_endings_wrapper_exists(self):
+        """Test that verify_lf_line_endings backward-compatibility wrapper exists."""
+        assert callable(verify_lf_line_endings)
+
+    def test_verify_prose_content_wrapper_exists(self):
+        """Test that verify_prose_content backward-compatibility wrapper exists."""
+        assert callable(verify_prose_content)
+
+    def test_verify_file_size_wrapper_exists(self):
+        """Test that verify_file_size backward-compatibility wrapper exists."""
+        assert callable(verify_file_size)
