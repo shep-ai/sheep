@@ -1,9 +1,6 @@
 """Tests for feature 206: Markdown file creation with hard-coded content."""
 
-import subprocess
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,9 +9,6 @@ from sheep.features.feature_206_markdown_file_creation import (
     PROSE_CONTENT,
     TITLE_TEXT,
     create_markdown_file,
-    git_add,
-    git_commit,
-    git_push,
     validate_blank_separator,
     validate_encoding,
     validate_file_size,
@@ -282,7 +276,7 @@ class TestValidateEncoding:
         content = "# Tîtle\n\nProse.\n"
         file_path.write_bytes(content.encode("latin-1"))
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError):
             validate_encoding(file_path)
         # Either "not valid UTF-8" or similar error message
 
@@ -398,7 +392,7 @@ class TestValidateMarkdownFile:
         file_path = Path(FILENAME)
         file_path.write_text("# Title\nText on second line\nProse. Another.\n")
 
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError):
             validate_markdown_file(file_path)
         # Should fail on blank separator, before checking sentences
 

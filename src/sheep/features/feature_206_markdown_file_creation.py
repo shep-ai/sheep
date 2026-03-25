@@ -127,7 +127,7 @@ def validate_h1_format(file_path: Path) -> bool:
     except ValueError:
         raise
     except Exception as e:
-        raise ValueError(f"Failed to validate H1 format: {e}")
+        raise ValueError(f"Failed to validate H1 format: {e}") from e
 
 
 def validate_blank_separator(file_path: Path) -> bool:
@@ -167,7 +167,7 @@ def validate_blank_separator(file_path: Path) -> bool:
     except ValueError:
         raise
     except Exception as e:
-        raise ValueError(f"Failed to validate blank separator: {e}")
+        raise ValueError(f"Failed to validate blank separator: {e}") from e
 
 
 def validate_sentence_count(file_path: Path) -> bool:
@@ -209,7 +209,7 @@ def validate_sentence_count(file_path: Path) -> bool:
     except ValueError:
         raise
     except Exception as e:
-        raise ValueError(f"Failed to validate sentence count: {e}")
+        raise ValueError(f"Failed to validate sentence count: {e}") from e
 
 
 def validate_encoding(file_path: Path) -> bool:
@@ -242,14 +242,14 @@ def validate_encoding(file_path: Path) -> bool:
         except UnicodeDecodeError as e:
             raise ValueError(
                 f"File is not valid UTF-8 encoding: {e}"
-            )
+            ) from e
 
         return True
 
     except ValueError:
         raise
     except Exception as e:
-        raise ValueError(f"Failed to validate encoding: {e}")
+        raise ValueError(f"Failed to validate encoding: {e}") from e
 
 
 def validate_line_endings(file_path: Path) -> bool:
@@ -287,7 +287,7 @@ def validate_line_endings(file_path: Path) -> bool:
     except ValueError:
         raise
     except Exception as e:
-        raise ValueError(f"Failed to validate line endings: {e}")
+        raise ValueError(f"Failed to validate line endings: {e}") from e
 
 
 def validate_file_size(file_path: Path) -> bool:
@@ -318,7 +318,7 @@ def validate_file_size(file_path: Path) -> bool:
     except ValueError:
         raise
     except Exception as e:
-        raise ValueError(f"Failed to validate file size: {e}")
+        raise ValueError(f"Failed to validate file size: {e}") from e
 
 
 def validate_markdown_file(file_path: Path) -> bool:
@@ -392,7 +392,7 @@ def git_add() -> None:
     try:
         _logger.debug(f"Staging file with git add: {FILENAME}")
 
-        result = subprocess.run(
+        subprocess.run(
             ["git", "add", FILENAME],
             check=True,
             capture_output=True,
@@ -422,7 +422,7 @@ def git_commit() -> None:
     try:
         _logger.debug(f"Creating git commit with message: {COMMIT_MESSAGE}")
 
-        result = subprocess.run(
+        subprocess.run(
             ["git", "commit", "-m", COMMIT_MESSAGE],
             check=True,
             capture_output=True,
@@ -455,7 +455,7 @@ def git_push() -> None:
     try:
         _logger.debug(f"Pushing commit to remote branch: {BRANCH_NAME}")
 
-        result = subprocess.run(
+        subprocess.run(
             ["git", "push", "-u", "origin", BRANCH_NAME],
             check=True,
             capture_output=True,
@@ -468,3 +468,67 @@ def git_push() -> None:
         error_msg = f"git push failed: {e.stderr}" if e.stderr else str(e)
         _logger.error(f"Failed to push commit: {error_msg}")
         raise
+
+
+def main() -> int:
+    """Orchestrate complete workflow: create file, validate, stage, commit, push.
+
+    Orchestrates the full feature 206 workflow in sequence:
+    1. Create markdown file with hard-coded content
+    2. Validate file structure, encoding, size, and format
+    3. Stage file with 'git add'
+    4. Create commit with conventional message
+    5. Push commit to feature branch
+
+    Wraps entire workflow in try-except to catch any step failure and log
+    appropriate error messages. Returns success code 0 if all steps complete
+    successfully, failure code 1 if any step fails.
+
+    Returns:
+        int: 0 on successful completion, 1 on any failure
+
+    Logs:
+        - info: Major workflow steps (file created, validations passed, etc.)
+        - error: Any failure with specific error details
+        - info: Overall completion status (success or failure)
+    """
+    try:
+        _logger.info("Starting feature 206 workflow: markdown file creation")
+
+        # Step 1: Create markdown file
+        _logger.info("Step 1/5: Creating markdown file")
+        file_path = create_markdown_file()
+
+        # Step 2: Validate markdown file
+        _logger.info("Step 2/5: Validating markdown file")
+        validate_markdown_file(file_path)
+        _logger.info("All validations passed")
+
+        # Step 3: Stage file with git add
+        _logger.info("Step 3/5: Staging file with git add")
+        git_add()
+
+        # Step 4: Create commit
+        _logger.info("Step 4/5: Creating git commit")
+        git_commit()
+
+        # Step 5: Push to feature branch
+        _logger.info("Step 5/5: Pushing to feature branch")
+        git_push()
+
+        # Success
+        _logger.info(
+            f"Feature 206 workflow completed successfully: "
+            f"{FILENAME} created, validated, committed, and pushed"
+        )
+        return 0
+
+    except Exception as e:
+        _logger.error(f"Feature 206 workflow failed: {e}")
+        return 1
+
+
+if __name__ == "__main__":
+    """Entry point for direct script execution."""
+    exit_code = main()
+    sys.exit(exit_code)
