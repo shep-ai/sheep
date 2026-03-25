@@ -1,0 +1,400 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-d81757"
+summary: >
+  "Feature 208 implements deterministic markdown file creation using hard-coded
+  content (per spec resolution), modular validation functions, and standard Python
+  pathlib/subprocess APIs. This approach follows established patterns from features
+  200-207, requiring no external dependencies, external API calls, or complex logic.
+  Total implementation scope is ~100 lines of well-structured, testable code."
+
+relatedFeatures:
+  - 207
+  - 206
+  - 205
+  - 204
+  - 203
+  - 202
+  - 201
+  - 200
+
+technologies:
+  - "Python 3.9+"
+  - "pathlib (standard library)"
+  - "subprocess (standard library)"
+  - "UTF-8 encoding"
+  - "Unix LF line endings"
+  - "Git 2.0+"
+  - "Markdown format"
+
+relatedLinks:
+  - title: "Feature 207 Implementation"
+    url: "file:///src/sheep/features/feature_207_markdown_file_creation.py"
+  - title: "Feature 207 Research"
+    url: "file:///specs/207-markdown-file-creation-94cf63/research.yaml"
+  - title: "Feature 206 Implementation"
+    url: "file:///src/sheep/features/feature_206_markdown_file_creation.py"
+  - title: "Content Generators Module"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+
+decisions:
+  - title: "Content Source Strategy (Hard-Coded vs AI-Generated)"
+    chosen: "Hard-coded, human-written content"
+    rejected:
+      - "Claude API generation (temperature=0) — adds external dependency, network latency, potential API failures, complexity. Feature 204 uses this approach, but spec 208 explicitly recommends hard-coded content for simplicity and determinism."
+      - "Dynamic generation from seed value — unnecessary complexity for straightforward file creation task."
+    rationale: >
+      "Hard-coded content is optimal because: (1) Spec explicitly resolves this
+      question toward human-written content; (2) No external API dependencies,
+      eliminating network failures and API latency; (3) Content is transparent,
+      auditable, and repeatable; (4) Aligns with Sheep platform philosophy of
+      explicit, deterministic operations; (5) Reduces testing complexity; (6)
+      Faster execution (no LLM latency). This approach is validated by features
+      206-207's successful implementation using identical strategy."
+
+  - title: "File I/O Method (pathlib vs open vs os.write)"
+    chosen: "pathlib.Path.write_text()"
+    rejected:
+      - "open() with manual encoding/line ending handling — requires explicit newline parameter and encoding specification; more verbose; higher error surface."
+      - "os.write() with binary mode — requires manual byte encoding, BOM detection, and line ending normalization; verbose and error-prone."
+      - "codecs.open() — deprecated in favor of pathlib; less Pythonic."
+    rationale: >
+      "pathlib.Path.write_text() is superior because: (1) Modern Python standard
+      (3.9+); (2) Automatically handles UTF-8 encoding without BOM via Python's
+      text codec; (3) Automatically converts LF line endings correctly on all
+      platforms when using default newline=None; (4) Single method call vs
+      multiple operations; (5) Clear, readable, Pythonic API; (6) Proven pattern
+      in features 206-207; (7) Cross-platform compatible (Windows, macOS, Linux)."
+
+  - title: "Sentence Counting Strategy"
+    chosen: "Simple period (.) counting"
+    rejected:
+      - "Regex-based sentence detection (e.g., r'[.!?]+') — assumes all sentences end with punctuation; fails on edge cases like abbreviations (Dr., U.S.A.); over-engineered for simple prose validation."
+      - "spaCy/NLTK natural language processing — external dependencies (violates spec requirement for standard library only); overkill for simple validation; adds startup latency."
+    rationale: >
+      "Simple period counting is optimal because: (1) Spec requirement states
+      \"2-3 sentences of prose\" — implies human-written content with proper
+      punctuation; (2) Period counting is deterministic and fast (O(n) scan);
+      (3) Matches validation patterns in features 206-207; (4) Requires
+      no external dependencies; (5) Content is human-written, so edge cases like
+      abbreviations are under author control; (6) Works reliably for typical
+      prose; (7) Easy to understand and debug."
+
+  - title: "Validation Architecture (Modular vs Monolithic)"
+    chosen: "Modular validation functions"
+    rejected:
+      - "Single monolithic validate_markdown_file() — difficult to test individual checks; unclear which validation failed; harder to debug; violates single responsibility principle."
+      - "No explicit validation (trust file creation) — file format errors would only be caught at review time; no early error detection; poor developer experience."
+    rationale: >
+      "Modular architecture is superior because: (1) Each validation function
+      tests one aspect (format, encoding, size, etc.); (2) Fail-fast behavior
+      provides clear error messages identifying exactly which check failed;
+      (3) Functions are independently testable and reusable; (4) Matches proven
+      pattern from features 206-207; (5) Enables incremental validation
+      (can validate subsets of checks); (6) Clear logging at each step aids
+      debugging."
+
+  - title: "Git Integration Method (subprocess vs GitPython)"
+    chosen: "subprocess.run() with shell=False"
+    rejected:
+      - "subprocess.run() with shell=True — command injection vulnerability risk; unnecessary; shell features not needed for simple git operations."
+      - "GitPython library — external dependency (violates spec requirement); adds maintenance burden; may have different behavior than raw git commands."
+      - "os.system() — deprecated; shell injection risk; less controllable than subprocess."
+    rationale: >
+      "subprocess.run(shell=False) is optimal because: (1) Secure by default
+      (no command injection risk); (2) Direct subprocess call avoids shell
+      overhead; (3) Platform-independent (works on Windows, macOS, Linux);
+      (4) Matches pattern from features 206-207; (5) Standard library
+      only (no external dependencies); (6) Output capture enables error handling;
+      (7) check=True provides fail-fast behavior."
+
+  - title: "File Size Range Validation"
+    chosen: "300-800 bytes (per specification)"
+    rejected:
+      - "250-600 bytes — matches some earlier features but spec explicitly requires 300-800 bytes; deviating from spec requirements."
+      - "No size validation — could allow trivial content or excessive content; loses meaningful content constraint."
+    rationale: >
+      "300-800 bytes per spec because: (1) Specification explicitly defines this
+      range (success criterion states 300-800 bytes); (2) 300 bytes minimum
+      ensures meaningful content (~2-3 sentences is roughly 300 bytes); (3) 800
+      bytes maximum prevents excessive verbosity; (4) Range allows flexibility
+      while maintaining bounds; (5) Matches feature 208 specification exactly."
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-25
+  - **Confidence:** High (established patterns from features 200-207)
+
+  ## Technology Decisions
+
+  ### 1. Content Source Strategy
+
+  **Chosen:** Hard-coded, human-written content
+
+  **Rejected:**
+  - Claude API generation with temperature=0 (feature 204 approach) — While this approach works, the spec explicitly recommends hard-coded content for simplicity, eliminating external API dependencies, network latency risks, and complexity.
+  - Dynamic generation from seed values — Unnecessary complexity for a straightforward file creation task.
+
+  **Rationale:**
+  Hard-coded content is optimal because:
+  - Specification explicitly resolves this question toward human-written content
+  - No external API dependencies eliminates network failures and latency
+  - Content is transparent, auditable, and deterministic
+  - Aligns with Sheep platform philosophy of explicit operations
+  - Reduces testing complexity
+  - Proven approach in features 206-207
+
+  ### 2. File I/O Method
+
+  **Chosen:** pathlib.Path.write_text() with default encoding and newline handling
+
+  **Rejected:**
+  - open(newline='', encoding='utf-8') — More verbose; requires explicit parameter management
+  - os.write() with binary mode — Requires manual byte encoding and BOM handling
+  - Legacy codecs.open() — Deprecated in favor of pathlib
+
+  **Rationale:**
+  pathlib.Path.write_text() is superior because:
+  - Modern Python 3.9+ standard library API
+  - Automatically handles UTF-8 encoding without BOM
+  - Default newline=None behavior correctly produces LF on all platforms
+  - Single method call vs multiple operations
+  - Clear, Pythonic, readable API
+  - Cross-platform compatible (Windows, macOS, Linux)
+  - Proven pattern in features 206-207
+
+  ### 3. Sentence Counting Method
+
+  **Chosen:** Simple period (.) counting
+
+  **Rejected:**
+  - Regex-based detection (r'[.!?]+') — Assumes all sentences end with punctuation; fails on abbreviations; over-engineered
+  - spaCy/NLTK NLP — External dependencies (violates Python standard library requirement); overkill for simple validation
+
+  **Rationale:**
+  Simple period counting is optimal because:
+  - Content is human-written with proper punctuation (by design)
+  - Deterministic, fast O(n) algorithm
+  - Matches patterns in features 206-207
+  - No external dependencies required
+  - Reliable for typical prose
+  - Easy to understand and debug
+
+  ### 4. Validation Architecture
+
+  **Chosen:** Modular validation functions (one function per validation check)
+
+  **Rejected:**
+  - Single monolithic validate_markdown_file() — Difficult to test; unclear which check failed; violates separation of concerns
+  - No validation at all — Errors caught only at review time; poor developer experience
+
+  **Rationale:**
+  Modular architecture is superior because:
+  - Each function tests one aspect (format, encoding, size, line endings, etc.)
+  - Fail-fast behavior with clear error identification
+  - Functions are independently testable
+  - Matches proven pattern from features 206-207
+  - Enables incremental validation
+  - Clear logging aids debugging
+
+  ### 5. Git Integration Method
+
+  **Chosen:** subprocess.run() with shell=False
+
+  **Rejected:**
+  - subprocess.run(shell=True) — Command injection vulnerability risk; unnecessary
+  - GitPython library — External dependency; adds maintenance burden
+  - os.system() — Deprecated; less secure; less controllable
+
+  **Rationale:**
+  subprocess.run(shell=False) is optimal because:
+  - Secure by default (no command injection risk)
+  - Standard library only (no external dependencies)
+  - Platform-independent implementation
+  - Output capture enables robust error handling
+  - check=True provides fail-fast behavior
+  - Matches pattern from features 206-207
+
+  ### 6. File Size Range
+
+  **Chosen:** 300-800 bytes (per specification)
+
+  **Rejected:**
+  - 250-600 bytes (earlier feature range) — Spec explicitly requires 300-800
+  - No size validation — Loses meaningful content constraint
+
+  **Rationale:**
+  300-800 bytes is correct because:
+  - Specification explicitly defines this range
+  - 300 bytes minimum ensures meaningful content (~2-3 sentences)
+  - 800 bytes maximum prevents excessive verbosity
+  - Matches specification requirements exactly
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | pathlib | File I/O operations | Use | Standard library, modern, handles encoding/line endings correctly |
+  | subprocess | Git command execution | Use | Standard library, secure (shell=False), output capture |
+  | UTF-8 codec | File encoding | Use | Standard Python codec, no BOM by default with write_text() |
+  | Git 2.0+ | Version control | Use | Required by infrastructure; provides git add/commit/push |
+  | Python 3.9+ | Runtime | Use | Required by Sheep platform; write_text() available since 3.4 |
+  | Claude API | Content generation | Reject | Spec recommends hard-coded content; adds external dependency |
+  | spaCy | NLP/sentence parsing | Reject | External dependency; violates standard library requirement |
+  | NLTK | NLP/sentence parsing | Reject | External dependency; violates standard library requirement |
+  | GitPython | Git library wrapper | Reject | External dependency; unnecessary for simple git operations |
+
+  ## Security Considerations
+
+  ### 1. Command Injection Prevention
+  **Approach:** Use subprocess.run() with shell=False
+  - Git commands passed as list of arguments, not shell string
+  - Prevents arbitrary command injection via file names or branch names
+  - Platform-independent implementation
+
+  ### 2. File Path Handling
+  **Approach:** Use pathlib.Path with relative paths in repository root
+  - Prevents path traversal attacks (file is created in root, not arbitrary directories)
+  - Specification constrains filename to "test-s4b1z3.md"
+  - Uses relative path, not absolute path from user input
+
+  ### 3. File Encoding Validation
+  **Approach:** Validate UTF-8 encoding and absence of BOM
+  - UTF-8 BOM can cause issues with Unix tools and git
+  - Validation ensures compliance with platform expectations
+  - Decode attempt catches invalid UTF-8 sequences
+
+  ### 4. Content Safety
+  **Approach:** Hard-coded content avoids LLM API calls
+  - No external service dependencies
+  - Content is controlled and reviewable
+  - No network exposure or data transmission to external services
+
+  ### 5. File Permissions
+  **Note:** File created with default permissions (typically 0644 in Unix)
+  - Readable by all users (appropriate for documentation)
+  - Writable only by owner (prevents accidental modification)
+  - No special permission handling needed
+
+  ## Performance Implications
+
+  ### 1. File I/O Performance
+  - pathlib.Path.write_text() — Single system call; optimal performance
+  - File size 300-800 bytes — Negligible I/O time (< 1ms even on slow disks)
+  - Total file operation time: < 1ms
+
+  ### 2. Validation Performance
+  - File exists check — O(1) filesystem metadata lookup
+  - Markdown format validation — O(n) single line scan
+  - Sentence counting — O(n) character scan for periods
+  - Encoding check — O(n) full file read (necessary for BOM check)
+  - Line ending check — O(n) binary scan for control bytes
+  - File size check — O(1) filesystem metadata lookup
+  - **Total validation time: < 100ms for ~500-byte file** (per spec requirement of < 1 second)
+
+  ### 3. Git Operations Performance
+  - git add — Fast index update; < 50ms
+  - git commit — Local operation; < 100ms
+  - git push — Network dependent; typically 100-500ms (acceptable for async operation)
+  - **Total git time: 200-600ms** (acceptable overhead)
+
+  ### 4. Overall Execution Performance
+  - Implementation estimated at < 1 second total
+  - Meets specification requirement for validation < 1 second
+  - No caching needed (file is created once per feature)
+
+  ### 5. Memory Usage
+  - File content in memory: ~500 bytes (negligible)
+  - Validation processes: < 10KB (pathlib, subprocess objects)
+  - **Total memory footprint: < 1MB** (negligible on modern systems)
+
+  ## Architecture Notes
+
+  ### 1. Integration with Sheep Platform
+  - Implementation follows established pattern from features 200-207
+  - Uses Sheep's observability.logging module for consistent logging
+  - Can optionally use sheep.config.llm for content generation (not for 208 per spec)
+  - Works within Sheep's feature orchestration framework
+
+  ### 2. Modular Design Pattern
+  - Separates concerns into focused functions:
+    - create_markdown_file() — File creation
+    - validate_markdown_format() — Structure validation
+    - validate_sentence_count() — Content validation
+    - validate_encoding() — Encoding validation
+    - validate_line_endings() — Line ending validation
+    - validate_file_size() — Size validation
+    - git_add_file() — Git staging
+    - git_commit() — Git commit
+    - git_push() — Git push
+    - main() — Orchestration
+
+  ### 3. Error Handling Strategy
+  - Fail-fast approach: first error stops execution
+  - Clear error messages identify exact failure point
+  - Exception chain preserved for debugging
+  - Matches pattern from features 206-207
+
+  ### 4. Validation Ordering
+  - File existence checked first (prevents all downstream failures)
+  - Format checked before sentence count (invalid structure stops early)
+  - Encoding/line endings checked after content (structural issues caught first)
+  - Size checked last (least likely to fail if other checks pass)
+
+  ### 5. Code Patterns Consistency
+  - Follows feature 207 code structure and naming conventions
+  - Uses same validation function signatures and docstring format
+  - Git command execution matches feature 207 subprocess patterns
+  - Exception handling uses same try/except pattern
+
+  ## Specification Alignment
+
+  - **File naming:** test-s4b1z3.md (deterministic, matches spec)
+  - **File location:** Repository root directory
+  - **Content type:** Human-written prose on any topic
+  - **Sentence count:** Exactly 2-3 sentences (strict enforcement per spec)
+  - **Markdown format:** H1 heading + blank line + prose
+  - **Encoding:** UTF-8 without BOM
+  - **Line endings:** Unix LF only
+  - **File size:** 300-800 bytes (per spec)
+  - **Git workflow:** add → commit → push with conventional commits format
+  - **Commit message:** feat(208): Create markdown file test-s4b1z3.md
+  - **Implementation dependencies:** Python standard library only
+  - **Cross-platform:** Windows, macOS, Linux compatible
+
+  ## Risk Assessment
+
+  ### Low Risk Areas
+  - File creation using standard library (pathlib) — Mature, well-tested
+  - UTF-8 encoding — Standard for modern Python
+  - Git commands — Well-known, used in 200+ prior features
+  - File size validation — Simple range check
+
+  ### Medium Risk Areas
+  - Sentence counting via period detection — Assumes proper punctuation (controlled by human author)
+  - Line ending validation — Platform differences possible but well-tested in prior features
+  - Subprocess git calls — Depends on git being installed and in PATH (verified by CI/CD)
+
+  ### No Critical Risks Identified
+  - Hard-coded content eliminates API dependency risks
+  - No external service calls
+  - No security vulnerabilities identified
+  - Specification is clear and achievable
+  - Pattern proven in features 200-207
+
+  ---
+
+  **Research Completed:** 2026-03-25
+  **Implementation Ready:** Yes
+  **External Dependencies Required:** None (Python standard library only)
+  **Estimated Implementation Time:** 2-4 hours
+  **Confidence Level:** High (pattern fully validated in prior features)
