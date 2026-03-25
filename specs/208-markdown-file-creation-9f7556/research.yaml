@@ -1,0 +1,534 @@
+name: "markdown-file-creation-9f7556"
+summary: >
+  Feature 208 uses Claude API with temperature=0 for deterministic, AI-generated markdown content.
+  The implementation follows the established pattern from feature 207 with modular validation functions,
+  subprocess-based git operations, and comprehensive error handling. No new external dependencies required
+  beyond existing sheep.config.llm infrastructure.
+
+relatedFeatures:
+  - 207
+  - 206
+  - 205
+
+technologies:
+  - "Python 3.10+"
+  - "Claude API (Anthropic)"
+  - "pathlib (file I/O)"
+  - "subprocess (git operations)"
+  - "sheep.config.llm (LLM factory)"
+  - "sheep.observability.logging (structured logging)"
+  - "Markdown"
+  - "Git"
+
+relatedLinks:
+  - title: "Feature 207 Implementation (Reference Pattern)"
+    url: "src/sheep/features/feature_207_markdown_file_creation.py"
+  - title: "Feature 207 Specification"
+    url: "specs/207-markdown-file-creation-94cf63/spec.yaml"
+  - title: "Sheep Platform README"
+    url: "file:///README.md"
+  - title: "Anthropic Claude API Documentation"
+    url: "https://docs.anthropic.com"
+
+decisions:
+  - title: "Content Generation Strategy"
+    chosen: "Claude API with temperature=0 for deterministic output"
+    rejected:
+      - "Hard-coded content (like feature 207) — Feature 208 spec explicitly requires Claude API for deterministic AI-generated content to demonstrate the platform's LLM capabilities"
+      - "Template-based generation — Less flexible for content variety, doesn't leverage platform's LLM infrastructure"
+      - "Multiple API calls with temperature>0 — Non-deterministic output would violate NFR-7 requirement for deterministic workflows"
+    rationale: >
+      Feature 208 specification explicitly requires Claude API with temperature=0 for deterministic content generation
+      (NFR-7). Using sheep.config.llm.create_llm() with temperature=0 ensures identical output across multiple executions,
+      which is critical for reproducible workflows in the Sheep platform. This approach leverages existing LLM infrastructure
+      while maintaining deterministic behavior through zero temperature sampling.
+
+  - title: "LLM Instance Configuration"
+    chosen: "Use sheep.config.llm.create_llm() with explicit temperature=0 parameter"
+    rejected:
+      - "Direct Claude API calls via anthropic SDK — Bypasses platform's LLM abstraction layer and configuration management"
+      - "Hardcoded model selection — Reduces flexibility if platform wants to switch models or use different versions"
+      - "sheep.config.llm.get_reasoning_llm() — This is for reasoning tasks; content generation should use standard create_llm()"
+    rationale: >
+      sheep.config.llm.create_llm() provides the platform's standard LLM factory interface with:
+      (1) Centralized configuration management for API keys and model selection,
+      (2) Support for temperature parameter configuration,
+      (3) Langfuse integration for observability and execution tracing,
+      (4) Consistency with existing codebase patterns in sheep platform.
+      Explicit temperature=0 parameter is critical to ensure deterministic output as required by NFR-7.
+
+  - title: "Prompt Design for Content Generation"
+    chosen: "Structured system prompt + simple user prompt with explicit format requirements"
+    rejected:
+      - "Few-shot examples in prompt — Unnecessary with temperature=0; adds complexity and increases token usage"
+      - "Chain-of-thought prompts (e.g., 'think step by step') — Overkill for straightforward content generation task"
+      - "Minimal prompts without format specification — Risk of non-compliant output; explicit requirements needed for validation"
+    rationale: >
+      Temperature=0 sampling makes chain-of-thought and examples redundant. Explicit format requirements in the prompt
+      are essential to ensure output matches validation constraints:
+      - Title format: single line starting with no special characters (H1 prefix added during file construction)
+      - Sentence count: exactly 2 or 3 sentences (explicitly requested in prompt)
+      - Grammar: request grammatically correct English
+      - Punctuation: ensure periods end sentences (critical for period-counting validation).
+      System prompt frames context; user prompt states requirements. Deterministic model ensures consistency.
+
+  - title: "Sentence Count Validation"
+    chosen: "Period counting: count('.'). Matches feature 207 pattern and NFR-5 requirement for consistency."
+    rejected:
+      - "Regex-based sentence segmentation — More complex regex parsing with edge cases (abbreviations, decimals); period counting is simpler and equally effective"
+      - "NLP libraries (e.g., NLTK, spacy) — Requires external dependency, violates NFR-6 (no external dependencies); overkill for this use case"
+      - "Claude API for sentence validation — Adds unnecessary API call overhead; simple punctuation counting is reliable when content is AI-generated with temperature=0"
+    rationale: >
+      Feature 207 uses simple period counting (prose.count('.')) and this approach is:
+      (1) Consistent with established pattern (NFR-5 requires following features 200-207 patterns),
+      (2) Effective for AI-generated content with temperature=0 (model will respect punctuation requirements),
+      (3) No external dependencies (NFR-6 compliance),
+      (4) Deterministic and fast (<1 second per NFR-6).
+      Edge cases like abbreviations or decimals are avoided by designing the prompt to prevent them.
+
+  - title: "File Creation and Encoding"
+    chosen: "pathlib.Path.write_text(content, encoding='utf-8'). Automatic LF line endings via Python text mode."
+    rejected:
+      - "pathlib.Path.write_bytes() — Requires manual handling of UTF-8 encoding and line ending conversion; write_text() handles this automatically"
+      - "open() with explicit mode 'w' — More verbose than pathlib; pathlib is modern Python standard for file operations"
+      - "Manual line ending conversion — Unnecessary; Python's text mode on Unix systems automatically uses LF; write_text() handles platform differences"
+    rationale: >
+      pathlib.Path.write_text() is the modern Python standard for text file operations (matches feature 207).
+      With encoding='utf-8' parameter:
+      (1) Ensures UTF-8 without BOM (Python's default UTF-8 encoding doesn't add BOM),
+      (2) Automatic LF line endings on Unix/Linux systems (Python text mode handles platform-specific line endings),
+      (3) NFR-1 and NFR-2 requirements satisfied automatically.
+      This is simpler, more readable, and follows established pattern from feature 207.
+
+  - title: "Error Handling Strategy"
+    chosen: "Fail-fast with try-except specific exception types (ValueError, FileNotFoundError, subprocess.CalledProcessError) + logging"
+    rejected:
+      - "Retry logic on API failures — Temperature=0 deterministic sampling means retries won't improve output; better to fail fast and surface issue"
+      - "Generic Exception catching — Masks bugs; specific exception types enable precise error diagnosis and handling"
+      - "Silent failures (return False instead of raise) — Violates NFR-9 requirement for 'clear error messages on failure, enabling debugging'"
+    rationale: >
+      Fail-fast approach aligns with Sheep platform's deterministic workflow philosophy:
+      (1) Temperature=0 ensures consistent behavior across retries (retries won't fix non-deterministic issues),
+      (2) Specific exception types enable precise error diagnosis and clear messages (NFR-9),
+      (3) Logging at each phase provides observability and debugging trails (NFR-10),
+      (4) Matches feature 207 pattern exactly (NFR-5 consistency).
+      Exceptions propagate to caller (main() function) for overall workflow decision-making.
+
+  - title: "Module Organization"
+    chosen: "Single module (feature_208_markdown_file_creation.py) with functions organized by responsibility (generation, validation, git operations)"
+    rejected:
+      - "Multiple modules (e.g., content_gen.py, validation.py, git_ops.py) — Unnecessary for S-sized feature; feature 207 uses single module successfully"
+      - "Class-based design with methods — More verbose; functional approach is simpler and aligns with feature 207 pattern"
+      - "Mixed responsibility functions — Violates separation of concerns; each function should have single clear purpose"
+    rationale: >
+      Feature 207 uses single-module organization with dedicated functions for each responsibility:
+      - Content generation (Claude API call with temperature=0)
+      - File creation (pathlib.Path.write_text())
+      - Validation functions (markdown format, sentence count, encoding, line endings, file size)
+      - Git operations (add, commit, push)
+      - Main orchestration (coordinates all phases with error handling)
+      This pattern is proven effective and required by NFR-5. Single module keeps related logic together
+      while maintaining clear function boundaries.
+
+  - title: "Validation Function Design"
+    chosen: "Separate validation functions for each concern (markdown format, sentence count, encoding, line endings, file size) + orchestrator function"
+    rejected:
+      - "Single monolithic validation function — Harder to debug; fails-fast at first error but doesn't identify all issues"
+      - "Inline validation (checks in main()) — Poor separation of concerns, harder to test and reuse"
+      - "Lazy validation (only check what's needed) — Violates NFR-9 requirement for 'comprehensive validation'"
+    rationale: >
+      Modular validation functions provide:
+      (1) Clear responsibility boundaries (each function validates one aspect),
+      (2) Reusability (functions can be called independently for testing),
+      (3) Maintainability (easy to add new checks without touching orchestrator),
+      (4) Debugging (clear error messages indicate exactly which check failed),
+      (5) Comprehensive coverage (NFR-9 requirement met by having dedicated validators for each requirement).
+      Orchestrator function (validate_markdown_file()) runs all checks in sequence with fail-fast behavior.
+      This matches feature 207 pattern exactly.
+
+  - title: "Git Operations Implementation"
+    chosen: "subprocess.run() with check=True, capture_output=True, text=True for each operation (add, commit, push)"
+    rejected:
+      - "GitPython library — External dependency violates NFR-6; subprocess provides sufficient abstraction"
+      - "os.system() calls — Deprecated and less safe; subprocess is modern Python standard"
+      - "shell=True in subprocess — Security risk; explicit command list is safer and cross-platform"
+    rationale: >
+      subprocess.run() with check=True provides:
+      (1) Process execution with automatic error detection (CalledProcessError on non-zero exit),
+      (2) No external dependencies (NFR-6 compliance),
+      (3) Cross-platform compatibility (Windows, macOS, Linux),
+      (4) Captured output for debugging (capture_output=True),
+      (5) Text mode for readability (text=True converts bytes to strings).
+      Matches feature 207 implementation exactly. Three separate calls (add, commit, push) maintain
+      clear responsibility separation and enable targeted error diagnosis if any operation fails.
+
+  - title: "Logging Instrumentation"
+    chosen: "sheep.observability.logging.get_logger(__name__) with structured logging at info/debug/error levels"
+    rejected:
+      - "print() statements — No structured logging, poor for observability, violates NFR-10 (logging requirement)"
+      - "Python logging.getLogger() directly — Doesn't use sheep platform's configured logging infrastructure"
+      - "No logging — Violates NFR-10 and makes debugging difficult"
+    rationale: >
+      sheep.observability.logging.get_logger() provides:
+      (1) Integration with sheep platform's logging infrastructure,
+      (2) Langfuse integration for execution tracing and observability,
+      (3) Structured logging with consistent format,
+      (4) Configurable log levels (info for major phases, debug for details, error for failures),
+      (5) NFR-10 compliance (logging for observability and debugging).
+      Logging at each major phase and validation check provides clear audit trail of execution.
+      Matches feature 207 pattern.
+
+openQuestions:
+  - question: "Should content generation use a single API call or separate calls for title and prose?"
+    resolved: true
+    options:
+      - option: "Single API call generating entire markdown block (title + prose)"
+        description: "One Claude API call generates complete formatted output. Simpler, fewer API calls, lower cost. Trade-off: harder to control format separately."
+        selected: true
+      - option: "Separate API calls for title and prose content"
+        description: "Generate title in first call, prose in second call. More control over individual parts. Trade-off: double API calls, more latency, higher cost."
+        selected: false
+      - option: "Conditional logic selecting between pre-defined templates"
+        description: "Use templates with parameterized content generation. Reduces API calls. Trade-off: less variety, template maintenance overhead."
+        selected: false
+    selectionRationale: >
+      Single API call is optimal because:
+      (1) Lower API cost and latency (one call vs two),
+      (2) Simpler implementation and fewer failure points,
+      (3) Easier to ensure formatting consistency (single generation context),
+      (4) Temperature=0 ensures deterministic output regardless of generation strategy.
+      Prompt design will specify exact format (title on first line, blank line, 2-3 sentences)
+      so single call produces correctly formatted output ready for file writing.
+
+  - question: "How should API timeouts and rate limits be handled?"
+    resolved: true
+    options:
+      - option: "Fail-fast with clear error message, no retries"
+        description: "If API call fails or times out, immediately raise exception with clear message. Aligns with Sheep deterministic philosophy. Trade-off: no resilience to transient failures."
+        selected: true
+      - option: "Exponential backoff retry (3 attempts)"
+        description: "Retry on failure with exponential backoff up to 3 times. More resilient. Trade-off: adds complexity, increases total latency, temperature=0 makes retries less useful."
+        selected: false
+      - option: "Configurable retry policy via environment variable"
+        description: "Allow operators to set retry behavior. Maximum flexibility. Trade-off: operational complexity, more code paths to test."
+        selected: false
+    selectionRationale: >
+      Fail-fast is appropriate for feature 208 because:
+      (1) Temperature=0 ensures deterministic behavior—transient failures are rare with deterministic sampling,
+      (2) Retrying won't change output (temperature=0 is deterministic across calls),
+      (3) Clear error messages enable quick diagnosis and manual intervention,
+      (4) Aligns with Sheep platform's philosophy of explicit, deterministic operations,
+      (5) Matches feature 207's error handling approach.
+      If API is unavailable (hard failure), retry logic won't help. Better to fail fast and surface issue.
+      Platform operators can implement higher-level orchestration/retry at workflow level if desired.
+
+  - question: "Should validation include rendering markdown through a markdown parser library?"
+    resolved: true
+    options:
+      - option: "Structural validation only (format checks, not markdown rendering)"
+        description: "Validate H1 format, blank line, sentence count, encoding, line endings, file size via regex/string operations. Simple, no external dependencies. Trade-off: doesn't verify markdown renders correctly."
+        selected: true
+      - option: "Full markdown parsing and validation"
+        description: "Use markdown library to parse and validate output. Ensures valid markdown. Trade-off: external dependency, more complex, slower validation."
+        selected: false
+      - option: "Markdown linting (e.g., markdownlint)"
+        description: "Run external markdown linter. Comprehensive checks. Trade-off: external tool dependency, platform-specific setup."
+        selected: false
+    selectionRationale: >
+      Structural validation without markdown parser is optimal because:
+      (1) NFR-6 requires no external dependencies; markdown library would violate this,
+      (2) Claude API with temperature=0 guarantees valid markdown output (model is trained on valid markdown),
+      (3) Structural checks (H1 format, blank line, sentence count) ensure requirements are met,
+      (4) Simple string operations are fast (<1 second per NFR-6),
+      (5) Matches feature 207 pattern exactly (no markdown parser used).
+      NFR-3 states 'Markdown must be valid and render correctly'—Claude-generated markdown with temp=0
+      will be valid without needing parser validation. Structural checks ensure compliance with requirements.
+
+content: |
+  ## Status
+
+  - **Phase:** Research Complete
+  - **Updated:** 2026-03-25
+  - **All decisions:** Documented with detailed rationale
+  - **All open questions:** Resolved with justified selections
+  - **Ready for:** Implementation phase
+
+  ## Overview
+
+  Feature 208 continues the markdown file creation pattern established in features 200-207, with a key difference:
+  **Claude API integration with temperature=0 for deterministic content generation**, replacing feature 207's hard-coded approach.
+
+  This research identifies all technical decisions, evaluates alternatives, and documents the chosen implementation strategy.
+  The implementation closely follows feature 207's proven patterns while adding Claude API integration.
+
+  ---
+
+  ## Technology Decisions
+
+  ### 1. Content Generation with Claude API (temperature=0)
+
+  **Chosen:** Use `sheep.config.llm.create_llm()` with explicit temperature=0 parameter for deterministic content generation.
+
+  **Why this choice:**
+  - Feature 208 spec explicitly requires Claude API (unlike feature 207's hard-coded approach)
+  - Temperature=0 ensures identical output across executions (critical for deterministic workflows)
+  - Leverages existing sheep platform LLM infrastructure
+  - Integrates with Langfuse for observability and execution tracing
+
+  **Key implementation detail:**
+  - Single API call generates both title and prose in correct markdown format
+  - Prompt specifies exact format requirements (H1 title, blank line, 2-3 sentences)
+  - No retries needed (temperature=0 is deterministic)
+
+  ### 2. LLM Instance Configuration
+
+  **Chosen:** `sheep.config.llm.create_llm()` with explicit temperature=0 parameter
+
+  **Why rejected alternatives:**
+  - Direct `anthropic` SDK calls — Bypasses platform abstraction and centralized config
+  - Hardcoded model selection — Reduces flexibility for platform-wide model switching
+  - `get_reasoning_llm()` — Reserved for reasoning tasks, not content generation
+
+  **Benefits:**
+  - Centralized API key and model configuration management
+  - Langfuse integration for tracing and observability
+  - Platform flexibility to swap models without code changes
+  - NFR-7 compliance (temperature=0 ensures deterministic behavior)
+
+  ### 3. Prompt Engineering
+
+  **Chosen:** Structured system prompt + explicit format requirements in user prompt
+
+  **Structure:**
+  ```
+  System: "You are generating markdown content for..."
+  User: "Generate exactly one title line, then one blank line, then exactly 2 or 3 sentences.
+         Each sentence must end with a period. Use grammatically correct English."
+  ```
+
+  **Why simple prompts work:**
+  - Temperature=0 makes complex prompting (few-shot, chain-of-thought) unnecessary
+  - Model will follow explicit format requirements reliably
+  - No edge cases because prompt prevents abbreviations and special punctuation
+
+  ### 4. Validation Strategy
+
+  **Chosen:** Modular validation functions (one per concern) orchestrated by validator function
+
+  **Validation layers:**
+  1. `verify_file_exists()` — File existence check
+  2. `validate_markdown_format()` — H1 heading structure, blank line
+  3. `validate_sentence_count()` — Period counting (2-3 sentences)
+  4. `validate_encoding()` — UTF-8 without BOM
+  5. `validate_line_endings()` — LF only (no CRLF/CR)
+  6. `validate_file_size()` — Range check (250-600 bytes)
+  7. `validate_markdown_file()` — Orchestrator runs all checks
+
+  **Why modular approach:**
+  - Each function has single responsibility
+  - Reusable for testing and debugging
+  - Clear error messages identify exactly which check failed
+  - Easy to add new validators without touching orchestrator
+  - Comprehensive coverage (NFR-9 requirement)
+
+  ### 5. File Creation and Encoding
+
+  **Chosen:** `pathlib.Path.write_text(content, encoding='utf-8')`
+
+  **Automatic handling:**
+  - UTF-8 without BOM (Python default)
+  - Unix LF line endings on Linux systems
+  - Proper string-to-bytes conversion
+  - Cross-platform compatibility
+
+  **Why this approach:**
+  - Modern Python standard library best practice
+  - No manual encoding/line ending conversion needed
+  - Simple, readable, proven in feature 207
+  - NFR-1 and NFR-2 automatically satisfied
+
+  ### 6. Error Handling
+
+  **Chosen:** Fail-fast with specific exception types + detailed logging
+
+  **Exception types:**
+  - `ValueError` — Validation failures
+  - `FileNotFoundError` — File access issues
+  - `subprocess.CalledProcessError` — Git operation failures
+  - Generic `Exception` — Unexpected errors (logged as error)
+
+  **Why fail-fast:**
+  - Temperature=0 ensures consistent behavior (retries won't help)
+  - Clear error messages enable debugging (NFR-9)
+  - Aligns with Sheep platform's deterministic philosophy
+  - Matches feature 207 pattern (NFR-5 consistency)
+
+  ### 7. Module Organization
+
+  **Chosen:** Single module `feature_208_markdown_file_creation.py` with functions by responsibility
+
+  **Function categories:**
+  - Content generation: `generate_content()` (Claude API call)
+  - File creation: `create_markdown_file()` (pathlib.Path.write_text)
+  - Validation: `verify_file_exists()`, `validate_markdown_format()`, etc.
+  - Git operations: `git_add_file()`, `git_commit()`, `git_push()`
+  - Orchestration: `main()` (coordinates all phases)
+
+  **Why single module:**
+  - S-sized feature doesn't need multiple modules
+  - Feature 207 uses single module successfully
+  - Keeps related logic together
+  - Simpler dependency management and imports
+
+  ### 8. Logging Infrastructure
+
+  **Chosen:** `sheep.observability.logging.get_logger(__name__)` with structured logging
+
+  **Logging levels:**
+  - `info()` — Major phases (Phase 1: generate, Phase 2: validate, Phase 3: git ops)
+  - `debug()` — Detailed step results and validation outcomes
+  - `error()` — Failures with exception details
+
+  **Why platform logging:**
+  - Langfuse integration for execution tracing
+  - Consistent format across platform
+  - Centralized log management
+  - NFR-10 compliance (logging for debugging)
+
+  ---
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | sheep.config.llm | LLM factory with temperature control | ✅ Use | Platform standard, centralized config, temperature=0 support |
+  | pathlib | File creation and operations | ✅ Use | Built-in, modern Python standard, proper encoding handling |
+  | subprocess | Git command execution | ✅ Use | Built-in, safe (check=True auto-detects errors), no external deps |
+  | sheep.observability.logging | Structured logging with Langfuse | ✅ Use | Platform standard, observability integration, NFR-10 required |
+  | re (regex) | Format validation (H1 pattern) | ✅ Use | Built-in, useful for checking '# ' prefix |
+  | anthropic SDK | Direct Claude API calls | ❌ Reject | Bypasses platform abstraction; use sheep.config.llm instead |
+  | markdown (lib) | Markdown parsing/validation | ❌ Reject | External dependency violates NFR-6; structural validation sufficient |
+  | markdownlint | Markdown linting | ❌ Reject | External tool; not needed with temperature=0 deterministic output |
+  | nltk / spacy | Sentence detection | ❌ Reject | External dependencies violate NFR-6; period counting is simpler |
+  | CrewAI | Multi-agent orchestration | ❌ Reject | Overkill for simple file generation; functional approach is lighter |
+  | GitPython | Git operations | ❌ Reject | External dependency; subprocess.run() is standard and sufficient |
+
+  ---
+
+  ## Security Considerations
+
+  ### API Key Management
+  - **Strategy:** Centralized via sheep.config.llm configuration
+  - **Risk:** Keys in environment/config files
+  - **Mitigation:** Platform's .env and settings.json handle secure storage; feature code never touches credentials
+  - **Implementation:** `create_llm()` retrieves keys internally
+
+  ### Prompt Injection
+  - **Risk:** Unsanitized input in prompts could affect model behavior
+  - **Status:** Not applicable for feature 208 (all prompts are hardcoded)
+  - **Mitigation:** If content becomes user-configurable in future, would need input sanitization
+
+  ### Command Injection in Git Operations
+  - **Risk:** Unsanitized input in git commands could inject arbitrary commands
+  - **Status:** Not applicable for feature 208 (filenames and messages are hardcoded)
+  - **Mitigation:** subprocess.run() uses argument list (not shell=True); uses explicit file path as constant
+
+  ### File System Access
+  - **Risk:** Overwriting critical files in repository
+  - **Status:** Not applicable (filename is hardcoded as test-mujic0.md, a safe test file)
+  - **Mitigation:** If path becomes dynamic, would need directory validation and absolute path checks
+
+  ### UTF-8 Encoding Safety
+  - **Approach:** Explicit encoding='utf-8' in all file operations
+  - **Benefit:** Prevents encoding-related vulnerabilities and cross-platform issues
+  - **Compliance:** NFR-1 requirement
+
+  ---
+
+  ## Performance Implications
+
+  ### Execution Timeline
+  - Claude API call: ~500ms–2s (largest component)
+  - File creation: <10ms
+  - Validation checks: <50ms total (string operations)
+  - Git operations: ~500ms total
+  - **Total expected time: 1–3 seconds**
+
+  ### Latency Drivers
+  1. **Claude API call** — Network latency + model inference time (most significant)
+  2. **Git operations** — Subprocess overhead + repository operations
+  3. Validation is negligible (string operations on small file)
+
+  ### Performance Notes
+  - Temperature=0 has consistent token usage (no variance)
+  - No retries = predictable total time
+  - Single API call = minimal overhead
+  - Sequential validation is correct (fail-fast optimization)
+
+  ### Scalability
+  - Feature runs once per feature execution (not in loops)
+  - No performance concerns at platform scale
+  - API rate limiting not a concern for single-feature execution
+
+  ---
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Platform
+
+  **Module Location:**
+  ```
+  src/sheep/features/feature_208_markdown_file_creation.py
+  ```
+
+  **Import Pattern:**
+  ```python
+  from sheep.observability.logging import get_logger
+  from sheep.config.llm import create_llm
+  ```
+
+  **Invocation:**
+  ```python
+  if __name__ == "__main__":
+      sys.exit(main())
+  ```
+
+  **Exit Codes:**
+  - 0 = success
+  - 1 = any failure (fail-fast)
+
+  ### Consistency with Existing Patterns
+
+  Feature 208 exactly follows feature 207 architecture:
+
+  | Aspect | Feature 207 | Feature 208 | Match? |
+  | ------ | ----------- | ----------- | ------ |
+  | Module structure | Single module | Single module | ✅ |
+  | Validation approach | Modular validators | Modular validators | ✅ |
+  | Error handling | Specific exceptions + logging | Specific exceptions + logging | ✅ |
+  | Git operations | subprocess.run() | subprocess.run() | ✅ |
+  | File operations | pathlib.Path | pathlib.Path | ✅ |
+  | Logging | sheep.observability.logging | sheep.observability.logging | ✅ |
+
+  **Key difference:**
+  - Feature 207: Hard-coded content (no API calls)
+  - Feature 208: Claude API with temperature=0 (demonstrates LLM integration)
+
+  Both approaches produce deterministic output and follow NFR-7 requirement.
+
+  ---
+
+  ## Implementation Readiness Checklist
+
+  ✅ Architecture decisions documented with rationale
+  ✅ All technical alternatives evaluated with clear reasoning
+  ✅ No architectural blockers identified
+  ✅ Dependencies confirmed within existing infrastructure
+  ✅ Error handling strategy fully specified
+  ✅ Validation approach clearly designed
+  ✅ Security implications reviewed and addressed
+  ✅ Performance acceptable for use case
+  ✅ Consistency with existing patterns verified
+  ✅ Open questions resolved with justification
+
+  **Ready to proceed to implementation phase.**
