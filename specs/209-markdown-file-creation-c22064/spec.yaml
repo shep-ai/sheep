@@ -7,7 +7,7 @@ summary: >
   containing a markdown H1 title and 2-3 sentences of prose content on any topic.
   This continues the established pattern from features 200-207, demonstrating the
   Sheep platform's capability to execute deterministic file creation workflows.
-phase: "Analysis"
+phase: "Requirements"
 sizeEstimate: "S"
 
 relatedFeatures:
@@ -37,7 +37,51 @@ relatedLinks:
   - title: "Feature 207 Specification"
     url: "specs/207-markdown-file-creation-94cf63/spec.yaml"
 
-openQuestions: []
+openQuestions:
+  - question: "Should prose content be generated deterministically from a template, randomly, or via AI?"
+    resolved: true
+    options:
+      - option: "Deterministic template-based"
+        description: "Use pre-defined content templates or seed-based variations. Ensures reproducibility, fast execution, no external dependencies. Aligns with pattern from features 200-207."
+        selected: true
+      - option: "Randomly generated"
+        description: "Generate random prose sentences at runtime. Creates variability but loses reproducibility and requires more complex content generation logic."
+        selected: false
+      - option: "AI-generated (LLM-based)"
+        description: "Call an LLM API to generate unique prose content. Creates variety but requires external API calls, increases latency, and depends on service availability."
+        selected: false
+    selectionRationale: "Deterministic template-based generation is recommended because it aligns with the proven pattern from features 200-207, ensures reproducibility for debugging and testing, avoids external API dependencies, executes quickly, and keeps implementation simple while still producing grammatically correct content."
+    answer: "Deterministic template-based"
+
+  - question: "Should validation failures block the operation or be logged as warnings?"
+    resolved: true
+    options:
+      - option: "Strict (fail fast)"
+        description: "Validation failures immediately halt execution and prevent git operations. Ensures quality, prevents invalid files in repository, clear error reporting. Matches pattern from 200-207."
+        selected: true
+      - option: "Warn and continue"
+        description: "Log validation failures as warnings but proceed with git staging/commit. Allows recovery from minor issues but risks committing invalid files."
+        selected: false
+      - option: "Best-effort with logging"
+        description: "Attempt to fix minor issues automatically (e.g., convert CRLF to LF) and continue. Complex to implement and may hide problems."
+        selected: false
+    selectionRationale: "Strict (fail fast) is recommended because it ensures file quality before commit, prevents invalid files from being pushed to the repository, provides clear error messages for debugging, and matches the successful validation pattern from prior features."
+    answer: "Strict (fail fast)"
+
+  - question: "Should the feature automatically push to remote or require manual push?"
+    resolved: true
+    options:
+      - option: "Automatic push to remote"
+        description: "Automatically execute `git push -u origin HEAD` after commit. Provides complete end-to-end automation, matches features 200-207 workflow, aligns with Sheep platform automation philosophy."
+        selected: true
+      - option: "Manual push required"
+        description: "Leave the commit staged for user to push manually. Provides control point but breaks automation chain and requires additional user action."
+        selected: false
+      - option: "Conditional push"
+        description: "Push based on a configuration flag or environment variable. Adds complexity but provides flexibility for different deployment scenarios."
+        selected: false
+    selectionRationale: "Automatic push to remote is recommended because it completes the full workflow end-to-end, maintains consistency with features 200-207, aligns with the Sheep platform's automation-first philosophy, and delivers immediate value without requiring manual intervention."
+    answer: "Automatic push to remote"
 
 content: |
   ## Problem Statement
@@ -52,6 +96,23 @@ content: |
   1. Generate and create the markdown file with properly formatted content
   2. Validate the file meets all format and content requirements
   3. Stage, commit, and push the file to the remote repository
+
+  ## Success Criteria
+
+  - [ ] File `test-xvuuel.md` is created in the repository root directory
+  - [ ] File contains exactly one H1 (Markdown `# Title`) heading on the first line
+  - [ ] A blank line (no whitespace) separates the title from prose content
+  - [ ] File contains exactly 2 or 3 sentences of prose content
+  - [ ] All sentences are grammatically correct and properly punctuated
+  - [ ] File is encoded in UTF-8 without BOM (Byte Order Mark)
+  - [ ] File uses LF (Unix-style) line endings, not CRLF
+  - [ ] File size is between 300-800 bytes (inclusive)
+  - [ ] File is staged with `git add test-xvuuel.md`
+  - [ ] File is committed with the conventional commit message: `feat(209): Create markdown file test-xvuuel.md`
+  - [ ] Commit is pushed to remote branch with `git push -u origin HEAD`
+  - [ ] All validation checks pass without errors before commit
+  - [ ] Sentence parsing correctly identifies 2-3 sentences in the content
+  - [ ] No git errors or conflicts occur during staging, commit, or push operations
 
   ## Functional Requirements
 
@@ -78,86 +139,6 @@ content: |
   - **NFR-8**: Total implementation time should not exceed 4 hours, following the \"S\" size estimate
   - **NFR-9**: Validation failures must be caught and reported clearly before any git operations are performed
   - **NFR-10**: The feature must be idempotent when called multiple times (creating the same file without duplicates or conflicts)
-
-  ## Success Criteria
-
-  - [ ] File `test-xvuuel.md` is created in the repository root directory
-  - [ ] File contains exactly one H1 (Markdown `# Title`) heading on the first line
-  - [ ] A blank line (no whitespace) separates the title from prose content
-  - [ ] File contains exactly 2 or 3 sentences of prose content
-  - [ ] All sentences are grammatically correct and properly punctuated
-  - [ ] File is encoded in UTF-8 without BOM (Byte Order Mark)
-  - [ ] File uses LF (Unix-style) line endings, not CRLF
-  - [ ] File size is between 300-800 bytes (inclusive)
-  - [ ] File is staged with `git add test-xvuuel.md`
-  - [ ] File is committed with the conventional commit message: `feat(209): Create markdown file test-xvuuel.md`
-  - [ ] Commit is pushed to remote branch with `git push -u origin HEAD`
-  - [ ] All validation checks pass without errors before commit
-  - [ ] Sentence parsing correctly identifies 2-3 sentences in the content
-  - [ ] No git errors or conflicts occur during staging, commit, or push operations
-
-  ## Product Questions & AI Recommendations
-
-  | # | Question | AI Recommendation | Rationale |
-  | - | -------- | ----------------- | --------- |
-  | 1 | Should prose content be generated deterministically from a template, randomly, or via AI? | Deterministic template-based | Aligns with proven pattern from features 200-207, fast/reproducible, no external APIs, simple implementation |
-  | 2 | Should validation failures block the operation or be logged as warnings? | Strict (fail fast) | Ensures quality before commit, prevents invalid files in repository, matches pattern from 200-207 |
-  | 3 | Should the feature automatically push to remote or require manual push? | Automatic push to remote | Provides complete end-to-end automation, matches features 200-207 workflow, aligns with Sheep platform philosophy |
-
-  ## Codebase Analysis
-
-  ### Project Structure
-
-  The Sheep repository is organized as follows:
-
-  - **Root Directory** - Contains markdown files created by feature tasks (200+ test-*.md
-    files plus several topic markdown files like ABOUT_ME.md, DESIGN_PATTERN.md, etc.)
-  - **src/sheep/** - Main Python package with:
-    - `agents/` - Agent definitions for research, implementation, and review
-    - `config/` - Configuration management for LLM providers
-    - `flows/` - Flow orchestration for the code implementation pipeline
-    - `observability/` - Logging and Langfuse integration
-    - `tools/` - Git and file operation tools
-    - `cli.py` - CLI entry point
-  - **specs/** - Feature specifications in YAML format (209+ feature specs numbered sequentially)
-  - **tests/** - Python test files for validation and integration testing
-  - **pyproject.toml** - Python project configuration with dependencies
-  - **Docker/** - Docker configuration for containerized execution
-
-  ### Architecture Patterns
-
-  The Sheep platform uses a **Flow-based architecture** with specialized agents:
-
-  1. **Separation of Structure and Intelligence**
-     - Flows define execution structure and control paths
-     - Crews provide autonomous AI decision-making
-     - Each crew is a specialized unit invoked at specific flow steps
-
-  2. **Agent-Based Design**
-     - Research agent - analyzes codebase and project context
-     - Implementation agent - writes code following conventions
-     - Review agent - validates changes for quality and correctness
-
-  3. **Git-Integrated Workflows**
-     - Automatic branch creation and management
-     - Support for git worktrees for isolated development
-     - Full commit/push automation with conventional commit messages
-
-  4. **Deterministic File Creation Pattern**
-     - Features 200-207 establish a proven pattern for markdown file creation
-     - Each feature creates a file, validates format/content, commits with conventional message, and pushes
-     - Validation includes: file existence, size (300-800 bytes), H1 format, blank line separator, sentence count (2-3), UTF-8 encoding, LF line endings
-
-  ### Relevant Technologies
-
-  - **Python 3.11+** - Primary implementation language (per pyproject.toml)
-  - **CrewAI** - Multi-agent orchestration framework for autonomous task execution
-  - **Langfuse** - Observability and execution tracing
-  - **Git/GitPython** - Version control and change management with programmatic API
-  - **Markdown** - Documentation format (plain text, no special libraries needed)
-  - **pathlib** - Cross-platform file path handling
-  - **subprocess** - Git command execution
-  - **Multiple LLMs** - OpenAI, Anthropic Claude, Google Gemini (optional for this feature)
 
   ## Affected Areas
 
@@ -187,4 +168,4 @@ content: |
 
   ---
 
-  _Analysis phase completed — feature is ready for implementation planning and design_
+  _Requirements phase completed — feature is ready for implementation planning_
