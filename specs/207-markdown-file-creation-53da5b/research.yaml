@@ -1,0 +1,694 @@
+name: "markdown-file-creation-53da5b"
+summary: >
+  Implementation research for feature 207 confirms straightforward technical approach following
+  established patterns from features 200-206. Feature uses hard-coded deterministic content,
+  pathlib for file operations with UTF-8 encoding (auto-LF on Unix), subprocess for secure git
+  operations, and comprehensive validation via focused functions. No new external dependencies
+  required — all patterns and tools already established in codebase.
+
+relatedFeatures:
+  - 206
+  - 205
+  - 204
+  - 203
+  - 202
+  - 201
+  - 200
+
+technologies:
+  - "Python (3.11+)"
+  - "pathlib (built-in)"
+  - "subprocess (built-in)"
+  - "structlog"
+  - "Git"
+  - "Markdown"
+  - "UTF-8 encoding"
+  - "Unix LF line endings"
+
+relatedLinks:
+  - title: "Feature 206 Implementation (reference pattern)"
+    url: "src/sheep/features/feature_206_markdown_file_creation.py"
+  - title: "Feature 205 Implementation (reference pattern)"
+    url: "src/sheep/features/feature_205_markdown_file_creation.py"
+  - title: "Sheep Platform Logging"
+    url: "src/sheep/observability/logging.py"
+  - title: "Feature 206 Specification"
+    url: "specs/206-markdown-file-creation-795c31/spec.yaml"
+  - title: "Feature 205 Specification"
+    url: "specs/205-markdown-file-creation-870df7/spec.yaml"
+
+decisions:
+  - title: "File Creation Method"
+    chosen: "pathlib.Path.write_text() with UTF-8 encoding"
+    rejected:
+      - "open() with explicit 'w' mode — less Pythonic, requires manual file handle management, no advantage over write_text()"
+      - "io.open() with encoding parameter — verbose for simple use case, pathlib is modern standard for Python 3.4+"
+      - "subprocess to touch + echo commands — security risk, overcomplicates simple file I/O, harder to validate"
+    rationale: >
+      pathlib.Path.write_text() is the idiomatic Python 3.4+ approach for file creation. It handles
+      encoding cleanly (UTF-8 specified explicitly), automatically uses LF line endings on Unix/Linux
+      systems (critical for NFR-2), ensures files are closed properly, and provides a Path object for
+      validation. This approach matches features 205-206 pattern and is the modern Python standard.
+      UTF-8 encoding parameter ensures no BOM is added (NFR-1), and write_text() on Unix automatically
+      uses LF line endings (NFR-2).
+
+  - title: "Sentence Counting Method"
+    chosen: "Count periods (.) in prose text"
+    rejected:
+      - "Regex sentence boundary detection — overcomplicated for simple validation, harder to test, unnecessary for typical prose"
+      - "NLTK or spacy for NLP-based sentence detection — external dependency against NFR-6, overkill for deterministic content"
+      - "Line-based counting — assumes each sentence on separate line, but spec requires single paragraph format"
+    rationale: >
+      Simple period counting validates the 2-3 sentence requirement effectively for the deterministic,
+      well-formed content used in this feature. Each sentence must end with a period (FR-3), so counting
+      periods directly gives accurate sentence count. This matches the pattern from features 205-206. Regex
+      or NLP approaches add unnecessary complexity and external dependencies without benefit for hard-coded,
+      grammatically correct content. Single paragraph format (space-separated sentences) means each period
+      marks exactly one sentence end.
+
+  - title: "Git Operations Implementation"
+    chosen: "subprocess.run() with shell=False, separate functions for add/commit/push"
+    rejected:
+      - "GitPython library — external dependency against NFR-6, requires setup/initialization, not in existing codebase pattern"
+      - "subprocess with shell=True — security vulnerability (shell injection risk), harder to debug"
+      - "Direct python-git bindings or git command parsing — maintenance burden, error handling complexity"
+    rationale: >
+      subprocess.run() with shell=False is secure (no shell injection), matches established pattern from
+      features 205-206, is available in Python standard library (NFR-6), and provides clear error handling
+      via CalledProcessError. Separate functions (git_add_file, git_commit, git_push) follow single-responsibility
+      principle, aid testing, and match the codebase pattern. Using capture_output=True and text=True allows
+      access to stderr for clear error messages. This approach is proven in features 205-206 and requires no
+      new dependencies.
+
+  - title: "Validation Architecture"
+    chosen: "Multiple focused validation functions composed into comprehensive pipeline"
+    rejected:
+      - "Single monolithic validate() function — harder to test individual concerns, unclear which check fails"
+      - "Inline validation in create_markdown_file() — mixes concerns, validation duplicated across functions"
+      - "External validation library/module — unnecessary dependency, adds indirection"
+    rationale: >
+      Multiple focused functions (verify_file_exists, validate_markdown_format, extract_prose_content,
+      count_sentences, validate_sentence_count, validate_encoding, validate_line_endings, validate_file_size)
+      each check one concern, are easy to test independently, provide clear error messages (show which check
+      failed), and compose cleanly into a validate_markdown_file() pipeline function. This matches the
+      successful pattern from features 205-206, enables code reuse (extract_prose_content and count_sentences
+      used by validate_sentence_count), and makes validation transparent and maintainable.
+
+  - title: "Content Generation Approach"
+    chosen: "Hard-coded deterministic content defined as module constants"
+    rejected:
+      - "Procedurally generated content using Claude API — violates NFR-7 (deterministic requirement), adds complexity"
+      - "Reading content from external template file — adds file dependency, complicates deployment"
+      - "Randomized or varied content — impossible to test deterministically, violates NFR-7"
+    rationale: >
+      Hard-coded content (TITLE_TEXT and PROSE_CONTENT as module constants) satisfies NFR-7's deterministic
+      requirement, matches features 205-206 pattern, makes content immediately visible and auditable (no API calls),
+      enables fast testing, and simplifies validation (no variability to handle). Content is defined as string
+      constants following established pattern. The spec explicitly requires deterministic implementation and
+      recommends hard-coded content as the chosen approach.
+
+  - title: "Error Handling Strategy"
+    chosen: "Fail-fast with exception propagation, clear error messages at each layer"
+    rejected:
+      - "Retry logic with exponential backoff — git operations on local repo are deterministic, transient failures unlikely"
+      - "Graceful degradation or partial completion — violates platform reliability expectations"
+      - "Swallow errors and continue — hides problems, makes debugging harder"
+    rationale: >
+      Fail-fast principle (raise exceptions immediately on error) is the established pattern in features 205-206.
+      File creation and git operations on local systems are deterministic; failures indicate real problems (missing
+      permissions, corrupt state, auth failure) that must be visible. Each function catches specific exceptions
+      (FileNotFoundError, ValueError, CalledProcessError) and logs detailed error messages using logger.error() before
+      re-raising. The main() function catches these exceptions, logs failure, and returns 1. This approach is transparent,
+      testable, and matches the codebase pattern.
+
+  - title: "Encoding Validation Approach"
+    chosen: "Binary validation: read_bytes() check for BOM + decode('utf-8') verification"
+    rejected:
+      - "Assume pathlib write_text handles encoding — works correctly but doesn't validate after write"
+      - "Regular text read + encode roundtrip — less direct, harder to detect BOM specifically"
+      - "Using chardet library for encoding detection — external dependency, overkill for already-created UTF-8 file"
+    rationale: >
+      Binary validation (read_bytes()) is the most reliable approach because it explicitly checks for UTF-8 BOM
+      signature (0xEF 0xBB 0xBF), then attempts UTF-8 decode to verify integrity. This matches the pattern from
+      features 205-206, catches both corruption and encoding issues, and requires no external dependencies. The check
+      is fast (just byte checks) and explicit about what it validates. Even though write_text() with encoding='utf-8'
+      won't add BOM, this validation confirms the file is truly valid UTF-8.
+
+  - title: "Line Ending Validation Approach"
+    chosen: "Binary validation: read_bytes() check for CRLF and CR patterns"
+    rejected:
+      - "Text read + check for \\n in lines — less reliable, can miss edge cases"
+      - "Using universal_newlines parameter — masks line ending issues, assumes system defaults"
+      - "External library like dos2unix — unnecessary dependency, over-complicates simple validation"
+    rationale: >
+      Binary validation (check for b\"\\r\\n\" and b\"\\r\" in file bytes) directly verifies Unix LF-only line
+      endings (NFR-2). This approach is explicit (exactly what's checked), fast, matches features 205-206 pattern,
+      and requires no external dependencies. Checking binary content avoids text encoding interpretation issues. On
+      Unix/Linux, pathlib.Path.write_text() automatically uses LF line endings, but this validation confirms the file
+      content is correct.
+
+  - title: "Module Structure and Organization"
+    chosen: "Feature module: feature_207_markdown_file_creation.py with constants, functions, and main orchestration"
+    rejected:
+      - "Separate module files (content.py, validation.py, git.py) — over-engineered for simple single-file task"
+      - "Configuration-driven via YAML/JSON — adds indirection and parsing, simpler to define constants directly"
+      - "Inline implementation without module pattern — doesn't match codebase convention"
+    rationale: >
+      Single feature module matches the established pattern in features 200-206 (feature_20X_markdown_file_creation.py).
+      Module includes module docstring explaining the feature, constants (FILENAME, FEATURE_NUMBER, BRANCH_NAME,
+      COMMIT_MESSAGE, TITLE_TEXT, PROSE_CONTENT), functions organized by responsibility (file creation, validation,
+      git operations), and main() orchestration function. This structure is familiar to codebase users, enables
+      module-level testing, and keeps all feature logic in one discoverable location without unnecessary file
+      proliferation.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File Creation Method: pathlib.Path.write_text()
+
+  **Chosen:** Use `pathlib.Path.write_text()` with explicit UTF-8 encoding
+
+  **Why selected:**
+  - Modern Python 3.4+ standard for file operations
+  - Automatically uses LF line endings on Unix/Linux systems (critical for NFR-2)
+  - UTF-8 encoding parameter ensures no BOM is added (handles NFR-1)
+  - Cleaner API than open() or io.open()
+  - Matches established pattern from features 205-206
+  - Automatically closes file (no resource leaks)
+  - Returns Path object for easy validation
+
+  **Implementation:**
+  ```python
+  markdown_content = f"# {TITLE_TEXT}\n\n{PROSE_CONTENT}\n"
+  file_path = Path(FILENAME)
+  file_path.write_text(markdown_content, encoding="utf-8")
+  ```
+
+  **Rejected alternatives:**
+  - `open()` with 'w' mode — verbose, manual file handle management
+  - `io.open()` — unnecessary for Python 3.4+, more verbose
+  - Subprocess touch + echo — security risk, over-complicates simple I/O
+
+  ---
+
+  ### 2. Sentence Counting: Period Counting
+
+  **Chosen:** Count periods (.) in prose text to validate sentence count
+
+  **Why selected:**
+  - Simple, direct, and effective for well-formed prose
+  - Each sentence must end with period (FR-3), so period count = sentence count
+  - No external dependencies required (matches NFR-6)
+  - Matches pattern from features 205-206
+  - Easy to test and debug
+  - Fast execution (single string operation)
+  - Deterministic for hard-coded content
+
+  **Implementation:**
+  ```python
+  def count_sentences(prose: str) -> int:
+      return prose.count(".")
+  ```
+
+  **Validation logic:**
+  - Extract prose content after blank line separator
+  - Count periods: must be exactly 2 or 3 (2 <= count <= 3)
+  - Clear error message if count is outside range
+
+  **Rejected alternatives:**
+  - Regex sentence boundary detection — over-engineered, hard to test
+  - NLTK/spacy NLP — external dependency, unnecessary for deterministic content
+  - Line-based counting — doesn't work for single-paragraph format (space-separated sentences)
+
+  ---
+
+  ### 3. Git Operations: subprocess.run() with shell=False
+
+  **Chosen:** Use subprocess.run() with shell=False for git add/commit/push
+
+  **Why selected:**
+  - Secure: no shell injection vulnerability (shell=False is critical)
+  - Matches established pattern from features 205-206
+  - Standard library (no external dependencies per NFR-6)
+  - Clear error handling via CalledProcessError exception
+  - Separate functions for each operation (single responsibility)
+  - Can capture output/stderr for detailed error messages
+  - Uses list syntax for command (more explicit, easier to parse)
+
+  **Implementation pattern:**
+  ```python
+  subprocess.run(
+      ["git", "add", filename],
+      check=True,
+      capture_output=True,
+      text=True,
+  )
+  ```
+
+  **Key parameters:**
+  - `shell=False` (default) — secure, prevents shell interpretation
+  - `check=True` — raises CalledProcessError if command fails (fail-fast)
+  - `capture_output=True` — capture stdout/stderr for logging
+  - `text=True` — return strings instead of bytes
+
+  **Function organization:**
+  - `git_add_file(filename)` — stage file for commit
+  - `git_commit(commit_message)` — create commit with conventional message
+  - `git_push(branch_name)` — push to remote with -u flag for tracking
+
+  **Rejected alternatives:**
+  - GitPython library — external dependency against NFR-6
+  - subprocess with shell=True — security vulnerability
+  - Direct python-git bindings — maintenance burden, not in codebase
+
+  ---
+
+  ### 4. Validation Architecture: Focused Functions Pipeline
+
+  **Chosen:** Multiple focused validation functions (6 core + 1 pipeline function)
+
+  **Why selected:**
+  - Each function validates one concern (single responsibility)
+  - Functions are independently testable
+  - Error messages show exactly which check failed
+  - Validation functions can be reused (extract_prose_content, count_sentences)
+  - Pipeline function (validate_markdown_file) orchestrates checks in logical order
+  - Matches successful pattern from features 205-206
+  - Clear separation of file format validation vs. encoding validation vs. size validation
+
+  **Validation function organization:**
+
+  1. **verify_file_exists()** — Check file exists at path
+  2. **validate_markdown_format()** — Check H1 heading at start, blank line separator, exactly one H1
+  3. **extract_prose_content()** — Helper: extract text after blank line
+  4. **count_sentences()** — Helper: count periods in prose
+  5. **validate_sentence_count()** — Check exactly 2-3 sentences
+  6. **validate_encoding()** — Check UTF-8 without BOM
+  7. **validate_line_endings()** — Check Unix LF only (no CRLF/CR)
+  8. **validate_file_size()** — Check file size 250-600 bytes
+  9. **validate_markdown_file()** — Pipeline: run all checks in order, fail on first error
+
+  **Pipeline execution order:**
+  ```
+  Check 1: File exists
+  Check 2: Markdown format (H1 heading, blank line, prose)
+  Check 3: Sentence count (exactly 2-3)
+  Check 4: File encoding (UTF-8 without BOM)
+  Check 5: Line endings (Unix LF only)
+  Check 6: File size (250-600 bytes)
+  ```
+
+  **Error handling:**
+  - Each function logs at DEBUG level before checking
+  - If check fails, logs ERROR with specific message
+  - Exceptions re-raised to main()
+  - main() catches exceptions, logs workflow failure, returns 1
+
+  **Rejected alternatives:**
+  - Single monolithic validate() function — unclear which check fails
+  - Inline validation in create_markdown_file() — mixes concerns
+  - External validation library — unnecessary dependency
+
+  ---
+
+  ### 5. Content Generation: Hard-Coded Deterministic
+
+  **Chosen:** Hard-coded content defined as module constants
+
+  **Why selected:**
+  - Satisfies NFR-7 requirement: "implementation must be deterministic"
+  - Matches features 205-206 pattern (proven approach)
+  - Content is immediately visible and auditable (no API calls)
+  - Fast execution (no API latency)
+  - Reproducible across executions (critical for testing)
+  - Transparent: readers can see exact content
+  - No external API dependencies
+  - No additional error handling for API failures
+
+  **Implementation:**
+  ```python
+  TITLE_TEXT = "The Power of Asynchronous Programming"
+
+  PROSE_CONTENT = (
+      "Asynchronous programming enables applications to handle multiple tasks concurrently "
+      "without blocking the main execution thread. This approach is essential for building responsive "
+      "user interfaces and efficient server applications. Modern programming languages and frameworks "
+      "provide powerful abstractions like async/await that make asynchronous code easier to write and understand."
+  )
+  ```
+
+  **Content format:**
+  - TITLE_TEXT: Single line string for H1 markdown heading
+  - PROSE_CONTENT: Single paragraph (space-separated sentences, not newline-separated)
+  - Content is grammatically correct, complete sentences
+  - Exactly 3 sentences (3 periods in PROSE_CONTENT)
+  - Natural readable English prose
+
+  **Rejected alternatives:**
+  - Claude API generation — violates NFR-7 (deterministic), adds latency, unnecessary complexity
+  - Template file reading — adds file dependency, less transparent
+  - Randomized content — impossible to test deterministically, violates NFR-7
+
+  ---
+
+  ### 6. Error Handling: Fail-Fast with Clear Logging
+
+  **Chosen:** Raise exceptions immediately, log detailed error messages, return non-zero exit code on failure
+
+  **Why selected:**
+  - Matches fail-fast principle from features 205-206
+  - File/git operations on local system are deterministic
+  - Failures indicate real problems (permissions, state corruption, auth failure)
+  - Visibility: errors must be clear to operators
+  - Prevents partial/corrupt state (no recovery attempts for local operations)
+  - Simple, transparent error propagation
+  - Clear logging at each failure point
+
+  **Implementation pattern:**
+  ```python
+  def create_markdown_file() -> Path:
+      _logger.info(f"Creating markdown file: {FILENAME}")
+      try:
+          markdown_content = f"# {TITLE_TEXT}\n\n{PROSE_CONTENT}\n"
+          file_path = Path(FILENAME)
+          file_path.write_text(markdown_content, encoding="utf-8")
+          if not file_path.exists():
+              raise OSError(f"File was not created: {file_path}")
+          file_size = file_path.stat().st_size
+          _logger.info(f"Successfully created {FILENAME} ({file_size} bytes)")
+          return file_path
+      except Exception as e:
+          _logger.error(f"Failed to create markdown file: {e}")
+          raise
+  ```
+
+  **Main orchestration error handling:**
+  ```python
+  def main() -> int:
+      _logger.info("Starting feature 207 implementation workflow")
+      try:
+          # Phase 1, 2, 3...
+          _logger.info("✓ Feature 207 implementation completed successfully")
+          return 0
+      except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as e:
+          _logger.error(f"Feature 207 workflow failed: {e}")
+          return 1
+      except Exception as e:
+          _logger.error(f"Unexpected error in feature 207 workflow: {e}")
+          return 1
+  ```
+
+  **Rejected alternatives:**
+  - Retry logic with exponential backoff — local operations are deterministic, failures indicate real problems
+  - Graceful degradation — hides errors, reduces visibility
+  - Swallow errors and continue — prevents debugging, violates transparency principle
+
+  ---
+
+  ### 7. File Encoding Validation: Binary Verification
+
+  **Chosen:** Read file as bytes, check for UTF-8 BOM, attempt UTF-8 decode
+
+  **Why selected:**
+  - Direct binary validation: explicitly checks for UTF-8 BOM signature (0xEF 0xBB 0xBF)
+  - Decode verification: attempts UTF-8 decode, catches UnicodeDecodeError
+  - No assumptions about text encoding
+  - Matches pattern from features 205-206
+  - No external dependencies
+  - Fast: direct byte checks before parsing
+
+  **Implementation:**
+  ```python
+  def validate_encoding(filename: str = FILENAME) -> None:
+      _logger.debug(f"Validating encoding: {filename}")
+      file_path = Path(filename)
+      if not file_path.exists():
+          raise FileNotFoundError(f"File {filename} does not exist")
+
+      binary_content = file_path.read_bytes()
+
+      # Check for UTF-8 BOM
+      if binary_content.startswith(b"\xef\xbb\xbf"):
+          raise ValueError("File contains UTF-8 BOM (byte order mark)")
+
+      # Verify UTF-8 encoding
+      try:
+          binary_content.decode("utf-8")
+      except UnicodeDecodeError as e:
+          raise ValueError(f"File contains invalid UTF-8 encoding: {e}") from e
+  ```
+
+  **How pathlib.Path.write_text() ensures UTF-8 without BOM:**
+  - write_text() with encoding='utf-8' uses Python's UTF-8 codec
+  - Python's UTF-8 codec does NOT add BOM by default (use 'utf-8-sig' for BOM)
+  - This validation confirms the guarantee
+
+  **Rejected alternatives:**
+  - Assume write_text handles it correctly — defensive programming: verify explicitly
+  - Text read + encode roundtrip — less direct, harder to detect BOM
+  - chardet library for detection — external dependency, unnecessary
+
+  ---
+
+  ### 8. Line Ending Validation: Binary Pattern Check
+
+  **Chosen:** Read file as bytes, check for CRLF and CR patterns
+
+  **Why selected:**
+  - Direct binary validation: checks exact byte patterns
+  - Explicit about what's validated: no CRLF, no CR (LF-only)
+  - No assumptions about system defaults
+  - Matches pattern from features 205-206
+  - No external dependencies
+  - Fast: simple byte-in-bytes checks
+
+  **Implementation:**
+  ```python
+  def validate_line_endings(filename: str = FILENAME) -> None:
+      _logger.debug(f"Validating line endings: {filename}")
+      file_path = Path(filename)
+      if not file_path.exists():
+          raise FileNotFoundError(f"File {filename} does not exist")
+
+      binary_content = file_path.read_bytes()
+
+      if b"\r\n" in binary_content:
+          raise ValueError("File contains Windows CRLF (\\r\\n) line endings")
+
+      if b"\r" in binary_content:
+          raise ValueError("File contains Mac CR (\\r) line endings")
+  ```
+
+  **How pathlib.Path.write_text() ensures LF on Unix:**
+  - Python's text mode (default) converts \\n to system line ending
+  - On Unix/Linux: \\n stays as LF (0x0A)
+  - On Windows: \\n becomes CRLF (0x0D 0x0A)
+  - Since we validate after write, we confirm the guarantee
+  - This feature runs on Linux (per environment), so LF is guaranteed
+
+  **Rejected alternatives:**
+  - Text read + check for \\n — less reliable, text interpretation varies
+  - universal_newlines parameter — masks issues, doesn't verify specification
+  - dos2unix library — external dependency, not needed
+
+  ---
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | pathlib (built-in) | File I/O, path operations | Use | Modern Python 3.4+ standard; write_text() handles UTF-8 and LF cleanly |
+  | subprocess (built-in) | Execute git commands | Use | Secure (shell=False), standard library, matches codebase pattern 205-206 |
+  | structlog | Logging | Use | Already configured in sheep.observability.logging; provides get_logger() |
+  | sheep.observability.logging | Get logger instance | Use | Part of Sheep platform infrastructure; use get_logger(__name__) |
+  | GitPython | Git operations (alternative) | Reject | External dependency violates NFR-6; subprocess works well |
+  | chardet | Encoding detection (alternative) | Reject | External dependency; simple UTF-8 validation doesn't need detection |
+  | NLTK/spacy | NLP sentence detection (alternative) | Reject | External dependencies; simple period counting sufficient |
+  | dos2unix | Line ending validation (alternative) | Reject | External dependency; binary validation faster and simpler |
+
+  ---
+
+  ## Security Considerations
+
+  ### 1. Command Injection Prevention
+
+  **Approach:** Use subprocess.run() with shell=False and list-based command syntax
+
+  **Implementation:**
+  ```python
+  subprocess.run(
+      ["git", "add", filename],
+      check=True,
+      capture_output=True,
+      text=True,
+  )
+  ```
+
+  **Why secure:**
+  - shell=False (default) prevents shell interpretation
+  - Command arguments passed as list, not string
+  - Git command name and arguments are separated
+  - User-controlled filename passed as argument, not interpreted by shell
+  - Even if filename contains special characters, they're passed literally to git
+
+  **Risk mitigation:** Command injection via malicious filename is impossible with this approach.
+
+  ---
+
+  ### 2. File Encoding/Corruption Prevention
+
+  **Approach:** Validation explicitly checks file content after write
+
+  **Implementation:**
+  - verify_file_exists() — confirms file exists
+  - validate_encoding() — checks UTF-8 validity and no BOM
+  - validate_line_endings() — checks Unix LF format
+
+  **Why secure:**
+  - Defensive validation after every operation
+  - Detects file system corruption or permission issues
+  - Confirms content matches expectations before git operations
+  - Each validation is independent and can detect different failure modes
+
+  ---
+
+  ### 3. Error Message Sanitization
+
+  **Approach:** Log detailed errors, but don't expose sensitive paths/data
+
+  **Implementation:**
+  - Error messages use relative filenames (test-jkyks3.md, not full paths)
+  - Subprocess stderr is captured and logged, but git operations don't return sensitive data
+  - Exception messages are clear but don't expose system internals
+
+  **Why secure:**
+  - Detailed error messages aid debugging without exposing sensitive information
+  - Relative paths prevent leaking filesystem structure
+  - Subprocess output is captured, preventing accidental leaks to stdout
+
+  ---
+
+  ## Performance Considerations
+
+  ### 1. File Operations
+
+  **Choice:** pathlib.Path.write_text() with single write
+
+  **Performance implications:**
+  - Single write operation: minimal I/O overhead
+  - Content size: ~300-400 bytes (small file)
+  - No read-modify-write cycle
+  - UTF-8 encoding: fast, built-in Python codec
+
+  **Performance:** Negligible impact. File creation is instant (< 1ms).
+
+  ---
+
+  ### 2. Validation Performance
+
+  **Choice:** Sequential validation with early exit on first error
+
+  **Performance breakdown:**
+  - verify_file_exists(): stat system call (~1ms)
+  - validate_markdown_format(): text read + line split + counting (~1ms)
+  - validate_sentence_count(): prose extraction + period counting (~1ms)
+  - validate_encoding(): bytes read + BOM check + decode (~2ms)
+  - validate_line_endings(): bytes read + pattern searches (~1ms)
+  - validate_file_size(): stat system call (~1ms)
+
+  **Total validation time:** ~7ms per file (negligible)
+
+  **Optimization notes:**
+  - Could optimize by reading file once, but current approach is clearer and fast enough
+  - Early exit on first error prevents unnecessary checks
+  - Debug logging uses lazy evaluation
+
+  ---
+
+  ### 3. Git Operations Performance
+
+  **Choice:** subprocess.run() with capture_output
+
+  **Performance implications:**
+  - git add: subprocess spawn (~50ms) + git operation (~10ms)
+  - git commit: subprocess spawn (~50ms) + git operation (~10ms)
+  - git push: subprocess spawn (~50ms) + network I/O (variable, 100-500ms)
+  - Total: ~300-700ms typical (dominated by git push network latency)
+
+  **Performance notes:**
+  - Network I/O (push) is rate-limiting factor, not implementation choice
+  - capture_output doesn't significantly impact performance
+  - Sequential operations (add → commit → push) are correct approach
+
+  ---
+
+  ## Architecture Notes
+
+  ### 1. How Feature 207 Fits into Sheep Platform
+
+  **Module Location:** `src/sheep/features/feature_207_markdown_file_creation.py`
+
+  **Integration points:**
+  - Logging: imports `sheep.observability.logging.get_logger`
+  - Git integration: uses subprocess (no special Sheep tools needed)
+  - File I/O: uses standard pathlib (no special Sheep tools needed)
+  - Orchestration: main() function follows Sheep module pattern
+
+  **Invocation:** Feature module is called by Sheep workflow orchestration
+  - Run via: `python -m sheep.features.feature_207_markdown_file_creation`
+  - Or imported and main() called programmatically
+
+  ### 2. Relationship to Features 200-206
+
+  **Pattern compliance:** Feature 207 follows the identical structure as features 205-206:
+
+  - **Module structure:** feature_207_markdown_file_creation.py
+  - **Content approach:** Hard-coded deterministic (matches 205-206)
+  - **Validation pattern:** Multiple focused functions composed into pipeline
+  - **Git operations:** subprocess.run() with shell=False
+  - **Error handling:** Fail-fast with clear logging
+  - **Main orchestration:** Three phases (create, validate, git operations)
+
+  **Code reusability:**
+  - extract_prose_content() and count_sentences() are generic validation helpers
+  - validate_markdown_file() pipeline pattern can be extended for future features
+  - git_add_file(), git_commit(), git_push() patterns can be copied to other features
+
+  ### 3. No Architectural Debt
+
+  **Clean design:**
+  - Single feature module with clear responsibility
+  - No modification to existing files needed
+  - No new dependencies introduced
+  - Follows established patterns exactly (no exceptions/special cases)
+  - Validation is comprehensive and testable
+  - Error handling is transparent and debuggable
+
+  **Maintainability:**
+  - Code is self-documenting (function names clearly describe purpose)
+  - Docstrings explain parameters and exceptions
+  - Logging at appropriate levels (INFO for major steps, DEBUG for details, ERROR for failures)
+  - No magic numbers or implicit assumptions
+
+  ---
+
+  ## Conclusion
+
+  Feature 207 is straightforward to implement using established patterns from features 205-206.
+  No new technologies, dependencies, or architectural decisions are needed beyond what's already
+  proven in the codebase. The feature uses:
+
+  - **pathlib.Path.write_text()** for clean file creation with UTF-8 and automatic LF handling
+  - **Comprehensive validation** via focused functions (8 validation functions in a pipeline)
+  - **subprocess.run()** with shell=False for secure git operations
+  - **Hard-coded deterministic content** to satisfy NFR-7 and match proven patterns
+  - **Fail-fast error handling** with clear logging at each step
+  - **Module pattern** identical to features 205-206 for consistency
+
+  Implementation risk is very low. Effort estimate: 1-2 hours.
+
+  ---
+
+  **Research completed:** 2026-03-25 — Ready for implementation phase
