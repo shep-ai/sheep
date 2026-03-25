@@ -370,32 +370,32 @@ def validate_markdown_file(filename: str = FILENAME) -> None:
         # Check 1: File exists
         _logger.info("Check 1: Verifying file exists")
         verify_file_exists(filename)
-        _logger.debug("✓ File exists")
+        _logger.debug("[PASS] File exists")
 
         # Check 2: Markdown format
         _logger.info("Check 2: Validating markdown format")
         validate_markdown_format(filename)
-        _logger.debug("✓ Markdown format valid")
+        _logger.debug("[PASS] Markdown format valid")
 
         # Check 3: Sentence count
         _logger.info("Check 3: Validating sentence count (2-3)")
         validate_sentence_count(filename)
-        _logger.debug("✓ Sentence count valid")
+        _logger.debug("[PASS] Sentence count valid")
 
         # Check 4: UTF-8 encoding
         _logger.info("Check 4: Validating UTF-8 encoding without BOM")
         validate_encoding(filename)
-        _logger.debug("✓ Encoding valid")
+        _logger.debug("[PASS] Encoding valid")
 
         # Check 5: Line endings
         _logger.info("Check 5: Validating Unix LF line endings")
         validate_line_endings(filename)
-        _logger.debug("✓ Line endings valid")
+        _logger.debug("[PASS] Line endings valid")
 
         # Check 6: File size
         _logger.info("Check 6: Validating file size (300-800 bytes)")
         validate_file_size(filename)
-        _logger.debug("✓ File size valid")
+        _logger.debug("[PASS] File size valid")
 
         _logger.info("All validation checks passed")
 
