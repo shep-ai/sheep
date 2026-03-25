@@ -47,6 +47,12 @@ PROSE_CONTENT = (
     "that distinguishes excellent programmers from adequate ones."
 )
 
+# Validation constants
+H1_PATTERN = r"^# [A-Za-z]"
+BOM_BYTES = b"\xef\xbb\xbf"
+MIN_FILE_SIZE = 100
+MAX_FILE_SIZE = 600
+
 
 def create_markdown_file() -> Path:
     """Create markdown file with proper encoding and line endings.
@@ -82,4 +88,292 @@ def create_markdown_file() -> Path:
 
     except Exception as e:
         _logger.error(f"Failed to create markdown file: {e}")
+        raise
+
+
+def validate_h1_format(file_path: Path) -> bool:
+    """Validate that file's first line matches H1 markdown pattern.
+
+    Checks that the first line starts with '# ' followed by alphabetic character.
+    Uses regex pattern: ^# [A-Za-z]
+
+    Args:
+        file_path: Path to markdown file to validate
+
+    Returns:
+        True if H1 format is valid
+
+    Raises:
+        ValueError: If H1 heading is missing or malformed
+    """
+    try:
+        content = Path(file_path).read_text(encoding="utf-8")
+        lines = content.split("\n")
+
+        if not lines:
+            raise ValueError("File is empty: expected H1 heading starting with '# '")
+
+        first_line = lines[0]
+
+        if not re.match(H1_PATTERN, first_line):
+            raise ValueError(
+                f"H1 heading not found or invalid format: "
+                f"first line should start with '# ' followed by text, "
+                f"got: '{first_line}'"
+            )
+
+        return True
+
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to validate H1 format: {e}")
+
+
+def validate_blank_separator(file_path: Path) -> bool:
+    """Validate that the line after H1 heading is blank.
+
+    The second line must be empty or contain only whitespace.
+
+    Args:
+        file_path: Path to markdown file to validate
+
+    Returns:
+        True if blank separator is valid
+
+    Raises:
+        ValueError: If blank separator is missing or contains text
+    """
+    try:
+        content = Path(file_path).read_text(encoding="utf-8")
+        lines = content.split("\n")
+
+        # Check we have at least 2 lines
+        if len(lines) < 2:
+            raise ValueError(
+                "File has fewer than 2 lines: expected H1 heading followed by blank line"
+            )
+
+        second_line = lines[1]
+
+        if second_line.strip() != "":
+            raise ValueError(
+                f"Expected blank line after H1 heading, "
+                f"but found text: '{second_line}'"
+            )
+
+        return True
+
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to validate blank separator: {e}")
+
+
+def validate_sentence_count(file_path: Path) -> bool:
+    """Validate that prose contains exactly 2-3 sentences.
+
+    Counts periods in the prose section (after the blank line) to determine
+    sentence count.
+
+    Args:
+        file_path: Path to markdown file to validate
+
+    Returns:
+        True if sentence count is valid (2-3)
+
+    Raises:
+        ValueError: If sentence count is not 2 or 3
+    """
+    try:
+        content = Path(file_path).read_text(encoding="utf-8")
+        lines = content.split("\n")
+
+        # Prose is everything after the second line (blank line)
+        if len(lines) < 3:
+            raise ValueError(
+                "File does not have prose content after blank line"
+            )
+
+        prose = "\n".join(lines[2:])
+        period_count = prose.count(".")
+
+        if period_count < 2 or period_count > 3:
+            raise ValueError(
+                f"Expected 2-3 sentences, found {period_count} periods "
+                f"in prose section"
+            )
+
+        return True
+
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to validate sentence count: {e}")
+
+
+def validate_encoding(file_path: Path) -> bool:
+    """Validate that file is UTF-8 encoded without BOM.
+
+    Checks that file does not start with UTF-8 BOM (0xEF 0xBB 0xBF) and
+    can be decoded as valid UTF-8.
+
+    Args:
+        file_path: Path to markdown file to validate
+
+    Returns:
+        True if encoding is valid UTF-8 without BOM
+
+    Raises:
+        ValueError: If BOM is detected or file is not valid UTF-8
+    """
+    try:
+        data = Path(file_path).read_bytes()
+
+        if data.startswith(BOM_BYTES):
+            raise ValueError(
+                "File encoding has UTF-8 BOM (0xEF 0xBB 0xBF): "
+                "expected UTF-8 without BOM"
+            )
+
+        # Verify valid UTF-8 by attempting decode
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError as e:
+            raise ValueError(
+                f"File is not valid UTF-8 encoding: {e}"
+            )
+
+        return True
+
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to validate encoding: {e}")
+
+
+def validate_line_endings(file_path: Path) -> bool:
+    """Validate that file uses Unix LF line endings only.
+
+    Checks that file contains no CRLF (Windows) or CR (Mac) line endings,
+    only LF (Unix).
+
+    Args:
+        file_path: Path to markdown file to validate
+
+    Returns:
+        True if line endings are Unix LF only
+
+    Raises:
+        ValueError: If non-LF line endings are detected
+    """
+    try:
+        data = Path(file_path).read_bytes()
+
+        if b"\r\n" in data:
+            raise ValueError(
+                "File uses CRLF line endings (Windows style), "
+                "expected Unix LF line endings"
+            )
+
+        if b"\r" in data:
+            raise ValueError(
+                "File uses CR line endings (old Mac style), "
+                "expected Unix LF line endings"
+            )
+
+        return True
+
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to validate line endings: {e}")
+
+
+def validate_file_size(file_path: Path) -> bool:
+    """Validate that file size is within specification bounds.
+
+    File size must be between 100-600 bytes inclusive.
+
+    Args:
+        file_path: Path to markdown file to validate
+
+    Returns:
+        True if file size is within bounds
+
+    Raises:
+        ValueError: If file size is outside 100-600 byte range
+    """
+    try:
+        size = Path(file_path).stat().st_size
+
+        if size < MIN_FILE_SIZE or size > MAX_FILE_SIZE:
+            raise ValueError(
+                f"File size {size} bytes is outside bounds "
+                f"(expected {MIN_FILE_SIZE}-{MAX_FILE_SIZE} bytes)"
+            )
+
+        return True
+
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to validate file size: {e}")
+
+
+def validate_markdown_file(file_path: Path) -> bool:
+    """Orchestrate comprehensive validation of markdown file.
+
+    Validates in order: (1) file exists, (2) H1 format, (3) blank separator,
+    (4) sentence count, (5) encoding, (6) line endings, (7) file size.
+
+    Stops immediately on first validation failure (fail-fast).
+
+    Args:
+        file_path: Path to markdown file to validate
+
+    Returns:
+        True if all validations pass
+
+    Raises:
+        ValueError: If any validation fails
+    """
+    file_path = Path(file_path)
+
+    try:
+        # Check file exists
+        if not file_path.exists():
+            raise ValueError(f"File does not exist: {file_path}")
+
+        _logger.debug(f"File exists: {file_path}")
+
+        # Validate H1 heading format
+        validate_h1_format(file_path)
+        _logger.debug("H1 heading format validation passed")
+
+        # Validate blank separator line
+        validate_blank_separator(file_path)
+        _logger.debug("Blank separator line validation passed")
+
+        # Validate sentence count
+        validate_sentence_count(file_path)
+        _logger.debug("Sentence count validation passed")
+
+        # Validate UTF-8 encoding without BOM
+        validate_encoding(file_path)
+        _logger.debug("UTF-8 encoding validation passed")
+
+        # Validate Unix LF line endings
+        validate_line_endings(file_path)
+        _logger.debug("Unix LF line endings validation passed")
+
+        # Validate file size
+        validate_file_size(file_path)
+        _logger.debug("File size validation passed")
+
+        _logger.info(f"All validations passed for {file_path}")
+        return True
+
+    except ValueError as e:
+        _logger.error(f"Validation failed: {e}")
         raise
