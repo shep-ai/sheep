@@ -1,3 +1,3 @@
-# Small Thoughts on Debugging
+# A Note on Reading
 
-Debugging is less about genius and more about patience and good questions. A tight feedback loop—small changes, quick checks—keeps you from getting lost. When you feel stuck, write down what you expected versus what you saw, and let the mismatch guide the next step.
+Reading a little every day compounds into surprising depth over time. Switching between fiction and non-fiction keeps the habit fresh and helps ideas cross-pollinate. The best part is noticing how often a single good paragraph changes the way you think.
