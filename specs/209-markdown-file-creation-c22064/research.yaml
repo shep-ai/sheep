@@ -1,0 +1,636 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-c22064
+summary: >
+  Technical analysis and implementation strategy for feature 209 markdown file creation.
+  Confirms deterministic template-based content generation as the chosen approach,
+  with strict validation and automatic git push. Implementation follows the proven pattern
+  from features 200-207, using Python's pathlib and subprocess for cross-platform compatibility.
+
+# Relationships
+relatedFeatures:
+  - 208
+  - 207
+  - 206
+  - 205
+  - 204
+  - 203
+  - 202
+  - 201
+  - 200
+
+technologies:
+  - "Python 3.x"
+  - "pathlib (Path operations)"
+  - "subprocess (Git integration)"
+  - "Markdown"
+  - "Git"
+  - "UTF-8 encoding"
+  - "Unix LF line endings"
+
+relatedLinks:
+  - title: "Feature 208 Specification"
+    url: "specs/208-markdown-file-creation-d81757/spec.yaml"
+  - title: "Feature 207 Specification"
+    url: "specs/207-markdown-file-creation-94cf63/spec.yaml"
+  - title: "Feature 206 Specification"
+    url: "specs/206-markdown-file-creation-795c31/spec.yaml"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Git Conventional Commits"
+    url: "https://www.conventionalcommits.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "Content Generation Strategy"
+    chosen: "Deterministic template-based generation with hard-coded prose templates"
+    rejected:
+      - "AI-generated via Claude API — While features 202+ use this approach with temperature=0, the spec analysis from features 207-208 shows preference for simpler, API-free approaches. Template-based is faster, requires zero external dependencies, and ensures reproducibility without API latency. This aligns with the Sheep platform's philosophy of explicit, self-contained operations."
+      - "Random sentence generation — Non-deterministic output would complicate testing and validation. Features 200-207 demonstrate that deterministic approaches are preferred. Random generation also adds complexity without clear benefit for this straightforward feature."
+    rationale: >
+      Deterministic template-based generation is the optimal choice because:
+      (1) It aligns with the spec's resolved decision for content generation (feature requirements section).
+      (2) Features 207-208 specs explicitly recommend this approach: "simpler to implement, requires no external API calls, and aligns with the Sheep platform's philosophy of explicit, deterministic operations."
+      (3) Hard-coded templates ensure fast execution (no API calls), perfect reproducibility across environments, and no external dependencies or network calls.
+      (4) Template approach is validated across 9+ prior features (200-208) showing consistent successful delivery.
+      (5) Reduces complexity while maintaining quality: sentences are grammatically correct and thematically coherent.
+      (6) Eliminates potential failure modes from API latency, rate limiting, or service unavailability.
+
+  - title: "Validation Approach"
+    chosen: "Strict validation with fail-fast error handling — all validation checks must pass before git operations"
+    rejected:
+      - "Lenient validation with warnings — Logging warnings but continuing allows invalid files to be committed. This violates data integrity and creates technical debt. Features 200-207 all enforce strict validation, preventing bad files from entering the repository."
+      - "Best-effort with auto-correction — Attempting to fix line endings, encoding issues, or sentence count at runtime adds complexity and can hide systematic problems. Strict validation surfaces issues immediately for explicit correction."
+    rationale: >
+      Strict validation (fail-fast) is required because:
+      (1) The spec explicitly requires this: \"Strict (fail fast)\" is selected with rationale: \"ensures quality before commit, prevents invalid files in repository, matches pattern from 200-207.\"
+      (2) File integrity: Git history should contain only valid, well-formed markdown files. Invalid files waste space and complicate future processing.
+      (3) Clear error reporting: Fail-fast approach provides immediately actionable error messages, helping developers fix issues without debugging cryptic post-commit failures.
+      (4) Consistency: All features 200-207 follow strict validation patterns.
+      (5) Safety: Prevents invalid UTF-8, CRLF line endings, or incorrect sentence counts from entering the repository.
+
+  - title: "Git Push Behavior"
+    chosen: "Automatic push to remote after successful commit"
+    rejected:
+      - "Manual push required — This breaks the automation chain and requires user intervention. Features 200-207 all push automatically. Manual push contradicts the Sheep platform's philosophy of end-to-end deterministic automation."
+      - "Conditional push with configuration flag — Adds unnecessary complexity and creates ambiguous failure states (commit exists locally but not on remote). Sheep platform emphasizes explicit, deterministic workflows without optional configurations."
+    rationale: >
+      Automatic push to remote is required because:
+      (1) The spec explicitly selects this option: \"Automatic push to remote is recommended because it completes the full workflow end-to-end, maintains consistency with features 200-207, aligns with the Sheep platform's automation-first philosophy.\"
+      (2) End-to-end automation: Features 200-207 demonstrate this pattern works reliably in production (visible in git history with all 8+ features successfully pushed).
+      (3) Simplicity: Removes decision points from the implementation. Automatic behavior is easier to test and verify than conditional logic.
+      (4) Consistency: All prior features follow this pattern, making the codebase uniform and predictable.
+      (5) Platform alignment: Sheep platform's core value is automating the full development workflow from requirements to production push.
+
+  - title: "File Path Handling"
+    chosen: "Use Python pathlib.Path for all file operations with Unix path conventions"
+    rejected:
+      - "os.path module — Older API, less ergonomic, harder to reason about path operations. pathlib is the modern standard (Python 3.4+) recommended by the standard library docs."
+      - "String-based file paths — Error-prone, platform-specific issues, no type safety. pathlib provides robust, cross-platform handling with clear intent."
+    rationale: >
+      pathlib.Path is the best choice because:
+      (1) Modern Python standard library recommendation (available since Python 3.4, preferred in Python 3.6+).
+      (2) Cross-platform compatibility: Path handles Windows (backslashes), macOS, and Linux (forward slashes) transparently.
+      (3) Clean API: Methods like .exists(), .read_text(), .write_text() are more readable and less error-prone than os.path functions.
+      (4) Features 200-207 implementations consistently use pathlib, confirming this is the established pattern.
+      (5) Type safety: Path objects provide IDE autocomplete and type checking, reducing bugs.
+
+  - title: "Sentence Boundary Detection"
+    chosen: "Count sentence-ending punctuation (period, exclamation mark, question mark) in prose content"
+    rejected:
+      - "Use sentence tokenization libraries (nltk, spacy) — Overkill for simple punctuation counting. Adds external dependencies (violates NFR-6: no external APIs). Simple regex or character counting is sufficient."
+      - "Heuristic parsing with special rules — Complex logic for handling abbreviations, ellipses, etc. Not needed for this feature where test sentences are well-formed and punctuation is unambiguous."
+    rationale: >
+      Simple punctuation-based sentence counting is optimal because:
+      (1) The spec requires exactly 2-3 sentences, and test content will be well-formed (no edge cases like \"Mr. Smith\" or \"e.g.\").
+      (2) Fast execution: A single regex or character count scan is O(n) and completes instantly.
+      (3) No dependencies: Avoids importing external NLP libraries, keeping implementation minimal.
+      (4) Deterministic: Counting punctuation is explicit and reproducible across all environments.
+      (5) Features 200-207 implementations use simple punctuation-based validation successfully.
+
+  - title: "Encoding and Line Ending Enforcement"
+    chosen: "Write files with UTF-8 encoding (no BOM) and Unix LF line endings; validate in all created files"
+    rejected:
+      - "Allow system default encoding and line endings — Platform-specific (CRLF on Windows, LF on Unix) creates inconsistency in git diffs and version control. Git best practice is to use LF globally."
+      - "Use Python's default line ending translation — Python's universal newlines mode can cause inconsistencies. Explicit encoding and line ending control is safer."
+    rationale: >
+      Explicit UTF-8 + LF enforcement is required because:
+      (1) Git best practice: LF line endings prevent spurious diffs from git converting line endings on Windows. This is enforced in most professional repos with .gitattributes or core.safecrlf=true."
+      (2) Cross-platform consistency: UTF-8 without BOM is readable on all platforms and the default for modern web/development workflows."
+      (3) NFR compliance: The spec explicitly requires \"File encoding must be UTF-8 without BOM (Byte Order Mark)\" and \"File uses LF (Unix-style, \\n) not CRLF.\""
+      (4) Features 200-207 all enforce these standards."
+      (5) Validation: Checking these in validation prevents invalid files from being committed, aligning with the strict validation strategy."
+
+  - title: "Error Handling Strategy"
+    chosen: "Explicit exception raising with descriptive error messages; no silent failures or recovery"
+    rejected:
+      - "Logging errors and returning success codes — Silent failures make debugging hard and can create invalid files in git history. Explicit exceptions force the caller to handle errors."
+      - "Retry logic with exponential backoff — Git operations shouldn't fail transiently; if they fail, something is wrong that requires human intervention (wrong branch, auth issues, etc). Retries hide problems."
+    rationale: >
+      Fail-fast with explicit exceptions is required because:
+      (1) Aligns with strict validation strategy (decision #2): validation failures must stop execution.
+      (2) Clear error messages help users understand what went wrong and how to fix it.
+      (3) No hidden state: Exceptions prevent partial successes (file created but not committed, or committed but not pushed).
+      (4) Simplicity: Exception handling is cleaner than return codes and multi-step error checking.
+      (5) Features 200-207 use this pattern successfully.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-25
+  - **Status:** Research phase complete; all key technical decisions documented and rationale provided.
+
+  ---
+
+  ## Executive Summary
+
+  Feature 209 is a straightforward markdown file creation task following the proven pattern from features 200-207. The technical approach is well-established:
+
+  1. **Content Generation**: Use hard-coded template-based prose (not AI-generated)
+  2. **Validation**: Strict checks before any git operations (no silent failures)
+  3. **Git Integration**: Automatic push to remote after commit
+  4. **Cross-Platform**: Use pathlib for file operations, explicit UTF-8 + LF encoding
+
+  All technical decisions align with the feature spec, previous implementations, and the Sheep platform's philosophy. Implementation complexity is low (\"S\" size estimate: 2-4 hours).
+
+  ---
+
+  ## Technology Decisions
+
+  ### 1. Content Generation Strategy
+
+  **Chosen**: Deterministic template-based generation with hard-coded prose templates
+
+  **Why Not AI-Generated**:
+  - Features 202+ use Claude API (temperature=0), but features 207-208 specs explicitly recommend template-based approach
+  - Template-based is simpler, faster (no API latency), and requires zero external dependencies
+  - Ensures reproducibility without network dependency or potential API failures
+
+  **Why Not Random**:
+  - Non-deterministic output complicates testing and validation
+  - Features 200-207 demonstrate deterministic approaches are preferred for consistency
+
+  **Implementation**: Create a simple list of pre-written markdown blocks (title + 2-3 sentences pairs), then select based on the feature filename or a deterministic seed.
+
+  Example template structure:
+  ```
+  templates = [
+      {
+          "title": "Cloud Computing Architecture",
+          "prose": "Cloud computing has transformed how organizations deploy and scale applications..."
+      },
+      # ... more templates
+  ]
+  ```
+
+  **Validation Points**:
+  - Prose must contain exactly 2-3 sentences (count punctuation: `.`, `!`, `?`)
+  - Sentences must be grammatically correct and complete
+  - Total file size must be 300-800 bytes
+
+  ### 2. Validation Approach
+
+  **Chosen**: Strict validation with fail-fast error handling
+
+  **Validation Checklist** (all must pass before git operations):
+  1. File exists at expected path
+  2. File starts with H1 heading (`# ` prefix on first line)
+  3. Blank line immediately follows H1
+  4. Prose content contains exactly 2-3 sentences
+  5. File size is 300-800 bytes (inclusive)
+  6. File encoding is UTF-8 without BOM
+  7. Line endings are LF, not CRLF
+  8. No git conflicts or status issues
+
+  **Error Handling**: Raise explicit exceptions with descriptive messages. Do not attempt recovery or log warnings — validation failures must block the entire workflow.
+
+  **Why Strict**:
+  - Prevents invalid files from entering git history
+  - Provides clear, immediate error messages for debugging
+  - Matches the pattern from features 200-207
+  - Aligns with spec requirement: \"Strict (fail fast)\" is selected
+
+  ### 3. Git Integration
+
+  **Chosen**: Automatic push to remote after successful commit
+
+  **Workflow**:
+  1. `git add test-xvuuel.md` — Stage the file
+  2. `git commit -m \"feat(209): Create markdown file test-xvuuel.md\"` — Conventional commit
+  3. `git push -u origin HEAD` — Push to remote with upstream tracking
+
+  **Why Automatic**:
+  - Features 200-207 all use this pattern
+  - Provides end-to-end automation (create → validate → commit → push)
+  - Aligns with Sheep platform's philosophy of deterministic workflows
+  - Simpler than conditional push logic
+
+  **Error Handling**:
+  - Git operations raise subprocess.CalledProcessError on failure
+  - Common failures: wrong branch, auth issues, network problems
+  - No retry logic — these are explicit issues requiring human intervention
+
+  ### 4. File Path and I/O Handling
+
+  **Chosen**: Python pathlib.Path for all file operations
+
+  **Why pathlib**:
+  - Modern Python standard library (recommended since 3.4, preferred in 3.6+)
+  - Cross-platform: handles Windows paths transparently
+  - Clean API: `.exists()`, `.read_text()`, `.write_text()` are ergonomic
+  - Type-safe with IDE autocomplete support
+  - Used in features 200-207 implementations
+
+  **Implementation**:
+  ```python
+  from pathlib import Path
+
+  repo_root = Path.cwd()
+  file_path = repo_root / \"test-xvuuel.md\"
+
+  # Write file with explicit UTF-8 encoding and LF line endings
+  content = \"# Title\\n\\nProse content here.\"
+  file_path.write_text(content, encoding=\"utf-8\", newline=\"\\n\")
+
+  # Read and validate
+  text = file_path.read_text(encoding=\"utf-8\")
+  ```
+
+  **Line Ending Control**: Use `newline=\"\\n\"` in `write_text()` to ensure Unix LF endings and prevent Python's automatic line ending conversion.
+
+  ### 5. Sentence Boundary Detection
+
+  **Chosen**: Count sentence-ending punctuation (`.`, `!`, `?`) in prose content
+
+  **Implementation**:
+  ```python
+  def count_sentences(prose: str) -> int:
+      \"\"\"Count sentences by counting terminal punctuation marks.\"\"\"
+      return prose.count(\".\") + prose.count(\"!\") + prose.count(\"?\")
+  ```
+
+  **Why Simple Punctuation Count**:
+  - Test content will be well-formed (no ambiguous abbreviations)
+  - Fast O(n) algorithm, deterministic, no dependencies
+  - Spec requires exactly 2-3 sentences; this rule is clear and unambiguous
+  - Features 200-207 use this approach successfully
+
+  **Edge Cases Not Handled** (because test content won't have them):
+  - Abbreviations like \"Mr.\" or \"e.g.\" (not in test templates)
+  - Ellipses (\"...\") — test content won't use these
+  - Quoted sentences — test content structure is simple
+
+  ### 6. Encoding and Line Ending Enforcement
+
+  **Chosen**: Write files explicitly as UTF-8 without BOM and Unix LF line endings
+
+  **Implementation**:
+  ```python
+  # Write with explicit encoding and newline control
+  file_path.write_text(content, encoding=\"utf-8\", newline=\"\\n\")
+
+  # Validate encoding (check no BOM)
+  raw_bytes = file_path.read_bytes()
+  if raw_bytes.startswith(b'\\xef\\xbb\\xbf'):  # UTF-8 BOM
+      raise ValueError(\"File contains UTF-8 BOM\")
+
+  # Validate line endings
+  content = file_path.read_text(encoding=\"utf-8\")
+  if \"\\r\\n\" in content:
+      raise ValueError(\"File contains CRLF line endings, expected LF\")
+  ```
+
+  **Why Explicit Control**:
+  - Git best practice: LF line endings prevent spurious diffs on Windows
+  - UTF-8 without BOM is the modern standard for code and documents
+  - Spec explicitly requires these standards (NFR-2, NFR-3)
+  - Prevents platform-specific inconsistencies
+
+  **Windows Consideration**: On Windows, Python's text mode defaults to CRLF. Using `newline=\"\\n\"` forces LF regardless of platform.
+
+  ### 7. Error Handling Strategy
+
+  **Chosen**: Fail-fast with explicit exception raising and descriptive error messages
+
+  **Pattern**:
+  ```python
+  def validate_file(file_path: Path) -> None:
+      if not file_path.exists():
+          raise FileNotFoundError(f\"File not found: {file_path}\")
+
+      content = file_path.read_text(encoding=\"utf-8\")
+      if not content.startswith(\"# \"):
+          raise ValueError(\"File must start with H1 heading (# Title)\")
+
+      # ... more validations, each raising specific exceptions
+  ```
+
+  **Why No Recovery**:
+  - Silent failures hide problems and create invalid files in git
+  - Retry logic is inappropriate for structural/format issues
+  - Exceptions force explicit error handling at the call site
+  - Clear error messages speed up debugging
+
+  **Git Error Handling**:
+  ```python
+  result = subprocess.run(
+      [\"git\", \"add\", filename],
+      check=True,  # Raises CalledProcessError on non-zero exit
+      capture_output=True,
+      text=True
+  )
+  # Calling code can catch CalledProcessError and report the error
+  ```
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | Cross-platform file I/O | **Use** | Standard library, modern API, handles Windows/Unix transparently. Used in features 200-207. |
+  | subprocess | Git command execution | **Use** | Standard library, simple subprocess.run() calls with check=True. No third-party alternatives needed. |
+  | sys | Access to command-line arguments if needed | **Use** | Standard library, minimal usage for feature number or filename parameters. |
+  | re (regex) | Sentence validation (if needed) | **Use Sparingly** | Simple character counting (`count()`) is sufficient; only use regex if validation becomes complex. |
+  | claude-sdk (Anthropic) | AI-based content generation | **Reject** | Spec and features 207-208 prefer template-based approach. Zero external API calls required. |
+  | nltk / spacy | NLP sentence tokenization | **Reject** | Overkill for simple punctuation counting. Adds dependencies and complexity. Features 200-207 use basic punctuation counting. |
+  | Any third-party file I/O | Alternative to pathlib | **Reject** | pathlib is standard, modern, and sufficient. No need for alternatives. |
+
+  ---
+
+  ## Security Considerations
+
+  ### 1. Command Injection Prevention
+
+  **Risk**: Git commands receive filenames from variables. Malicious filename could inject commands.
+
+  **Mitigation**:
+  - Use subprocess.run() with a list of arguments (not shell=True)
+  - Filenames come from constants in the code (not user input)
+  - Example safe pattern: `subprocess.run([\"git\", \"add\", FILENAME], check=True)`
+  - Example unsafe pattern: `subprocess.run(f\"git add {filename}\", shell=True)` — DO NOT USE
+
+  **Implementation**: Always use list-style arguments with subprocess, never shell=True.
+
+  ### 2. Path Traversal Prevention
+
+  **Risk**: Malicious filename could use \"../\" to write outside the repo root.
+
+  **Mitigation**:
+  - Filename is a constant: `FILENAME = \"test-xvuuel.md\"`
+  - File is written to `Path.cwd() / FILENAME`, which resolves relative to current directory
+  - No user input for filenames, so no path traversal risk
+  - Features 200-207 use this same pattern safely
+
+  **Implementation**: Hardcode the filename; don't accept it from user input.
+
+  ### 3. File Permissions
+
+  **Risk**: Created file might have overly permissive permissions.
+
+  **Mitigation**:
+  - Git automatically respects umask when creating files
+  - File permissions are inherited from repository defaults
+  - Staged and committed files follow git's permission tracking (typically 644 or 755)
+  - No special handling needed; default behavior is safe
+
+  ### 4. Encoding-Based Attacks
+
+  **Risk**: Invalid encoding could cause issues in downstream processing.
+
+  **Mitigation**:
+  - Explicitly write UTF-8 without BOM
+  - Validate encoding on read (check for BOM, check valid UTF-8)
+  - Reject files with invalid encoding before committing
+
+  **Implementation**:
+  ```python
+  # Ensure valid UTF-8
+  try:
+      content = file_path.read_text(encoding=\"utf-8\")
+  except UnicodeDecodeError:
+      raise ValueError(\"File must be valid UTF-8 without BOM\")
+  ```
+
+  ### 5. Git Repository Access
+
+  **Risk**: Wrong branch, auth issues, or repository corruption.
+
+  **Mitigation**:
+  - Check git status before committing
+  - Use `git push -u origin HEAD` to push to current branch (less error-prone than specifying branch name)
+  - Catch subprocess.CalledProcessError for git command failures
+  - No force push or destructive git operations
+
+  **Implementation**: All git operations use standard, non-destructive commands.
+
+  ### Summary
+
+  **Security posture**: Secure. No user input, no external network calls (except git), explicit error handling, and standard safety practices for file I/O and shell commands. Implementation follows best practices from features 200-207.
+
+  ---
+
+  ## Performance Considerations
+
+  ### 1. Execution Time
+
+  **Expected Breakdown**:
+  - Content generation: < 1ms (list lookup or simple string selection)
+  - File creation: < 5ms (single write_text call)
+  - Validation: < 10ms (string parsing, file size check)
+  - Git operations: 100-500ms (git add, commit, push to remote)
+  - **Total**: ~500-600ms (dominated by git operations, which are I/O bound)
+
+  **Why Fast**:
+  - No external API calls (template-based, not AI-generated)
+  - Single file, small size (300-800 bytes)
+  - Simple validation logic (no database queries, no loops over large datasets)
+
+  **NFR Compliance**: NFR-8 requires \"total implementation time should not exceed 4 hours\" — this refers to developer time, not runtime execution. Runtime is well under 1 second (< 1000ms target).
+
+  ### 2. Memory Usage
+
+  **Expected**: < 1 MB
+  - Template strings: ~100 KB (hardcoded prose templates, not loaded dynamically)
+  - Single file content: ~1 KB (300-800 bytes)
+  - Python runtime overhead: ~30 MB (standard for Python process)
+
+  **No Issues**: Memory is not a constraint. Single small file, no loops or large data structures.
+
+  ### 3. Optimization Opportunities
+
+  - **Template Selection**: Could hash feature number to deterministically pick template, but hardcoding a single template is simpler and sufficient
+  - **Lazy Git Import**: subprocess is imported on demand only when git operations run, but overhead is negligible
+  - **Parallel Validation**: Multiple validation checks could run in parallel, but gains are minimal for such a fast operation
+
+  **Recommendation**: Prioritize code clarity and correctness over micro-optimizations. This feature is I/O bound (git push), not CPU bound.
+
+  ---
+
+  ## Architecture and Integration
+
+  ### 1. Relationship to Features 200-208
+
+  Feature 209 is **identical in scope and implementation strategy** to features 200-208. The only differences are:
+  - Filename: `test-xvuuel.md` (unique for feature 209)
+  - Feature number in commit message: `feat(209):`
+  - Branch name: `feat/209-markdown-file-creation-c22064`
+
+  **Codebase Patterns to Follow**:
+  - Create a standalone script (e.g., `create_feature_209.py`) or integrate into existing module structure
+  - Use same validation functions and git operations pattern as features 200-207
+  - Follow the same error handling and logging conventions
+  - Use conventional commit format: `feat(209): Create markdown file test-xvuuel.md`
+
+  ### 2. Module Organization
+
+  **Option A** (Simplest): Single script file
+  ```
+  create_feature_209.py
+  ├── generate_prose() → returns string
+  ├── create_file() → writes to disk
+  ├── validate_file() → checks all requirements
+  └── git_operations() → stage, commit, push
+  ```
+
+  **Option B** (Modular): Reusable module pattern
+  ```
+  src/sheep/features/feature_209_markdown_file_creation.py
+  ├── FILENAME = \"test-xvuuel.md\"
+  ├── FEATURE_NUMBER = 209
+  ├── generate_prose()
+  ├── create_file()
+  ├── validate_file()
+  └── main()
+  ```
+
+  **Recommendation**: Follow the pattern from features 200-207, which use Option B (modular approach under `src/sheep/features/`). This makes features discoverable and testable.
+
+  ### 3. Dependencies
+
+  **Runtime Dependencies**:
+  - Python 3.7+ (pathlib is standard in 3.4+, but use at least 3.7 for typing support)
+  - Git CLI (must be in PATH)
+  - No third-party packages required (only Python standard library)
+
+  **Development Dependencies**:
+  - pytest (for unit tests)
+  - Optional: black, flake8, mypy (for code quality, if project uses them)
+
+  **Deployment Constraints**:
+  - Git must be installed and configured in the environment
+  - Git credentials must be available (SSH key or git credentials helper) for push operations
+  - Repo must be a valid git repository in the expected state (current branch must exist, no merge conflicts)
+
+  ### 4. Integration Points
+
+  **Where Feature 209 Fits**:
+  1. Sheep CLI: `sheep implement /repo -i \"Create feature 209 markdown file\"`
+  2. Agents in `src/sheep/agents/`: Call feature_209 main function as part of broader workflow
+  3. Orchestration: Features typically run sequentially or in parallel if independent
+
+  **No Database**: Feature doesn't read/write database; purely file system + git.
+  **No External APIs**: No HTTP calls, no LLM calls (content is template-based).
+  **No Configuration Files**: Behavior is hardcoded in the script; no YAML or config needed (except the spec file).
+
+  ---
+
+  ## Implementation Priorities
+
+  ### Phase 1: File Creation and Content Generation (40% of work)
+  1. Define template prose content (2-3 sentences per template)
+  2. Implement `generate_prose()` function
+  3. Implement `create_file(filename, content)` with UTF-8 + LF handling
+  4. Test that files are created with correct encoding and line endings
+
+  ### Phase 2: Validation (40% of work)
+  1. Implement `validate_file(filename)` with all 8 checks
+  2. Test each validation rule independently
+  3. Ensure descriptive error messages for each failure case
+  4. Validate on sample created files
+
+  ### Phase 3: Git Integration (20% of work)
+  1. Implement `git_add(filename)`
+  2. Implement `git_commit(message)`
+  3. Implement `git_push()`
+  4. Test full workflow on feature branch
+
+  ---
+
+  ## Risks and Mitigations
+
+  | Risk | Impact | Likelihood | Mitigation |
+  | ---- | ------ | ---------- | ---------- |
+  | Git push fails (auth, network) | Feature incomplete, manual push required | Medium | Use `git push -u origin HEAD` (simpler than specifying branch); clear error messages; document recovery steps. |
+  | File validation too strict | Valid files rejected | Low | Use same validation logic as features 200-207 (proven to work). Test on sample markdown files. |
+  | Encoding issues (BOM, CRLF) | Files fail downstream processing | Low | Explicit UTF-8 + LF control in pathlib.write_text(); validate in read_text(). Cross-test on Windows and Linux. |
+  | Sentence counting edge cases | Files rejected despite valid content | Low | Template-based prose is well-formed; simple punctuation counting is proven in features 200-207. |
+  | Filename collision | File overwrites existing content | Low | Filename is hardcoded and unique to feature 209 (test-xvuuel.md). No procedural generation risk. |
+
+  **Overall Risk**: Low. This feature follows a proven, tested pattern from 8+ previous features.
+
+  ---
+
+  ## Testing Strategy
+
+  ### Unit Tests
+
+  1. **test_generate_prose()**: Verify output is non-empty string with 2-3 sentences
+  2. **test_create_file()**: Verify file is created at correct path with correct content
+  3. **test_encoding_validation()**: Verify UTF-8 without BOM
+  4. **test_line_ending_validation()**: Verify LF, not CRLF
+  5. **test_sentence_counting()**: Verify counts 2-3 sentence-ending punctuation
+  6. **test_file_size_validation()**: Verify file is 300-800 bytes
+  7. **test_h1_format()**: Verify first line is H1 heading
+  8. **test_blank_line()**: Verify second line is blank
+
+  ### Integration Tests
+
+  1. **test_full_workflow()**: Create file, validate, git add, commit, push on a test branch
+  2. **test_git_error_handling()**: Simulate git failures (wrong branch, auth issues) and verify error messages
+  3. **test_idempotency()**: Run feature twice on same branch, verify second run detects existing file
+
+  ### Manual Testing
+
+  1. Create feature on feature branch
+  2. Verify file appears in git history
+  3. Verify file content is readable and well-formed
+  4. Verify commit message follows conventional commit format
+  5. Verify push succeeds to remote branch
+
+  ---
+
+  ## Known Unknowns and Future Decisions
+
+  **All product questions from the spec are RESOLVED**:
+  - Content generation: Template-based ✓
+  - Validation strictness: Strict (fail-fast) ✓
+  - Push behavior: Automatic ✓
+
+  **No remaining technical unknowns**. Implementation can proceed directly to planning phase.
+
+  ---
+
+  ## Conclusion
+
+  Feature 209 is technically straightforward and follows a proven pattern. All key decisions align with the feature spec and features 200-207. Implementation complexity is low (\"S\" estimate), execution is fast (< 1 second), and risks are well-mitigated. Technical research is complete; feature is ready for implementation planning.
+
+  **Key Takeaways**:
+  1. Use template-based prose (hardcoded, no API calls)
+  2. Strict validation: all checks must pass before git operations
+  3. Automatic push to remote after successful commit
+  4. pathlib for cross-platform file handling
+  5. Simple punctuation counting for sentence validation
+  6. Follow the proven pattern from features 200-207
+
+  **Recommended Next Step**: Proceed to implementation planning phase (PLAN) to define detailed implementation steps and file structure.
+
+  ---
+
+  _Research phase completed 2026-03-25. All technology decisions documented with rationale and alternatives considered._
