@@ -498,11 +498,11 @@ def main() -> int:
 
     except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as e:
         _logger.error(f"Feature 205 workflow failed: {e}")
-        raise SystemExit(1) from e
+        return 1
     except Exception as e:
         _logger.error(f"Unexpected error in feature 205 workflow: {e}")
-        raise SystemExit(1) from e
+        return 1
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()

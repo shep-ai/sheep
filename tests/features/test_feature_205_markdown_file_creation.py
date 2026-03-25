@@ -625,16 +625,14 @@ class TestOrchestration:
                 os.chdir(original_cwd)
 
     def test_main_exits_on_file_creation_failure(self):
-        """Test main() exits with code 1 on file creation failure."""
+        """Test main() returns 1 on file creation failure."""
         with patch(
             "sheep.features.feature_205_markdown_file_creation.create_markdown_file"
         ) as mock_create:
             mock_create.side_effect = OSError("Failed to create file")
             from sheep.features.feature_205_markdown_file_creation import main
 
-            with pytest.raises(SystemExit) as exc_info:
-                main()
-            assert exc_info.value.code == 1
+            assert main() == 1
 
     def test_main_exits_on_validation_failure(self):
         """Test main() exits with code 1 on validation failure."""
@@ -648,9 +646,7 @@ class TestOrchestration:
                 Path(FILENAME).write_text("No heading\n\nContent.")
                 from sheep.features.feature_205_markdown_file_creation import main
 
-                with pytest.raises(SystemExit) as exc_info:
-                    main()
-                assert exc_info.value.code == 1
+                assert main() == 1
             finally:
                 import os
 
@@ -674,9 +670,7 @@ class TestOrchestration:
                     )
                     from sheep.features.feature_205_markdown_file_creation import main
 
-                    with pytest.raises(SystemExit) as exc_info:
-                        main()
-                    assert exc_info.value.code == 1
+                    assert main() == 1
             finally:
                 import os
 
