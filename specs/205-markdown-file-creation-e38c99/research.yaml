@@ -1,0 +1,422 @@
+name: "markdown-file-creation-e38c99"
+summary: >
+  Technical research for feature 205 (markdown file creation). Implementation uses pathlib for file
+  operations, subprocess for git integration, and regex for validation—all from Python stdlib. File
+  creation follows established patterns: H1 heading + blank line + 2-3 prose sentences with UTF-8
+  encoding and LF line endings. Validation occurs before git operations to prevent invalid commits.
+
+relatedFeatures:
+  - "200-markdown-file-creation"
+  - "204-markdown-file-creation"
+
+technologies:
+  - "Python 3.11+"
+  - "pathlib (file operations)"
+  - "subprocess (git integration)"
+  - "re (regex for validation)"
+  - "UTF-8 text encoding"
+  - "Git (version control)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Python re documentation"
+    url: "https://docs.python.org/3/library/re.html"
+  - title: "PEP 8 Python style guide"
+    url: "https://www.python.org/dev/peps/pep-0008/"
+
+decisions:
+  - title: "File Creation API"
+    chosen: "pathlib.Path.write_text()"
+    rejected:
+      - "open() builtin — lower-level API, requires explicit file handle management and encoding specification at call site. pathlib is more modern and Pythonic (3.6+), and aligns with project's focus on readable, maintainable code."
+      - "FileSystem abstractions — adds unnecessary complexity for a single file creation. Direct pathlib usage is sufficient and follows project patterns from features 200 and 204."
+    rationale: >
+      pathlib.Path provides an object-oriented interface for file system operations with built-in encoding
+      support via write_text(encoding='utf-8'). This eliminates manual encoding specification errors and makes
+      the intent clearer. Path objects are chainable and support intuitive operations. Aligns with Python 3.6+
+      best practices and the project's requirement for Python 3.11+. Existing codebase patterns from features 200
+      and 204 confirm this is the established approach.
+
+  - title: "Git Integration Method"
+    chosen: "subprocess.run() with direct git command invocation"
+    rejected:
+      - "GitPython library — higher-level abstraction but introduces external dependency. subprocess.run() is sufficient for straightforward operations (add, commit, push) and aligns with product decision to minimize external dependencies."
+      - "git.Repo() from GitPython — adds complexity and object-oriented overhead for three simple operations. Direct subprocess gives more control and clearer error diagnostics."
+    rationale: >
+      subprocess.run() provides direct execution of git CLI commands, minimizing abstraction layers and
+      external dependencies. For straightforward operations like 'git add', 'git commit', and 'git push',
+      subprocess is adequate and has lower cognitive overhead. Aligns with product decision Q3 (subprocess
+      recommended). Error handling via CalledProcessError is clear and allows detailed error messages. Project
+      patterns from prior features confirm this approach.
+
+  - title: "Validation Execution Timing"
+    chosen: "Validate before all git operations (sequential validation then git operations)"
+    rejected:
+      - "Validate after git operations — allows invalid files to be committed, requiring rollback. Violates data integrity principles and creates debugging complexity."
+      - "Interleaved validation and git ops — adds complexity without clear benefit. Sequential approach is clearer and prevents partial state."
+    rationale: >
+      Validating before git operations ensures files meet all quality gates before being committed to the
+      repository. This prevents invalid commits and aligns with product decision Q2 (validate before git ops).
+      Clear separation of concerns: validation phase completes fully before git phase begins. Aligns with
+      established project patterns emphasizing quality gates early in the pipeline.
+
+  - title: "Error Handling Strategy"
+    chosen: "Exception-based with specific exception types (ValueError for validation, subprocess.CalledProcessError for git ops)"
+    rejected:
+      - "Error codes and return values — requires caller to check status codes. Less Pythonic, harder to propagate errors up the call stack. Exceptions are the Python standard for error signaling."
+      - "Logging warnings and continuing — may mask issues and result in partially-valid state. Explicit exceptions make failures unmistakable and easier to debug."
+    rationale: >
+      Python's exception model is the standard for error handling. Specific exception types (ValueError,
+      subprocess.CalledProcessError) allow callers to handle different failure categories. This aligns with
+      product decision Q4 (raise exceptions and stop execution). Clear error messages in exceptions help
+      developers quickly identify which validation check failed. Matches existing patterns in the codebase.
+
+  - title: "Validation Regex Patterns"
+    chosen: "Simple, focused patterns: '^# .+$' for heading, '[.!?]' for sentence boundaries"
+    rejected:
+      - "Complex regex with look-ahead/look-behind — adds complexity without proportional benefit. Specification requires basic validation; simple patterns are sufficient and maintainable."
+      - "String methods only (split, count) — fragile for sentence detection. Regex is the right tool for detecting sentence boundaries defined by punctuation marks [.!?]."
+    rationale: >
+      Simple, focused regex patterns are maintainable and sufficient for the requirements. Heading validation
+      ('^# .+$') checks that line starts with '# ' followed by non-empty title. Sentence boundary detection
+      uses '[.!?]' split pattern to count sentences precisely. Matches the specification requirement FR-11.
+      Avoids over-engineering with complex lookahead/lookbehind patterns that aren't needed.
+
+  - title: "Prose Content Definition"
+    chosen: "Hardcoded prose string defined in code"
+    rejected:
+      - "Claude API generated prose — adds external dependency, API latency, and complexity. Not necessary for this feature's requirements. Can be added as enhancement later."
+      - "Parameterized content via function argument — adds flexibility but violates YAGNI principle. Specification requires specific hardcoded content for this feature."
+    rationale: >
+      Hardcoded prose aligns with product decision Q1. Eliminates API overhead, avoids external dependencies,
+      and ensures deterministic, reproducible output. Content is simple and testable. If future features need
+      dynamic generation, this can be refactored then. Current specification focuses on demonstrating file
+      creation and validation, not content generation.
+
+  - title: "File Path Specification"
+    chosen: "Hardcoded filename 'test-axs39z.md' in project root"
+    rejected:
+      - "Parameterized filename via argument — adds flexibility but violates specification requirement. Specification explicitly requires exactly 'test-axs39z.md'."
+      - "Configuration-based filename — introduces unnecessary indirection. Simple and explicit is better."
+    rationale: >
+      The specification explicitly requires the file to be named 'test-axs39z.md' (feature requirement overview,
+      success criteria, FR-1). Hardcoding the filename matches the requirement precisely. Creates in project
+      root (current working directory), following the established pattern from features 200 and 204. No
+      configuration or parameterization needed for this scope.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-25
+  - **Status:** Complete
+
+  ## Executive Summary
+
+  Feature 205 implements markdown file creation with validation and git integration. Implementation uses
+  Python stdlib exclusively (pathlib, subprocess, re) following established project patterns from features 200
+  and 204. Key technical decisions respect product recommendations: hardcoded prose content, validation before
+  git operations, subprocess for git integration, and exception-based error handling.
+
+  ## Technology Decisions
+
+  ### 1. File Creation API: pathlib.Path.write_text()
+
+  **Chosen:** pathlib.Path.write_text() with explicit encoding='utf-8'
+
+  **Rejected:**
+  - open() builtin — lower-level, requires manual encoding specification, less Pythonic
+  - Custom abstractions — unnecessary complexity for single file operation
+
+  **Rationale:** pathlib provides modern, object-oriented file system abstraction. write_text() method supports
+  encoding parameter directly, ensuring UTF-8 without BOM. Aligns with Python 3.11+ standards and project
+  patterns from features 200/204. Eliminates manual file handle management and encoding errors.
+
+  ### 2. Git Integration: subprocess.run()
+
+  **Chosen:** subprocess.run() with direct git command invocation
+
+  **Rejected:**
+  - GitPython library — external dependency, unnecessary abstraction layer for 3 simple operations
+  - git.Repo() API — adds complexity without benefit for this use case
+
+  **Rationale:** subprocess.run() provides direct git CLI execution with minimal overhead. Adequate for
+  straightforward operations (add, commit, push). Aligns with product decision Q3. No external dependencies
+  required. Error handling via CalledProcessError provides clear diagnostics. Matches project patterns.
+
+  ### 3. Validation Timing: Before Git Operations
+
+  **Chosen:** Sequential validation phase before git operations begin
+
+  **Rejected:**
+  - Validate after git operations — allows invalid commits, requires rollback
+  - Interleaved validation/git ops — adds complexity and permits partial state
+
+  **Rationale:** Validates all constraints before mutating repository state. Prevents invalid commits and
+  aligns with product decision Q2. Clear separation of concerns. Matches project quality-gate patterns.
+
+  ### 4. Error Handling: Exception-Based
+
+  **Chosen:** Specific exception types (ValueError for validation, subprocess.CalledProcessError for git ops)
+
+  **Rejected:**
+  - Error codes/return values — un-Pythonic, requires caller to check status
+  - Logging warnings only — masks issues, permits partial state
+
+  **Rationale:** Python exceptions are the standard error signaling mechanism. Specific types allow precise error
+  categorization. Aligns with product decision Q4 (raise exceptions and stop). Clear error messages aid
+  debugging. Matches codebase patterns.
+
+  ### 5. Validation Regex: Simple, Focused Patterns
+
+  **Chosen:**
+  - Heading: `^# .+$` (line starts with "# " followed by title)
+  - Sentences: split on `[.!?]` to count boundaries
+
+  **Rejected:**
+  - Complex lookahead/lookbehind regex — over-engineered, hard to maintain
+  - String-only methods (split, count) — insufficient for sentence boundary detection
+
+  **Rationale:** Simple patterns are maintainable and sufficient for requirements. Heading pattern ensures "# "
+  prefix with non-empty title. Sentence split on `[.!?]` precisely detects sentence endings per requirement
+  FR-11. Avoids unnecessary complexity. Code is readable and testable.
+
+  ### 6. Prose Content: Hardcoded
+
+  **Chosen:** Hardcoded prose string in code
+
+  **Rejected:**
+  - Claude API generation — adds external dependency and latency; unnecessary for current requirements
+  - Parameterized content — violates YAGNI; specification doesn't require this flexibility
+
+  **Rationale:** Aligns with product decision Q1. Eliminates API overhead and external dependencies. Ensures
+  deterministic, reproducible output. Content is simple and testable. Dynamic generation can be added as future
+  enhancement if needed. Current feature focuses on file creation and validation mechanics.
+
+  ### 7. File Path: Hardcoded
+
+  **Chosen:** Hardcoded filename "test-axs39z.md" in project root
+
+  **Rejected:**
+  - Parameterized filename — violates explicit specification requirement for exactly "test-axs39z.md"
+  - Configuration-based — unnecessary indirection
+
+  **Rationale:** Feature requirement explicitly specifies "test-axs39z.md". Hardcoding the filename ensures
+  precise specification compliance. Matches patterns from features 200/204. No parameterization needed for this
+  scope.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File system operations (create, read, validate) | **Use** | Modern stdlib (3.4+), Pythonic API, built-in encoding support. No external dependency. Established pattern in codebase. |
+  | subprocess | Git command execution (add, commit, push) | **Use** | Direct git CLI invocation, minimal overhead, clear error handling. Adequate for straightforward operations. Aligns with product decision and project patterns. |
+  | re | Regex validation (heading format, sentence boundaries) | **Use** | Stdlib module, efficient pattern matching. Simple patterns (^# .+$ and [.!?]) are clear and maintainable. Sufficient for validation requirements. |
+  | GitPython | Alternative git integration | **Reject** | External dependency. Unnecessary abstraction layer for 3 simple operations. subprocess is adequate and lighter-weight. Aligns with product decision Q3. |
+  | textwrap | Alternative content handling | **Reject** | Not needed. Hardcoded prose is simple string, no wrapping/formatting required. Adds unnecessary dependency. |
+
+  ## Validation Logic Flow
+
+  1. **File Existence:** Path(filename).exists()
+  2. **Heading Format:** Read first line, match `^# .+$`
+  3. **Blank Line:** Read second line, verify it's empty string
+  4. **Sentence Count:** Read remaining content, split on `[.!?]`, filter empty strings, count boundaries
+     - Must be exactly 2-3 sentences
+  5. **Encoding/Line Endings:** Read file as text, verify UTF-8 decodable, check for CRLF (should be absent)
+  6. **File Size:** Check file byte size is 300-600 bytes
+  7. **Trailing Newline:** Verify file ends with \n
+
+  **Exception Handling:**
+  - File doesn't exist → ValueError("File not created")
+  - Heading format invalid → ValueError("Invalid heading format")
+  - Blank line missing → ValueError("Second line must be blank")
+  - Sentence count ≠ 2-3 → ValueError("Must contain exactly 2-3 sentences")
+  - Encoding issue (CRLF detected) → ValueError("File must use LF line endings")
+  - File size out of range → ValueError("File size out of valid range")
+  - Git operation fails → subprocess.CalledProcessError with diagnostic message
+
+  ## Security Considerations
+
+  ### File Encoding & Line Endings
+  - **Requirement:** UTF-8 without BOM, LF line endings only
+  - **Rationale:** Ensures consistent behavior across platforms (Windows, Linux, macOS). UTF-8 is universal
+    standard. BOM detection prevents encoding confusion.
+  - **Implementation:** Use Path.write_text(encoding='utf-8') which handles encoding. Validate read content
+    for CRLF presence (indicates Windows line endings) and reject if found.
+
+  ### Input Validation
+  - **No untrusted user input:** File path and content are hardcoded per product decisions
+  - **Git command safety:** subprocess.run() with list argument (not shell=True) prevents command injection
+  - **Error messages:** Include file path and specific validation failure, aid debugging without exposing
+    system internals
+
+  ### Repository State
+  - **Atomicity:** Validation completes fully before any git operations. If validation fails, repository
+    remains unmodified. If git operations fail, partial commits are not left behind (git operations are
+    individual subprocess calls, each succeeds or fails completely).
+  - **Permissions:** Assumes git is configured (user.name, user.email) and working directory has write
+    permissions. Error messages clearly indicate permission failures.
+
+  ## Performance Considerations
+
+  ### File Operations
+  - **Single file creation:** O(1) time, minimal I/O. pathlib.write_text() is efficient stdlib implementation.
+  - **Validation overhead:** All checks use in-memory string operations. No disk I/O beyond reading the file
+    once. Regex compilation is done once per run.
+  - **No caching:** File is written once, validated once, committed once. No repeated I/O.
+
+  ### Git Operations
+  - **Subprocess overhead:** Each git command (add, commit, push) spawns a process. ~3 subprocess calls total.
+  - **Network overhead:** git push to remote may incur latency depending on network. This is unavoidable for
+    feature requirement.
+  - **No batching possible:** git add, commit, push are separate conceptual operations and must be separate
+    subprocess calls for clarity and error handling.
+
+  ### Optimization Notes
+  - **Further optimization not needed:** Feature is S (small) sized. Single file, single workflow. Execution
+    should complete in <1 second for file ops + validation, network latency for push.
+  - **Regex compilation:** re module caches compiled patterns internally. Multiple validation checks using
+    same patterns benefit from caching.
+
+  ## Architecture Notes
+
+  ### Codebase Integration
+  - **Follows established patterns:** Features 200 and 204 demonstrate identical structure (file creation +
+    validation + git integration). This feature reuses the same patterns, ensuring consistency.
+  - **File location:** Project root directory, naming convention test-{random_id}.md. Aligns with project
+    organization.
+  - **Git workflow:** Uses feature branch feat/205-markdown-file-creation-e38c99 (already created per
+    spec/feature.yaml). Commits use conventional format "feat(205): ...". Pushes to origin with -u flag to
+    track branch.
+
+  ### Error Handling Integration
+  - **Exceptions propagate:** Validation exceptions are raised immediately. Git exceptions propagate
+    CalledProcessError with stderr output. Caller (likely CI/test harness) receives clear error signal.
+  - **Exit codes:** subprocess.run() returns CompletedProcess; CalledProcessError (raised when check=True)
+    includes returncode. Caller can use this for exit status.
+
+  ### Testing Implications
+  - **File system isolation:** Tests need temporary directory or mocking. Feature creates real file, so test
+    setup/teardown important.
+  - **Git repo requirement:** Tests must run inside git repository with user.name/user.email configured. CI
+    environment typically has this; local dev must configure.
+  - **Deterministic validation:** Same input file always produces same validation result (good for testing).
+
+  ## Implementation Pseudocode
+
+  ```
+  function create_and_validate_markdown_file():
+      # Phase 1: File Creation
+      prose_content = "Hardcoded prose sentence 1. Sentence 2. Sentence 3."
+      title = "Example Title"
+      file_path = Path("test-axs39z.md")
+
+      content = f"# {title}\n\n{prose_content}\n"
+      file_path.write_text(content, encoding='utf-8')
+
+      # Phase 2: Validation
+      if not file_path.exists():
+          raise ValueError("File not created")
+
+      file_content = file_path.read_text(encoding='utf-8')
+      lines = file_content.split('\n')
+
+      # Check heading
+      if not regex_match("^# .+$", lines[0]):
+          raise ValueError("Invalid heading format")
+
+      # Check blank line
+      if lines[1] != "":
+          raise ValueError("Second line must be blank")
+
+      # Check sentences
+      prose = lines[2:]
+      sentences = regex_split("[.!?]", prose)
+      sentence_count = len([s for s in sentences if s.strip()])
+      if sentence_count != 2-3:
+          raise ValueError(f"Must have 2-3 sentences, found {sentence_count}")
+
+      # Check encoding/line endings
+      if "\r\n" in file_content:
+          raise ValueError("File must use LF line endings, not CRLF")
+
+      # Check file size
+      file_size = file_path.stat().st_size
+      if not (300 <= file_size <= 600):
+          raise ValueError(f"File size {file_size} out of range [300, 600]")
+
+      # Check trailing newline
+      if not file_content.endswith('\n'):
+          raise ValueError("File must end with newline")
+
+      # Phase 3: Git Operations
+      subprocess.run(['git', 'add', str(file_path)], check=True)
+      subprocess.run(['git', 'commit', '-m', 'feat(205): create markdown file test-axs39z.md with prose content'], check=True)
+      subprocess.run(['git', 'push', '-u', 'origin', 'feat/205-markdown-file-creation-e38c99'], check=True)
+
+      return "Success"
+  ```
+
+  ## Known Constraints & Dependencies
+
+  ### External Constraints
+  - **Git configured:** Requires user.name and user.email in git config (global or local)
+  - **Feature branch exists:** Branch feat/205-markdown-file-creation-e38c99 must exist in local repo
+  - **Network access:** git push requires connectivity to remote origin
+  - **Write permissions:** Current working directory must be writable
+  - **Python 3.11+:** Per project requirement
+
+  ### No External Dependencies
+  - Uses only Python stdlib (pathlib, subprocess, re)
+  - No external packages required
+  - No API calls required
+  - No database access required
+
+  ## Open Questions Resolved
+
+  **Q1: Should prose content be generated using Claude API or hardcoded?**
+  - **Answer:** Hardcoded prose
+  - **Rationale:** Simpler implementation, no external dependencies, sufficient for requirements
+
+  **Q2: When should file validation occur—before or after git operations?**
+  - **Answer:** Validate before git operations
+  - **Rationale:** Prevents invalid commits, maintains repository quality
+
+  **Q3: Which library should be used for git integration—subprocess or GitPython?**
+  - **Answer:** subprocess module
+  - **Rationale:** Direct CLI execution, minimal overhead, no external dependency
+
+  **Q4: How should the implementation handle validation failures?**
+  - **Answer:** Raise exceptions and stop execution
+  - **Rationale:** Clear failure semantics, explicit error handling, easier debugging
+
+  **Q5: Should the file path be hardcoded to test-axs39z.md or parameterized?**
+  - **Answer:** Hardcoded to test-axs39z.md
+  - **Rationale:** Specification explicitly requires this filename, no parameterization needed
+
+  ## Success Criteria Mapping
+
+  Implementation addresses all success criteria:
+  - ✅ File creation in project root
+  - ✅ H1 heading validation
+  - ✅ Blank line validation
+  - ✅ 2-3 sentence count validation
+  - ✅ Sentence-ending punctuation validation
+  - ✅ UTF-8 encoding without BOM
+  - ✅ Unix LF line endings
+  - ✅ Trailing newline
+  - ✅ File size bounds 300-600 bytes
+  - ✅ Validation before git operations
+  - ✅ git add, commit, push integration
+
+  ## Conclusion
+
+  Feature 205 is a straightforward implementation using Python stdlib exclusively. All technical decisions
+  align with product recommendations and established project patterns from features 200/204. Validation logic
+  is deterministic and testable. Error handling is explicit and informative. Implementation is estimated at
+  50-80 lines of core logic, suitable for S (small) sizing.
