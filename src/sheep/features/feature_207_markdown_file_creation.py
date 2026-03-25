@@ -217,3 +217,98 @@ def validate_sentence_count(filename: str = FILENAME) -> None:
 
     if not (2 <= sentence_count <= 3):
         raise ValueError(f"Expected 2-3 sentences, found {sentence_count}")
+
+
+def validate_encoding(filename: str = FILENAME) -> None:
+    """Validate file is UTF-8 encoded without BOM.
+
+    Reads file as binary to check for UTF-8 BOM signature (0xEF 0xBB 0xBF) and
+    verifies that the file content can be successfully decoded as UTF-8.
+
+    Args:
+        filename: Path to file to validate
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If file contains UTF-8 BOM or has invalid UTF-8 encoding
+    """
+    _logger.debug(f"Validating encoding: {filename}")
+    file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {filename} does not exist")
+
+    binary_content = file_path.read_bytes()
+
+    # Check for UTF-8 BOM (byte order mark signature)
+    if binary_content.startswith(b"\xef\xbb\xbf"):
+        raise ValueError("File contains UTF-8 BOM (byte order mark)")
+
+    # Verify UTF-8 encoding by attempting to decode
+    try:
+        binary_content.decode("utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError(f"File contains invalid UTF-8 encoding: {e}") from e
+
+
+def validate_line_endings(filename: str = FILENAME) -> None:
+    """Validate file uses Unix LF line endings exclusively.
+
+    Reads file as binary and checks for absence of Windows CRLF (\\r\\n) and
+    Mac CR (\\r) patterns. Valid files contain only Unix LF (\\n) line endings.
+
+    Args:
+        filename: Path to file to validate
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If file contains non-LF line endings (CRLF or CR)
+    """
+    _logger.debug(f"Validating line endings: {filename}")
+    file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {filename} does not exist")
+
+    binary_content = file_path.read_bytes()
+
+    # Check for Windows CRLF line endings
+    if b"\r\n" in binary_content:
+        raise ValueError("File contains Windows CRLF (\\r\\n) line endings, expected Unix LF only")
+
+    # Check for Mac CR line endings
+    if b"\r" in binary_content:
+        raise ValueError("File contains Mac CR (\\r) line endings, expected Unix LF only")
+
+
+def validate_file_size(
+    filename: str = FILENAME, min_bytes: int = 250, max_bytes: int = 600
+) -> None:
+    """Validate file size is within acceptable range.
+
+    Checks that file size falls between min_bytes and max_bytes (inclusive).
+    Uses Path.stat().st_size for reliable file size retrieval.
+
+    Args:
+        filename: Path to file to validate
+        min_bytes: Minimum acceptable file size in bytes (default 250)
+        max_bytes: Maximum acceptable file size in bytes (default 600)
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If file size is outside the acceptable range
+    """
+    _logger.debug(f"Validating file size: {filename}")
+    file_path = Path(filename)
+    if not file_path.exists():
+        raise FileNotFoundError(f"File {filename} does not exist")
+
+    file_size = file_path.stat().st_size
+
+    if file_size < min_bytes:
+        raise ValueError(
+            f"File size {file_size} bytes is below minimum {min_bytes} bytes"
+        )
+
+    if file_size > max_bytes:
+        raise ValueError(
+            f"File size {file_size} bytes exceeds maximum {max_bytes} bytes"
+        )

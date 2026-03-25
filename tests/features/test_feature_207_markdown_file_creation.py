@@ -19,6 +19,9 @@ from sheep.features.feature_207_markdown_file_creation import (
     extract_prose_content,
     count_sentences,
     validate_sentence_count,
+    validate_encoding,
+    validate_line_endings,
+    validate_file_size,
 )
 
 
@@ -409,6 +412,260 @@ class TestValidateSentenceCount:
                 Path(FILENAME).write_text(content, encoding="utf-8")
                 with pytest.raises(ValueError):
                     validate_sentence_count(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+
+class TestValidateEncoding:
+    """Tests for validate_encoding validation function."""
+
+    def test_validate_encoding_valid_utf8(self):
+        """Test that validate_encoding passes for valid UTF-8 file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                create_markdown_file()
+                # Should not raise
+                validate_encoding(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_encoding_no_bom(self):
+        """Test that validate_encoding verifies no UTF-8 BOM exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create file and verify no BOM
+                Path(FILENAME).write_text("# Test\n\nContent.", encoding="utf-8")
+                binary = Path(FILENAME).read_bytes()
+                assert not binary.startswith(b"\xef\xbb\xbf")
+                # validate_encoding should pass
+                validate_encoding(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_encoding_rejects_bom(self):
+        """Test that validate_encoding rejects file with UTF-8 BOM."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create file with UTF-8 BOM
+                content = "# Title\n\nProse content."
+                binary_with_bom = b"\xef\xbb\xbf" + content.encode("utf-8")
+                Path(FILENAME).write_bytes(binary_with_bom)
+                with pytest.raises(ValueError, match="UTF-8 BOM"):
+                    validate_encoding(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_encoding_rejects_invalid_utf8(self):
+        """Test that validate_encoding rejects file with invalid UTF-8."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create file with invalid UTF-8 bytes
+                invalid_bytes = b"\xff\xfe"
+                Path(FILENAME).write_bytes(invalid_bytes)
+                with pytest.raises(ValueError, match="invalid UTF-8"):
+                    validate_encoding(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_encoding_missing_file(self):
+        """Test that validate_encoding raises FileNotFoundError for missing file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with pytest.raises(FileNotFoundError):
+                    validate_encoding(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+
+class TestValidateLineEndings:
+    """Tests for validate_line_endings validation function."""
+
+    def test_validate_line_endings_valid_lf(self):
+        """Test that validate_line_endings passes for Unix LF line endings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                create_markdown_file()
+                # Should not raise
+                validate_line_endings(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_line_endings_rejects_crlf(self):
+        """Test that validate_line_endings rejects Windows CRLF line endings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create file with CRLF line endings
+                content = "# Title\r\n\r\nContent."
+                Path(FILENAME).write_bytes(content.encode("utf-8"))
+                with pytest.raises(ValueError, match="CRLF"):
+                    validate_line_endings(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_line_endings_rejects_cr(self):
+        """Test that validate_line_endings rejects Mac CR line endings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create file with CR line endings
+                content = "# Title\r\rContent."
+                Path(FILENAME).write_bytes(content.encode("utf-8"))
+                with pytest.raises(ValueError, match="CR"):
+                    validate_line_endings(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_line_endings_missing_file(self):
+        """Test that validate_line_endings raises FileNotFoundError for missing file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with pytest.raises(FileNotFoundError):
+                    validate_line_endings(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+
+class TestValidateFileSize:
+    """Tests for validate_file_size validation function."""
+
+    def test_validate_file_size_valid_size(self):
+        """Test that validate_file_size passes for file in acceptable range."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                create_markdown_file()
+                # Should not raise
+                validate_file_size(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_file_size_custom_range(self):
+        """Test that validate_file_size respects custom min/max parameters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create a file with 100 bytes
+                content = "x" * 100
+                Path(FILENAME).write_text(content, encoding="utf-8")
+                # Should pass with custom range
+                validate_file_size(FILENAME, min_bytes=50, max_bytes=150)
+                # Should fail with default range (too small)
+                with pytest.raises(ValueError, match="below minimum"):
+                    validate_file_size(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_file_size_too_small(self):
+        """Test that validate_file_size rejects file below minimum size."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create a small file (less than 250 bytes)
+                content = "x" * 100
+                Path(FILENAME).write_text(content, encoding="utf-8")
+                with pytest.raises(ValueError, match="below minimum"):
+                    validate_file_size(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_file_size_too_large(self):
+        """Test that validate_file_size rejects file above maximum size."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                # Create a large file (more than 600 bytes)
+                content = "x" * 700
+                Path(FILENAME).write_text(content, encoding="utf-8")
+                with pytest.raises(ValueError, match="exceeds maximum"):
+                    validate_file_size(FILENAME)
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_file_size_missing_file(self):
+        """Test that validate_file_size raises FileNotFoundError for missing file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with pytest.raises(FileNotFoundError):
+                    validate_file_size(FILENAME)
             finally:
                 import os
 
