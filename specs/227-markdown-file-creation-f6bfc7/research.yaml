@@ -1,0 +1,371 @@
+name: "markdown-file-creation-f6bfc7"
+summary: >
+  Feature 227 extends the established test sequence in Sheep by creating a markdown file with hard-coded content.
+  Research confirms straightforward implementation following feature 211 patterns: standalone module, pathlib for file I/O with native UTF-8/LF handling,
+  reusable validation functions, subprocess-based git operations, and structlog-based logging. No new dependencies required; all infrastructure exists.
+
+relatedFeatures:
+  - "feature_211_markdown_file_creation.py (direct template)"
+  - "features 101-211+ pattern (hard-coded content, standalone modules, comprehensive validation)"
+
+technologies:
+  - "Python 3.11+"
+  - "pathlib (stdlib, file I/O with UTF-8)"
+  - "subprocess (stdlib, secure git execution)"
+  - "structlog (structured logging)"
+  - "GitPython 3.1.0+ (already in pyproject.toml, optional for future use)"
+
+relatedLinks:
+  - title: "Feature 211 Implementation"
+    url: "src/sheep/features/feature_211_markdown_file_creation.py"
+  - title: "Sheep Logging Configuration"
+    url: "src/sheep/observability/logging.py"
+  - title: "CrewAI Framework Documentation"
+    url: "https://docs.crewai.com"
+  - title: "Sheep README"
+    url: "https://github.com/shep-ai/sheep/blob/main/README.md"
+
+decisions:
+  - title: "File I/O Strategy"
+    chosen: "pathlib.Path.write_text() with UTF-8 encoding"
+    rejected:
+      - "subprocess/shell commands — higher complexity, security risk (shell injection), inconsistent with codebase pattern"
+      - "os.open() with explicit encoding — more verbose, lower-level, manual line-ending handling required"
+      - "io.open() with text mode — more boilerplate than pathlib, less readable"
+    rationale: >
+      pathlib.Path.write_text(content, encoding=\"utf-8\") is the clear choice because:
+      (1) Automatically handles Unix LF line endings on all platforms (Python 3.6+),
+      eliminating need for explicit CRLF stripping; (2) Native UTF-8 support without BOM,
+      matching validation requirements; (3) Object-oriented, readable API familiar to modern Python;
+      (4) Already used in feature_211 and established pattern in codebase;
+      (5) Minimal overhead for file operations at this scale.
+
+  - title: "Validation Strategy"
+    chosen: "Reuse existing validation functions from feature_211 (adapt for feature 227 filename)"
+    rejected:
+      - "Write new validation functions — code duplication, violates DRY principle, introduces testing/maintenance burden"
+      - "Create shared validation module — premature abstraction, breaks feature isolation pattern, adds complexity"
+      - "Skip validation — violates spec requirements and fails non-functional requirements"
+    rationale: >
+      Feature 211 provides tested, comprehensive validation functions (validate_markdown_format, validate_encoding,
+      validate_line_endings, validate_file_size, validate_sentence_count, validate_markdown_file orchestrator).
+      These functions accept filename parameter, so copying feature_211.py and changing FILENAME constant
+      enables instant validation reuse. This approach: (1) Eliminates code duplication; (2) Leverages proven,
+      tested patterns; (3) Maintains single feature module per feature architecture; (4) Ensures consistent
+      quality across all markdown files; (5) Requires minimal modifications (feature number, filename, content).
+
+  - title: "Git Integration Strategy"
+    chosen: "subprocess.run() with shell=False and explicit argument list"
+    rejected:
+      - "GitPython library — overkill for simple add/commit/push, adds unnecessary dependency, more complex API"
+      - "shell subprocess (shell=True) — critical security vulnerability (command injection via filenames), prevents deployment"
+      - "os.system() — deprecated, insecure, no error handling, poor logging"
+    rationale: >
+      subprocess.run() with shell=False is the secure, straightforward choice. Explicit argument list
+      (e.g., [\"git\", \"add\", filename]) prevents command injection even if filename contains special characters.
+      This approach: (1) Already used in feature_211 (proven pattern); (2) Secure by default (no shell=True);
+      (3) Explicit error handling via CalledProcessError; (4) Clear logging and debugging;
+      (5) Matches team practices and existing patterns.
+
+  - title: "Logging Framework"
+    chosen: "structlog via sheep.observability.logging.get_logger(__name__)"
+    rejected:
+      - "stdlib logging directly — less structured, harder to parse logs, inconsistent with project configuration"
+      - "print() statements — no timestamp/level info, harder to debug, not production-grade"
+      - "No logging — violates non-functional requirements (NFR-5), hides errors and progress"
+    rationale: >
+      Sheep project uses structlog for structured logging, configured in sheep.observability.logging.
+      get_logger(__name__) returns a structlog BoundLogger with ISO timestamp, log level, and colored
+      console output. This approach: (1) Consistent with entire project and feature_211;
+      (2) Structured output aids monitoring/debugging; (3) Zero additional configuration needed;
+      (4) Provides clear progress visibility (Phase 1, 2, 3 with step-level detail);
+      (5) Error messages include context and stack traces.
+
+  - title: "Error Handling Strategy"
+    chosen: "Fail-fast with specific exception types and clear error messages"
+    rejected:
+      - "Silent failures (ignore exceptions) — hides errors, breaks validation requirements, fails spec"
+      - "Generic exception handling (catch all, swallow) — prevents debugging, obscures root causes"
+      - "Continue on error — violates validation-before-git requirement, could push invalid files"
+    rationale: >
+      Feature 211 implements fail-fast: each phase (create, validate, git) raises specific exceptions
+      (FileNotFoundError, ValueError, CalledProcessError) with descriptive messages, logged at error level.
+      main() catches these and returns exit code 1 on failure. This approach: (1) Ensures no invalid files
+      reach git operations; (2) Provides clear error messages for debugging; (3) Enables test/CI integration
+      with exit codes; (4) Prevents cascading failures; (5) Consistent with feature_211 and codebase patterns.
+
+  - title: "Module Structure"
+    chosen: "Standalone feature_227_markdown_file_creation.py module (copy feature_211, adapt constants)"
+    rejected:
+      - "Shared content_generators.py utilities — breaks feature isolation, complicates testing, loses feature ownership"
+      - "Inline implementation in orchestrator — no reusability, harder to test/review, violates separation of concerns"
+      - "Dynamic LLM-generated content — violates spec decision (hardcoded chosen), introduces dependencies/latency"
+    rationale: >
+      Feature 211 establishes the pattern: each feature is a standalone Python module under src/sheep/features/.
+      Features 101-211+ follow this pattern for clarity and isolation. Copying feature_211_markdown_file_creation.py
+      and adapting constants (FEATURE_NUMBER=227, FILENAME=\"test-avbwfa.md\", TITLE_TEXT, PROSE_CONTENT)
+      provides: (1) Clear feature ownership and maintainability; (2) Independent testing/modification per feature;
+      (3) Predictable codebase structure; (4) Easy to understand and audit; (5) Follows established pattern
+      from features 101-211+.
+
+openQuestions:
+  - question: "Should validation functions be imported from feature_211 or copied into feature_227 module?"
+    resolved: true
+    options:
+      - option: "Copy validation functions into feature_227 module"
+        description: "Self-contained module with all validation logic embedded. No external imports for validation. Slightly larger module (~600 lines) but fully independent. Easier deployment if features are ever split into separate packages."
+        selected: true
+      - option: "Import validation functions from feature_211"
+        description: "Minimal duplication, reuse tested functions via import. Requires feature_211 to exist and be importable. Creates implicit dependency between features. Violates module independence pattern."
+        selected: false
+      - option: "Create shared validation utilities module (e.g., content_generators.py)"
+        description: "DRY principle maximized, single source of truth for validation. Requires new module creation and maintenance. Breaks feature-level isolation. Adds complexity for small benefit."
+        selected: false
+    selectionRationale: >
+      Copying validation functions into feature_227 is recommended because:
+      (1) Maintains complete module independence (no cross-feature imports);
+      (2) Consistent with established feature pattern (features 101-211+ are self-contained);
+      (3) Simplifies deployment and testing (no hidden dependencies);
+      (4) Code size increase is minimal (~100 extra lines) for clarity benefit;
+      (5) Avoids premature abstraction (only 2 feature modules currently using validation);
+      (6) Each feature module documents its own validation logic clearly.
+
+content: |
+  ## Technical Research Summary
+
+  Feature 227 is a straightforward implementation requiring no new technologies or architectural decisions.
+  All required infrastructure exists in the codebase, and the pattern is established by feature 211.
+
+  ### Technology Decisions
+
+  #### 1. File I/O Approach: pathlib.Path.write_text()
+
+  **Chosen:** pathlib.Path.write_text(content, encoding=\"utf-8\")
+
+  **Why Not Alternatives:**
+  - subprocess/shell commands — unsafe (shell injection), inconsistent with codebase
+  - os.open() — verbose, requires manual encoding/line-ending handling
+  - io.open() — boilerplate, less readable than pathlib
+
+  **Rationale:**
+  Python 3.11+ pathlib automatically handles platform-specific line endings,
+  using Unix LF on all platforms when writing in text mode. The UTF-8 encoding
+  is enforced without BOM (Byte Order Mark), matching validation requirements.
+  This approach is used in feature_211 and is the current best practice for
+  Python file I/O.
+
+  **Code Pattern:**
+  ```python
+  markdown_content = f\"# {TITLE_TEXT}\\n\\n{PROSE_CONTENT}\\n\"
+  file_path = Path(FILENAME)
+  file_path.write_text(markdown_content, encoding=\"utf-8\")
+  ```
+
+  #### 2. Validation Strategy: Reuse Feature 211 Functions
+
+  **Chosen:** Copy validation functions from feature_211 into feature_227 module
+
+  **Validation Checklist (from feature_211, applied to feature_227):**
+  1. File exists (verify_file_exists)
+  2. Markdown format valid (H1 heading, blank line, single H1) — validate_markdown_format
+  3. Exactly 2-3 sentences (count periods) — validate_sentence_count
+  4. UTF-8 encoding without BOM — validate_encoding
+  5. Unix LF line endings only (no CRLF or CR) — validate_line_endings
+  6. File size 300-800 bytes — validate_file_size
+  7. Orchestrator runs all checks in sequence — validate_markdown_file
+
+  **Why Reuse:**
+  These functions are thoroughly tested in feature_211 and proven to work.
+  Validation parameters are deterministic (no randomness), so copying code
+  eliminates duplication while maintaining feature independence. Each feature
+  module is self-contained, supporting deployment isolation.
+
+  #### 3. Git Integration: subprocess.run() with shell=False
+
+  **Chosen:** subprocess.run() with explicit argument lists and shell=False
+
+  **Git Operations:**
+  ```python
+  # Stage file
+  subprocess.run([\"git\", \"add\", FILENAME], check=True, capture_output=True)
+
+  # Commit with conventional message
+  subprocess.run([\"git\", \"commit\", \"-m\", COMMIT_MESSAGE], check=True, capture_output=True)
+
+  # Push to remote
+  subprocess.run([\"git\", \"push\", \"-u\", \"origin\", \"HEAD\"], check=True, capture_output=True)
+  ```
+
+  **Why Not GitPython:**
+  GitPython adds a dependency for simple operations and is overkill for add/commit/push.
+  Direct subprocess calls are more transparent and have explicit error handling.
+
+  **Why Not shell=True:**
+  Shell=False prevents command injection attacks, even if filenames contain
+  special characters (spaces, quotes, etc.). This is a security best practice
+  and is enforced in the codebase.
+
+  #### 4. Logging: structlog via sheep.observability.logging
+
+  **Chosen:** structlog BoundLogger via get_logger(__name__)
+
+  **Pattern:**
+  ```python
+  from sheep.observability.logging import get_logger
+
+  _logger = get_logger(__name__)
+  _logger.info(\"Creating markdown file\")
+  _logger.debug(\"File validation complete\")
+  _logger.error(\"Validation failed: {}\", error_message)
+  ```
+
+  **Why structlog:**
+  Sheep project uses structlog for structured logging, providing ISO timestamps,
+  log levels, and colored console output. This is already configured in the
+  project and eliminates setup complexity. Logs are easy to parse and debug.
+
+  #### 5. Error Handling: Fail-Fast with Specific Exceptions
+
+  **Chosen:** Catch specific exceptions (FileNotFoundError, ValueError, CalledProcessError),
+  log errors with context, and return exit code 1 on failure
+
+  **Pattern:**
+  ```python
+  def main() -> int:
+      try:
+          # Phase 1: Create file
+          create_markdown_file()
+
+          # Phase 2: Validate file
+          validate_markdown_file(FILENAME)
+
+          # Phase 3: Git operations
+          git_add_file(FILENAME)
+          git_commit(COMMIT_MESSAGE)
+          git_push(BRANCH_NAME)
+
+          return 0
+      except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as e:
+          _logger.error(f\"Feature 227 failed: {e}\")
+          return 1
+  ```
+
+  **Validation Before Git:**
+  No git operations execute until validation passes. If validation fails,
+  the function raises immediately, preventing invalid files from being committed.
+
+  ### Library Analysis
+
+  | Library | Version | Purpose | Decision | Reasoning |
+  | ------- | ------- | ------- | -------- | --------- |
+  | pathlib | stdlib | File I/O with UTF-8 and Unix LF | Use | Native to Python 3.4+; automatic line-ending handling; no encoding issues |
+  | subprocess | stdlib | Secure git command execution | Use | Standard library; shell=False prevents injection; explicit error handling |
+  | structlog | 24.0.0+ | Structured logging | Use | Already configured in project; ISO timestamps; colored console output |
+  | GitPython | 3.1.0+ | Git operations (optional future) | Reject | Overkill for simple add/commit/push; subprocess is more explicit and secure |
+
+  ### Security Considerations
+
+  #### 1. Command Injection Prevention
+  - subprocess.run() uses shell=False and explicit argument list
+  - Even filenames with spaces/quotes/special chars are safe (passed as separate arguments)
+  - No string interpolation in git commands
+
+  #### 2. File Encoding Safety
+  - UTF-8 encoding without BOM is validated before commit
+  - pathlib automatically handles encoding consistently
+  - No character encoding vulnerabilities
+
+  #### 3. Line Ending Safety
+  - Unix LF only (no CRLF or CR) prevents cross-platform issues
+  - Validation enforces this before commit
+  - No shell metacharacter issues
+
+  #### 4. No External API Calls
+  - Hard-coded content eliminates API dependencies
+  - No network requests or external services
+  - No supply-chain attack surface
+
+  #### 5. File Permissions
+  - No special permissions required for markdown files
+  - Created with default umask (typically 0o644, user-readable)
+  - Git operations respect repository permissions
+
+  #### 6. Error Messages
+  - Error messages logged at error level (visible in logs)
+  - No sensitive information in error messages (filenames and git commands are safe)
+  - Stack traces aid debugging without exposing secrets
+
+  ### Performance Implications
+
+  #### File Creation
+  - pathlib.write_text() is optimized in CPython
+  - ~300-800 bytes written = sub-millisecond operation
+  - No batching needed for single file
+
+  #### Validation
+  - Sequential validation with fail-fast behavior
+  - All checks complete in <10ms on any modern hardware
+  - No disk I/O bottlenecks (file is <1KB)
+  - Sentence counting is O(n) with n < 1000 bytes
+
+  #### Git Operations
+  - subprocess.run() calls are fast (local operations, no network latency)
+  - git add, commit, push execute in <100ms on typical systems
+  - No caching needed for single file
+
+  #### Logging
+  - structlog is asynchronous-capable but synchronous by default here
+  - Minimal overhead from logging calls (<1ms per message)
+  - No performance impact on workflow
+
+  #### Overall Performance
+  - Complete feature 227 workflow should execute in <500ms
+  - No bottlenecks or optimization needed
+  - Scalable to multiple files (if extended in future)
+
+  ### Architecture Notes
+
+  #### Module Structure
+  - File: src/sheep/features/feature_227_markdown_file_creation.py
+  - Follows established pattern from features 101-211+
+  - Self-contained with all logic encapsulated
+  - ~500-600 lines (adapted from feature_211)
+  - No external feature dependencies
+
+  #### Integration Points
+  - Uses sheep.observability.logging.get_logger() (already configured)
+  - No new configuration or initialization required
+  - Compatible with Sheep CLI and orchestration layer
+  - Exit code 0 on success, 1 on failure (standard POSIX convention)
+
+  #### Testing Strategy
+  - Unit tests for each validation function (copy feature_211 tests, adapt for feature_227)
+  - Integration test for complete workflow
+  - Mock subprocess calls to avoid actual git operations during testing
+  - Fixture for test markdown file creation/cleanup
+
+  #### Documentation
+  - Docstrings for each function (copy from feature_211, adapt)
+  - Module-level docstring explains purpose and workflow
+  - Inline comments for complex validation logic
+  - Clear logging messages for debugging
+
+  ### Implementation Checklist
+
+  - [ ] Copy src/sheep/features/feature_211_markdown_file_creation.py to feature_227_markdown_file_creation.py
+  - [ ] Update FEATURE_NUMBER from 211 to 227
+  - [ ] Update FILENAME from \"test-fm1m1t.md\" to \"test-avbwfa.md\"
+  - [ ] Update BRANCH_NAME to \"feat/227-markdown-file-creation-f6bfc7\"
+  - [ ] Update COMMIT_MESSAGE to \"feat(227): Create markdown file test-avbwfa.md\"
+  - [ ] Replace TITLE_TEXT with new title
+  - [ ] Replace PROSE_CONTENT with new 2-3 sentences
+  - [ ] Verify content meets 300-800 byte requirement
+  - [ ] Copy validation functions unchanged (validate_markdown_format, validate_encoding, etc.)
+  - [ ] Copy git operation functions unchanged (git_add_file, git_commit, git_push)
+  - [ ] Update main() docstring to reference feature 227
+  - [ ] Test locally: run feature module, verify file created/validated/committed
+  - [ ] Push to remote branch origin/feat/227-markdown-file-creation-f6bfc7
+
+  ---
+
+  _Research complete — Feature 227 is ready for implementation phase_
