@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Feature 155: Create markdown file test-1k8ri0.md with title and prose content.
+Feature 223: Create markdown file test-no1878.md with title and prose content.
 
 This module implements file creation with explicit UTF-8 encoding and LF line endings,
-following the established pattern of 150+ existing test files in the Sheep project.
+following the established pattern of 220+ existing test files in the Sheep project.
 
-Phase 1 (Core Implementation): File creation and validation
-Phase 2 (Git Integration & Delivery): Git workflow (add, commit, push)
+Phase 1: File creation and validation
+Phase 2: Git integration (add, commit, push)
 """
 
 from pathlib import Path
@@ -14,46 +14,61 @@ import sys
 import subprocess
 
 
-def create_file() -> None:
+def create_file() -> Path:
     """
-    Create test-1k8ri0.md markdown file with H1 heading and prose content.
+    Create test-no1878.md markdown file with H1 heading and prose content.
 
-    Uses pathlib.Path.write_bytes() with explicit UTF-8 encoding to ensure:
-    - No BOM (Byte Order Mark) is added
-    - Unix LF line endings (0x0A) across all platforms
-    - Consistent encoding behavior
+    Uses pathlib.Path.write_text() with explicit UTF-8 encoding to ensure:
+    - UTF-8 encoding without BOM (Byte Order Mark)
+    - Unix LF line endings (0x0A) via newline='\n' parameter
+    - Consistent behavior across all platforms
+
+    Returns:
+        Path: The path to the created file
+
+    Raises:
+        FileExistsError: If file already exists at target path
     """
-    title = "The Art of Deliberate Practice"
+    filename = "test-no1878.md"
+    title = "The Power of Persistence"
     prose = (
-        "Deliberate practice is the cornerstone of mastery in any domain, "
-        "requiring focused effort on improving specific weaknesses rather than simply repeating "
-        "familiar tasks. When practitioners engage in intentional, structured improvement with immediate "
-        "feedback and course correction, they accelerate their development far beyond casual engagement. "
-        "This principle has been validated across music, sports, mathematics, and professional fields, "
-        "demonstrating that excellence emerges from systematic, goal-oriented effort rather than innate talent alone."
+        "Success rarely comes instantly, but through consistent effort and determination. "
+        "Every obstacle we face becomes a stepping stone when we choose to learn from it rather than be defeated by it. "
+        "By embracing challenges with optimism and resilience, we unlock our potential to achieve extraordinary things."
     )
 
     # Construct markdown content: heading + blank line + prose + trailing newline
     content = f"# {title}\n\n{prose}\n"
 
-    # Write to file at repository root with explicit UTF-8 encoding
-    filepath = Path("test-1k8ri0.md")
-    filepath.write_bytes(content.encode('utf-8'))
+    # Write to file at repository root with explicit UTF-8 encoding and Unix LF
+    filepath = Path(filename)
 
-    print(f"✓ Created {filepath} ({len(content.encode('utf-8'))} bytes)")
+    # Defensive check: prevent accidental overwrite
+    if filepath.exists():
+        raise FileExistsError(f"File {filename} already exists")
+
+    # Use write_text with encoding and newline parameters for explicit control
+    filepath.write_text(content, encoding='utf-8', newline='\n')
+
+    return filepath
 
 
-def validate_file() -> bool:
+def validate_file(filepath: Path = None) -> bool:
     """
-    Validate test-1k8ri0.md meets all structural and encoding requirements.
+    Validate markdown file meets all structural and encoding requirements.
 
-    Checks:
+    Validates:
     - File exists at expected path
-    - File size is within acceptable range (300-800 bytes, targeting 400-600)
+    - File size is within range (300-500 bytes per NFR-2)
     - File contains exactly one H1 heading (line starting with '# ')
     - File contains blank line after heading (double newline pattern)
-    - File contains prose content (at least 2 sentences)
-    - File is valid UTF-8 (via read_text with UTF-8 encoding)
+    - File contains prose content (2-3 sentences)
+    - File is valid UTF-8 without BOM
+    - File uses Unix LF line endings only (no CRLF)
+    - File ends with newline character
+
+    Args:
+        filepath (Path, optional): Path to file to validate. Defaults to test-no1878.md
 
     Returns:
         True if all validations pass
@@ -61,53 +76,77 @@ def validate_file() -> bool:
     Raises:
         AssertionError: If any validation fails with descriptive error message
     """
-    filepath = Path("test-1k8ri0.md")
+    if filepath is None:
+        filepath = Path("test-no1878.md")
 
     # Check 1: File exists
     assert filepath.exists(), f"File {filepath} does not exist"
 
-    # Check 2: File size within range
-    file_size = filepath.stat().st_size
-    assert 300 <= file_size <= 800, (
-        f"File size {file_size} bytes outside acceptable range (300-800). "
-        f"Target: 400-600 bytes"
+    # Check 2: Read file as binary for encoding/line ending validation
+    file_bytes = filepath.read_bytes()
+    file_size = len(file_bytes)
+
+    # Check 3: File size within range (300-500 bytes per NFR-2)
+    assert 300 <= file_size <= 500, (
+        f"File size {file_size} bytes outside acceptable range [300, 500]. "
+        f"Target: 300-500 bytes"
     )
 
-    # Check 3: UTF-8 encoding (will raise if not valid UTF-8)
+    # Check 4: No UTF-8 BOM (Byte Order Mark)
+    assert not file_bytes.startswith(b'\xef\xbb\xbf'), (
+        "File contains UTF-8 BOM; must use UTF-8 without BOM"
+    )
+
+    # Check 5: Unix LF line endings only (no CRLF)
+    assert b'\r\n' not in file_bytes, (
+        "File contains CRLF (\\r\\n) line endings; must use LF (\\n) only"
+    )
+    assert b'\r' not in file_bytes, (
+        "File contains CR (\\r) characters; must use LF (\\n) only"
+    )
+
+    # Check 6: File ends with newline
+    assert file_bytes.endswith(b'\n'), (
+        "File must end with newline character (\\n)"
+    )
+
+    # Check 7: Valid UTF-8 encoding
     try:
         content = filepath.read_text(encoding='utf-8')
     except UnicodeDecodeError as e:
         raise AssertionError(f"File is not valid UTF-8: {e}")
 
-    # Check 4: H1 heading exists
+    # Check 8: H1 heading exists in first line
     lines = content.split('\n')
     assert len(lines) > 0 and lines[0].startswith('# '), (
         f"First line must be H1 heading (start with '# '). Got: {lines[0]!r}"
     )
 
-    # Check 5: Blank line after heading (second line should be empty)
+    # Check 9: Blank line after heading (second line should be empty)
     assert len(lines) > 1 and lines[1] == '', (
         f"Second line must be blank (for blank line after heading). Got: {lines[1]!r}"
     )
 
-    # Check 6: Prose content exists (at least 2 sentences)
+    # Check 10: Prose content exists (2-3 sentences)
     prose_lines = lines[2:]
     prose_text = '\n'.join(prose_lines).strip()
 
-    # Count sentences (periods, question marks, exclamation marks)
-    sentence_count = sum(
-        prose_text.count(punct)
-        for punct in ['.', '?', '!']
-    )
-    assert sentence_count >= 2, (
-        f"Prose must contain at least 2 sentences. Found {sentence_count} sentences"
+    # Count sentences by looking for sentence terminators
+    import re
+    sentences = re.split(r'[.!?]+', prose_text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    sentence_count = len(sentences)
+
+    assert 2 <= sentence_count <= 3, (
+        f"Prose must contain 2-3 sentences. Found {sentence_count} sentences"
     )
 
     print(f"✓ File {filepath} validates successfully")
-    print(f"  - Size: {file_size} bytes (target: 400-600)")
+    print(f"  - Size: {file_size} bytes (range: 300-500)")
     print(f"  - Heading: {lines[0]}")
     print(f"  - Sentences: {sentence_count}")
-    print(f"  - Encoding: UTF-8 (valid)")
+    print(f"  - Encoding: UTF-8 without BOM")
+    print(f"  - Line endings: Unix LF")
 
     return True
 
@@ -117,18 +156,18 @@ def git_operations() -> None:
     Stage, commit, and push the markdown file using git.
 
     Uses subprocess.run() with list-based arguments to safely execute git commands.
-    Commit message follows Conventional Commits specification:
-    'feat(155): create markdown file test-1k8ri0.md with prose content'
+    Commit message follows Conventional Commits specification.
 
     Raises:
         subprocess.CalledProcessError: If any git command fails (via check=True)
     """
-    commit_message = "feat(155): create markdown file test-1k8ri0.md with prose content"
+    filename = "test-no1878.md"
+    commit_message = "feat(223): Create markdown file test-no1878.md"
 
-    # Stage the file: git add test-1k8ri0.md
+    # Stage the file: git add test-no1878.md
     # Using list-based arguments prevents shell injection attacks
-    print("Staging file with 'git add test-1k8ri0.md'...")
-    subprocess.run(["git", "add", "test-1k8ri0.md"], check=True)
+    print(f"Staging file with 'git add {filename}'...")
+    subprocess.run(["git", "add", filename], check=True)
     print("✓ File staged successfully")
 
     # Commit the file with conventional commit message
@@ -143,19 +182,27 @@ def git_operations() -> None:
 
 
 def main() -> int:
-    """Execute file creation, validation, and git integration. Exit with code 0 on success, 1 on failure."""
+    """Execute file creation and validation. Exit with code 0 on success, 1 on failure."""
     try:
-        create_file()
-        validate_file()
-        print("\n✓ Phase 1 (Core Implementation) complete")
+        print("Phase 1: File Creation and Validation")
+        print("=" * 50)
+        filepath = create_file()
+        print(f"✓ Created {filepath}")
 
-        print("\nPhase 2 (Git Integration & Delivery)...")
-        git_operations()
-
-        print("\n✓ All phases complete - feature 155 delivered successfully")
+        validate_file(filepath)
+        print("\n✓ Phase 1 complete - file created and validated successfully")
         return 0
+    except FileExistsError as e:
+        print(f"✗ File creation error: {e}", file=sys.stderr)
+        return 1
+    except OSError as e:
+        print(f"✗ File I/O error: {e}", file=sys.stderr)
+        return 1
+    except AssertionError as e:
+        print(f"✗ Validation error: {e}", file=sys.stderr)
+        return 1
     except Exception as e:
-        print(f"✗ Error: {e}", file=sys.stderr)
+        print(f"✗ Unexpected error: {e}", file=sys.stderr)
         return 1
 
 
