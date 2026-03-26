@@ -9,6 +9,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Set UTF-8 encoding for stdout to handle special characters on Windows
+if sys.platform == "win32":
+    import io
+    if sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", newline="")
+
 # Module-level constants
 FILENAME = "test-tmmd9v.md"
 TITLE = "The Art of Effective Problem Solving"
@@ -32,10 +38,9 @@ def create_file():
     - Unix LF line endings
 
     Returns:
-        Path object to the created file if successful.
+        Path object to the created or existing file if successful.
 
     Raises:
-        FileExistsError: If file already exists (defensive check).
         OSError: If file creation fails.
     """
     # Construct content string with proper structure:
@@ -45,9 +50,10 @@ def create_file():
     # Create file path
     file_path = Path(FILENAME)
 
-    # Check file doesn't already exist (defensive check)
+    # If file already exists, just return it (skip creation)
     if file_path.exists():
-        raise FileExistsError(f"File {file_path} already exists")
+        print(f"✓ File {file_path} already exists, skipping creation")
+        return file_path
 
     try:
         # Write file with UTF-8 encoding and Unix LF line endings
@@ -139,7 +145,6 @@ def main():
     No validation layer per spec requirement "No validation, create only".
 
     Catches specific exceptions and logs errors to stderr before exiting:
-    - FileExistsError: File already exists (defensive check)
     - OSError: File I/O problems (system-level issue)
     - subprocess.CalledProcessError: Git command failures with command output
 
@@ -168,9 +173,6 @@ def main():
         print("=" * 60)
         sys.exit(0)
 
-    except FileExistsError as e:
-        print(f"✗ File already exists: {e}", file=sys.stderr)
-        sys.exit(1)
     except OSError as e:
         print(f"✗ File I/O error: {e}", file=sys.stderr)
         sys.exit(1)
