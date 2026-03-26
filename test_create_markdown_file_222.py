@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
 Test suite for feature 222: markdown-file-creation-3cd3fb
-Tests create_file() function and module constants.
+Tests create_file() function, git operations, and module constants.
 No validation layer per spec requirement.
 """
 
+import os
+import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
-from create_markdown_file_222 import COMMIT_MESSAGE, FILENAME, PROSE, TITLE, create_file
+from create_markdown_file_222 import COMMIT_MESSAGE, FILENAME, PROSE, TITLE, create_file, git_add, git_commit, git_push
 
 
 class TestConstants:
@@ -190,6 +192,161 @@ class TestCreateFile:
                 assert lines[0].startswith("# ")  # H1 heading
                 assert lines[1] == ""  # Blank line
                 assert PROSE in content  # Prose content present
+            finally:
+                os.chdir(original_dir)
+
+
+class TestGitAdd:
+    """Test suite for git_add function (Phase 2)."""
+
+    def test_git_add_stages_file(self):
+        """Test that git_add stages the file in git index."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@example.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Create file
+                create_file()
+
+                # Verify file is untracked before git_add
+                result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+                assert "?? " in result.stdout  # Untracked files shown with "??"
+
+                # Add file
+                git_add()
+
+                # Verify file is now staged
+                result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+                assert "A  " in result.stdout  # Staged files shown with "A "
+            finally:
+                os.chdir(original_dir)
+
+    def test_git_add_raises_if_file_not_found(self):
+        """Test that git_add raises CalledProcessError if file doesn't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@example.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Try to add non-existent file
+                with pytest.raises(subprocess.CalledProcessError):
+                    git_add()
+            finally:
+                os.chdir(original_dir)
+
+
+class TestGitCommit:
+    """Test suite for git_commit function (Phase 2)."""
+
+    def test_git_commit_creates_commit(self):
+        """Test that git_commit creates a commit with correct message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@example.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Create file and stage it
+                create_file()
+                git_add()
+
+                # Get commit count before
+                result = subprocess.run(["git", "log", "--oneline"], capture_output=True, text=True)
+                commits_before = len([line for line in result.stdout.strip().split("\n") if line])
+
+                # Create commit
+                git_commit()
+
+                # Get commit count after
+                result = subprocess.run(["git", "log", "--oneline"], capture_output=True, text=True)
+                commits_after = len([line for line in result.stdout.strip().split("\n") if line])
+
+                # Verify new commit was created
+                assert commits_after == commits_before + 1
+            finally:
+                os.chdir(original_dir)
+
+    def test_git_commit_message_format(self):
+        """Test that git_commit uses correct conventional commit message."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@example.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Create file and stage it
+                create_file()
+                git_add()
+
+                # Create commit
+                git_commit()
+
+                # Verify commit message
+                result = subprocess.run(["git", "log", "--oneline", "-1"], capture_output=True, text=True)
+                assert COMMIT_MESSAGE in result.stdout
+            finally:
+                os.chdir(original_dir)
+
+    def test_git_commit_raises_if_no_changes(self):
+        """Test that git_commit raises CalledProcessError if there are no changes."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@example.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Try to commit without any changes
+                with pytest.raises(subprocess.CalledProcessError):
+                    git_commit()
+            finally:
+                os.chdir(original_dir)
+
+
+class TestGitPush:
+    """Test suite for git_push function (Phase 2).
+
+    Note: These tests check that the function can be called and handles
+    errors appropriately. Full integration tests with actual remote push
+    are tested in TestFullIntegration.
+    """
+
+    def test_git_push_raises_if_no_remote(self):
+        """Test that git_push raises CalledProcessError if no remote is configured."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                # Initialize git repo without remote
+                subprocess.run(["git", "init"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.email", "test@example.com"], check=True, capture_output=True)
+                subprocess.run(["git", "config", "user.name", "Test User"], check=True, capture_output=True)
+
+                # Create file and commit
+                create_file()
+                git_add()
+                git_commit()
+
+                # Try to push without remote
+                with pytest.raises(subprocess.CalledProcessError):
+                    git_push()
             finally:
                 os.chdir(original_dir)
 
