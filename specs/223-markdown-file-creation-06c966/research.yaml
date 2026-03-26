@@ -1,0 +1,374 @@
+name: markdown-file-creation-06c966
+summary: "Technical research for feature 223 markdown file creation. Recommended approach: Python script with pathlib for file I/O, subprocess for git integration, static prose content, and Unix LF line endings. Follows established pattern from features 160-222 with 60+ successful precedents."
+
+relatedFeatures:
+  - number: 222
+    name: "markdown-file-creation-db533d"
+    relationship: "Immediately preceding identical feature — implementation script and pattern template"
+  - number: 221
+    name: "markdown-file-creation-766ea9"
+    relationship: "Identical pattern — create markdown file with H1 title and 2-3 sentences"
+  - number: 220
+    name: "markdown-file-creation-172f6c"
+    relationship: "Identical pattern — create markdown file with H1 title and 2-3 sentences"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess — standard library only)"
+  - "Markdown (CommonMark specification)"
+  - "Git (version control, conventional commits)"
+  - "Unix/Linux (LF line endings)"
+  - "UTF-8 text encoding"
+
+relatedLinks:
+  - title: "Markdown CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "File I/O Implementation Approach"
+    chosen: "Use pathlib.Path.write_text() with explicit UTF-8 encoding and Unix LF line endings"
+    rejected:
+      - "os.open() with low-level file operations — more verbose, requires manual encoding/newline handling, higher error surface area"
+      - "open() builtin with manual encoding specification — less clean, pathlib provides more modern, Pythonic API"
+      - "Third-party file libraries (e.g., fsspec) — introduces external dependency, unnecessary for simple file creation"
+    rationale: "pathlib.Path.write_text() with encoding='utf-8' and newline='\n' parameters is the modern, standard library approach. It provides: (1) explicit control over encoding (UTF-8 without BOM), (2) cross-platform consistency by forcing Unix LF line endings via newline='\\n' parameter, (3) clean, readable API following repository patterns in features 216-222, (4) automatic file close/cleanup, (5) no external dependencies. This exact approach is proven successful in 220+ existing test files and features 222, 221, 220."
+
+  - title: "Git Integration Method"
+    chosen: "Use subprocess.run() with command list and check=True for error handling"
+    rejected:
+      - "GitPython library — introduces external dependency, not used in precedent features 216-222, adds complexity for simple git operations"
+      - "os.system() or shell=True subprocess — security vulnerability (command injection risk), harder to test, less reliable error handling"
+      - "Direct shell script execution — no Python wrapper, loses structured error handling and visibility"
+    rationale: "subprocess.run() with command list form (not shell=True) is the standard library approach used in all precedent features. Benefits: (1) uses standard library only (no external dependencies), (2) list form prevents shell injection vulnerabilities, (3) check=True raises CalledProcessError on non-zero exit for reliable error handling, (4) consistent with established patterns in features 216-222, (5) allows structured error handling with try/except. The command list form ['git', 'add', FILENAME] is safer and more reliable than shell strings."
+
+  - title: "Markdown Content Structure"
+    chosen: "Static prose content with format: '# {TITLE}\\n\\n{PROSE}\\n' (H1 heading, blank line, prose, trailing newline)"
+    rejected:
+      - "Random prose selection from pool — adds complexity, no requirement for variation, slows implementation"
+      - "User-provided prose via stdin or config — adds complexity, spec requires 'about anything' (flexible), static content sufficient"
+      - "Procedurally generated content (e.g., lorem ipsum) — unnecessary, harder to read, no requirement"
+    rationale: "Static prose content matches established pattern in features 222, 221, 220 and is explicitly verified in test files (e.g., test-atwx74.md, test-5vnehe.md). Structure '# {TITLE}\\n\\n{PROSE}\\n' ensures: (1) valid markdown with H1 heading, (2) blank line separator for readability, (3) 2-3 prose sentences, (4) trailing newline for POSIX compliance. Spec requirement 'about anything' permits flexible topic selection; static content minimizes decision overhead and enables fastest execution. This matches exact pattern used successfully in 60+ precedent features."
+
+  - title: "Error Handling Strategy"
+    chosen: "Specific exception handling with FileExistsError, OSError, subprocess.CalledProcessError, and generic Exception fallback"
+    rejected:
+      - "Minimal error handling (bare try/except) — loses diagnostic information, harder to debug"
+      - "Silent failure with no error output — violates observability requirement, user cannot diagnose issues"
+      - "Custom exception classes — adds complexity for simple operations, not required by spec"
+    rationale: "Specific exception handling provides clear, actionable error messages: (1) FileExistsError detects defensive check for file collision, (2) OSError catches file system issues (permission, disk space), (3) CalledProcessError captures git command failures with command and stderr output, (4) generic Exception catches unexpected issues. Each exception logs to stderr and exits with code 1. This pattern is proven in features 222, 221 and provides essential observability for the Sheep automation platform."
+
+  - title: "Code Organization and Functions"
+    chosen: "Modular function structure: create_file(), git_add(), git_commit(), git_push(), main() orchestrator"
+    rejected:
+      - "Single monolithic main() function — harder to read, test, and debug; error handling unclear"
+      - "Scripting approach without functions — less reusable, harder to understand control flow"
+      - "Object-oriented design with class wrapper — unnecessary complexity for simple sequential workflow"
+    rationale: "Modular functions follow established pattern in features 222, 221, 220 and provide: (1) clear separation of concerns (file I/O vs git operations), (2) readable, testable code structure, (3) ability to unit test each phase independently, (4) clear error handling at each stage, (5) sequential orchestration in main() that mirrors workflow (create → add → commit → push). This structure is proven successful across 60+ precedent features."
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation
+
+  **Chosen:** Use `pathlib.Path.write_text()` with explicit UTF-8 encoding and Unix LF line endings
+
+  **Implementation Details:**
+  ```python
+  content = f"# {TITLE}\n\n{PROSE}\n"
+  file_path = Path(FILENAME)
+  file_path.write_text(content, encoding="utf-8", newline="\n")
+  ```
+
+  **Rejected Alternatives:**
+  - `os.open()` with manual newline handling — verbose, requires manual encoding/mode management, higher error surface area
+  - `open()` builtin — less clean than pathlib, manual context management
+  - External libraries (fsspec, etc.) — introduces dependency, unnecessary for simple creation
+
+  **Rationale:** `pathlib.Path.write_text()` with `encoding="utf-8"` and `newline="\n"` is the modern standard library approach:
+  - Ensures UTF-8 encoding without BOM (per spec NFR-3)
+  - Forces Unix LF line endings across all platforms via `newline="\n"` (per spec NFR-4)
+  - Automatic file close/cleanup, no manual resource management
+  - Clean, readable Pythonic API
+  - **Proven successful** in 220+ existing test files and features 216-222
+  - No external dependencies
+
+  **Reference:** Feature 222 implementation uses identical approach; verified in test files test-atwx74.md, test-5vnehe.md, test-hmis8d.md
+
+  ### 2. Git Integration Method
+
+  **Chosen:** Use `subprocess.run()` with command list and `check=True` for error handling
+
+  **Implementation Details:**
+  ```python
+  subprocess.run(["git", "add", FILENAME], check=True)
+  subprocess.run(["git", "commit", "-m", COMMIT_MESSAGE], check=True)
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  ```
+
+  **Rejected Alternatives:**
+  - GitPython library — external dependency (not in precedent features 216-222), unnecessary complexity for simple git commands
+  - `os.system()` or `shell=True` subprocess — **security vulnerability** (command injection risk), unreliable error handling, harder to parse output
+  - Direct shell script — loses structured Python error handling, reduces observability
+
+  **Rationale:** `subprocess.run()` with command list form is the standard library, secure approach:
+  - List form `["git", "add", ...]` prevents shell injection attacks (security requirement)
+  - `check=True` raises `CalledProcessError` on non-zero exit for reliable error handling
+  - Standard library only, no external dependencies (per spec NFR-3)
+  - Allows structured try/except error handling with diagnostic output
+  - **Established pattern** in features 216-222 (proven successful)
+  - Provides visibility into command execution and failures
+
+  **Security Note:** Never use `shell=True` or string-based commands with user input; list form is always safer.
+
+  ### 3. Prose Content Generation
+
+  **Chosen:** Static prose content — single, pre-written string
+
+  **Implementation Details:**
+  ```python
+  PROSE = (
+      "Clear communication is the foundation of strong relationships and effective collaboration. "
+      "When we express our ideas with clarity and listen with genuine understanding, we create space for "
+      "meaningful connection and mutual growth. By prioritizing honesty and empathy in our interactions, "
+      "we build trust that enables us to achieve great things together."
+  )
+  ```
+
+  **Rejected Alternatives:**
+  - Random selection from prose pool — adds complexity, no requirement for variation across runs, slows development
+  - User-provided prose via stdin/config — adds complexity, spec states "about anything" (flexible), static sufficient
+  - Procedurally generated content (lorem ipsum, etc.) — unnecessary, produces less coherent output, harder to verify
+
+  **Rationale:** Static prose minimizes implementation complexity and decision overhead:
+  - Spec requirement "about anything" explicitly permits flexible topic selection
+  - **Established pattern** in features 220-222: all use static, hand-written prose
+  - Ensures consistent, readable 2-3 sentence prose (per spec FR-3)
+  - Fast to implement (no generation logic, no randomization)
+  - Easy to verify content quality by visual inspection
+  - Enables deterministic, reproducible execution
+  - Single static string avoids prose selection decision overhead
+
+  **Reference:** Features 222, 221, 220 all use static prose; confirmed in test files test-atwx74.md, test-5vnehe.md, test-hmis8d.md
+
+  ### 4. Error Handling Strategy
+
+  **Chosen:** Specific exception handling with three exception types + generic fallback
+
+  **Implementation Details:**
+  ```python
+  except FileExistsError as e:
+      print(f"✗ File already exists: {e}", file=sys.stderr)
+      sys.exit(1)
+  except OSError as e:
+      print(f"✗ File I/O error: {e}", file=sys.stderr)
+      sys.exit(1)
+  except subprocess.CalledProcessError as e:
+      print(f"✗ Git command failed: {e.cmd}", file=sys.stderr)
+      if e.stderr:
+          print(f"  Error output: {e.stderr}", file=sys.stderr)
+      sys.exit(1)
+  except Exception as e:
+      print(f"✗ Unexpected error: {e}", file=sys.stderr)
+      sys.exit(1)
+  ```
+
+  **Rejected Alternatives:**
+  - Minimal error handling (bare `try/except`) — loses diagnostic information, difficult to debug
+  - No error handling — silent failures, violates Sheep observability requirements
+  - Custom exception classes — unnecessary complexity for simple sequential workflow
+
+  **Rationale:** Specific exception handling provides essential observability:
+  - **FileExistsError**: Defensive check prevents accidental file overwrite (per spec NFR-7)
+  - **OSError**: Catches file system failures (permissions, disk space, path issues)
+  - **CalledProcessError**: Captures git command failures with stderr output for diagnosis
+  - **Generic Exception**: Catches unexpected issues as safety net
+  - All exceptions log to stderr (not stdout) per logging convention
+  - Exit code 1 indicates failure for CI/automation systems
+  - **Proven pattern** in features 216-222
+
+  ### 5. Code Organization
+
+  **Chosen:** Modular function structure with single-purpose functions and orchestrator main()
+
+  **Implementation Details:**
+  ```python
+  def create_file():      # Handle file I/O
+  def git_add():          # Stage changes
+  def git_commit():       # Create commit
+  def git_push():         # Push to remote
+  def main():             # Orchestrate workflow
+  ```
+
+  **Rejected Alternatives:**
+  - Monolithic main() — harder to read, test, and maintain; error handling unclear
+  - Scripting approach without functions — less reusable, harder to understand flow
+  - Object-oriented design — unnecessary complexity for simple sequential workflow
+
+  **Rationale:** Modular functions provide clarity and maintainability:
+  - Clear separation of concerns (file I/O vs git operations)
+  - Each function has single responsibility, easy to understand
+  - Errors can be caught at each stage with specific handling
+  - Sequential orchestration in main() mirrors user intent
+  - Easier to debug and modify individual phases
+  - **Established pattern** in features 216-222 (60+ precedents)
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | `pathlib.Path` | File I/O and path operations | **Use** | Standard library, modern Pythonic API, provides encoding and newline control for UTF-8 + LF requirements |
+  | `subprocess` | Git command execution | **Use** | Standard library, safe list-form command execution, reliable error handling with check=True |
+  | `sys` | Exit codes and stderr output | **Use** | Standard library, required for proper error signaling and logging conventions |
+  | GitPython | Git operations library | **Reject** | External dependency not used in precedent features 216-222; subprocess is sufficient and simpler |
+  | os module | Legacy file operations | **Reject** | pathlib is more modern and provides better control over encoding/newlines |
+  | paramiko/ssh library | Remote git operations | **Reject** | `git push` handles remote communication natively; no need for SSH library |
+  | External prose libraries | Content generation | **Reject** | Static prose is sufficient; no random selection needed |
+
+  ## Security Considerations
+
+  ### Command Injection Prevention
+
+  **Implementation safeguard:** Use subprocess command list (not shell=True)
+  ```python
+  # ✓ Safe: list form
+  subprocess.run(["git", "add", FILENAME], check=True)
+
+  # ✗ Unsafe: shell=True with string concatenation
+  subprocess.run(f"git add {FILENAME}", shell=True)
+  ```
+
+  - List form prevents shell interpretation of special characters
+  - Filename and message are passed as arguments, not evaluated by shell
+  - No user input in git commands (all values are module-level constants)
+
+  ### File System Security
+
+  **Safeguards:**
+  - Filename hardcoded as constant `FILENAME = "test-no1878.md"` (no user input)
+  - Defensive FileExistsError check prevents accidental overwrite of existing files
+  - Write to repository root only (constrained path, no path traversal possible)
+  - No symlink following or permission escalation
+
+  ### Encoding Security
+
+  **Safeguard:** UTF-8 with explicit encoding parameter
+  ```python
+  file_path.write_text(content, encoding="utf-8", newline="\n")
+  ```
+  - Explicit UTF-8 encoding prevents encoding injection attacks
+  - newline="\n" ensures Unix LF (not CRLF with embedded CR bytes)
+  - No raw binary data, all text-only content
+
+  **Assessment:** Feature is minimal with no user input, external data, or network operations. Security surface area is low; primary concern is proper subprocess usage (addressed via list form).
+
+  ## Performance Considerations
+
+  ### Execution Time
+
+  **Estimated breakdown (per spec NFR-1, target <15 minutes):**
+  - File creation: ~1 second (pathlib.write_text())
+  - Git add: ~0.1 seconds (local operation)
+  - Git commit: ~0.1 seconds (local operation)
+  - Git push: ~2-5 seconds (network operation, variable)
+  - **Total: <10 seconds execution time**
+
+  **Implication:** Performance is not a concern; feature is extremely lightweight. Standard library operations are efficient for this use case.
+
+  ### Resource Usage
+
+  - **Memory:** Minimal (~1KB for content, negligible for subprocess overhead)
+  - **Disk:** 300-500 bytes per spec NFR-2 (file content only)
+  - **Network:** Single git push operation, typical <5 seconds
+  - **CPU:** Negligible (file I/O and subprocess are not CPU-bound)
+
+  **Assessment:** No optimization needed; standard library performance is more than sufficient.
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Platform
+
+  This feature follows the established pattern used in 60+ preceding features (160-222):
+  - **Standalone implementation:** No integration with Sheep flows, crews, or agents
+  - **Simple sequential workflow:** create file → git add → git commit → git push
+  - **Standard library only:** No new package dependencies for Sheep ecosystem
+  - **Observable execution:** Prints progress to stdout, errors to stderr
+  - **Conventional commits:** Follows Sheep commit message format `feat(223): ...`
+
+  ### Relationship to Precedent Features
+
+  **Features 220-222 (immediate precedents):**
+  - test-atwx74.md (feature 222): Identical pattern — H1 title + 3-sentence prose
+  - test-5vnehe.md (feature 221): Identical pattern — H1 title + 3-sentence prose
+  - test-hmis8d.md (feature 220): Identical pattern — H1 title + 2-3 sentence prose
+
+  **Implementation scripts:**
+  - create_markdown_file_222.py: Exact template for feature 223
+  - create_markdown_file_221.py: Earlier version of same pattern
+  - create_markdown_file_219.py: Confirms pattern consistency
+
+  **Key insight:** Feature 223 should follow **exact structure** from feature 222 (create_markdown_file_222.py), with only file name and prose content changed.
+
+  ### File Location
+
+  - **Repository root:** test-no1878.md (per spec FR-1)
+  - **Git branch:** feat/223-markdown-file-creation-06c966 (pre-created, checkout required before implementation)
+  - **Commit message:** `feat(223): Create markdown file test-no1878.md` (per spec NFR-5)
+
+  ### Data Model
+
+  No data model changes, database operations, or schema modifications. Feature is pure file creation with git integration.
+
+  ### Dependencies
+
+  **Required at runtime:**
+  - Git repository with feature branch pre-created
+  - Python 3.11+ with pathlib/subprocess available (standard library)
+  - Write permissions to repository root directory
+  - Git configured with user.name and user.email
+
+  **No external package dependencies** — implementation uses standard library only (per spec NFR-3)
+
+  ## Implementation Roadmap
+
+  ### Phase 1: File Creation
+  1. Define constants: FILENAME, TITLE, PROSE, COMMIT_MESSAGE
+  2. Implement create_file() using pathlib.Path.write_text() with UTF-8 + LF
+  3. Include defensive FileExistsError check
+  4. Test: verify file exists, contains correct markdown format, has LF line endings
+
+  ### Phase 2: Git Integration
+  1. Implement git_add() using subprocess.run(["git", "add", FILENAME], check=True)
+  2. Implement git_commit() using subprocess.run(["git", "commit", "-m", COMMIT_MESSAGE], check=True)
+  3. Implement git_push() using subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  4. Test: verify file is staged, commit created, pushed to remote
+
+  ### Phase 3: Error Handling & Orchestration
+  1. Implement main() orchestrator with try/except handling
+  2. Add specific exception handlers: FileExistsError, OSError, CalledProcessError, generic Exception
+  3. Ensure all errors print to stderr with exit code 1
+  4. Add progress output to stdout (✓ checkmarks, status messages)
+
+  ### Phase 4: Testing
+  1. Verify test-no1878.md created in repository root
+  2. Verify markdown structure: H1 heading, blank line, 2-3 sentences, trailing newline
+  3. Verify git integration: file staged, committed with correct message, pushed to feature branch
+  4. Verify error handling: test defensive checks and exception messages
+
+  ## Conclusion
+
+  Feature 223 is a straightforward markdown file creation task with 60+ proven precedents (features 160-222). Recommended approach:
+
+  - **File I/O:** pathlib.Path.write_text() with UTF-8 + LF encoding
+  - **Git Integration:** subprocess.run() with command list form
+  - **Content:** Static prose string (~3 sentences on any topic)
+  - **Error Handling:** Specific exception types with stderr output and exit code 1
+  - **Structure:** Modular functions (create_file, git_add, git_commit, git_push) orchestrated by main()
+
+  This approach is proven successful in features 216-222, uses only standard library (no external dependencies), and aligns with Sheep platform conventions. Expected execution time: <10 seconds; development time estimate: 15 minutes (per spec).
