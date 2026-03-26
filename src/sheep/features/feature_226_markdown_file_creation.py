@@ -502,7 +502,31 @@ def git_push(branch_name: str = BRANCH_NAME) -> None:
         _logger.debug(f"Push successful: {branch_name}")
 
     except subprocess.CalledProcessError as e:
-        _logger.error(f"Failed to push: {e.stderr}")
+        error_msg = e.stderr or e.stdout or str(e)
+
+        # Build helpful error message with debugging suggestions based on common failure modes
+        debug_suggestions = []
+
+        # Check for common authentication/permission failures
+        if any(x in error_msg.lower() for x in ["permission denied", "authentication", "permission", "unauthorized"]):
+            debug_suggestions.append("Authentication/permission failure detected. Check: (1) SSH keys are set up correctly, (2) git credentials are configured, (3) you have push access to the repository")
+
+        # Check for network failures
+        if any(x in error_msg.lower() for x in ["connection", "network", "refused", "unreachable", "timeout"]):
+            debug_suggestions.append("Network failure detected. Check: (1) internet connection, (2) remote repository URL is correct, (3) firewall/proxy settings")
+
+        # Check for diverged branches or rejection
+        if any(x in error_msg.lower() for x in ["diverged", "rejected", "force", "protected", "branch protection"]):
+            debug_suggestions.append("Remote rejection detected. Check: (1) branch is not protected, (2) commits don't conflict with remote, (3) you have latest changes from remote (git pull)")
+
+        # Log error with debug suggestions
+        full_error = f"Failed to push to {branch_name}: {error_msg}"
+        _logger.error(full_error)
+
+        if debug_suggestions:
+            for suggestion in debug_suggestions:
+                _logger.error(f"  → {suggestion}")
+
         raise
 
 
