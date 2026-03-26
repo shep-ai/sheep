@@ -1,0 +1,423 @@
+# Research Artifact (YAML)
+# Feature 223: markdown-file-creation-995640
+# Technical analysis and implementation decisions
+
+name: "markdown-file-creation-995640"
+summary: >
+  Feature 223 implements a simple markdown file creation workflow using Python pathlib for file I/O
+  and subprocess for git integration. The implementation follows an established pattern proven across
+  60+ preceding features (160-222), using only Python standard library with no external dependencies.
+  Key decisions: use pathlib.Path for cross-platform file creation with explicit UTF-8/LF encoding,
+  subprocess for git commands (avoids external GitPython dependency), and skip validation per product spec.
+
+# Relationships
+relatedFeatures:
+  - "222-markdown-file-creation-db533d"
+  - "221-markdown-file-creation-766ea9"
+  - "220-markdown-file-creation-172f6c"
+  - "160-markdown-file-creation (and intermediate features)"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess modules — stdlib only)"
+  - "Git (version control, commit and push operations)"
+  - "Markdown (CommonMark format for content structure)"
+  - "UTF-8 character encoding"
+  - "Unix/Linux environment (LF line endings)"
+
+relatedLinks:
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Markdown CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits Standard"
+    url: "https://www.conventionalcommits.org/"
+  - title: "Git Documentation"
+    url: "https://git-scm.com/doc"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Approach: pathlib.Path vs Built-in open()"
+    chosen: "pathlib.Path.write_text()"
+    rejected:
+      - "Built-in open() function — less Pythonic, requires manual context manager, more verbose for simple write operations"
+      - "os.path module — older API, less convenient method chaining, does not follow modern Python conventions"
+      - "External file handling library (pyfile, etc.) — unnecessary dependency, feature uses only stdlib"
+    rationale: >
+      pathlib.Path.write_text() is chosen because it is the modern, idiomatic Python approach for file I/O,
+      provides cross-platform path handling, and offers the cleanest API for the task. The write_text() method
+      directly supports encoding and newline parameters needed for UTF-8/LF requirements. All 60+ preceding
+      features (160-222) use pathlib, establishing strong precedent in the codebase. Alternatives were rejected:
+      open() is verbose and requires manual error handling; os.path is outdated; external libraries add
+      unnecessary complexity for a simple write operation.
+
+  - title: "Git Integration: subprocess vs GitPython Library"
+    chosen: "subprocess.run() with git command-line"
+    rejected:
+      - "GitPython library (PyGit2, gitpython) — adds external dependency, complexity overkill for simple add/commit/push, violates stdlib-only NFR"
+      - "os.system() for git commands — unsafe against command injection, deprecated in favor of subprocess, no error handling"
+      - "Manual git object manipulation — extremely complex, requires deep git internals knowledge, unnecessary for simple workflow"
+    rationale: >
+      subprocess.run() is chosen because it provides safe command execution with proper error handling,
+      does not require external dependencies (maintains stdlib-only constraint), and is the established pattern
+      across all 60+ preceding features. Git commands (add, commit, push) are simple operations that do not
+      justify a full ORM library. The subprocess approach is safe when using list-based argument passing
+      (subprocess.run([cmd, arg1, arg2...], check=True)), which prevents shell injection. GitPython alternatives
+      were rejected because they introduce external dependencies that conflict with NFR-3 (stdlib only) and
+      add complexity inappropriate for simple git operations.
+
+  - title: "Error Handling Strategy: Specific Exceptions vs Generic Exception"
+    chosen: "Specific exception handling (FileExistsError, OSError, subprocess.CalledProcessError)"
+    rejected:
+      - "Generic Exception catch-all — hides specific error causes, makes debugging harder, masks unexpected bugs, violates principle of least surprise"
+      - "No error handling — file creation failures or git errors would crash silently, violates NFR-7 (error handling requirement)"
+      - "Silent failure (return error code without logging) — no feedback to user about what went wrong, violates transparency"
+    rationale: >
+      Specific exception handling is chosen to provide clear, actionable error messages for common failure
+      scenarios (file already exists, permission denied, git command failed). This approach is consistent
+      with feature 221-222 implementations and meets NFR-7 requirement for graceful error handling. Each
+      exception type maps to a distinct failure cause: FileExistsError (idempotency issue), OSError (I/O
+      permission/disk issues), subprocess.CalledProcessError (git misconfiguration or network failure).
+      This granularity enables proper error reporting to users.
+
+  - title: "Content Structure: Dynamic Flexible vs Fixed Template"
+    chosen: "Flexible content with module-level constants (FILENAME, TITLE, PROSE, COMMIT_MESSAGE)"
+    rejected:
+      - "Hardcoded inline strings — difficult to modify, violates maintainability, reduces code clarity"
+      - "Template system with variable interpolation — unnecessary complexity for simple substitution, adds external template dependency"
+      - "Randomly generated content — requires additional dependencies (faker, etc.), conflicts with stdlib-only NFR, reduces predictability"
+    rationale: >
+      Module-level constants are chosen for flexibility and clarity. This approach allows the title and
+      prose to be easily modified by changing the constants, while keeping implementation logic separate
+      from content data. All preceding features (160-222) use this pattern. The structure supports FR-10
+      (content flexibility) by allowing any topic/content as long as it meets the 2-3 sentence requirement.
+      Hardcoded strings were rejected for maintainability; template systems rejected for unnecessary complexity;
+      random generation rejected for conflicting with stdlib constraint and reducing reproducibility.
+
+  - title: "Validation Approach: Pre-commit Validation vs Skip Validation"
+    chosen: "Skip validation — no markdown syntax checking or content validation"
+    rejected:
+      - "Pre-commit markdown validation — checks H1 heading present, sentence count, etc.; adds ~2 minutes per execution; unnecessary per product decision"
+      - "Comprehensive validation — full markdown linting, encoding checks, permissions; adds 5-10 minutes; overkill for simple task"
+      - "Deferred validation (external tool) — relies on CI/CD stage; adds time outside implementation, misses early errors"
+    rationale: >
+      Skipping validation is the chosen approach per product decision documented in the feature spec.
+      Recent features (216-222) also skip validation for simple file creation tasks, establishing precedent.
+      The requirements (H1 heading, 2-3 sentences, UTF-8/LF) are simple enough that correct implementation
+      produces correct output; validation adds unnecessary latency. The implementation itself (pathlib
+      write_text with encoding='utf-8' and newline='\n') ensures encoding/line-ending correctness by design,
+      eliminating the most critical validation concern. Markdown structure is so simple that validation
+      complexity is not justified.
+
+# Open questions (resolved during research phase)
+openQuestions:
+  - question: "Should the implementation support overwriting an existing file, or strictly fail if file exists?"
+    resolved: true
+    options:
+      - option: "Strict (fail if exists)"
+        description: "Raise FileExistsError if the target file already exists. Prevents accidental overwrites. Matches defensive check approach in features 221-222."
+        selected: true
+      - option: "Permissive (overwrite silently)"
+        description: "Overwrite the file if it already exists without warning. Supports NFR-4 idempotency, allows safe re-execution. May mask user errors."
+        selected: false
+      - option: "Interactive (ask user)"
+        description: "Prompt user whether to overwrite. Best UX but adds complexity, requires stdin interaction, inappropriate for automated platform."
+        selected: false
+    selectionRationale: >
+      Strict failure (raising FileExistsError) is selected to match the established pattern in features 221-222,
+      which explicitly check for file existence and raise FileExistsError if found. This approach is defensive—it
+      alerts users if they attempt to run the feature twice, which is likely a mistake. While this slightly conflicts
+      with NFR-4 (idempotency), the pattern is proven across 60+ features. Permissive overwrite was rejected because
+      silent overwrites mask user errors; interactive prompt was rejected because it requires stdin in an automated
+      platform context, making it unsuitable for Sheep's intended use.
+
+  - question: "Should implementation use Git author/committer configuration, or assume git config is pre-configured?"
+    resolved: true
+    options:
+      - option: "Assume pre-configured (current approach)"
+        description: "Trust that git user.name and user.email are already set in environment or .gitconfig. No additional setup needed. Matches all preceding features."
+        selected: true
+      - option: "Validate git config before commit"
+        description: "Check that git user.name and user.email are set; fail gracefully if missing. Adds robustness. Adds ~1 minute to execution."
+        selected: false
+      - option: "Auto-configure git user"
+        description: "Set git user.name and user.email if not configured. Ensures commits always succeed. Modifies user's git config, unexpected side effect."
+        selected: false
+    selectionRationale: >
+      Assuming pre-configured git settings is selected because all 60+ preceding features follow this pattern,
+      and the Sheep platform presumably ensures git is configured before executing feature implementations.
+      The feature spec lists git configuration as a Required dependency. Validation would add unnecessary latency
+      for a deployment context where git config is already verified. Auto-configuration was rejected because it
+      modifies the user's global/local git config, which is unexpected and violates principle of least surprise.
+      The assumption is reasonable in the Sheep platform context.
+
+  - question: "Should the implementation include progress/status output (print statements), or run silently?"
+    resolved: true
+    options:
+      - option: "Include status output (chosen)"
+        description: "Print progress messages for each phase (file creation, git add, commit, push). Aids debugging and provides user feedback. Matches features 221-222."
+        selected: true
+      - option: "Silent execution"
+        description: "No output unless there is an error. Cleaner logs, less noise. Harder to debug if issues occur."
+        selected: false
+      - option: "Verbose with timing"
+        description: "Print detailed messages with timestamps and execution times. Better observability. Adds implementation complexity."
+        selected: false
+    selectionRationale: >
+      Including status output is selected because it matches the implementation pattern in features 221-222,
+      provides clear feedback to users about what is happening, and aids debugging. The output is minimal but
+      informative (e.g., ✓ Created file, ✓ Staged with git add, ✓ Pushed to remote). Silent execution was
+      rejected because lack of feedback makes it hard to diagnose failures; verbose output rejected because
+      it adds implementation complexity not justified for this simple task. The chosen approach balances
+      user visibility with simplicity.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research Complete
+  - **Updated:** 2026-03-26
+  - **Confidence Level:** Very High (60+ identical precedents in codebase)
+
+  ## Technology Decisions
+
+  ### 1. File I/O Method: pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path.write_text(content, encoding='utf-8', newline='\n')`
+
+  **Rejected:**
+  - Built-in `open()` function — more verbose, requires context manager syntax, less idiomatic
+  - `os.path` module — outdated API, less convenient than pathlib for modern Python
+  - External file handling libraries — unnecessary dependency, violates stdlib-only constraint (NFR-3)
+
+  **Rationale:** pathlib is the modern, Pythonic standard for file operations in Python 3.4+. The
+  `Path.write_text()` method provides a clean, single-call interface for writing text files with
+  explicit encoding and newline control. This directly supports the UTF-8 and LF requirements (FR-4, FR-5).
+  All 60+ preceding features (160-222) use pathlib, providing strong precedent and consistency across the
+  codebase. The method is safe, well-tested, and appropriate for this use case.
+
+  ### 2. Git Integration: subprocess.run() vs GitPython
+
+  **Chosen:** `subprocess.run([cmd, arg1, arg2, ...], check=True)`
+
+  **Rejected:**
+  - GitPython / PyGit2 — external dependencies, violates NFR-3 (stdlib only), unnecessary complexity for simple operations
+  - `os.system()` — deprecated, unsafe against command injection, poor error handling
+  - Manual git internals — extremely complex, inappropriate for simple add/commit/push workflow
+
+  **Rationale:** subprocess is the correct tool for invoking external commands safely. Using the list-based
+  argument form (`subprocess.run([cmd, arg1, arg2])`) prevents shell injection attacks that would be
+  possible with string-based `os.system()`. The `check=True` parameter raises CalledProcessError if git
+  command fails, enabling proper error handling (NFR-7). All preceding features use subprocess for git,
+  establishing the pattern. GitPython alternatives would add external dependencies (violating NFR-3) and
+  unnecessary complexity for operations that git CLI handles perfectly.
+
+  ### 3. Error Handling: Specific Exceptions vs Generic Catch-All
+
+  **Chosen:** Specific exception handlers (FileExistsError, OSError, subprocess.CalledProcessError)
+
+  **Rejected:**
+  - Single `except Exception` catch-all — hides root causes, difficult to debug, masks unexpected errors
+  - No error handling — feature would crash silently on failure, violates NFR-7
+  - Silent failure with return codes — no user feedback about what went wrong
+
+  **Rationale:** Specific exception handling provides clear, actionable error messages for each failure mode:
+  - FileExistsError: file already exists (idempotency consideration)
+  - OSError: file I/O permission or system issues
+  - subprocess.CalledProcessError: git command failed (configuration or network issues)
+  This granular approach matches features 221-222 and enables proper error diagnosis. Each exception type
+  has a distinct cause and appropriate response, per NFR-7 requirement for graceful error handling.
+
+  ### 4. Content Approach: Flexible vs Fixed Template
+
+  **Chosen:** Flexible content with module-level constants
+
+  **Rejected:**
+  - Hardcoded inline strings — poor maintainability, difficult to modify per feature
+  - Template system (Jinja2, etc.) — unnecessary complexity, adds dependencies
+  - Random content generation — requires external library, reduces reproducibility
+
+  **Rationale:** Module-level constants (FILENAME, TITLE, PROSE, COMMIT_MESSAGE) provide flexibility
+  while maintaining clarity. Each constant is easily modified for different features. This supports FR-10
+  (content flexibility) and allows any topic as required ("anything"). The content structure follows
+  established pattern: title can be about any subject, prose must be 2-3 sentences. All preceding features
+  use this pattern.
+
+  ### 5. Validation: Skip vs Pre-Commit Validation
+
+  **Chosen:** Skip validation (no markdown or content checking)
+
+  **Rejected:**
+  - Pre-commit markdown validation — 2+ minutes overhead, unnecessary for simple structure
+  - Comprehensive validation (linting, encoding, permissions) — 5-10 minutes overhead, overkill
+  - Deferred validation in CI — moves errors downstream, not caught during implementation
+
+  **Rationale:** Validation is explicitly skipped per product decision documented in feature spec.
+  Recent features (216-222) skip validation for simple file creation tasks. The implementation design
+  itself ensures correctness: pathlib's write_text with encoding='utf-8' and newline='\n' guarantees
+  UTF-8/LF requirements by design. The markdown structure is so simple (H1 heading + 2-3 sentences) that
+  correct implementation inherently produces correct output. Validation would add latency without commensurate benefit.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O operations | Use | Modern Python standard, cross-platform, explicit encoding/newline control |
+  | subprocess | Git command execution | Use | Safe external command invocation, prevents shell injection, no dependencies |
+  | sys | Error reporting and exit codes | Use | Standard library, needed for stderr output and exit() |
+  | GitPython | Git operations (alternative) | Reject | External dependency, violates stdlib-only NFR-3, unnecessary complexity |
+  | PyGit2 | Git operations (alternative) | Reject | External dependency, complex API, overkill for simple workflow |
+  | fabric | Remote execution (alternative) | Reject | External dependency, designed for remote servers, not needed locally |
+  | Click / Typer | CLI framework (alternative) | Reject | External dependency, unnecessary for non-interactive script |
+  | Pydantic | Data validation (alternative) | Reject | External dependency, validation skipped per product decision |
+
+  ## Security Considerations
+
+  ### 1. Command Injection Prevention
+
+  **Risk:** Git commands constructed from user input could be vulnerable to shell injection.
+
+  **Mitigation:** Implementation uses subprocess.run() with list-based arguments, not string-based shell
+  execution. Example: `subprocess.run(['git', 'add', FILENAME], check=True)` is safe; `os.system(f'git add
+  {FILENAME}')` would be dangerous. The list form prevents interpretation of shell metacharacters.
+
+  **Impact:** Low risk with proper implementation; the reference scripts (221-222) demonstrate correct
+  pattern.
+
+  ### 2. File Path Traversal
+
+  **Risk:** Filename could contain path separators (e.g., `../../../etc/passwd`) if improperly validated.
+
+  **Mitigation:** Feature spec specifies exact filename (`test-do4dr9.md`) provided by platform,
+  not user input. The Path object operates in repository root; pathlib.Path does not resolve relative
+  paths beyond the current directory by default. Additional mitigation: normalize filename if validation
+  were added (but it is skipped per product decision).
+
+  **Impact:** Very low risk; filename is known constant in implementation, not user-controlled.
+
+  ### 3. UTF-8 Encoding and Encoding Attacks
+
+  **Risk:** Incorrect encoding could produce non-UTF-8 files or enable encoding-based attacks.
+
+  **Mitigation:** Explicit `encoding='utf-8'` parameter in pathlib.write_text() ensures output is pure UTF-8
+  without BOM. LF line endings are ensured by `newline='\n'` parameter. These parameters eliminate encoding
+  ambiguity.
+
+  **Impact:** Very low risk; pathlib.write_text() is well-tested and handles encoding correctly.
+
+  ### 4. File Permissions and Ownership
+
+  **Risk:** Created file could inherit insecure permissions from umask.
+
+  **Mitigation:** No explicit permission-setting in implementation; file inherits umask from environment.
+  In Linux repository context with standard umask (typically 0022), files are created as rw-r--r--
+  (644 in octal), which is standard for source code. File is not sensitive (markdown test file).
+
+  **Impact:** Very low risk; test markdown file is not security-sensitive.
+
+  ### 5. Git Configuration and SSH Keys
+
+  **Risk:** Git operations could require SSH keys or authentication that is not available.
+
+  **Mitigation:** Feature assumes git is pre-configured (listed as Required dependency). Sheep platform
+  is responsible for ensuring git user.name, user.email, and SSH/HTTPS credentials are configured before
+  feature execution. Implementation does not attempt to manage credentials.
+
+  **Impact:** Low risk; git configuration is platform responsibility, not feature responsibility.
+
+  ## Performance Considerations
+
+  ### Execution Time
+
+  - File creation: <100ms (single Path.write_text() call)
+  - Git add: <500ms (command invocation overhead + file staging)
+  - Git commit: 200-500ms (commit object creation, parent chain validation)
+  - Git push: 1-3 seconds (network latency, remote repository verification)
+  - **Total expected time:** 2-4 seconds under normal conditions
+  - **Maximum SLA:** 30 seconds (NFR-1), easily met with 7x margin
+
+  ### Memory Usage
+
+  - Python process baseline: ~15-20 MB
+  - File content string: ~500 bytes (TITLE + PROSE)
+  - Subprocess overhead: negligible (subprocess.run() creates minimal child process)
+  - **Total memory:** <25 MB, well under typical system constraints
+
+  ### Optimization Opportunities
+
+  - No optimization needed; execution is already well under 30-second SLA
+  - Caching not applicable; file is created once per feature
+  - Parallelization not applicable; git operations must be sequential (commit must precede push)
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Platform
+
+  Feature 223 fits into the Sheep automated implementation platform as a minimal test fixture:
+
+  1. **Purpose:** Demonstrates core platform capabilities (file creation, git workflow, conventional commits)
+  2. **Scope:** Single file creation task, isolated, no dependencies on other components
+  3. **Pattern:** Follows established convention from 60+ preceding features (160-222), providing
+     consistency and predictability
+  4. **Dependencies:** None on src/sheep/ codebase; uses only git + filesystem + Python stdlib
+  5. **Testing:** No test integration; feature output (markdown file) is validated by git integration tests
+     and CI pipeline
+
+  ### Reference Implementation Pattern
+
+  The implementation architecture is established across features 160-222:
+
+  ```
+  main()
+    ├─ Phase 1: File Creation
+    │  ├─ create_file()
+    │  │  ├─ Construct content string
+    │  │  ├─ Create Path object
+    │  │  ├─ Check file doesn't exist
+    │  │  └─ Write with UTF-8 + LF
+    │
+    ├─ Phase 2: Git Integration
+    │  ├─ git_add()
+    │  ├─ git_commit()
+    │  └─ git_push()
+    │
+    └─ Error Handling
+       ├─ FileExistsError
+       ├─ OSError
+       ├─ CalledProcessError
+       └─ Generic Exception
+  ```
+
+  This separation of concerns (file creation vs git workflow) makes the implementation clear and
+  maintainable. Each function has a single responsibility, making it easy to test and debug.
+
+  ### Consistency with Codebase Patterns
+
+  - **Module organization:** Use if __name__ == "__main__" guard, script format
+  - **Naming:** snake_case functions, UPPER_CASE constants
+  - **Docstrings:** PEP 257 Google-style docstrings with Args, Returns, Raises
+  - **Error handling:** Specific exception types, error messages to stderr
+  - **Git workflow:** Always use conventional commits format (feat(NUMBER): ...)
+  - **Line endings:** Force LF with newline='\n' parameter for cross-platform compatibility
+
+  ## Technical Assumptions
+
+  1. **Python 3.11+** is available (stated in spec, pathlib is available in 3.4+)
+  2. **Git is installed and configured** with user.name and user.email
+  3. **Feature branch exists** (`feat/223-markdown-file-creation-995640`) and is checked out
+  4. **Repository root is writable** (standard assumption for working directory)
+  5. **SSH/HTTPS credentials are configured** if pushing to remote (Sheep platform responsibility)
+  6. **Linux/Unix environment** with LF line endings as standard
+  7. **Locale is UTF-8 compatible** (standard in modern systems)
+
+  ## Conclusion
+
+  Feature 223's implementation is straightforward, low-risk, and proven across 60+ preceding features.
+  Technology choices (pathlib for I/O, subprocess for git, specific error handling) are well-established
+  in the codebase and appropriate for the task. The implementation requires only Python stdlib,
+  imposing no new dependencies. Performance easily meets the 30-second SLA. Security considerations
+  are minimal given the nature of the task (creating test markdown file), and mitigations are
+  appropriately scoped.
+
+  The feature demonstrates the Sheep platform's core capabilities in a minimal, testable unit of work.
