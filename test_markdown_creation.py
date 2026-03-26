@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test suite for markdown file creation (test-9mxq6q.md).
+Test suite for markdown file creation (test-6i327u.md).
 Validates file existence, format, encoding, line endings, size, and prose quality.
 """
 
@@ -9,9 +9,9 @@ import re
 
 
 class TestMarkdownFileCreation:
-    """Tests for test-9mxq6q.md markdown file."""
+    """Tests for test-6i327u.md markdown file."""
 
-    MARKDOWN_FILE = Path("test-9mxq6q.md")
+    MARKDOWN_FILE = Path("test-6i327u.md")
     MIN_SIZE = 320
     MAX_SIZE = 600
     MIN_WORD_COUNT = 40  # roughly 2-3 sentences
@@ -176,13 +176,13 @@ def run_tests():
     for test_name, test_func in tests:
         try:
             test_func()
-            print(f"✓ {test_name}")
+            print(f"[PASS] {test_name}")
             passed += 1
         except AssertionError as e:
-            print(f"✗ {test_name}: {e}")
+            print(f"[FAIL] {test_name}: {e}")
             failed += 1
         except Exception as e:
-            print(f"✗ {test_name}: {type(e).__name__}: {e}")
+            print(f"[FAIL] {test_name}: {type(e).__name__}: {e}")
             failed += 1
 
     print(f"\n{passed} passed, {failed} failed")
