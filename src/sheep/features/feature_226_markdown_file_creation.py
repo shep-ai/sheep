@@ -68,8 +68,9 @@ def create_markdown_file() -> Path:
         markdown_content = f"# {TITLE_TEXT}\n\n{PROSE_CONTENT}\n"
 
         # Write file with UTF-8 encoding and LF line endings
+        # newline='' ensures LF line endings on all platforms (Windows, Linux, macOS)
         file_path = Path(FILENAME)
-        file_path.write_text(markdown_content, encoding="utf-8")
+        file_path.write_text(markdown_content, encoding="utf-8", newline="")
 
         # Verify file was created
         if not file_path.exists():
