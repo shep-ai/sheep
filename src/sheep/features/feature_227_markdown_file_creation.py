@@ -52,7 +52,8 @@ def create_markdown_file() -> Path:
     """Create markdown file with proper encoding and line endings.
 
     Creates file with H1 heading, blank line, and prose content.
-    Uses UTF-8 encoding and Unix LF line endings via pathlib.Path.write_text().
+    Uses UTF-8 encoding and Unix LF line endings (not CRLF).
+    On Windows, explicitly uses newline='' to prevent automatic CRLF conversion.
 
     Returns:
         Path object pointing to created file
@@ -68,8 +69,11 @@ def create_markdown_file() -> Path:
         markdown_content = f"# {TITLE_TEXT}\n\n{PROSE_CONTENT}\n"
 
         # Write file with UTF-8 encoding and LF line endings
+        # Use newline='' to prevent platform-specific line ending conversion
+        # (on Windows, pathlib.Path.write_text() would use CRLF by default)
         file_path = Path(FILENAME)
-        file_path.write_text(markdown_content, encoding="utf-8")
+        with open(file_path, mode="w", encoding="utf-8", newline="") as f:
+            f.write(markdown_content)
 
         # Verify file was created
         if not file_path.exists():
