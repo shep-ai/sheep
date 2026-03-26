@@ -1,3 +1,3 @@
-# Artificial Intelligence and Machine Learning Revolution
+# Offline Markdown Content
 
-Artificial intelligence and machine learning technologies are transforming industries from healthcare to finance by enabling faster decision-making and predictive analytics. Organizations implementing AI solutions report significant improvements in efficiency, customer satisfaction, and innovation capabilities. Strategic investment in AI talent and infrastructure is becoming increasingly critical for competitive advantage.
+Offline generation keeps tests deterministic when no external API keys are available in the current environment, and it still produces coherent markdown that looks like real output. The formatter ensures there is an H1 heading, a blank separator line, and then exactly a few sentences of prose that end cleanly with periods. With this fallback, validation can focus on structure rather than network access or provider configuration, so the suite remains stable.
