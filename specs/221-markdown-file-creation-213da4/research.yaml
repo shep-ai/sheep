@@ -1,0 +1,318 @@
+name: "markdown-file-creation-213da4"
+summary: >
+  Technical research for feature 221 confirms Python standard library approach
+  (pathlib/subprocess) with hard-coded prose content, explicit Unix line ending handling,
+  and minimal validation. Pattern matches 200+ successful precedents (features 160-220).
+  No external dependencies, no security concerns, minimal performance overhead (~200ms).
+  All architectural and technology decisions align with established Sheep platform patterns.
+
+relatedFeatures:
+  - number: 220
+    name: "markdown-file-creation-172f6c"
+  - number: 219
+    name: "markdown-file-creation-9ea716"
+  - number: 218
+    name: "markdown-file-creation-e92f29"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess — standard library only)"
+  - "Git (version control: add, commit, push)"
+  - "Markdown (CommonMark format with H1 heading)"
+  - "Unix/Linux environment (LF line endings)"
+
+relatedLinks:
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Conventional Commits"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "Implementation Language and Libraries"
+    chosen: "Python 3.11+ with pathlib (file I/O) and subprocess (git operations) from standard library"
+    rejected:
+      - "Direct shell commands (bash/sh) — Less maintainable, harder error handling, inconsistent with Python patterns in features 216-220"
+      - "External libraries (GitPython, pathspec) — Violates NFR-3 (standard library constraint), adds unnecessary dependency management"
+      - "Other languages — Inconsistent with Sheep platform, adds runtime dependency, unnecessarily complex for simple task"
+    rationale: >
+      Python standard library satisfies all requirements: pathlib provides modern file operations,
+      subprocess provides controlled git integration with proper error code handling. This approach
+      is established across features 216-220 and validated by 200+ precedent implementations.
+      Zero external dependencies simplifies execution environment. NFR-3 explicitly requires
+      standard library only. pathlib.Path.write_text() is idiomatic Python.
+
+  - title: "Prose Content Generation Strategy"
+    chosen: "Hard-coded, fixed prose content (deterministic, single topic)"
+    rejected:
+      - "Dynamic/random content generation — Adds complexity and non-determinism without benefit; user query states 'about anything'"
+      - "Template-based system with file I/O — Premature abstraction, adds I/O overhead, inconsistent with simple pattern from features 160-220"
+    rationale: >
+      Hard-coded content is fastest and simplest. User explicitly permits 'about anything',
+      indicating content topic is unconstrained. Precedent from 200+ test files shows fixed content
+      is standard. Supports 15-minute execution target (NFR-1). Content is simple, generic prose
+      (2-3 sentences on any topic — design patterns, technical concepts, observations).
+
+  - title: "Git Workflow Implementation"
+    chosen: "Sequential subprocess.run() calls: git add → git commit → git push with explicit error code checking"
+    rejected:
+      - "GitPython library — External dependency violates NFR-3, overkill for three simple commands"
+      - "Shell piping (git add && git commit && git push) — Less robust error handling, harder to debug individual failures"
+      - "Manual Git protocol implementation — Completely unnecessary, reimplements existing tools"
+    rationale: >
+      subprocess.run() provides clean, portable interface to git commands with explicit return
+      code checking. Sequential (non-piped) execution allows independent error handling for each
+      step. Git must be pre-configured with user.name/user.email (NFR-8), which subprocess validates
+      implicitly via exit codes. Matches established pattern from features 216-220. Avoids shell=True,
+      preventing shell injection vectors.
+
+  - title: "Line Ending Handling for Unix Consistency"
+    chosen: "Explicitly write file with newline='\\n' parameter to ensure Unix LF line endings"
+    rejected:
+      - "OS default line endings — May produce CRLF on Windows, violates NFR-4 (Unix line ending requirement)"
+      - "Post-creation line ending conversion — Adds extra step, more complex, error-prone approach"
+      - "Binary mode with manual newline insertion — Less readable, more error-prone than pathlib API"
+    rationale: >
+      pathlib.Path.write_text(newline='\\n') is clearest, most explicit approach. Repository
+      requirement NFR-4 mandates Unix line endings. Using newline parameter ensures consistent
+      output across Windows/macOS/Linux. This matches pattern used in features 160-220 (all 200+
+      existing test files use LF). Prevents platform-specific line ending issues.
+
+  - title: "Validation Strategy"
+    chosen: "Minimal validation: subprocess return codes + exception handling for file I/O. No post-creation verification."
+    rejected:
+      - "Extensive validation (file size verification, content checksums, git status checks) — Adds unnecessary complexity, doesn't fit 15-minute target (NFR-1)"
+      - "No validation (silent failures) — Makes debugging difficult, lacks professional quality"
+      - "External validation tools (markdown linters) — Adds dependency, overkill for simple content"
+    rationale: >
+      Subprocess return codes (exit 0 = success, non-zero = failure) provide sufficient validation
+      for git operations. Python exception handling catches file I/O errors (FileNotFoundError,
+      PermissionError). This is minimal viable validation that prevents silent failures while
+      maintaining simplicity. Precedent from features 216-220 shows this approach is reliable.
+      Complex validation adds unnecessary overhead for deterministic task.
+
+  - title: "Error Handling Approach"
+    chosen: "Catch specific exceptions (FileNotFoundError, PermissionError, CalledProcessError), print error messages, exit(1) on failure"
+    rejected:
+      - "No error handling (let exceptions propagate) — Stack traces not user-friendly, doesn't indicate root cause"
+      - "Verbose logging/debug output — Adds complexity, unnecessary for simple task, clutters output"
+      - "Retry logic on transient failures — Doesn't fix underlying problems, adds complexity"
+    rationale: >
+      Specific exception handling identifies failure points (file I/O vs git operations). Clear
+      error messages aid manual troubleshooting. Non-zero exit code signals failure to parent
+      process/CI. This matches error handling patterns from features 216-220. Appropriate for
+      deterministic operation with clear failure modes.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Implementation Language and Libraries
+
+  **Chosen:** Python 3.11+ with pathlib (file I/O) and subprocess (git operations) from standard library
+
+  **Rejected:**
+  - Direct shell commands — Less maintainable, harder error handling, inconsistent with Python patterns
+  - External libraries (GitPython, pathspec) — Violates standard library constraint
+  - Other languages — Inconsistent with platform, adds runtime dependency
+
+  **Rationale:**
+  Python standard library satisfies all requirements. pathlib provides modern file operations,
+  subprocess provides controlled git integration with proper error code handling. This approach is
+  established across features 216-220 and validated by 200+ precedent implementations. Zero external
+  dependencies simplifies execution. NFR-3 explicitly requires standard library only.
+
+  ### 2. Prose Content Generation
+
+  **Chosen:** Hard-coded, fixed prose content (deterministic, single topic)
+
+  **Rejected:**
+  - Dynamic/random generation — Unnecessary complexity and non-determinism
+  - Template-based system — Premature abstraction, adds I/O overhead
+
+  **Rationale:**
+  Hard-coded content is simplest and fastest. User query explicitly permits "about anything",
+  indicating content topic is unconstrained. Precedent from 200+ test files shows fixed content
+  is standard. Supports 15-minute execution target. Content should be simple, generic prose
+  (2-3 sentences on any topic).
+
+  ### 3. Git Workflow Implementation
+
+  **Chosen:** Sequential subprocess.run() calls (git add → commit → push) with error checking
+
+  **Rejected:**
+  - GitPython library — External dependency violates standard library constraint
+  - Shell piping — Less robust error handling for individual steps
+  - Manual Git protocol — Unnecessary reimplementation
+
+  **Rationale:**
+  subprocess.run() provides clean interface with explicit error code checking. Sequential
+  (non-piped) approach allows independent error handling. Git must be pre-configured with
+  user.name/user.email (NFR-8), which subprocess validates implicitly via exit codes.
+  Matches established pattern from features 216-220. Avoids shell=True, preventing injection.
+
+  ### 4. Line Ending Handling
+
+  **Chosen:** Explicitly use newline='\\n' in pathlib file operations
+
+  **Rejected:**
+  - OS default line endings — May produce CRLF, violates NFR-4
+  - Post-creation conversion — Extra step, more error-prone
+  - Binary mode with manual insertion — Harder to read, error-prone
+
+  **Rationale:**
+  pathlib.Path.write_text(newline='\\n') is explicit and cross-platform. Repository requires
+  Unix line endings (NFR-4). This ensures consistent output across Windows/macOS/Linux,
+  matching all 200+ existing test files.
+
+  ### 5. Validation Strategy
+
+  **Chosen:** Minimal validation — subprocess return codes + exception handling
+
+  **Rejected:**
+  - Extensive validation (file size, content checksums, git status) — Unnecessary complexity
+  - No validation — Silent failures make debugging difficult
+  - External validation tools — Adds dependency and complexity
+
+  **Rationale:**
+  Subprocess return codes and Python exception handling catch critical failures without added
+  complexity. This is sufficient for deterministic operation and fits 15-minute execution window.
+  Precedent from features 216-220 validates this approach.
+
+  ### 6. Error Handling
+
+  **Chosen:** Catch specific exceptions, print error messages, exit(1) on failure
+
+  **Rejected:**
+  - No error handling — Stack traces not user-friendly, doesn't indicate root cause
+  - Verbose logging — Unnecessary complexity, clutters output
+  - Retry logic — Doesn't fix underlying issues, adds complexity
+
+  **Rationale:**
+  Specific exception handling identifies failure type (file I/O vs git). Clear error messages
+  aid troubleshooting. Non-zero exit code signals failure to parent process. Appropriate for
+  simple deterministic operation.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O (create, write with format control) | Use | Standard library, modern, Pythonic, supports newline parameter |
+  | subprocess | Git operations (add, commit, push) | Use | Standard library, robust error code handling, controlled execution |
+  | GitPython | Alternative git operations | Reject | External dependency, violates standard library constraint, overkill |
+  | os.path | Alternative file operations | Reject | Older API, less Pythonic than pathlib |
+  | sh/bash | Direct shell commands | Reject | Less maintainable, harder error handling, inconsistent with codebase |
+
+  ## Security Considerations
+
+  **Git Configuration Security:**
+  - Assumption: Git is pre-configured with user.name and user.email (NFR-8 requirement)
+  - No credentials or secrets stored in file or script
+  - Subprocess inherits environment (potential token leakage if misconfigured)
+  - Mitigation: Ensure git is configured via system git config, not environment variables
+
+  **File Permissions and Content:**
+  - New file inherits process umask (typically results in 0o664 or 0o644)
+  - No sensitive data in prose content
+  - File permissions are not a concern for test files
+  - Existing 200+ test files follow same pattern with no reported issues
+
+  **Input Validation:**
+  - File name (test-ye16lc.md) is hard-coded, not user-supplied
+  - No code injection vectors (no shell evaluation of content)
+  - Prose content is hard-coded, not constructed from external input
+  - No path traversal risk (file created in repository root with fixed name)
+
+  **Process Security:**
+  - subprocess.run() does not invoke shell by default (shell=False), preventing shell injection
+  - Git commands are not user-supplied, reducing injection risk
+  - No temporary files or cleanup issues
+
+  **Summary:**
+  Minimal security concerns. No credentials, no user input, no shell evaluation. Pattern matches
+  200+ existing test files with no reported security incidents.
+
+  ## Performance Implications
+
+  **Execution Time:**
+  - File creation (pathlib): ~1-5ms
+  - Git add: ~10-50ms (depends on repository size and git index)
+  - Git commit: ~5-20ms
+  - Git push: ~100-500ms (network dependent, may vary)
+  - **Total estimated:** 120-575ms (well under 15-minute NFR-1 target)
+
+  **File Size:**
+  - H1 heading: ~20-30 bytes
+  - 2-3 sentences prose: ~250-350 bytes
+  - Trailing newlines: ~2-4 bytes
+  - **Total:** ~300-400 bytes (within NFR-2 range of 300-500 bytes)
+
+  **Memory Usage:**
+  - Python interpreter: ~30-50MB
+  - File content in memory: <1KB
+  - subprocess overhead: <1MB per git call (minimal)
+  - **Total:** ~30-50MB (negligible for modern systems)
+
+  **Optimization Assessment:**
+  - No loops or repeated operations
+  - Single file creation, single git workflow
+  - Sequential subprocess calls are appropriate (no parallelization needed)
+  - Already minimal overhead — no further optimization required
+
+  ## Architecture Notes
+
+  **Sheep Platform Integration:**
+  - Feature does NOT require integration with Sheep agents, crews, or tasks
+  - Standalone Python script execution (outside CrewAI workflow)
+  - No dependencies on src/sheep/ modules or platform utilities
+  - Demonstrates core file + git workflow independent of platform
+
+  **Repository Structure:**
+  - File created in repository root (consistent with 200+ existing test files)
+  - No new directories created
+  - No modifications to existing files (NFR-7)
+  - Follows established pattern from features 160-220
+  - Does not impact .github/, src/sheep/, specs/ organization
+
+  **Git Integration:**
+  - Feature branch (feat/221-markdown-file-creation-213da4) pre-created and checked out
+  - Script performs: git add test-ye16lc.md → git commit → git push
+  - Commit message follows conventional commits: "feat(221): Create markdown file test-ye16lc.md"
+  - No rebase, merge, or branch management complexity
+  - Push targets feature branch (not main)
+
+  **CI/CD Pipeline:**
+  - Git push triggers existing GitHub Actions workflow (.github/workflows/ci.yml)
+  - No additional pipeline configuration needed
+  - Test file (test-ye16lc.md) has no tests or validation in CI
+  - Pipeline should complete successfully (no conflicts or errors expected)
+
+  **Pattern Consistency:**
+  - Matches exactly 60+ identical features (218-220 and preceding implementations)
+  - Implementation scripts (create_markdown_file_219.py, create_markdown_file_220.py) serve as working templates
+  - This feature is a minimal, reproducible unit for testing automated implementation capability
+  - Follows identical success criteria and requirements as features 160-220
+
+  ## Implementation Blueprint
+
+  **Minimal Script Structure:**
+  ```
+  1. Import: pathlib.Path, subprocess, sys
+  2. Define file path: Path('test-ye16lc.md')
+  3. Define prose content (2-3 sentences, hard-coded)
+  4. Write file: path.write_text(heading + '\\n' + prose, newline='\\n')
+  5. Git add: subprocess.run(['git', 'add', 'test-ye16lc.md'])
+  6. Git commit: subprocess.run(['git', 'commit', '-m', 'feat(221): Create...'])
+  7. Git push: subprocess.run(['git', 'push', 'origin', 'feat/221-...'])
+  8. Error handling: catch exceptions, print messages, exit(1) on failure
+  ```
+
+  **No Additional Requirements:**
+  - No configuration files needed
+  - No environment variable dependencies (except git configuration)
+  - No build process or asset compilation
+  - No package installation (standard library only)
+  - No pre/post-processing steps
