@@ -11,7 +11,16 @@ import tempfile
 from pathlib import Path
 
 import pytest
-from create_markdown_file_222 import COMMIT_MESSAGE, FILENAME, PROSE, TITLE, create_file, git_add, git_commit, git_push
+from create_markdown_file_222 import (
+    COMMIT_MESSAGE,
+    FILENAME,
+    PROSE,
+    TITLE,
+    create_file,
+    git_add,
+    git_commit,
+    git_push,
+)
 
 
 class TestConstants:
