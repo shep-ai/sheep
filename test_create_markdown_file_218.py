@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test suite for feature 218: markdown-file-creation-e92f29
-Tests create_file() and validate_file() functions.
+Tests create_file(), validate_file(), and git workflow functions.
 """
 
 import pytest
@@ -9,7 +9,17 @@ import tempfile
 import subprocess
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from create_markdown_file_218 import create_file, validate_file, TITLE, PROSE
+from create_markdown_file_218 import (
+    create_file,
+    validate_file,
+    git_add,
+    git_commit,
+    git_push,
+    TITLE,
+    PROSE,
+    FILENAME,
+    COMMIT_MESSAGE,
+)
 
 
 class TestCreateFile:
@@ -302,6 +312,98 @@ class TestValidateFile:
                     validate_file("test-gmvvpm.md")
             finally:
                 os.chdir(old_cwd)
+
+
+class TestGitWorkflow:
+    """Test suite for git workflow functions."""
+
+    @patch("subprocess.run")
+    def test_git_add_calls_subprocess_with_correct_args(self, mock_run):
+        """Test that git_add calls subprocess.run with correct arguments."""
+        git_add()
+        mock_run.assert_called_once_with(["git", "add", FILENAME], check=True)
+
+    @patch("subprocess.run")
+    def test_git_add_raises_on_git_failure(self, mock_run):
+        """Test that git_add raises CalledProcessError if git add fails."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, ["git", "add"])
+        with pytest.raises(subprocess.CalledProcessError):
+            git_add()
+
+    @patch("subprocess.run")
+    def test_git_commit_calls_subprocess_with_correct_args(self, mock_run):
+        """Test that git_commit calls subprocess.run with correct arguments."""
+        git_commit()
+        mock_run.assert_called_once_with(
+            ["git", "commit", "-m", COMMIT_MESSAGE], check=True
+        )
+
+    @patch("subprocess.run")
+    def test_git_commit_raises_on_git_failure(self, mock_run):
+        """Test that git_commit raises CalledProcessError if git commit fails."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, ["git", "commit"])
+        with pytest.raises(subprocess.CalledProcessError):
+            git_commit()
+
+    @patch("subprocess.run")
+    def test_git_push_calls_subprocess_with_correct_args(self, mock_run):
+        """Test that git_push calls subprocess.run with correct arguments."""
+        git_push()
+        mock_run.assert_called_once_with(
+            ["git", "push", "-u", "origin", "HEAD"], check=True
+        )
+
+    @patch("subprocess.run")
+    def test_git_push_raises_on_git_failure(self, mock_run):
+        """Test that git_push raises CalledProcessError if git push fails."""
+        mock_run.side_effect = subprocess.CalledProcessError(1, ["git", "push"])
+        with pytest.raises(subprocess.CalledProcessError):
+            git_push()
+
+    @patch("subprocess.run")
+    def test_git_add_uses_check_true(self, mock_run):
+        """Test that git_add uses check=True parameter."""
+        git_add()
+        call_args = mock_run.call_args
+        assert call_args[1]["check"] is True
+
+    @patch("subprocess.run")
+    def test_git_commit_uses_check_true(self, mock_run):
+        """Test that git_commit uses check=True parameter."""
+        git_commit()
+        call_args = mock_run.call_args
+        assert call_args[1]["check"] is True
+
+    @patch("subprocess.run")
+    def test_git_push_uses_check_true(self, mock_run):
+        """Test that git_push uses check=True parameter."""
+        git_push()
+        call_args = mock_run.call_args
+        assert call_args[1]["check"] is True
+
+    @patch("subprocess.run")
+    def test_git_add_uses_list_format(self, mock_run):
+        """Test that git_add uses list format (not string) for command."""
+        git_add()
+        cmd = mock_run.call_args[0][0]
+        assert isinstance(cmd, list)
+        assert cmd == ["git", "add", FILENAME]
+
+    @patch("subprocess.run")
+    def test_git_commit_uses_list_format(self, mock_run):
+        """Test that git_commit uses list format (not string) for command."""
+        git_commit()
+        cmd = mock_run.call_args[0][0]
+        assert isinstance(cmd, list)
+        assert cmd == ["git", "commit", "-m", COMMIT_MESSAGE]
+
+    @patch("subprocess.run")
+    def test_git_push_uses_list_format(self, mock_run):
+        """Test that git_push uses list format (not string) for command."""
+        git_push()
+        cmd = mock_run.call_args[0][0]
+        assert isinstance(cmd, list)
+        assert cmd == ["git", "push", "-u", "origin", "HEAD"]
 
 
 if __name__ == "__main__":
