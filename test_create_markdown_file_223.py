@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Tests for feature 223: markdown-file-creation-995640
-Tests the create_file() function for creating test-do4dr9.md with proper structure.
+Tests the create_file() function and git integration functions.
 """
 
 import subprocess
@@ -12,7 +12,16 @@ import os
 
 # Import the script module
 sys.path.insert(0, str(Path(__file__).parent))
-from create_markdown_file_223 import create_file, FILENAME, TITLE, PROSE
+from create_markdown_file_223 import (
+    create_file,
+    git_add,
+    git_commit,
+    git_push,
+    FILENAME,
+    TITLE,
+    PROSE,
+    COMMIT_MESSAGE,
+)
 
 
 def test_create_file_basic():
@@ -153,6 +162,47 @@ def test_create_file_docstring():
     assert len(create_file.__doc__) > 20, "Docstring should be descriptive"
 
 
+def test_git_add_executable():
+    """Test that git_add() function is callable and uses subprocess."""
+    # Just verify the function exists and is callable
+    assert callable(git_add), "git_add should be callable"
+    # Verify it has proper subprocess integration via import check
+    import inspect
+    source = inspect.getsource(git_add)
+    assert "subprocess.run" in source, "git_add should use subprocess.run"
+    assert "git" in source and "add" in source, "git_add should contain git add command"
+
+
+def test_git_commit_executable():
+    """Test that git_commit() function is callable and uses subprocess."""
+    # Just verify the function exists and is callable
+    assert callable(git_commit), "git_commit should be callable"
+    # Verify it has proper subprocess integration via import check
+    import inspect
+    source = inspect.getsource(git_commit)
+    assert "subprocess.run" in source, "git_commit should use subprocess.run"
+    assert "git" in source and "commit" in source, "git_commit should contain git commit command"
+    assert "COMMIT_MESSAGE" in source, "git_commit should use COMMIT_MESSAGE constant"
+
+
+def test_git_add_has_docstring():
+    """Test that git_add() has a docstring."""
+    assert git_add.__doc__ is not None, "git_add() should have a docstring"
+    assert len(git_add.__doc__) > 10, "Docstring should be descriptive"
+
+
+def test_git_commit_has_docstring():
+    """Test that git_commit() has a docstring."""
+    assert git_commit.__doc__ is not None, "git_commit() should have a docstring"
+    assert len(git_commit.__doc__) > 10, "Docstring should be descriptive"
+
+
+def test_git_push_has_docstring():
+    """Test that git_push() has a docstring."""
+    assert git_push.__doc__ is not None, "git_push() should have a docstring"
+    assert len(git_push.__doc__) > 10, "Docstring should be descriptive"
+
+
 if __name__ == "__main__":
     # Run tests manually if desired
     test_create_file_basic()
@@ -172,5 +222,20 @@ if __name__ == "__main__":
 
     test_create_file_docstring()
     print("✓ test_create_file_docstring passed")
+
+    test_git_add_has_docstring()
+    print("✓ test_git_add_has_docstring passed")
+
+    test_git_commit_has_docstring()
+    print("✓ test_git_commit_has_docstring passed")
+
+    test_git_push_has_docstring()
+    print("✓ test_git_push_has_docstring passed")
+
+    test_git_add_executable()
+    print("✓ test_git_add_executable passed")
+
+    test_git_commit_executable()
+    print("✓ test_git_commit_executable passed")
 
     print("\nAll tests passed!")
