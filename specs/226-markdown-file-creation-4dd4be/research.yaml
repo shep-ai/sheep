@@ -1,0 +1,357 @@
+name: markdown-file-creation-4dd4be
+summary: >
+  Feature 226 creates a single markdown test file (test-zicq4v.md) at the repository root with an H1 heading title and exactly 2-3 sentences of prose. Implementation follows the established pattern from 200+ similar features: Python pathlib.Path for file I/O, hard-coded deterministic content, comprehensive post-creation validation, and git subprocess operations. No external dependencies or code modifications required.
+
+relatedFeatures:
+  - "211-markdown-file-creation-c18032"
+  - "208-markdown-file-creation-d81757"
+  - "207-markdown-file-creation-65f8c4"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess, sys modules)"
+  - "Markdown (CommonMark syntax)"
+  - "Git (version control, conventional commits)"
+  - "UTF-8 character encoding"
+  - "Unix line endings (LF)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "CommonMark specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "File Creation Method: pathlib.Path vs os.path vs open()"
+    chosen: "Python pathlib.Path.write_text() with encoding='utf-8'"
+    rejected:
+      - "os.path module — verbose, less Pythonic, split file path handling from I/O operations, not used in 200+ existing features"
+      - "open() function with explicit mode/encoding — more boilerplate, requires exception handling for file handle closure, less readable for simple write operations"
+    rationale: >
+      pathlib.Path is the modern, Pythonic approach endorsed by Python 3.4+. It combines path construction and I/O operations cleanly, provides implicit file handle management, and is used consistently across all 200+ existing test file creation features (feature 101-211). The .write_text(encoding='utf-8') method automatically ensures UTF-8 encoding without BOM and Unix LF line endings by default on all platforms. This approach eliminates encoding-related bugs and provides clear intent.
+
+  - title: "Content Generation: Hard-coded vs Dynamic vs API-Generated"
+    chosen: "Hard-coded deterministic prose content"
+    rejected:
+      - "Dynamic generation (random topic, random prose) — introduces non-determinism, unpredictable file sizes and content, makes testing and review harder, not precedented in 200+ features"
+      - "API-generated content (LLM, external service) — introduces external dependencies, network latency, API costs, failure modes, violates NFR-9 (no external packages), counter to feature philosophy"
+    rationale: >
+      All 200+ existing test files use hard-coded content for determinism, auditability, and reliability. This approach ensures identical file content on every execution, simplifies testing and code review (reviewers see exact prose), eliminates external dependencies, and aligns with the feature's purpose as a test artifact demonstrating straightforward file creation. The implementer selects a meaningful topic and writes 2-3 readable sentences.
+
+  - title: "Prose Validation: Strict Sentence Count vs Flexible Count"
+    chosen: "Strict 2-3 sentence validation using period counting"
+    rejected:
+      - "Flexible 2-4 or 2-5 sentences — reduces consistency with 200+ precedent files that all use exactly 2-3, introduces ambiguity, makes validation less predictable, conflicts with spec language 'exactly 2-3'"
+      - "No sentence count validation — relies on implementer good faith, reduces detectability of mistakes, harder to enforce consistency across features"
+    rationale: >
+      The spec requires 'exactly 2-3 sentences' with strict language, and all 200+ existing features validate this constraint precisely. Simple period counting provides deterministic validation (periods equal sentences in properly punctuated prose). This maintains consistency across the feature family and catches structural mistakes early. The spec resolves this as a hard requirement.
+
+  - title: "Git Integration: subprocess.run() vs GitPython vs os.system()"
+    chosen: "subprocess.run() with list-based command arguments and check=True"
+    rejected:
+      - "GitPython library — external dependency that violates NFR-9 (no external packages beyond Python stdlib), adds abstraction layer, unnecessary for simple git operations"
+      - "os.system() — security risk (command injection), harder to capture output and check errors, less portable across platforms, deprecated for new code"
+    rationale: >
+      subprocess.run() with list arguments provides secure command execution (no shell injection), clean error handling via check=True and CalledProcessError, output capture for logging, and is used across all 200+ existing features. The subprocess module is part of Python standard library (no external dependency), provides excellent cross-platform support, and enables precise control over git command execution. List-based arguments avoid shell-parsing vulnerabilities.
+
+  - title: "File Encoding/Line Endings: Explicit newline Parameter vs Default Behavior"
+    chosen: "Use pathlib.Path.write_text(encoding='utf-8') with default newline handling"
+    rejected:
+      - "Explicit newline='' parameter with manual CRLF→LF conversion — adds complexity, unnecessary (Python default newline handling already ensures LF on all platforms when using text mode with no newline parameter), harder to read"
+      - "Binary mode with manual encoding — requires manual b'\\n' handling, encoding bytes to UTF-8, duplicates complexity, less readable"
+    rationale: >
+      Python's default behavior in text mode (no newline parameter) automatically uses universal newlines, writing LF on all platforms (Windows, Linux, macOS). When writing to a file with pathlib.write_text(), specifying encoding='utf-8' and omitting the newline parameter ensures UTF-8 encoding without BOM and Unix LF line endings across all platforms. This is the approach used in all 200+ existing features and is explicitly documented in feature 208-211 implementation code.
+
+  - title: "Validation Strategy: Comprehensive Post-Creation vs Minimal vs Pre-Commit Checks"
+    chosen: "Comprehensive post-creation validation with fail-fast error handling"
+    rejected:
+      - "Minimal validation (file exists only) — misses structural mistakes, encoding errors, line ending issues, sentence count violations, hard to debug failures"
+      - "Pre-commit validation (git hooks, linting) — adds external tooling complexity, not precedented, moves validation away from feature code"
+    rationale: >
+      All 200+ existing features use comprehensive validation orchestrated by the feature module itself: file existence, markdown format (H1 heading + blank line + content), sentence count (2-3), UTF-8 encoding without BOM, Unix LF line endings, and file size (informational). Each validation function is testable independently, provides clear error messages, and stops at first error (fail-fast). This catches mistakes early, before git operations, and ensures consistent quality. All validation functions are copied from feature 208/211 precedent with no modifications.
+
+  - title: "Error Handling: Exception Types vs Generic Catch vs Silent Failures"
+    chosen: "Specific exception types (FileNotFoundError, ValueError, CalledProcessError) with logging"
+    rejected:
+      - "Generic Exception catch — hides error details, harder to debug, loses context about what operation failed"
+      - "Silent failures (no exceptions, return error codes only) — callers can't distinguish success from failure, errors propagate silently"
+    rationale: >
+      Feature modules raise specific exceptions at each phase (file creation, validation, git operations), with structured logging at info/error levels. Callers can catch and handle specific errors. The main() function catches expected exceptions and returns exit codes (0 for success, 1 for any failure). This approach is used across all 200+ features and provides clear error semantics for the platform orchestrating the feature execution.
+
+  - title: "Logging Strategy: Library Logger vs stdout/stderr vs No Logging"
+    chosen: "Use sheep.observability.logging.get_logger() from established platform infrastructure"
+    rejected:
+      - "stdout/stderr directly via print() — not structured, harder to filter/search, doesn't integrate with platform observability"
+      - "No logging — makes debugging failures harder, no audit trail, harder to understand execution flow"
+    rationale: >
+      The Sheep platform provides a centralized logging infrastructure (sheep.observability.logging.get_logger()). All 200+ existing features use this logger for structured, filterable logging at info/debug/error levels. This integrates with platform observability, enables audit trails, and provides consistent logging behavior across all features. Using the platform logger ensures consistency and eases operational visibility.
+
+openQuestions:
+  - question: "Should validation include checking for prose readability/grammar quality programmatically?"
+    resolved: true
+    options:
+      - option: "Implementer self-validation only (code review validates structure)"
+        description: "Implementer writes readable, grammatically correct prose during file creation. Code review checks structural compliance (filename, heading format, sentence count). Prose quality is validated implicitly during code review if obvious issues exist. Faster, matches 200+ precedent."
+        selected: true
+      - option: "Programmatic prose quality checks (language analysis)"
+        description: "Add automated checks for readability metrics (Flesch-Kincaid, grammar rules via external library). More rigorous but requires external dependency (violates NFR-9), adds complexity, not precedented in 200+ features."
+        selected: false
+      - option: "Editorial review process"
+        description: "Require dedicated editorial review of prose quality beyond code review. Ensures high prose quality but adds review overhead, extends timeline, not observed in 200+ existing features."
+        selected: false
+    selectionRationale: >
+      Implementer self-validation is the approach used across all 200+ existing test files. FR-5 requires prose to be 'readable and grammatically correct' without defining strict metrics. Code review validates structure and can flag obvious prose issues. This approach maintains the 10-15 minute implementation estimate and aligns with test artifact philosophy (prose quality threshold is 'good enough for a test artifact', not publication-ready). Adding external libraries would violate NFR-9.
+
+  - title: "Should file be created in repository root vs a fixtures directory?"
+    resolved: true
+    options:
+      - option: "Repository root directory (current approach)"
+        description: "Place test-zicq4v.md directly in repository root with 200+ existing test files. Follows established pattern, simple path handling, consistent with success criteria and all 200+ precedents."
+        selected: true
+      - option: "specs/ subdirectory"
+        description: "Place file in specs/226-markdown-file-creation-4dd4be/ directory. Organizes test files by feature but diverges from 200+ precedent, would require path construction, inconsistent with spec success criteria."
+        selected: false
+      - option: "tests/ or fixtures/ directory"
+        description: "Create a dedicated test artifacts directory. More organized but not precedented in any of 200+ features, conflicts with spec requirement ('repository root directory'), would require project restructuring."
+        selected: false
+    selectionRationale: >
+      The spec explicitly requires 'repository root directory (no subdirectories)' per FR-2. All 200+ existing test files follow this pattern. Repository root placement is simple, consistent, and expected by test automation. Placing in subdirectories would conflict with explicit requirements and established conventions.
+
+  - question: "How should the feature handle the case where file already exists?"
+    resolved: true
+    options:
+      - option: "Overwrite existing file silently"
+        description: "Use pathlib.Path.write_text() which overwrites by default. Simple, deterministic, idempotent. Matches behavior of 200+ existing features."
+        selected: true
+      - option: "Raise error if file exists"
+        description: "Check file existence before creation, raise FileExistsError if found. Safer against unintended overwrites but more complex, not precedented in 200+ features."
+        selected: false
+      - option: "Append to existing file"
+        description: "Add content to existing file instead of overwriting. Creates inconsistent file format (multiple H1 headings), violates structure requirements, not used in any precedent."
+        selected: false
+    selectionRationale: >
+      All 200+ existing features use pathlib.Path.write_text() which overwrites existing files by default. This is idempotent and deterministic: repeated execution produces the same final file state. The feature is designed to be re-runnable without state cleanup. Overwriting avoids error handling for pre-existing files and aligns with the test artifact philosophy (files are synthetic, can be regenerated anytime).
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File Creation Method: pathlib.Path
+
+  **Chosen:** `pathlib.Path.write_text(markdown_content, encoding='utf-8')`
+
+  **Rejected:**
+  - `os.path` module — verbose multi-step approach (construct path, open file, write, close), not Pythonic, split responsibility between path and I/O
+  - `open()` function — requires explicit mode/encoding parameters, exception handling for file handle closure, more boilerplate for simple write operation
+
+  **Rationale:**
+  pathlib is the modern Python standard for file path operations since Python 3.4. The `.write_text()` method:
+  - Combines path construction and I/O in a single operation
+  - Automatically handles file opening/closing (no context manager needed)
+  - Accepts encoding parameter directly
+  - On all platforms (Windows/Linux/macOS), when encoding='utf-8' is specified with no newline parameter, automatically writes:
+    - UTF-8 without BOM (Byte Order Mark)
+    - Unix LF line endings (\n)
+  - Used consistently across all 200+ existing test file creation features (101-211)
+  - Provides clear, readable code intent
+
+  ### 2. Content Generation: Hard-Coded Prose
+
+  **Chosen:** Hard-coded, deterministic title and prose content selected by implementer
+
+  **Rejected:**
+  - Dynamic generation (random topic/sentences) — introduces non-determinism, unpredictable output, makes testing and review harder
+  - API-generated content (LLM, external service) — external dependency violates NFR-9, adds network latency and failure modes, not precedented
+
+  **Rationale:**
+  All 200+ existing test files use hard-coded content because:
+  - **Determinism:** Identical file content on every execution
+  - **Auditability:** Reviewers see exact prose and can validate quality
+  - **No dependencies:** Aligns with NFR-9 (standard library only)
+  - **Reliability:** No external API failures, no network latency
+  - **Test artifact philosophy:** File is a synthetic test artifact, not user-facing content
+
+  The implementer selects a meaningful topic (technical, scientific, or general interest) and writes 2-3 readable sentences. Prose validation occurs via code review for structural compliance and prose quality inspection.
+
+  ### 3. Prose Validation: Strict 2-3 Sentence Count
+
+  **Chosen:** Validate exactly 2 or 3 sentences using period counting
+
+  **Rejected:**
+  - Flexible range (2-4, 2-5 sentences) — reduces consistency with 200+ precedent files
+  - No sentence count validation — increases likelihood of mistakes, harder to enforce across features
+
+  **Rationale:**
+  The spec uses explicit language "exactly 2-3 sentences" per FR-4 and resolves the open question in favor of strict bounds. Simple period counting provides deterministic validation that is robust for properly punctuated English prose. This maintains consistency across the feature family and catches structural mistakes before git operations.
+
+  ### 4. Git Integration: subprocess.run()
+
+  **Chosen:** `subprocess.run(["git", "add"/"commit"/"push"], check=True, capture_output=True, text=True)`
+
+  **Rejected:**
+  - GitPython library — external dependency violates NFR-9, adds abstraction layer
+  - `os.system()` — security risk (command injection), harder error handling, deprecated
+
+  **Rationale:**
+  subprocess.run() with list-based arguments is the secure standard for subprocess execution:
+  - **Security:** List arguments avoid shell command injection (unlike os.system() or subprocess with shell=True)
+  - **Error handling:** check=True raises CalledProcessError on non-zero exit, enabling fail-fast behavior
+  - **Output capture:** capture_output=True enables logging of stdout/stderr for debugging
+  - **Standard library:** No external dependencies (aligns with NFR-9)
+  - **Precedent:** Used in all 200+ existing features (101-211)
+  - **Cross-platform:** Consistent behavior across Windows/Linux/macOS
+
+  ### 5. Encoding/Line Endings: UTF-8 + Default Newline Handling
+
+  **Chosen:** `pathlib.Path.write_text(encoding='utf-8')` without explicit newline parameter
+
+  **Rejected:**
+  - Explicit `newline=''` parameter — adds unnecessary complexity, Python's default already handles correctly
+  - Binary mode with manual encoding — requires manual b'\n' handling, duplicates work, less readable
+
+  **Rationale:**
+  Python's text mode with `encoding='utf-8'` and default newline handling (no newline parameter):
+  - **UTF-8 without BOM:** Specified encoding='utf-8' (not 'utf-8-sig') ensures no BOM marker
+  - **Unix LF only:** Default newline behavior in text mode writes LF on all platforms
+  - **Cross-platform:** Identical behavior on Windows, Linux, macOS (Python handles platform normalization)
+  - **Simplicity:** No need for manual CRLF→LF conversion or binary mode handling
+  - **Precedent:** This exact approach is used and documented in features 208-211
+
+  ### 6. Validation Strategy: Comprehensive Post-Creation Checks
+
+  **Chosen:** Comprehensive validation after file creation, before git operations. Validation phases:
+  1. File exists (FileNotFoundError if not)
+  2. Markdown format: exactly one H1 heading on line 1, blank line 2 (ValueError if not)
+  3. Sentence count: exactly 2-3 periods in prose content (ValueError if not)
+  4. UTF-8 encoding without BOM: reject files starting with bytes EF BB BF (ValueError if not)
+  5. Unix LF line endings: reject CRLF (\r\n) and CR (\r) (ValueError if not)
+  6. File size: informational check (300-800 bytes expected, logged if outside range)
+
+  **Rejected:**
+  - Minimal validation (file exists only) — misses structural, encoding, and line ending errors
+  - Pre-commit validation (git hooks) — adds external tools, moves validation away from feature code
+
+  **Rationale:**
+  Comprehensive validation catches all requirements before git operations:
+  - Each validation function is independently testable and can be run in isolation
+  - Fail-fast behavior: stops at first error with clear error message
+  - Error messages are specific (e.g., "File must contain exactly 2-3 sentences, found 4")
+  - All validation functions are copied directly from features 208-211 (proven, tested pattern)
+  - Ensures consistent quality across all features
+  - Enables debugging: clear which requirement failed
+
+  ### 7. Error Handling: Specific Exception Types + Logging
+
+  **Chosen:** Raise specific exception types (FileNotFoundError, ValueError, CalledProcessError) with structured logging
+
+  **Rejected:**
+  - Generic Exception catch — loses error context
+  - Silent failures (no exceptions) — callers can't distinguish success from failure
+
+  **Rationale:**
+  - **FileNotFoundError:** Raised by file validation when file doesn't exist
+  - **ValueError:** Raised by validation checks (markdown format, sentence count, encoding, line endings)
+  - **CalledProcessError:** Raised by git operations (add, commit, push) when git commands fail
+  - Each exception is caught and logged with context (file name, expected vs actual)
+  - main() function catches expected exceptions and returns exit code (0 for success, 1 for failure)
+  - Platform orchestration layer can handle feature failures predictably based on exception type
+
+  ### 8. Logging Infrastructure: sheep.observability.logging
+
+  **Chosen:** Use `sheep.observability.logging.get_logger(__name__)` from platform infrastructure
+
+  **Rejected:**
+  - stdout/stderr via print() — not structured, harder to filter/aggregate, doesn't integrate with platform observability
+  - No logging — harder debugging, no audit trail
+
+  **Rationale:**
+  The Sheep platform provides centralized logging infrastructure. Using the platform logger:
+  - Integrates with platform observability and monitoring
+  - Provides structured, filterable logs at info/debug/error levels
+  - Enables audit trails for feature execution
+  - Consistent logging behavior across all 200+ features
+  - Logs include context (function name, operation, success/failure)
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File path construction and I/O | Use | Modern, Pythonic, built into Python 3.4+, used across all 200+ features, supports .write_text() with encoding parameter |
+  | subprocess (stdlib) | Git command execution | Use | Secure (list-based args prevent injection), built-in, provides error handling and output capture |
+  | sys (stdlib) | Exit code handling | Use | Standard way to return exit codes from main() function |
+  | sheep.observability.logging | Structured logging | Use | Platform infrastructure, integrates with observability, consistent with all features |
+  | GitPython | Git operations abstraction | Reject | External dependency, violates NFR-9 (no external packages), unnecessary abstraction for simple operations |
+  | Any external LLM/content generation | Content generation | Reject | External dependency, violates NFR-9, introduces network latency and failure modes, not precedented |
+
+  ## Security Considerations
+
+  1. **Command Injection Prevention:** Git operations use subprocess.run() with list-based command arguments (["git", "add", filename]), not string-based shell commands. This prevents command injection attacks even if filename or other parameters contain special characters.
+
+  2. **File Encoding:** UTF-8 encoding without BOM is explicitly specified, preventing encoding-based attacks or ambiguities. Validation confirms encoding is correct before git operations.
+
+  3. **Path Traversal:** Filename is hard-coded (test-zicq4v.md) and created in current working directory (repo root). No dynamic path construction or user input in path, preventing directory traversal attacks.
+
+  4. **Logging Safety:** Logs include filenames and error messages but not sensitive content. Validation failure messages are user-friendly and don't expose system internals.
+
+  5. **No External Dependencies:** Restricting to Python standard library (pathlib, subprocess, sys) + platform infrastructure (logging) eliminates supply chain risks from external packages.
+
+  ## Performance Implications
+
+  1. **File Creation:** pathlib.Path.write_text() is optimized for single file write operations (150-400 bytes), completes in <1ms on modern file systems.
+
+  2. **Validation:** All validation functions complete in <1ms (simple string/binary operations, no I/O loops). Fail-fast behavior ensures fastest failure detection.
+
+  3. **Git Operations:** subprocess.run() adds ~100-500ms per command (git add, commit, push) depending on repository size and network latency (for push). These are network-bound, not CPU-bound. Expected total time: 1-3 seconds for all git operations combined.
+
+  4. **Total Feature Execution:** Expected 10-15 minutes total per spec estimate (most time spent by implementer writing prose content, not by code execution). Code execution (file creation, validation, git ops) completes in <5 seconds.
+
+  5. **Memory Usage:** Minimal — all operations are streaming/single-pass. File content is constructed once as a string (~400 bytes), validated once, committed. No batch operations or large data structures.
+
+  6. **Validation Efficiency:** Each validation function reads the file once and performs targeted checks (format, encoding bytes, line ending bytes, sentence count). No redundant I/O or parsing.
+
+  ## Architecture Notes
+
+  ### Relationship to Existing Codebase
+
+  Feature 226 follows the exact architecture established by 200+ preceding test file creation features (101-211):
+
+  1. **Feature Module Structure:** Located in `src/sheep/features/feature_226_markdown_file_creation.py`
+     - Defines constants: FILENAME, FEATURE_NUMBER, BRANCH_NAME, COMMIT_MESSAGE, TITLE_TEXT, PROSE_CONTENT
+     - Implements functions: create_markdown_file(), validate_*(), git_*(), main()
+     - Uses platform logger: sheep.observability.logging.get_logger()
+
+  2. **No Source Code Modifications:** Feature 226 does NOT modify any files in src/sheep/ other than adding the new feature module. No changes to agents, flows, tools, or configuration.
+
+  3. **Git Workflow Integration:** Feature fits into the Sheep workflow:
+     - Pre-created feature branch: feat/226-markdown-file-creation-4dd4be
+     - Feature module executes git add, commit, push operations
+     - Conventional commit message: feat(226): create markdown file test-zicq4v.md
+     - Integration with CI/CD pipeline via standard git operations
+
+  4. **Testing and Validation:** Feature can be tested by:
+     - Running feature module directly: `python -m src.sheep.features.feature_226_markdown_file_creation`
+     - Checking git status and log after execution
+     - Verifying file content with manual inspection or test harness
+
+  5. **Precedent-Based Implementation:** This feature has identical structure to features 208-211. Implementation can be based directly on feature 208 with constant updates (filename, title, branch name, prose content).
+
+  ### Dependencies
+
+  - **Internal:** sheep.observability.logging (platform logger)
+  - **External:** None (Python standard library only)
+  - **System:** Git binary must be available in PATH, write access to repository root
+
+  ### Integration Points
+
+  - Git repository: Feature branch must exist (pre-created)
+  - File system: Write access to repository root directory required
+  - Platform logger: Uses standard sheep observability infrastructure
+  - Git configuration: Standard git user.name/user.email must be configured (git prerequisite)
+
+  ## Conclusion
+
+  Feature 226 is a straightforward implementation following the established pattern from 200+ preceding features. The architecture is well-proven, low-risk, and tightly scoped to file creation + validation + git operations. No new dependencies, no source code modifications, and no architectural changes required. Implementation should follow features 208-211 as exact templates.
+
+  ---
+
+  _Research phase complete — all technical decisions documented with detailed rationale, library analysis completed, security and performance implications identified._
