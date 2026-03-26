@@ -34,7 +34,6 @@ from sheep.features.feature_226_markdown_file_creation import (
     validate_markdown_file,
     validate_markdown_format,
     validate_sentence_count,
-    verify_file_exists,
 )
 
 
