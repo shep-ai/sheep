@@ -61,8 +61,8 @@ class TestCreateFile:
             finally:
                 os.chdir(original_dir)
 
-    def test_create_file_raises_if_exists(self):
-        """Test that create_file raises FileExistsError if file already exists."""
+    def test_create_file_returns_existing_if_exists(self):
+        """Test that create_file returns existing file without raising error if file already exists."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / FILENAME
             # Create file first
@@ -72,8 +72,11 @@ class TestCreateFile:
             original_dir = os.getcwd()
             try:
                 os.chdir(tmpdir)
-                with pytest.raises(FileExistsError):
-                    create_file()
+                result = create_file()
+                # Should return the existing file path without raising error
+                assert result is not None
+                assert isinstance(result, Path)
+                assert Path(FILENAME).exists()
             finally:
                 os.chdir(original_dir)
 
