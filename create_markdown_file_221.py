@@ -5,8 +5,8 @@ Creates test-5vnehe.md with proper markdown structure.
 No validation layer per spec requirement.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 # Module-level constants
@@ -154,7 +154,7 @@ def main():
     try:
         # Phase 1: Create markdown file
         print("\nPhase 1: Creating markdown file...")
-        file_path = create_file()
+        create_file()
 
         # Phase 2: Git integration
         print("\nPhase 2: Git integration and workflow...")

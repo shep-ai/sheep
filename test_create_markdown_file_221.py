@@ -5,10 +5,11 @@ Tests create_file() function and module constants.
 No validation layer per spec requirement.
 """
 
-import pytest
 import tempfile
 from pathlib import Path
-from create_markdown_file_221 import create_file, FILENAME, TITLE, PROSE, COMMIT_MESSAGE
+
+import pytest
+from create_markdown_file_221 import COMMIT_MESSAGE, FILENAME, PROSE, TITLE, create_file
 
 
 class TestConstants:
