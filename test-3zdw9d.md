@@ -1,0 +1,3 @@
+# The Evolution of Programming Languages
+
+Programming languages have evolved dramatically since the first computers were created in the mid-20th century. Each generation brought new paradigms and solutions to previously insurmountable problems, from assembly code to object-oriented design. Today's languages reflect decades of accumulated wisdom about how humans think and express computational ideas in ways that are both powerful and understandable.
