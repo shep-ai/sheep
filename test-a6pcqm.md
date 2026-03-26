@@ -1,3 +1,3 @@
-# Offline Markdown Content
+# Digital Transformation in Modern Enterprises
 
-Offline generation keeps tests deterministic when no external API keys are available in the current environment, and it still produces coherent markdown that looks like real output. The formatter ensures there is an H1 heading, a blank separator line, and then exactly a few sentences of prose that end cleanly with periods. With this fallback, validation can focus on structure rather than network access or provider configuration, so the suite remains stable.
+Digital transformation represents a fundamental shift in how organizations operate and deliver value to customers in the modern economy. Companies across all industries are investing heavily in new technologies, processes, and business models to remain competitive. This comprehensive change requires leadership commitment and organizational culture shift to succeed.
