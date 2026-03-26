@@ -1,0 +1,3 @@
+# The Power of Curiosity
+
+Curiosity is the engine that drives human discovery and innovation, pushing us to explore beyond what we already know and question established assumptions. When we embrace our natural inclination to learn, we unlock new perspectives and develop deeper understanding of the world around us. This relentless pursuit of knowledge shapes not only individual growth but also advances entire fields and societies forward.
