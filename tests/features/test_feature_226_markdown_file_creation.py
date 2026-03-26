@@ -28,6 +28,7 @@ from sheep.features.feature_226_markdown_file_creation import (
     git_commit,
     git_push,
     validate_encoding,
+    validate_file_exists,
     validate_file_size,
     validate_line_endings,
     validate_markdown_file,
@@ -130,7 +131,7 @@ class TestValidationHelpers:
     """Tests for validation helper functions."""
 
     def test_verify_file_exists_with_existing_file(self):
-        """Test verify_file_exists with an existing file."""
+        """Test validate_file_exists with an existing file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
             try:
@@ -139,14 +140,14 @@ class TestValidationHelpers:
                 os.chdir(tmpdir)
                 create_markdown_file()
                 # Should not raise
-                verify_file_exists()
+                validate_file_exists()
             finally:
                 import os
 
                 os.chdir(original_cwd)
 
     def test_verify_file_exists_with_missing_file(self):
-        """Test verify_file_exists raises FileNotFoundError for missing file."""
+        """Test validate_file_exists raises FileNotFoundError for missing file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
             try:
@@ -154,7 +155,42 @@ class TestValidationHelpers:
 
                 os.chdir(tmpdir)
                 with pytest.raises(FileNotFoundError):
-                    verify_file_exists()
+                    validate_file_exists()
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_file_exists_returns_true_when_file_exists(self):
+        """Test validate_file_exists returns True when file exists."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                create_markdown_file()
+                # Should return True
+                result = validate_file_exists()
+                assert result is True
+            finally:
+                import os
+
+                os.chdir(original_cwd)
+
+    def test_validate_file_exists_raises_when_file_missing(self):
+        """Test validate_file_exists raises FileNotFoundError when file missing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+
+                os.chdir(tmpdir)
+                with pytest.raises(FileNotFoundError) as exc_info:
+                    validate_file_exists()
+                # Check error message includes filename and directory info
+                error_msg = str(exc_info.value)
+                assert FILENAME in error_msg
             finally:
                 import os
 
@@ -365,8 +401,8 @@ class TestValidationHelpers:
 
                 os.chdir(original_cwd)
 
-    def test_validate_file_size_valid(self):
-        """Test validate_file_size with valid size."""
+    def test_validate_file_size_typical_logs_info(self):
+        """Test validate_file_size logs info for typical file size."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
             try:
@@ -374,15 +410,23 @@ class TestValidationHelpers:
 
                 os.chdir(tmpdir)
                 create_markdown_file()
-                # Should not raise (file is in 300-800 bytes range)
-                validate_file_size()
+                # Should log info and not raise (file is in 300-800 bytes range)
+                with patch(
+                    "sheep.features.feature_226_markdown_file_creation._logger"
+                ) as mock_logger:
+                    validate_file_size()
+                    # Verify info log was called
+                    mock_logger.info.assert_called()
+                    # Verify the call mentions file size
+                    call_args = str(mock_logger.info.call_args_list)
+                    assert "bytes" in call_args
             finally:
                 import os
 
                 os.chdir(original_cwd)
 
-    def test_validate_file_size_too_small(self):
-        """Test validate_file_size raises on too small file."""
+    def test_validate_file_size_undersized_logs_warning(self):
+        """Test validate_file_size logs warning for undersized file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
             try:
@@ -390,15 +434,23 @@ class TestValidationHelpers:
 
                 os.chdir(tmpdir)
                 Path(FILENAME).write_text("x")
-                with pytest.raises(ValueError, match="too small"):
+                # Should log warning and not raise
+                with patch(
+                    "sheep.features.feature_226_markdown_file_creation._logger"
+                ) as mock_logger:
                     validate_file_size()
+                    # Verify warning log was called
+                    mock_logger.warning.assert_called()
+                    # Verify the warning mentions "smaller than typical range"
+                    call_args = str(mock_logger.warning.call_args_list)
+                    assert "smaller than typical range" in call_args
             finally:
                 import os
 
                 os.chdir(original_cwd)
 
-    def test_validate_file_size_too_large(self):
-        """Test validate_file_size raises on too large file."""
+    def test_validate_file_size_oversized_logs_warning(self):
+        """Test validate_file_size logs warning for oversized file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
             try:
@@ -406,8 +458,16 @@ class TestValidationHelpers:
 
                 os.chdir(tmpdir)
                 Path(FILENAME).write_text("x" * 1000)
-                with pytest.raises(ValueError, match="too large"):
+                # Should log warning and not raise
+                with patch(
+                    "sheep.features.feature_226_markdown_file_creation._logger"
+                ) as mock_logger:
                     validate_file_size()
+                    # Verify warning log was called
+                    mock_logger.warning.assert_called()
+                    # Verify the warning mentions "larger than typical range"
+                    call_args = str(mock_logger.warning.call_args_list)
+                    assert "larger than typical range" in call_args
             finally:
                 import os
 

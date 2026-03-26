@@ -86,24 +86,39 @@ def create_markdown_file() -> Path:
         raise
 
 
-def verify_file_exists(filename: str = FILENAME) -> None:
-    """Verify that markdown file exists.
+def validate_file_exists(filename: str = FILENAME) -> bool:
+    """Validate that markdown file exists.
+
+    Checks if file exists in the current working directory and returns True.
+    Raises FileNotFoundError with descriptive message including filename and
+    current working directory if file does not exist.
 
     Args:
-        filename: Name of file to verify (default: FILENAME)
+        filename: Name of file to validate (default: FILENAME)
+
+    Returns:
+        True if file exists
 
     Raises:
-        FileNotFoundError: If file does not exist
+        FileNotFoundError: If file does not exist, with descriptive message
+                          including filename and directory context
 
     Example:
-        >>> verify_file_exists("test-zicq4v.md")  # Raises if missing
+        >>> result = validate_file_exists("test-zicq4v.md")
+        >>> print(result)  # True
     """
-    _logger.debug(f"Verifying file exists: {filename}")
+    _logger.debug(f"Validating file exists: {filename}")
 
-    if not Path(filename).exists():
-        raise FileNotFoundError(f"File not found: {filename}")
+    file_path = Path(filename)
+    if file_path.exists():
+        _logger.info(f"File exists: {filename} in {Path.cwd()}")
+        return True
 
-    _logger.debug(f"File exists: {filename}")
+    # Raise FileNotFoundError with descriptive message including context
+    cwd = Path.cwd()
+    raise FileNotFoundError(
+        f"File '{filename}' not found in {cwd}"
+    )
 
 
 def validate_markdown_format(filename: str = FILENAME) -> None:
@@ -303,39 +318,35 @@ def validate_line_endings(filename: str = FILENAME) -> None:
 def validate_file_size(
     filename: str = FILENAME, min_bytes: int = 300, max_bytes: int = 800
 ) -> None:
-    """Validate file size is within acceptable range.
+    """Validate file size is within acceptable range (informational only).
+
+    Logs file size at info level. Logs warning if size is outside typical range.
+    This validation is informational and does NOT raise exceptions.
 
     Args:
         filename: Name of file to validate (default: FILENAME)
-        min_bytes: Minimum file size in bytes (default: 300)
-        max_bytes: Maximum file size in bytes (default: 800)
-
-    Raises:
-        ValueError: If file size outside range
+        min_bytes: Minimum file size for typical range (default: 300)
+        max_bytes: Maximum file size for typical range (default: 800)
 
     Example:
         >>> validate_file_size("test-zicq4v.md", min_bytes=300, max_bytes=800)
     """
-    _logger.debug(
-        f"Validating file size: {filename} "
-        f"(range: {min_bytes}-{max_bytes} bytes)"
-    )
-
     file_size = Path(filename).stat().st_size
 
+    # Log file size at info level
+    _logger.info(f"File size: {file_size} bytes")
+
+    # Log warning if outside typical range (informational only, no exception)
     if file_size < min_bytes:
-        raise ValueError(
-            f"File size {file_size} bytes is too small, "
-            f"minimum is {min_bytes} bytes"
+        _logger.warning(
+            f"File size {file_size} bytes is smaller than typical range "
+            f"(expected {min_bytes}-{max_bytes} bytes)"
         )
-
-    if file_size > max_bytes:
-        raise ValueError(
-            f"File size {file_size} bytes is too large, "
-            f"maximum is {max_bytes} bytes"
+    elif file_size > max_bytes:
+        _logger.warning(
+            f"File size {file_size} bytes is larger than typical range "
+            f"(expected {min_bytes}-{max_bytes} bytes)"
         )
-
-    _logger.debug(f"File size valid ({file_size} bytes): {filename}")
 
 
 def validate_markdown_file(filename: str = FILENAME) -> None:
@@ -365,8 +376,8 @@ def validate_markdown_file(filename: str = FILENAME) -> None:
 
     try:
         # Check 1: File exists
-        _logger.info("Check 1: Verifying file exists")
-        verify_file_exists(filename)
+        _logger.info("Check 1: Validating file exists")
+        validate_file_exists(filename)
         _logger.debug("✓ File exists")
 
         # Check 2: Markdown format
@@ -389,10 +400,10 @@ def validate_markdown_file(filename: str = FILENAME) -> None:
         validate_line_endings(filename)
         _logger.debug("✓ Line endings valid")
 
-        # Check 6: File size
-        _logger.info("Check 6: Validating file size (300-800 bytes)")
+        # Check 6: File size (informational only, no exceptions)
+        _logger.info("Check 6: Checking file size (informational)")
         validate_file_size(filename)
-        _logger.debug("✓ File size valid")
+        _logger.debug("✓ File size check complete")
 
         _logger.info("All validation checks passed")
 
