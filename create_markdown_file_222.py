@@ -26,7 +26,7 @@ PROSE = (
 COMMIT_MESSAGE = "feat(222): Create markdown file test-tmmd9v.md"
 
 
-def create_file():
+def create_file() -> Path:
     """
     Create markdown file with proper structure and encoding.
 
@@ -70,7 +70,7 @@ def create_file():
         raise
 
 
-def git_add():
+def git_add() -> None:
     """
     Stage the markdown file in git.
 
@@ -91,7 +91,7 @@ def git_add():
         ) from e
 
 
-def git_commit():
+def git_commit() -> None:
     """
     Create a git commit with the markdown file.
 
@@ -112,7 +112,7 @@ def git_commit():
         ) from e
 
 
-def git_push():
+def git_push() -> None:
     """
     Push the commit to the remote feature branch.
 
@@ -134,7 +134,7 @@ def git_push():
         ) from e
 
 
-def main():
+def main() -> None:
     """
     Main entry point: orchestrate complete workflow.
 
