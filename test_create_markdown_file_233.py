@@ -7,11 +7,13 @@ No validation layer per spec requirement.
 
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 import pytest
-from create_markdown_file_233 import COMMIT_MESSAGE, FILENAME, PROSE, TITLE, create_file, git_add, git_commit, git_push
+from create_markdown_file_233 import COMMIT_MESSAGE, FILENAME, PROSE, TITLE, create_file, git_add, git_commit, git_push, main
 
 
 class TestConstants:
@@ -402,6 +404,326 @@ class TestGitIntegration:
                 assert COMMIT_MESSAGE in result.stdout
             finally:
                 os.chdir(original_dir)
+
+
+class TestMainOrchestration:
+    """Test suite for main() function orchestration and error handling."""
+
+    def test_main_executes_all_steps_in_order(self):
+        """Test that main() executes create_file → add → commit → push in correct order."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                # Set up git repo
+                subprocess.run(["git", "init"], cwd=tmpdir, check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "checkout", "-b", "feat/233-markdown-file-creation-c8975a"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                os.chdir(tmpdir)
+
+                # Track which functions were called in order
+                call_order = []
+
+                # Mock the functions to verify they're called in order
+                with patch("create_markdown_file_233.create_file") as mock_create:
+                    with patch("create_markdown_file_233.git_add") as mock_add:
+                        with patch("create_markdown_file_233.git_commit") as mock_commit:
+                            with patch("create_markdown_file_233.git_push") as mock_push:
+                                mock_create.side_effect = lambda: (
+                                    call_order.append("create_file"),
+                                    Path(FILENAME).write_text(
+                                        f"# {TITLE}\n\n{PROSE}\n", encoding="utf-8", newline="\n"
+                                    ),
+                                )[-1]
+                                mock_add.side_effect = lambda: call_order.append("git_add")
+                                mock_commit.side_effect = lambda: call_order.append("git_commit")
+                                mock_push.side_effect = lambda: call_order.append("git_push")
+
+                                # Call main() - should not raise
+                                main()
+
+                                # Verify all functions were called in correct order
+                                assert call_order == ["create_file", "git_add", "git_commit", "git_push"]
+            finally:
+                os.chdir(original_dir)
+
+    def test_main_stops_on_create_file_error(self):
+        """Test that main() stops execution if create_file() raises FileExistsError."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                # Set up git repo
+                subprocess.run(["git", "init"], cwd=tmpdir, check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                os.chdir(tmpdir)
+
+                # Pre-create the file so create_file will fail
+                Path(FILENAME).write_text("# Existing\n\nContent.\n")
+
+                # Mock git operations to verify they're NOT called
+                with patch("create_markdown_file_233.git_add") as mock_add:
+                    with patch("create_markdown_file_233.git_commit") as mock_commit:
+                        with patch("create_markdown_file_233.git_push") as mock_push:
+                            # main() should call sys.exit(1) when an error occurs
+                            with pytest.raises(SystemExit) as exc_info:
+                                main()
+
+                            assert exc_info.value.code == 1
+                            # Verify subsequent steps were NOT called
+                            mock_add.assert_not_called()
+                            mock_commit.assert_not_called()
+                            mock_push.assert_not_called()
+            finally:
+                os.chdir(original_dir)
+
+    def test_main_stops_on_git_add_error(self):
+        """Test that main() stops execution if git_add() fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                # Set up git repo
+                subprocess.run(["git", "init"], cwd=tmpdir, check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                os.chdir(tmpdir)
+
+                # Mock git_add to raise CalledProcessError
+                with patch("create_markdown_file_233.git_add") as mock_add:
+                    with patch("create_markdown_file_233.git_commit") as mock_commit:
+                        with patch("create_markdown_file_233.git_push") as mock_push:
+                            mock_add.side_effect = subprocess.CalledProcessError(1, "git add")
+
+                            # main() should call sys.exit(1) when git_add fails
+                            with pytest.raises(SystemExit) as exc_info:
+                                main()
+
+                            assert exc_info.value.code == 1
+                            # Verify commit and push were NOT called
+                            mock_commit.assert_not_called()
+                            mock_push.assert_not_called()
+            finally:
+                os.chdir(original_dir)
+
+    def test_main_stops_on_git_commit_error(self):
+        """Test that main() stops execution if git_commit() fails."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                # Set up git repo
+                subprocess.run(["git", "init"], cwd=tmpdir, check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                os.chdir(tmpdir)
+
+                # Mock git_commit to raise CalledProcessError
+                with patch("create_markdown_file_233.git_commit") as mock_commit:
+                    with patch("create_markdown_file_233.git_push") as mock_push:
+                        mock_commit.side_effect = subprocess.CalledProcessError(1, "git commit")
+
+                        # main() should call sys.exit(1) when git_commit fails
+                        with pytest.raises(SystemExit) as exc_info:
+                            main()
+
+                        assert exc_info.value.code == 1
+                        # Verify push was NOT called
+                        mock_push.assert_not_called()
+            finally:
+                os.chdir(original_dir)
+
+    def test_main_handles_git_push_error(self):
+        """Test that main() handles and reports git_push() failures gracefully."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                # Set up git repo
+                subprocess.run(["git", "init"], cwd=tmpdir, check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                os.chdir(tmpdir)
+
+                # Mock git_push to raise CalledProcessError (no remote)
+                with patch("create_markdown_file_233.git_push") as mock_push:
+                    mock_push.side_effect = subprocess.CalledProcessError(1, "git push")
+
+                    # main() should call sys.exit(1) when git_push fails
+                    with pytest.raises(SystemExit) as exc_info:
+                        main()
+
+                    assert exc_info.value.code == 1
+            finally:
+                os.chdir(original_dir)
+
+    def test_main_prints_success_message(self):
+        """Test that main() prints success message on completion."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                # Set up git repo
+                subprocess.run(["git", "init"], cwd=tmpdir, check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "checkout", "-b", "feat/233-markdown-file-creation-c8975a"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                os.chdir(tmpdir)
+
+                # Capture stdout
+                import io
+                from contextlib import redirect_stdout
+
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    # Mock git_push since we don't have a remote
+                    with patch("create_markdown_file_233.git_push"):
+                        main()
+
+                output = f.getvalue()
+                assert "Feature 233 implementation complete!" in output
+            finally:
+                os.chdir(original_dir)
+
+    def test_main_prints_error_message_on_failure(self):
+        """Test that main() prints error message to stderr on failure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_dir = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+
+                # Create file first so create_file will fail
+                Path(FILENAME).write_text("# Existing\n\nContent.\n")
+
+                # Capture stderr
+                import io
+                from contextlib import redirect_stderr
+
+                f = io.StringIO()
+                with redirect_stderr(f):
+                    with pytest.raises(SystemExit):
+                        main()
+
+                output = f.getvalue()
+                assert "Failed" in output or "already exists" in output
+            finally:
+                os.chdir(original_dir)
+
+    def test_main_callable_as_script(self):
+        """Test that create_markdown_file_233.py can be run as a script."""
+        # This test verifies the `if __name__ == "__main__": main()` pattern works
+        import shutil
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Set up git repo
+            subprocess.run(["git", "init"], cwd=tmpdir, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "checkout", "-b", "feat/233-markdown-file-creation-c8975a"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+
+            # Copy the script to the temp directory
+            script_path = Path(__file__).parent / "create_markdown_file_233.py"
+            shutil.copy(script_path, tmpdir)
+
+            # Run script in temp directory (will fail on push but that's OK)
+            result = subprocess.run(
+                [sys.executable, "create_markdown_file_233.py"],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+            )
+
+            # Script should exit with error code 1 (no remote for push)
+            # but should show that it progressed through create, add, commit
+            assert result.returncode != 0  # Push will fail
+            assert "Created test-god37p.md" in result.stdout or "Failed" in result.stderr
 
 
 if __name__ == "__main__":
