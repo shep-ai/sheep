@@ -7,6 +7,7 @@ No validation layer per spec requirement.
 """
 
 import sys
+import subprocess
 from pathlib import Path
 
 # Module-level constants
@@ -62,3 +63,106 @@ def create_file():
     except OSError as e:
         print(f"Error creating file: {e}", file=sys.stderr)
         raise
+
+
+def git_add():
+    """
+    Stage the created markdown file with git add.
+
+    Executes: git add test-rnfcfc.md
+
+    Raises:
+        subprocess.CalledProcessError: If git add fails (file not found, git error, etc).
+    """
+    try:
+        subprocess.run(
+            ["git", "add", FILENAME],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        print(f"✓ Staged {FILENAME} with git add")
+    except subprocess.CalledProcessError as e:
+        print(
+            f"Error executing git add: {e}\nstderr: {e.stderr}",
+            file=sys.stderr,
+        )
+        raise
+
+
+def git_commit():
+    """
+    Commit the staged file with conventional commit message.
+
+    Executes: git commit -m "feat(232): Create markdown file test-rnfcfc.md with prose content"
+
+    Raises:
+        subprocess.CalledProcessError: If git commit fails.
+    """
+    try:
+        subprocess.run(
+            ["git", "commit", "-m", COMMIT_MESSAGE],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        print(f"✓ Committed with message: {COMMIT_MESSAGE}")
+    except subprocess.CalledProcessError as e:
+        print(
+            f"Error executing git commit: {e}\nstderr: {e.stderr}",
+            file=sys.stderr,
+        )
+        raise
+
+
+def git_push():
+    """
+    Push the commit to the feature branch with upstream tracking.
+
+    Executes: git push -u origin HEAD
+
+    Raises:
+        subprocess.CalledProcessError: If git push fails.
+    """
+    try:
+        subprocess.run(
+            ["git", "push", "-u", "origin", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        print("✓ Pushed commit to remote branch")
+    except subprocess.CalledProcessError as e:
+        print(
+            f"Error executing git push: {e}\nstderr: {e.stderr}",
+            file=sys.stderr,
+        )
+        raise
+
+
+def main():
+    """
+    Main orchestration: create file → add → commit → push.
+
+    Executes the full workflow: file creation followed by git integration.
+    Each step depends on the previous one completing successfully.
+
+    Raises:
+        FileExistsError: If file already exists.
+        OSError: If file creation fails.
+        subprocess.CalledProcessError: If any git operation fails.
+    """
+    try:
+        print("Starting markdown file creation and git integration...")
+        create_file()
+        git_add()
+        git_commit()
+        git_push()
+        print("\n✓ Feature 232 implementation complete!")
+    except Exception as e:
+        print(f"\n✗ Failed: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
