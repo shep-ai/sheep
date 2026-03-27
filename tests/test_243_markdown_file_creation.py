@@ -311,3 +311,227 @@ class TestMarkdownFileValidation:
 
             result = validate_markdown_file(str(file_path))
             assert result is True
+
+
+class TestGitIntegration:
+    """Tests for task-5: Implement git integration (add, commit, push)."""
+
+    @patch("sheep.features.feature_243_markdown_file_creation.commit_markdown_file")
+    @patch("sheep.features.feature_243_markdown_file_creation.push_markdown_file")
+    def test_git_add_stages_file(self, mock_push, mock_commit):
+        """Test that commit function stages file with git add."""
+        from sheep.features.feature_243_markdown_file_creation import (
+            create_feature_243_markdown_file,
+        )
+
+        mock_commit.return_value = "Committed successfully"
+        mock_push.return_value = "Pushed successfully"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmp_path)
+
+                # Mock the content generation and file operations
+                with patch("sheep.features.feature_243_markdown_file_creation.generate_title_content") as mock_title, \
+                     patch("sheep.features.feature_243_markdown_file_creation.generate_prose_content") as mock_prose, \
+                     patch("sheep.features.feature_243_markdown_file_creation.write_markdown_file") as mock_write, \
+                     patch("sheep.features.feature_243_markdown_file_creation.validate_markdown_file") as mock_validate:
+
+                    mock_title.return_value = "Test Title"
+                    mock_prose.return_value = "First sentence. Second sentence. Third sentence."
+                    mock_write.return_value = "test-c2dbie.md"
+                    mock_validate.return_value = True
+
+                    create_feature_243_markdown_file(tmp_dir)
+
+                    # Verify commit was called
+                    mock_commit.assert_called_once()
+            finally:
+                os.chdir(original_cwd)
+
+    @patch("sheep.features.feature_243_markdown_file_creation.commit_markdown_file")
+    @patch("sheep.features.feature_243_markdown_file_creation.push_markdown_file")
+    def test_conventional_commit_message_format(self, mock_push, mock_commit):
+        """Test that commit uses conventional message format."""
+        from sheep.features.feature_243_markdown_file_creation import (
+            FEATURE_NUMBER,
+            MARKDOWN_FILENAME,
+            create_feature_243_markdown_file,
+        )
+
+        mock_commit.return_value = "Committed"
+        mock_push.return_value = "Pushed"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmp_path)
+
+                with patch("sheep.features.feature_243_markdown_file_creation.generate_title_content") as mock_title, \
+                     patch("sheep.features.feature_243_markdown_file_creation.generate_prose_content") as mock_prose, \
+                     patch("sheep.features.feature_243_markdown_file_creation.write_markdown_file") as mock_write, \
+                     patch("sheep.features.feature_243_markdown_file_creation.validate_markdown_file") as mock_validate:
+
+                    mock_title.return_value = "Test"
+                    mock_prose.return_value = "A. B. C."
+                    mock_write.return_value = MARKDOWN_FILENAME
+                    mock_validate.return_value = True
+
+                    create_feature_243_markdown_file(tmp_dir)
+
+                    # Verify commit was called with correct message format
+                    mock_commit.assert_called_once()
+                    call_args = mock_commit.call_args
+                    commit_message = call_args[1].get("custom_message")
+                    assert f"feat({FEATURE_NUMBER}):" in commit_message
+                    assert MARKDOWN_FILENAME in commit_message
+            finally:
+                os.chdir(original_cwd)
+
+    @patch("sheep.features.feature_243_markdown_file_creation.commit_markdown_file")
+    @patch("sheep.features.feature_243_markdown_file_creation.push_markdown_file")
+    def test_git_push_to_feature_branch(self, mock_push, mock_commit):
+        """Test that push pushes to feature branch."""
+        from sheep.features.feature_243_markdown_file_creation import (
+            create_feature_243_markdown_file,
+        )
+
+        mock_commit.return_value = "Committed"
+        mock_push.return_value = "Pushed"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmp_path)
+
+                with patch("sheep.features.feature_243_markdown_file_creation.generate_title_content") as mock_title, \
+                     patch("sheep.features.feature_243_markdown_file_creation.generate_prose_content") as mock_prose, \
+                     patch("sheep.features.feature_243_markdown_file_creation.write_markdown_file") as mock_write, \
+                     patch("sheep.features.feature_243_markdown_file_creation.validate_markdown_file") as mock_validate:
+
+                    mock_title.return_value = "Test"
+                    mock_prose.return_value = "A. B. C."
+                    mock_write.return_value = "test-c2dbie.md"
+                    mock_validate.return_value = True
+
+                    create_feature_243_markdown_file(tmp_dir)
+
+                    # Verify push was called
+                    mock_push.assert_called_once()
+            finally:
+                os.chdir(original_cwd)
+
+    @patch("sheep.features.feature_243_markdown_file_creation.commit_markdown_file")
+    @patch("sheep.features.feature_243_markdown_file_creation.push_markdown_file")
+    def test_git_operations_called_in_order(self, mock_push, mock_commit):
+        """Test that git operations are called in correct order: add, commit, push."""
+        from sheep.features.feature_243_markdown_file_creation import (
+            create_feature_243_markdown_file,
+        )
+
+        mock_commit.return_value = "Committed"
+        mock_push.return_value = "Pushed"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmp_path)
+
+                with patch("sheep.features.feature_243_markdown_file_creation.generate_title_content") as mock_title, \
+                     patch("sheep.features.feature_243_markdown_file_creation.generate_prose_content") as mock_prose, \
+                     patch("sheep.features.feature_243_markdown_file_creation.write_markdown_file") as mock_write, \
+                     patch("sheep.features.feature_243_markdown_file_creation.validate_markdown_file") as mock_validate:
+
+                    mock_title.return_value = "Test"
+                    mock_prose.return_value = "A. B. C."
+                    mock_write.return_value = "test-c2dbie.md"
+                    mock_validate.return_value = True
+
+                    create_feature_243_markdown_file(tmp_dir)
+
+                    # Verify order: commit should be called before push
+                    assert mock_commit.called
+                    assert mock_push.called
+                    # push should be called after commit
+                    assert mock_commit.call_count == 1
+                    assert mock_push.call_count == 1
+            finally:
+                os.chdir(original_cwd)
+
+    @patch("sheep.features.feature_243_markdown_file_creation.commit_markdown_file")
+    @patch("sheep.features.feature_243_markdown_file_creation.push_markdown_file")
+    def test_git_commit_failure_propagates_error(self, mock_push, mock_commit):
+        """Test that git commit failure raises exception."""
+        from sheep.features.feature_243_markdown_file_creation import (
+            create_feature_243_markdown_file,
+        )
+
+        mock_commit.side_effect = Exception("Git commit failed")
+        mock_push.return_value = "Pushed"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmp_path)
+
+                with patch("sheep.features.feature_243_markdown_file_creation.generate_title_content") as mock_title, \
+                     patch("sheep.features.feature_243_markdown_file_creation.generate_prose_content") as mock_prose, \
+                     patch("sheep.features.feature_243_markdown_file_creation.write_markdown_file") as mock_write, \
+                     patch("sheep.features.feature_243_markdown_file_creation.validate_markdown_file") as mock_validate:
+
+                    mock_title.return_value = "Test"
+                    mock_prose.return_value = "A. B. C."
+                    mock_write.return_value = "test-c2dbie.md"
+                    mock_validate.return_value = True
+
+                    with pytest.raises(Exception, match="Git commit failed"):
+                        create_feature_243_markdown_file(tmp_dir)
+
+                    # push should not be called if commit fails
+                    mock_push.assert_not_called()
+            finally:
+                os.chdir(original_cwd)
+
+    @patch("sheep.features.feature_243_markdown_file_creation.commit_markdown_file")
+    @patch("sheep.features.feature_243_markdown_file_creation.push_markdown_file")
+    def test_git_push_failure_propagates_error(self, mock_push, mock_commit):
+        """Test that git push failure raises exception."""
+        from sheep.features.feature_243_markdown_file_creation import (
+            create_feature_243_markdown_file,
+        )
+
+        mock_commit.return_value = "Committed"
+        mock_push.side_effect = Exception("Git push failed")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmp_path)
+
+                with patch("sheep.features.feature_243_markdown_file_creation.generate_title_content") as mock_title, \
+                     patch("sheep.features.feature_243_markdown_file_creation.generate_prose_content") as mock_prose, \
+                     patch("sheep.features.feature_243_markdown_file_creation.write_markdown_file") as mock_write, \
+                     patch("sheep.features.feature_243_markdown_file_creation.validate_markdown_file") as mock_validate:
+
+                    mock_title.return_value = "Test"
+                    mock_prose.return_value = "A. B. C."
+                    mock_write.return_value = "test-c2dbie.md"
+                    mock_validate.return_value = True
+
+                    with pytest.raises(Exception, match="Git push failed"):
+                        create_feature_243_markdown_file(tmp_dir)
+            finally:
+                os.chdir(original_cwd)

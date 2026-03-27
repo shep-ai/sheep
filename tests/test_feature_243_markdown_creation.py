@@ -70,14 +70,16 @@ def test_feature_243_return_type():
             os.chdir(tmpdir)
 
             # Mock the content generation and git operations
-            with mock.patch("sheep.features.feature_243_markdown_file_creation.generate_markdown_content") as mock_gen, \
+            with mock.patch("sheep.features.feature_243_markdown_file_creation.generate_title_content") as mock_title, \
+                 mock.patch("sheep.features.feature_243_markdown_file_creation.generate_prose_content") as mock_prose, \
                  mock.patch("sheep.features.feature_243_markdown_file_creation.write_markdown_file") as mock_write, \
                  mock.patch("sheep.features.feature_243_markdown_file_creation.validate_markdown_file") as mock_validate, \
                  mock.patch("sheep.features.feature_243_markdown_file_creation.commit_markdown_file") as mock_commit, \
                  mock.patch("sheep.features.feature_243_markdown_file_creation.push_markdown_file") as mock_push:
 
                 # Configure mocks
-                mock_gen.return_value = sample_markdown
+                mock_title.return_value = "Test Title"
+                mock_prose.return_value = "This is the first sentence. This is the second sentence. This is the third sentence."
                 mock_write.return_value = "test-c2dbie.md"
                 mock_validate.return_value = True
                 mock_commit.return_value = {"commit": "abc123"}
@@ -94,7 +96,6 @@ def test_feature_243_return_type():
 
                 # Verify values
                 assert result["filepath"] == "test-c2dbie.md"
-                assert result["content"] == sample_markdown
                 assert "feat(243):" in result["commit_message"]
                 assert "test-c2dbie.md" in result["commit_message"]
         finally:
@@ -120,13 +121,15 @@ def test_feature_243_commit_message_format():
         try:
             os.chdir(tmpdir)
 
-            with mock.patch("sheep.features.feature_243_markdown_file_creation.generate_markdown_content") as mock_gen, \
+            with mock.patch("sheep.features.feature_243_markdown_file_creation.generate_title_content") as mock_title, \
+                 mock.patch("sheep.features.feature_243_markdown_file_creation.generate_prose_content") as mock_prose, \
                  mock.patch("sheep.features.feature_243_markdown_file_creation.write_markdown_file") as mock_write, \
                  mock.patch("sheep.features.feature_243_markdown_file_creation.validate_markdown_file") as mock_validate, \
                  mock.patch("sheep.features.feature_243_markdown_file_creation.commit_markdown_file") as mock_commit, \
                  mock.patch("sheep.features.feature_243_markdown_file_creation.push_markdown_file") as mock_push:
 
-                mock_gen.return_value = sample_markdown
+                mock_title.return_value = "Test"
+                mock_prose.return_value = "One. Two. Three."
                 mock_write.return_value = MARKDOWN_FILENAME
                 mock_validate.return_value = True
                 mock_commit.return_value = {"commit": "abc123"}
