@@ -26,6 +26,8 @@ MARKDOWN_CONTENT = """# The Art of Resilience
 Resilience is the quiet strength that emerges when we face adversity and choose to persist despite obstacles. It is not about avoiding challenges, but rather developing the capacity to adapt, learn, and grow through difficult experiences. This quality, cultivated through patience and self-reflection, becomes the foundation upon which we build meaningful and fulfilling lives."""
 
 MARKDOWN_FILE = "test-70rjoj.md"
+COMMIT_MESSAGE = "feat(243): create markdown file test-70rjoj.md with prose content"
+BRANCH_NAME = "feat/markdown-file-creation-967ad1"
 
 
 def create_markdown_file():
@@ -105,6 +107,70 @@ def validate_file():
         )
 
 
+def stage_file():
+    """
+    Stage the markdown file in git using 'git add'.
+
+    Raises:
+        RuntimeError: If git add fails
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'add', MARKDOWN_FILE],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"Failed to stage file with git add: {e.stderr or e.stdout}"
+        )
+
+
+def commit_file():
+    """
+    Commit the staged file with conventional commit message.
+
+    Uses exact message: "feat(243): create markdown file test-70rjoj.md with prose content"
+
+    Raises:
+        RuntimeError: If git commit fails
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'commit', '-m', COMMIT_MESSAGE],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"Failed to commit file: {e.stderr or e.stdout}"
+        )
+
+
+def push_commit():
+    """
+    Push the commit to the feature branch.
+
+    Pushes to: origin/feat/243-markdown-file-creation-967ad1
+
+    Raises:
+        RuntimeError: If git push fails
+    """
+    try:
+        result = subprocess.run(
+            ['git', 'push', 'origin', BRANCH_NAME],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"Failed to push commit: {e.stderr or e.stdout}"
+        )
+
+
 def main():
     """
     Main entry point for markdown file creation.
@@ -118,6 +184,18 @@ def main():
         print(f"Created {MARKDOWN_FILE}")
         validate_file()
         print(f"Validated {MARKDOWN_FILE}")
+
+        # Git integration: stage, commit, push
+        stage_file()
+        print(f"Staged {MARKDOWN_FILE} with git add")
+
+        commit_file()
+        print(f"Committed with message: {COMMIT_MESSAGE}")
+
+        push_commit()
+        print(f"Pushed to {BRANCH_NAME}")
+
+        print("Feature 243: Markdown file creation completed successfully!")
         return 0
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
