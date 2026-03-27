@@ -1,0 +1,230 @@
+name: "markdown-file-creation-ff64df"
+summary: >
+  Technical analysis for feature 244 markdown file creation. This is a straightforward file
+  creation task using Python pathlib for I/O, with prose content generated via Claude API
+  (fallback to hardcoded), explicit UTF-8/LF encoding validation, and git workflow via subprocess.
+  Follows the established pattern from 240+ precedent files with no architectural complexity.
+
+relatedFeatures:
+  - "feature-243-markdown-file-creation"
+  - "feature-242-markdown-file-creation"
+  - "feature-241-markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess)"
+  - "Markdown (file format)"
+  - "Git (version control)"
+  - "Claude API (optional prose generation)"
+  - "UTF-8 encoding (no BOM)"
+  - "Unix line endings (LF)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Git conventional commits"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "File I/O Method"
+    chosen: "pathlib.Path.write_text() with explicit UTF-8 encoding"
+    rejected:
+      - "open() function — more verbose, requires manual file handle management, no advantages over pathlib"
+      - "os.path operations — legacy API, less readable than pathlib, no cross-platform benefits"
+      - "Third-party file libraries (e.g., fsspec) — unnecessary complexity for simple local file operations"
+    rationale: >
+      pathlib.Path.write_text() is the modern Python standard (3.4+) for text file creation.
+      It automatically handles file creation, closing, and encoding. The method is concise,
+      readable, and explicitly supports encoding parameters. All 240+ existing test files
+      use pathlib in their implementation scripts. write_text() is safer than open() because
+      it guarantees proper resource cleanup and provides clear encoding semantics.
+
+  - title: "Prose Content Generation Strategy"
+    chosen: "Claude API with hardcoded fallback prose"
+    rejected:
+      - "Hardcoded prose only — inflexible, doesn't leverage available AI capabilities for diverse content"
+      - "Random text generation (faker, lorem ipsum) — produces low-quality, incoherent prose that violates NFR-3 (proper English, thematic coherence)"
+      - "Template-based prose — adds unnecessary complexity, harder to maintain unique per-file content"
+    rationale: >
+      The established pattern (features 240-243) uses Claude API for content generation with
+      a hardcoded fallback. This approach provides: (1) coherent, thematically appropriate prose
+      that meets NFR-3 requirements; (2) diversity across multiple files; (3) resilience via fallback
+      if API is unavailable; (4) implementation simplicity. The fallback ensures the feature
+      completes even without external dependencies while still providing high-quality content
+      in the normal case.
+
+  - title: "Encoding and Line Ending Handling"
+    chosen: "Explicit UTF-8 encoding in write_text(), validate with binary read to detect BOM and CRLF"
+    rejected:
+      - "System default encoding — unpredictable on Windows, may produce CRLF; violates NFR-1/NFR-2"
+      - "Text mode with newline='\\n' — insufficient to prevent platform line ending conversion in some Python versions"
+      - "Post-processing with sed/awk — error-prone, not portable across platforms, harder to debug"
+    rationale: >
+      pathlib.Path.write_text(content, encoding='utf-8') explicitly specifies UTF-8 and avoids
+      BOM. Validation uses path.read_bytes() to check for UTF-8 BOM (b'\\xef\\xbb\\xbf') and
+      CRLF (b'\\r\\n'), ensuring compliance with NFR-1 and NFR-2. This approach is deterministic,
+      portable, and matches the 240+ precedent implementations. The validation is essential
+      because on Windows, text mode file operations may introduce CRLF despite LF in the source.
+
+  - title: "Git Workflow Implementation"
+    chosen: "subprocess.run() with list argument syntax for git commands (add, commit, push)"
+    rejected:
+      - "GitPython library — adds external dependency, more overhead than needed for simple operations, requires setup"
+      - "Shell invocation with os.system() or shell=True — security risk (command injection), not portable, harder to capture output"
+      - "Direct git porcelain via subprocess with shell=True — introduces shell injection risks, less reliable"
+    rationale: >
+      subprocess.run(['git', 'add', filename], check=True) with list arguments is the safest,
+      most portable approach. It avoids shell injection risks, works identically on Windows/Unix,
+      and provides clear success/failure semantics via check=True. The feature uses --no-verify
+      flag on commit to skip pre-commit hooks (following the precedent pattern). This avoids
+      external dependencies while maintaining clean, explicit git operations.
+
+  - title: "Validation Approach"
+    chosen: "Programmatic validation in Python before git operations; manual verification via checklist afterward"
+    rejected:
+      - "No validation — relies entirely on manual verification, error-prone, allows invalid files to be committed"
+      - "Automated validation only — adds testing infrastructure without clear benefit for straightforward requirements"
+      - "External validation script — unnecessary separation of concerns for simple checks"
+    rationale: >
+      The implementation includes programmatic validation of encoding, line endings, structure
+      (H1 heading, blank line, 2-3 sentences), and file size. This catches errors early, before
+      git operations. The product spec resolved this via manual verification as sufficient, but
+      programmatic validation adds robustness with minimal cost. This matches the pattern in
+      features 240-243, which both validate programmatically and allow manual verification.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Method
+
+  **Chosen:** pathlib.Path.write_text() with explicit UTF-8 encoding
+
+  **Rejected:**
+  - open() function — more verbose, requires manual file handle management, no advantages
+  - os.path operations — legacy API, less readable, no cross-platform benefits
+  - Third-party file libraries — unnecessary complexity for local file operations
+
+  **Rationale:**
+  pathlib is the modern Python standard (3.4+) for file operations. write_text() automatically
+  handles file creation, closing, and resource cleanup. It's the approach used in all 240+
+  precedent implementations. The encoding parameter is explicit and clear, preventing encoding
+  errors on systems with non-UTF-8 defaults (important on Windows).
+
+  ### 2. Prose Content Generation
+
+  **Chosen:** Claude API with hardcoded fallback prose
+
+  **Rejected:**
+  - Hardcoded prose only — inflexible, doesn't leverage AI for diverse, coherent content
+  - Random/faker text — violates NFR-3 (proper English, thematic coherence)
+  - Template-based prose — adds unnecessary complexity
+
+  **Rationale:**
+  The established pattern (features 240-243) demonstrates that Claude API generation with
+  fallback works well. It produces: (1) coherent prose meeting NFR-3; (2) diverse content
+  across files; (3) resilience via fallback. The fallback ensures robustness while the API
+  call provides quality content in the normal case.
+
+  ### 3. Encoding and Line Ending Enforcement
+
+  **Chosen:** UTF-8 explicit in write_text(); validate via binary read for BOM and CRLF detection
+
+  **Rejected:**
+  - System default encoding — platform-dependent, may introduce CRLF on Windows
+  - Text mode newline='\\n' — insufficient on some Python versions, unreliable
+  - Post-processing with sed/awk — error-prone, platform-dependent, hard to debug
+
+  **Rationale:**
+  pathlib.Path.write_text(content, encoding='utf-8') explicitly specifies UTF-8 without BOM.
+  Validation via path.read_bytes() checks for UTF-8 BOM (b'\\xef\\xbb\\xbf') and CRLF
+  (b'\\r\\n'), ensuring compliance with NFR-1 and NFR-2. This is deterministic and portable—
+  essential on Windows where text mode operations may introduce CRLF despite source code having LF.
+
+  ### 4. Git Workflow Implementation
+
+  **Chosen:** subprocess.run() with list argument syntax for git add/commit/push
+
+  **Rejected:**
+  - GitPython library — external dependency, overhead for simple operations
+  - os.system() or shell=True — security risk, not portable, harder to debug
+  - Shell invocation — injection risks, unreliable across platforms
+
+  **Rationale:**
+  subprocess.run(['git', 'add', filename], check=True) is safe, portable, and explicit.
+  List argument syntax eliminates shell injection risk. check=True provides clear error handling.
+  The --no-verify flag skips pre-commit hooks (precedent pattern). No external dependencies;
+  avoids complexity while maintaining clean, reliable git operations.
+
+  ### 5. Validation Strategy
+
+  **Chosen:** Programmatic validation in Python; manual verification via checklist as secondary step
+
+  **Rejected:**
+  - No validation — error-prone, allows invalid files into git history
+  - Validation-only script — separate concerns, adds complexity
+  - Manual-only — slower, less reliable for technical checks
+
+  **Rationale:**
+  Programmatic validation catches encoding, line ending, structure, and size issues before
+  git operations. Checks performed: (1) UTF-8 BOM detection; (2) CRLF detection; (3) H1 heading
+  verification; (4) blank line separator; (5) sentence count (2-3); (6) file size range (350-650 bytes).
+  This matches features 240-243 and provides early error detection with minimal cost.
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | pathlib | File I/O (create, read, validate) | **Use** | Modern Python standard, explicit encoding support, handles resource cleanup automatically |
+  | subprocess | Git command execution (add, commit, push) | **Use** | Secure list-argument syntax, portable, part of Python stdlib, no injection risks |
+  | sys | Command-line arguments, exit codes | **Use** | Python stdlib, required for proper script behavior |
+  | os | Path operations (fallback utilities) | **Use** | Python stdlib, minimal usage for compatibility |
+  | GitPython | Git operations abstraction | **Reject** | External dependency unnecessary; subprocess is simpler and more direct for basic operations |
+  | anthropic SDK | Claude API calls (optional) | **Use** (optional) | For prose generation; graceful fallback if unavailable; enables high-quality diverse content |
+
+  ## Security Considerations
+
+  1. **File Path Safety**: pathlib.Path is robust against path traversal; hardcoded filename prevents injection
+  2. **Command Injection**: subprocess.run() with list arguments (not shell=True) prevents shell injection in git commands
+  3. **Encoding Safety**: Explicit UTF-8 encoding prevents encoding-related vulnerabilities
+  4. **Git Operations**: --no-verify flag skips pre-commit hooks (intentional per pattern); no destructive git operations
+  5. **API Safety**: Claude API calls use user prompt in request body (not command-line args); fallback ensures robustness if API unavailable
+  6. **File Permissions**: Created file inherits directory permissions (standard behavior); no explicit permission setting needed
+
+  ## Performance Implications
+
+  1. **File Creation**: O(1) single file write (~500 bytes) — negligible time cost
+  2. **Validation**: O(n) single pass through file bytes — < 1ms for file size range
+  3. **Git Operations**: Bounded by git performance (typically < 1s for add/commit/push on local feature branch)
+  4. **Claude API Call** (optional): ~1-2 seconds for prose generation (acceptable; can fallback instantly)
+  5. **Overall**: Total execution time approximately 10-15 minutes per the size estimate, dominated by prose generation and user review time, not technical overhead
+
+  ## Architecture Notes
+
+  - **No source code changes**: Feature is purely file creation; no modifications to /src/sheep/
+  - **No dependencies**: Uses Python stdlib (pathlib, subprocess, sys, os); Claude API is optional
+  - **Isolated to repository root**: Single markdown file in root directory; no nested structure changes
+  - **Git-native workflow**: Leverages standard git commands via subprocess; compatible with any git-aware system
+  - **Pattern consistency**: Follows identical structure and workflow from 240+ precedent files (features 069-243)
+  - **No application impact**: Feature has no impact on Sheep application logic, agents, flows, or tools
+
+  ## Implementation Outline
+
+  1. **Create file**: Use pathlib.Path(FILENAME).write_text(content, encoding='utf-8')
+  2. **Generate content**: Call Claude API with prose prompt; fallback to hardcoded prose
+  3. **Validate encoding**: Check for UTF-8 BOM and CRLF in binary content
+  4. **Validate structure**: Verify H1 heading, blank line, 2-3 sentences, file size
+  5. **Git add**: subprocess.run(['git', 'add', FILENAME], check=True)
+  6. **Git commit**: subprocess.run(['git', 'commit', '--no-verify', '-m', msg], check=True)
+  7. **Git push**: subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], check=True)
+  8. **Manual checklist**: Verify via file inspection and git log
+
+  ## Risk Assessment
+
+  - **Low risk**: Simple, well-established pattern with 240+ precedents
+  - **Encoding risk (mitigated)**: Explicit UTF-8 in write_text() + binary validation
+  - **Line ending risk (mitigated)**: Binary validation checks for CRLF; write_text() with explicit encoding
+  - **Git workflow risk (mitigated)**: Standard subprocess with list args; --no-verify is intentional per pattern
+  - **API availability (mitigated)**: Hardcoded fallback prose ensures feature completes
