@@ -1,0 +1,357 @@
+name: "markdown-file-creation-22cd9a"
+summary: >
+  Technical research for feature 231 markdown file creation.
+  Implementation uses Python standard library (pathlib, subprocess) following
+  established patterns from 231+ precedent test files. Core decision: minimal
+  approach without validation layer, following recent precedent (feature 223)
+  rather than comprehensive validation approach (feature 216).
+
+relatedFeatures:
+  - number: 230
+    name: "markdown-file-creation-dc31cc"
+    relationship: "Immediately preceding feature — identical pattern"
+  - number: 229
+    name: "markdown-file-creation-41a132"
+    relationship: "Identical pattern — create markdown file with title and 2-3 sentences"
+  - number: 228
+    name: "markdown-file-creation-8a5916"
+    relationship: "Identical pattern — create markdown file with title and 2-3 sentences"
+
+technologies:
+  - "Python 3.11+ (standard library only)"
+  - "pathlib.Path (file I/O, cross-platform)"
+  - "subprocess (git command execution)"
+  - "Markdown (CommonMark format, H1 heading + prose)"
+  - "Git (version control, conventional commits)"
+
+relatedLinks:
+  - title: "Sheep Project Repository"
+    url: "https://github.com/jobnik/sheep"
+  - title: "Feature 223 Implementation (Recent Precedent)"
+    url: "https://github.com/jobnik/sheep/blob/main/create_markdown_file_223.py"
+  - title: "Feature 216 Implementation (Comprehensive Precedent)"
+    url: "https://github.com/jobnik/sheep/blob/main/specs/216-markdown-file-creation-fd3f9f/create_markdown_file.py"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "File Creation Library"
+    chosen: "pathlib.Path with write_text() method"
+    rejected:
+      - "open() with file path string — less Pythonic, no cross-platform abstractions, requires manual close()"
+      - "os.path.join() with open() — lower-level approach, less portable across platforms"
+      - "External libraries (pathlib2, pathvalidate) — unnecessary, Python 3.11+ includes pathlib in standard library"
+    rationale: >
+      pathlib.Path is established pattern in all 231+ test file implementations.
+      Provides cross-platform path handling and expressive API. The write_text()
+      method with encoding="utf-8" and newline="\n" parameters ensures
+      correct file encoding (UTF-8 without BOM) and Unix line endings (LF)
+      on all platforms including Windows. This is simpler and more reliable
+      than manual file handle management.
+
+  - title: "Validation Strategy"
+    chosen: "No programmatic validation layer — rely on implementation correctness and spec compliance"
+    rejected:
+      - "Comprehensive validation (feature 216 approach) — adds ~150 lines of code, regex patterns, assertion checks; increases complexity and test surface area without benefit for simple creation"
+      - "Minimal validation with file existence check only — adds unnecessary complexity when implementation design prevents issues"
+    rationale: >
+      Recent successful implementations (feature 223) use a minimal approach:
+      construct content correctly by design, write with proper encoding/newline
+      parameters, and rely on subprocess.run(check=True) for git command validation.
+      The feature is straightforward file creation, not complex data transformation.
+      Correct content construction eliminates need for post-creation validation.
+      This follows Unix philosophy: do one thing well (create file) rather than
+      validate after creation. Older implementations (feature 216) included validation
+      for pedagogical reasons, but recent pattern shows validation is not necessary.
+
+  - title: "Git Workflow Implementation"
+    chosen: "subprocess.run() with check=True for git commands (add, commit, push)"
+    rejected:
+      - "GitPython library — adds external dependency, overkill for three simple git commands, larger surface area"
+      - "os.system() or subprocess.call() without check=True — fails silently on errors, doesn't raise exceptions"
+      - "Shell script wrapper — less portable (Windows compatibility issues), requires shell to be available"
+    rationale: >
+      subprocess.run() with check=True is established pattern across all precedent
+      implementations. It provides safe, portable command execution that raises
+      CalledProcessError on non-zero exit codes. No external dependencies required.
+      The three git operations (add, commit, push) are simple enough that GitPython
+      library would add unnecessary complexity and dependency burden. subprocess
+      module is standard library and sufficient.
+
+  - title: "Content Generation Approach"
+    chosen: "Hard-coded, meaningful prose content (2-3 sentences on arbitrary topic)"
+    rejected:
+      - "Randomly generated text or Lorem ipsum — produces gibberish, violates NFR-2 (grammatically correct and coherent prose)"
+      - "AI-based content generation (GPT API call) — adds external API dependency, complexity, and cost; overkill for test file"
+      - "Template with placeholder substitution — unnecessary when content can be written directly"
+    rationale: >
+      Spec allows arbitrary topic ("about anything") but requires coherent,
+      grammatically correct prose (NFR-2). All 231+ precedent test files contain
+      meaningful sentences on topics like bioluminescence, programming languages,
+      creative thinking, personal development. Hard-coding coherent prose ensures
+      content quality. No computation needed; prose is static. Avoids external
+      dependencies and ensures reproducible, simple implementation.
+
+  - title: "Error Handling Strategy"
+    chosen: "Basic exception handling for file I/O (FileExistsError, OSError) and git command failures (CalledProcessError)"
+    rejected:
+      - "No error handling — would fail silently or with cryptic error messages, not user-friendly"
+      - "Comprehensive try-catch with retries and exponential backoff — unnecessary complexity for simple operations, adds code without benefit"
+    rationale: >
+      Feature 223 pattern shows minimal, clear error handling: FileExistsError
+      for defensive file existence check, OSError for permission/I/O errors,
+      CalledProcessError for git command failures. This provides visibility into
+      failures without adding retry logic that would be inappropriate for these
+      operations (file creation should fail fast if file exists; git push shouldn't
+      retry silently). Clear error messages aid debugging. Keeps implementation simple.
+
+  - title: "Encoding and Line Ending Enforcement"
+    chosen: "UTF-8 encoding without BOM; Unix LF line endings via write_text(encoding='utf-8', newline='\\n')"
+    rejected:
+      - "Default system encoding with auto line endings — produces CRLF on Windows, violates NFR (spec requires LF)"
+      - "Binary mode file writing with manual encoding — more verbose, error-prone, less readable"
+      - "Platform-dependent line ending normalization — adds complexity, less predictable across environments"
+    rationale: >
+      pathlib.Path.write_text() with encoding="utf-8" ensures UTF-8 without BOM
+      (Python's UTF-8 default doesn't add BOM). The newline="\n" parameter
+      forces Unix LF line endings on all platforms, including Windows where
+      default would be CRLF. This approach is established in all precedent
+      implementations and ensures spec compliance (FR-5, FR-6) without
+      additional logic.
+
+  - title: "File Path Management"
+    chosen: "Use repository root (current working directory) via Path(FILENAME) without directory traversal"
+    rejected:
+      - "Absolute path construction with os.path.expanduser() — unnecessary, feature branch already in repo root"
+      - "Programmatic discovery of repo root via git rev-parse — adds subprocess call and complexity"
+      - "Path relative to script location — less portable, doesn't work if script is executed from different directory"
+    rationale: >
+      Feature branch is already checked out and terminal session is in
+      repository root (per environment). Creating file in current working
+      directory naturally places it at repo root as required (FR-1).
+      This is simplest approach and matches all precedent implementations.
+      No need for repo root detection logic.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-27
+  - **Size Estimate:** S (Small — 10-15 minutes)
+
+  ## Technology Decisions
+
+  ### 1. File Creation Library
+
+  **Chosen:** `pathlib.Path` with `write_text()` method
+
+  **Rejected:**
+  - `open()` with file path string — less Pythonic, requires manual close(), fewer abstractions
+  - `os.path.join()` with `open()` — lower-level, less portable
+  - External libraries (pathlib2, pathvalidate) — Python 3.11+ includes pathlib
+
+  **Rationale:**
+  Established pattern in all 231+ test file implementations. The `write_text(encoding="utf-8", newline="\n")` signature ensures:
+  - UTF-8 encoding without Byte Order Mark (Python default)
+  - Unix LF line endings on all platforms (including Windows)
+  - Automatic file closing
+  - Clear, expressive API
+
+  Example from feature 223 precedent:
+  ```python
+  content = f"# {TITLE}\n\n{PROSE}\n"
+  file_path = Path(FILENAME)
+  file_path.write_text(content, encoding="utf-8", newline="\n")
+  ```
+
+  ### 2. Validation Strategy
+
+  **Chosen:** No programmatic validation layer — rely on correct implementation
+
+  **Rejected:**
+  - Comprehensive validation (feature 216 approach with regex, size checks, sentence counting) — adds ~150 lines, unnecessary complexity
+  - Minimal file existence check — defensive but adds code for non-issue (proper design prevents duplicates)
+
+  **Rationale:**
+  Recent successful implementations (feature 223, 222, 221) omit validation entirely.
+  This approach:
+  - Keeps implementation focused (create file, commit, push)
+  - Reduces code surface area
+  - Trusts implementation by design (content structure is baked in)
+  - Follows Unix philosophy (do one thing well)
+
+  Older comprehensive approach (feature 216) included validation for pedagogical
+  value, but production pattern demonstrates validation is not load-bearing.
+  Manual verification is sufficient for small test files.
+
+  ### 3. Git Workflow Implementation
+
+  **Chosen:** `subprocess.run()` with `check=True` for three git operations
+
+  **Rejected:**
+  - GitPython library — adds external dependency, overkill for three commands
+  - `os.system()` — fails silently, doesn't raise exceptions on error
+  - Shell wrapper script — Windows compatibility issues
+
+  **Rationale:**
+  Established pattern in all precedent implementations. `subprocess.run(["git", ...], check=True)`:
+  - Raises `CalledProcessError` on non-zero exit (git command failure)
+  - No external dependencies
+  - Portable across Windows, macOS, Linux
+  - Clear error propagation
+
+  Three git operations (add, commit, push) are too simple to justify GitPython:
+  ```python
+  subprocess.run(["git", "add", FILENAME], check=True)
+  subprocess.run(["git", "commit", "-m", COMMIT_MESSAGE], check=True)
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  ```
+
+  ### 4. Content Generation
+
+  **Chosen:** Hard-coded meaningful prose content (2-3 sentences on arbitrary topic)
+
+  **Rejected:**
+  - Random text generation or Lorem ipsum — produces incoherent text, violates spec requirement for grammatical correctness
+  - AI-based generation (GPT API) — external dependency, cost, unnecessary complexity
+  - Template system with variable substitution — overcomplicated for static content
+
+  **Rationale:**
+  Spec allows topic selection ("about anything") but mandates coherent, grammatically
+  correct prose (NFR-2). All 231+ precedent files contain substantive sentences:
+  - Feature 230: bioluminescence in nature
+  - Feature 229: programming language evolution
+  - Feature 228: creative thinking and innovation
+
+  Hard-coded prose ensures:
+  - Quality and coherence guaranteed
+  - No external dependencies
+  - Deterministic, reproducible implementation
+  - Simple to understand and maintain
+
+  Example structure (from feature 223):
+  ```python
+  TITLE = "The Art of Learning"
+  PROSE = (
+      "Learning is a lifelong journey that shapes who we become... "
+      "Every experience, whether success or failure... "
+      "By remaining curious and open to new ideas..."
+  )
+  content = f"# {TITLE}\n\n{PROSE}\n"
+  ```
+
+  ### 5. Error Handling
+
+  **Chosen:** Basic exception handling for I/O and git command failures
+
+  **Rejected:**
+  - No error handling — fails silently, cryptic error messages
+  - Retry logic with exponential backoff — unnecessary for one-off operations
+
+  **Rationale:**
+  Clear error handling aids debugging without adding complexity:
+  - `FileExistsError` — defensive check (file shouldn't exist in feature branch)
+  - `OSError` — permission/disk space issues
+  - `subprocess.CalledProcessError` — git command failures (network, branch issues)
+
+  Pattern from feature 223:
+  ```python
+  try:
+      file_path.write_text(content, encoding="utf-8", newline="\n")
+  except FileExistsError:
+      raise FileExistsError(f"File {file_path} already exists")
+  except OSError as e:
+      raise OSError(f"Error creating file: {e}")
+  ```
+
+  ### 6. Encoding and Line Endings
+
+  **Chosen:** UTF-8 encoding without BOM; Unix LF line endings via pathlib parameters
+
+  **Rejected:**
+  - Default system encoding — produces CRLF on Windows (violates spec requirement for LF)
+  - Binary mode with manual encoding — verbose, error-prone
+  - Post-processing normalization — adds unnecessary step
+
+  **Rationale:**
+  The `write_text(encoding="utf-8", newline="\n")` parameters ensure:
+  - UTF-8 without Byte Order Mark (Python's UTF-8 default)
+  - Unix LF (\n) line endings on all platforms, including Windows
+
+  This is the only reliable way to guarantee LF on Windows (default file mode
+  would use CRLF). Implemented consistently across all 231+ test files.
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | `pathlib.Path` | File path operations and text file creation | **Use** | Standard library, established pattern, cleaner API than os.path, supports encoding/newline parameters for spec compliance |
+  | `subprocess` | Execute git commands (add, commit, push) | **Use** | Standard library, safe command execution with error checking, no external dependencies |
+  | `sys` | Exit status and stderr output | **Use** | Standard library, minimal usage for error reporting and program exit codes |
+  | `GitPython` | Git operations abstraction | **Reject** | External dependency not needed, three simple git commands don't justify library overhead, adds maintenance burden |
+  | `pathlib2` | Backport of pathlib | **Reject** | Python 3.11+ includes pathlib natively, no compatibility concerns |
+  | `sh` or `invoke` | Shell command execution | **Reject** | More complex than subprocess, less control, not standard library |
+
+  ## Security Considerations
+
+  **Low risk** — feature creates only a markdown file with static prose content
+
+  - **No user input:** Content is hard-coded, no injection vectors (no CLI args, stdin, env vars)
+  - **File permissions:** Created file inherits directory permissions (standard umask)
+  - **Encoding safety:** UTF-8 encoding prevents binary data issues
+  - **Git operations:** Standard git commands with fixed arguments, no shell injection risk (subprocess with list args)
+  - **Path traversal:** File created at repo root via current directory, no `../` or absolute paths
+
+  No special authentication, authorization, or cryptographic handling required.
+
+  ## Performance Implications
+
+  **Negligible** — single small file creation operation
+
+  - **File I/O:** Single `write_text()` call for ~350-550 byte file (instant)
+  - **Git operations:** Three subprocess calls (add, commit, push) are standard git operations, no optimization needed
+  - **Memory:** Entire content in memory (~350 bytes), no streaming or buffering complexity
+  - **No external API calls:** Hard-coded content, no network latency
+  - **No database operations:** Pure file system operation
+
+  Total execution time: < 1 second expected (mostly git push network latency).
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Platform
+
+  - **No source code impact:** Feature is pure file creation, no modifications to `src/sheep/`, configs, or tests
+  - **No dependencies added:** Uses only Python 3.11+ standard library (pathlib, subprocess, sys)
+  - **Follows established pattern:** Identical implementation pattern to features 151-230
+  - **Builds on 231+ precedents:** Every design decision validated by successful previous features
+
+  ### File Organization
+
+  - **Single markdown file created:** `test-2bgaw3.md` at repository root
+  - **Git tracking:** Standard single-commit workflow on feature branch `feat/231-markdown-file-creation-22cd9a`
+  - **No structural changes:** Adds one file to existing collection of 231+ test files
+
+  ### Precedent Reference
+
+  Feature 223 (most recent) demonstrates final production pattern:
+  - Minimal, focused implementation
+  - No validation layer
+  - Clear error handling
+  - Proper encoding/line ending enforcement
+  - Standard git workflow
+
+  Feature 216 (comprehensive) shows alternative approach:
+  - Includes detailed validation function
+  - Regex-based heading verification
+  - Sentence counting logic
+  - File size verification
+
+  **Selected approach:** Feature 223 pattern (minimal). This is the proven, recent
+  precedent showing that implementation-by-design (correct structure baked in)
+  is superior to post-hoc validation.
+
+  ---
+
+  _Research phase complete — ready for implementation phase_
