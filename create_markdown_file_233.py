@@ -70,6 +70,31 @@ def create_file():
         raise
 
 
+def _run_git_command(args):
+    """
+    Execute a git command with proper error handling and output capture.
+
+    Helper function to DRY up subprocess calls for git operations.
+    Uses check=True to raise CalledProcessError on non-zero exit codes,
+    ensuring immediate detection and clear error reporting.
+
+    Args:
+        args: List of command arguments (including "git" as first element).
+
+    Returns:
+        CompletedProcess object containing stdout and stderr output.
+
+    Raises:
+        subprocess.CalledProcessError: If git command exits with non-zero status.
+    """
+    return subprocess.run(
+        args,
+        check=True,  # Auto-raise CalledProcessError on non-zero exit
+        capture_output=True,  # Capture stdout and stderr
+        text=True,  # Return output as strings instead of bytes
+    )
+
+
 def git_add():
     """
     Stage the created markdown file with git add.
@@ -80,16 +105,11 @@ def git_add():
         subprocess.CalledProcessError: If git add fails (file not found, git error, etc).
     """
     try:
-        subprocess.run(
-            ["git", "add", FILENAME],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        _run_git_command(["git", "add", FILENAME])
         print(f"✓ Staged {FILENAME} with git add")
     except subprocess.CalledProcessError as e:
         print(
-            f"Error executing git add: {e}\nstderr: {e.stderr}",
+            f"Error executing 'git add {FILENAME}': {e}\nstderr: {e.stderr}",
             file=sys.stderr,
         )
         raise
@@ -101,20 +121,18 @@ def git_commit():
 
     Executes: git commit -m "feat(233): Create markdown file test-god37p.md with prose content"
 
+    Uses conventional commits format (feat(233): ...) for semantic versioning
+    and automated changelog generation.
+
     Raises:
-        subprocess.CalledProcessError: If git commit fails.
+        subprocess.CalledProcessError: If git commit fails (no staged changes, git error, etc).
     """
     try:
-        subprocess.run(
-            ["git", "commit", "-m", COMMIT_MESSAGE],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        _run_git_command(["git", "commit", "-m", COMMIT_MESSAGE])
         print(f"✓ Committed with message: {COMMIT_MESSAGE}")
     except subprocess.CalledProcessError as e:
         print(
-            f"Error executing git commit: {e}\nstderr: {e.stderr}",
+            f"Error executing 'git commit': {e}\nstderr: {e.stderr}",
             file=sys.stderr,
         )
         raise
@@ -126,20 +144,22 @@ def git_push():
 
     Executes: git push -u origin HEAD
 
+    Flags:
+        -u (--set-upstream): Sets the upstream branch for future push/pull operations.
+           This allows 'git push' and 'git pull' to work without specifying the remote.
+        origin: The remote repository name (default for cloned repositories).
+        HEAD: Pushes the current branch regardless of its local name, ensuring the correct
+           branch is pushed even if checked out with different name.
+
     Raises:
-        subprocess.CalledProcessError: If git push fails.
+        subprocess.CalledProcessError: If git push fails (no remote, auth issues, etc).
     """
     try:
-        subprocess.run(
-            ["git", "push", "-u", "origin", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        _run_git_command(["git", "push", "-u", "origin", "HEAD"])
         print("✓ Pushed commit to remote branch")
     except subprocess.CalledProcessError as e:
         print(
-            f"Error executing git push: {e}\nstderr: {e.stderr}",
+            f"Error executing 'git push -u origin HEAD': {e}\nstderr: {e.stderr}",
             file=sys.stderr,
         )
         raise
