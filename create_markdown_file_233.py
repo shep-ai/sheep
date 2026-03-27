@@ -10,6 +10,11 @@ import sys
 import subprocess
 from pathlib import Path
 
+# Handle Unicode output on Windows
+if sys.platform == "win32":
+    # Force UTF-8 encoding for output on Windows
+    sys.stdout.reconfigure(encoding="utf-8")
+
 # Module-level constants
 FILENAME = "test-god37p.md"
 TITLE = "The Resilience of Adaptation"
