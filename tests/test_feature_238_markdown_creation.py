@@ -19,11 +19,11 @@ if str(src_path) not in sys.path:
 def test_feature_238_module_imports():
     """Test that feature 238 module imports without errors."""
     from sheep.features.feature_238_markdown_file_creation import (
-        FEATURE_NUMBER,
         FEATURE_NAME,
+        FEATURE_NUMBER,
         MARKDOWN_FILENAME,
-        create_feature_238_markdown_file,
         _logger,
+        create_feature_238_markdown_file,
     )
 
     assert FEATURE_NUMBER == 238
@@ -35,10 +35,11 @@ def test_feature_238_module_imports():
 
 def test_feature_238_function_signature():
     """Test that create_feature_238_markdown_file has correct signature."""
+    import inspect
+
     from sheep.features.feature_238_markdown_file_creation import (
         create_feature_238_markdown_file,
     )
-    import inspect
 
     sig = inspect.signature(create_feature_238_markdown_file)
 
@@ -52,12 +53,13 @@ def test_feature_238_function_signature():
 
 def test_feature_238_return_type():
     """Test that create_feature_238_markdown_file returns a dictionary with expected keys."""
+    import os
+    import tempfile
+    from unittest import mock
+
     from sheep.features.feature_238_markdown_file_creation import (
         create_feature_238_markdown_file,
     )
-    from unittest import mock
-    import tempfile
-    import os
 
     # Sample markdown content for testing
     sample_markdown = "# Test Title\n\nThis is the first sentence. This is the second sentence. This is the third sentence.\n"
@@ -101,14 +103,15 @@ def test_feature_238_return_type():
 
 def test_feature_238_commit_message_format():
     """Test that commit message follows conventional format."""
+    import os
+    import tempfile
+    from unittest import mock
+
     from sheep.features.feature_238_markdown_file_creation import (
-        create_feature_238_markdown_file,
         FEATURE_NUMBER,
         MARKDOWN_FILENAME,
+        create_feature_238_markdown_file,
     )
-    from unittest import mock
-    import tempfile
-    import os
 
     sample_markdown = "# Test\n\nOne. Two. Three.\n"
 
