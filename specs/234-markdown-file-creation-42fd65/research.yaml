@@ -1,0 +1,418 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-42fd65"
+summary: >
+  Technical research for feature 234: Create markdown file test-y7gbjb.md with validated encoding
+  (UTF-8 no BOM), Unix line endings, and git integration. Chosen approach uses pathlib for file I/O,
+  subprocess.run() for git operations, explicit encoding validation, and simple print-based logging
+  matching established patterns from 230+ similar features.
+
+# Relationships
+relatedFeatures:
+  - "233"
+  - "232"
+  - "231"
+
+technologies:
+  - "Python 3.11+"
+  - "pathlib (file operations)"
+  - "subprocess (git command execution)"
+  - "UTF-8 codec (character encoding)"
+  - "Git (version control CLI)"
+  - "sys (exit codes and reporting)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Unicode UTF-8 encoding standard"
+    url: "https://en.wikipedia.org/wiki/UTF-8"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Method"
+    chosen: "pathlib.Path with write_text() method"
+    rejected:
+      - "Traditional open() function: More verbose, less idiomatic in modern Python (3.4+), requires manual file handle management"
+      - "write_bytes() with manual encoding: Unnecessary complexity when write_text() already handles UTF-8 correctly and explicitly"
+    rationale: >
+      pathlib.Path is specified in the feature requirements and provides a modern, Pythonic interface.
+      The write_text() method with explicit encoding='utf-8' parameter is cleaner than open() and better
+      documents the encoding intent. It's also more robust to platform differences since it handles
+      path separators and encoding automatically.
+
+  - title: "Encoding Validation Strategy"
+    chosen: "Create file with UTF-8, then validate by reading back to verify encoding and line endings"
+    rejected:
+      - "Trust write_text() implicitly: Violates FR-8 success criterion (validate encoding before committing), adds risk of silent failures"
+      - "Manual byte-level writing: Overly complex when pathlib handles UTF-8 correctly; adds debugging difficulty"
+    rationale: >
+      FR-8 explicitly requires validation before committing. Read-back verification ensures the file
+      was actually created with correct encoding on the target system. This is a lightweight operation
+      (<10ms) and provides certainty that the file meets NFR-1 and NFR-2 requirements before git operations.
+
+  - title: "Line Ending Handling"
+    chosen: "Use explicit '\\n' characters in prose content; rely on Python's universal newline handling"
+    rejected:
+      - "os.linesep: Would produce CRLF on Windows, violating NFR-2 (Unix LF requirement)"
+      - "Manual CRLF->LF conversion: Unnecessary complexity; Python's text mode already preserves \\n as LF"
+    rationale: >
+      Python's text mode in pathlib preserves \\n as Unix LF on all platforms when using newline parameter
+      (default behavior). The verify step will check actual file bytes to confirm LF, providing confidence
+      without manual conversion logic. This matches behavior from features 230+ that operate on Windows
+      but produce Unix-compliant files.
+
+  - title: "Git Command Execution"
+    chosen: "subprocess.run() with list of arguments, check=True, capture_output=True"
+    rejected:
+      - "subprocess.call(): Older API, requires separate mechanism to capture output and check exit codes"
+      - "subprocess.Popen(): Overly complex for sequential operations (add, commit, push); adds manual communication overhead"
+    rationale: >
+      subprocess.run() is the modern recommended approach (Python 3.5+, available in 3.11). Using a list
+      of arguments (not shell string) prevents command injection. check=True automatically raises
+      CalledProcessError on non-zero exit, providing clean error handling. capture_output=True allows
+      logging of git output for debugging (NFR-6). This follows established patterns from feature 233.
+
+  - title: "Error Handling Strategy"
+    chosen: "Specific exception handling for OSError, CalledProcessError, UnicodeEncodeError with descriptive error messages"
+    rejected:
+      - "Broad Exception catch-all: Hides actual error types, violates NFR-5 (clear error reporting), harder to debug"
+      - "No error handling: Violates NFR-5 requirement for catching and reporting errors clearly"
+    rationale: >
+      Specific exceptions map to actual failure modes: FileExistsError (file exists), PermissionError
+      (no write permission), CalledProcessError (git failed), UnicodeEncodeError (encoding issue). Each
+      maps to a specific remediation action. This satisfies NFR-5 and provides debug information. Clean
+      error messages help operators understand what went wrong in automated CI/CD environments.
+
+  - title: "Logging and Progress Reporting"
+    chosen: "print() statements for key steps (file creation, validation, git staging, commit, push)"
+    rejected:
+      - "Python logging module: Unnecessary complexity for a simple single-purpose script (adds config, formatters, handlers)"
+      - "Custom logger wrapper: Over-engineering per NFR-8 (minimal complexity); violates \"self-documenting with minimal complexity\""
+    rationale: >
+      NFR-6 requires logging key steps for debugging. Simple print() statements are sufficient and match
+      the established pattern from feature 233 (single-purpose scripts that run once per feature). Logging
+      module adds complexity without benefit for this use case. Stdout is captured in CI/CD logs automatically.
+
+  - title: "Idempotency and File Existence Handling"
+    chosen: "Overwrite existing file without user confirmation; log that file was overwritten"
+    rejected:
+      - "Skip creation if file exists: Doesn't satisfy FR-1 requirement (file must exist); blocks re-runs without manual cleanup"
+      - "Ask user for confirmation: Incompatible with automated CI/CD execution; would timeout or hang in pipeline"
+    rationale: >
+      This is an automated feature that will run in CI/CD pipelines (per spec integration requirements).
+      Overwriting existing files allows re-runs without manual intervention. NFR-4 suggests either skip
+      or overwrite; overwrite is appropriate for automation. The log message provides audit trail.
+      This matches behavior from features 230+.
+
+  - title: "Content Generation and Topic Selection"
+    chosen: "Hardcoded predetermined prose content with a professional topic (e.g., 'Automated File Creation')"
+    rejected:
+      - "Template-based content with substitution variables: Unnecessary complexity; product decision already set topic to predetermined"
+      - "Random or pseudo-random content generation: Violates deterministic requirement; harder to test and validate"
+    rationale: >
+      Product decision question 4 already resolved to \"Predetermined by implementation\". Hardcoding
+      content simplifies the implementation (matches NFR-8 minimal complexity), guarantees consistent
+      output, and satisfies success criteria for content validation. A professional topic maintains
+      consistency with 230+ existing markdown files in the repository.
+
+  - title: "Sentence Count Validation"
+    chosen: "Count sentences via simple split on '.!?' and validate minimum 2 sentences; log actual count"
+    rejected:
+      - "Strict 2-3 sentence validation: Product decision already chose flexible (minimum 2); would add brittle validation logic"
+      - "Skip validation entirely: Violates FR-3 requirement for prose content validation"
+    rationale: >
+      Product decision question 2 resolved to \"flexible minimum of 2 sentences\". A simple regex or
+      split-based count of sentence-ending punctuation validates substance without over-constraining.
+      The log shows actual count for debugging. This avoids the ambiguity problem (complex sentences,
+      abbreviations with periods) mentioned in the product decision rationale.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-27
+  - **Status:** Ready for implementation
+
+  ## Technology Decisions Summary
+
+  ### 1. File I/O Method: pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path.write_text(encoding='utf-8')`
+
+  **Rejected:**
+  - `open()` function — more verbose, less idiomatic for modern Python
+  - Manual `write_bytes()` — unnecessary complexity when `write_text()` handles UTF-8 correctly
+
+  **Rationale:**
+  pathlib is specified in feature requirements and provides a modern, Pythonic interface.
+  The `write_text()` method with explicit `encoding='utf-8'` is cleaner than `open()` and documents
+  encoding intent clearly. It's robust to platform differences (path separators, encoding defaults).
+
+  ### 2. Encoding and Line Ending Validation
+
+  **Chosen:** Create file with UTF-8, then validate by reading back
+
+  **Rejected:**
+  - Trust `write_text()` implicitly — violates FR-8 (validate before committing)
+  - Manual byte-level control — overly complex, hard to debug
+
+  **Rationale:**
+  FR-8 explicitly requires encoding validation before committing. Read-back verification ensures
+  the file was created correctly on the target system. It's lightweight (<10ms) and provides
+  certainty that NFR-1 (UTF-8 no BOM) and NFR-2 (Unix LF) are satisfied before git operations.
+
+  **Implementation approach:**
+  1. Create file with `Path.write_text(encoding='utf-8')`
+  2. Read file back as bytes: `Path.read_bytes()`
+  3. Check for UTF-8 BOM signature: `b'\xef\xbb\xbf'` — should not be present
+  4. Check line endings: all `\r\n` sequences should be just `\n`
+  5. Report validation results in log
+
+  ### 3. Line Ending Handling
+
+  **Chosen:** Explicit `\n` in content; rely on Python's universal newline handling
+
+  **Rejected:**
+  - `os.linesep` — produces CRLF on Windows, violates NFR-2
+  - Manual CRLF conversion — unnecessary; Python already handles this correctly
+
+  **Rationale:**
+  Python's text mode preserves `\n` as Unix LF on all platforms. The read-back verification
+  confirms actual file bytes match expectation. This matches the pattern from 230+ existing
+  features that run on Windows but produce Unix-compliant files.
+
+  ### 4. Git Command Execution
+
+  **Chosen:** `subprocess.run()` with list arguments, `check=True`, `capture_output=True`
+
+  **Rejected:**
+  - `subprocess.call()` — older API, no built-in output capture
+  - `subprocess.Popen()` — overly complex for sequential operations
+
+  **Rationale:**
+  `subprocess.run()` is the modern recommended approach (Python 3.5+, available in 3.11).
+  - List arguments prevent shell injection (safer than shell strings)
+  - `check=True` raises `CalledProcessError` on non-zero exit (automatic error handling)
+  - `capture_output=True` allows logging git output for debugging (NFR-6)
+  - Sequential operations (add → commit → push) are simple to implement and understand
+
+  **Git commands to execute:**
+  1. `git add test-y7gbjb.md`
+  2. `git commit -m "feat(234): Create markdown file test-y7gbjb.md with prose content"`
+  3. `git push`
+
+  ### 5. Error Handling
+
+  **Chosen:** Specific exception handling for FileExistsError, PermissionError, CalledProcessError, UnicodeEncodeError
+
+  **Rejected:**
+  - Broad `Exception` catch-all — hides actual error types, harder to debug
+  - No error handling — violates NFR-5 (clear error reporting requirement)
+
+  **Rationale:**
+  Specific exceptions map to actual failure modes and inform appropriate responses:
+  - `FileNotFoundError` → repo directory issue
+  - `PermissionError` → write permission issue
+  - `CalledProcessError` → git command failed (includes exit code)
+  - `UnicodeEncodeError` → encoding validation failed
+  - `OSError` → general I/O failure
+
+  Each maps to a specific remediation action. This satisfies NFR-5 and provides debug information
+  useful in CI/CD environments.
+
+  ### 6. Logging and Progress Reporting
+
+  **Chosen:** `print()` statements for key steps
+
+  **Rejected:**
+  - Python `logging` module — unnecessary complexity for single-purpose script
+  - Custom logger wrapper — over-engineering per NFR-8 (minimal complexity)
+
+  **Rationale:**
+  NFR-6 requires logging key steps for debugging. Simple `print()` is sufficient for this use case.
+  The logging module adds configuration, formatters, handlers — complexity without benefit for a
+  script that runs once per feature. Stdout is captured in CI/CD logs automatically.
+
+  **Key steps to log:**
+  1. File creation: `print(f"Creating {filename}")`
+  2. Validation results: `print(f"Validated: UTF-8 encoding, {count} sentences")`
+  3. Git operations: `print(f"Staging {filename}")`, `print("Committing...")`, `print("Pushing...")`
+  4. Success/failure: `print("✓ Feature 234 completed successfully")` or error details
+
+  ### 7. Idempotency and File Existence
+
+  **Chosen:** Overwrite existing file without confirmation; log that it was overwritten
+
+  **Rejected:**
+  - Skip if exists — doesn't satisfy FR-1 (file must exist)
+  - Ask for confirmation — incompatible with automated CI/CD
+
+  **Rationale:**
+  This is an automated feature for CI/CD pipelines. Overwriting allows re-runs without manual
+  intervention. NFR-4 suggests either skip or overwrite; overwrite is appropriate for automation.
+  The log provides audit trail. This matches behavior from 230+ existing features.
+
+  ### 8. Content Generation
+
+  **Chosen:** Hardcoded predetermined prose with professional topic
+
+  **Rejected:**
+  - Template-based substitution — unnecessary per product decision (topic predetermined)
+  - Random content — violates deterministic requirement
+
+  **Rationale:**
+  Product decision question 4 already resolved to "Predetermined by implementation".
+  Hardcoding simplifies implementation (matches NFR-8), guarantees consistent output,
+  and maintains consistency with 230+ existing markdown files.
+
+  **Content structure:**
+  ```markdown
+  # Automated File Creation with Python
+
+  This document demonstrates the capabilities of automated markdown file generation using
+  Python. The process validates encoding standards and integrates with version control systems.
+
+  File creation automation improves efficiency and consistency across large-scale projects.
+  ```
+
+  ### 9. Sentence Count Validation
+
+  **Chosen:** Count sentences via regex split on `[.!?]` and validate minimum 2
+
+  **Rejected:**
+  - Strict 2-3 validation — product decision chose flexible minimum
+  - Skip validation — violates FR-3 (prose content requirement)
+
+  **Rationale:**
+  Product decision question 2 chose "flexible minimum 2 sentences". A simple regex counts
+  sentence-ending punctuation and validates substance without over-constraining. Avoids
+  the ambiguity problem (complex sentences, abbreviations) mentioned in product decision.
+
+  **Validation logic:**
+  ```python
+  import re
+  sentences = re.split(r'[.!?]+', prose.strip())
+  sentence_count = len([s for s in sentences if s.strip()])
+  assert sentence_count >= 2, f"Need at least 2 sentences, found {sentence_count}"
+  ```
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  |---------|---------|----------|-----------|
+  | pathlib | File creation and reading | **Use** | Required by spec, modern Pythonic interface, handles encoding explicitly |
+  | subprocess | Execute git commands | **Use** | Standard library, subprocess.run() is modern and safe (list arguments prevent injection) |
+  | utf-8 codec | Character encoding | **Use** | Built into Python, pathlib uses it by default, handles UTF-8 perfectly |
+  | sys | Exit codes and args | **Use** | Standard library, useful for returning proper exit codes (0 success, 1 failure) |
+  | re | Regex for sentence count | **Use** | Standard library, lightweight sentence splitting via regex `[.!?]` pattern |
+  | git | Version control | **Use** | External tool, required for FR-5/FR-6/FR-7, already available in CI/CD environment |
+  | os | Path operations | **Reject** | pathlib is more modern; no need to mix Path APIs |
+  | logging | Structured logging | **Reject** | Overkill for single-purpose script, simple print() sufficient per NFR-8 |
+  | io | In-memory files | **Reject** | Not needed; real file I/O is required for FR-1 |
+
+  ## Security Considerations
+
+  1. **UTF-8 BOM Prevention:** UTF-8 BOM (byte order mark) can cause issues in some systems.
+     - Validation checks for absence of BOM bytes (`\xef\xbb\xbf`)
+     - pathlib with UTF-8 encoding does not add BOM by default
+     - Mitigation: Read-back validation confirms no BOM present
+
+  2. **Command Injection:** Git operations use subprocess with list arguments (not shell string)
+     - `subprocess.run(['git', 'add', 'test-y7gbjb.md'])` — safe
+     - Not `subprocess.run('git add test-y7gbjb.md', shell=True)` — unsafe
+     - Mitigation: Always use list form, never shell=True
+
+  3. **Path Traversal:** File creation at repository root (fixed filename)
+     - No user input in filename
+     - No relative paths that could escape directory
+     - Mitigation: Hardcoded filename prevents directory traversal
+
+  4. **CRLF Injection:** Windows line endings can introduce subtle bugs
+     - NFR-2 requires Unix LF only
+     - Some systems (git, CI/CD) expect LF
+     - Mitigation: Validation checks actual file bytes for LF, not CRLF
+
+  5. **Encoding Attacks:** Malformed UTF-8 sequences can cause issues
+     - pathlib with explicit UTF-8 encoding prevents invalid sequences
+     - Validation ensures file is valid UTF-8
+     - Mitigation: Read-back validation with decode attempt
+
+  ## Performance Implications
+
+  - **File I/O:** Create and read file ~10ms on typical systems (SSD)
+  - **Encoding validation:** Read-back verification ~1-2ms (small file, ~300 bytes)
+  - **Git add:** ~50-100ms (indexes file in git)
+  - **Git commit:** ~100-200ms (creates commit object)
+  - **Git push:** ~5-10 seconds (network I/O to remote, highly variable)
+  - **Total execution time:** ~5-15 seconds typical (dominated by network push)
+  - **Constraint compliance:** Well under NFR-7 (30-second limit)
+
+  **Optimizations considered and rejected:**
+  - Parallel git operations — not applicable (sequential dependency: add → commit → push)
+  - Caching — not applicable (single file, no repeated operations)
+  - Async I/O — not justified for this scale (file is <1KB)
+
+  ## Architecture Notes
+
+  This feature follows the established pattern from 230+ similar features (231, 232, 233, etc.):
+
+  1. **Standalone script:** No library imports or architectural dependencies
+     - Runs independently, doesn't require existing codebase changes
+     - Minimal external dependencies (git only, as CLI tool not code import)
+
+  2. **File artifact + git integration:**
+     - Creates real file (not a mock or in-memory object)
+     - Integrates with git workflow (add → commit → push)
+     - Matches the CI/CD pipeline expectations
+
+  3. **Self-contained execution:**
+     - Single Python script, ~100 lines (estimated)
+     - Error handling at each step
+     - Logging for observability
+     - Exit code 0 for success, 1 for failure
+
+  4. **Deterministic output:**
+     - Fixed filename (test-y7gbjb.md)
+     - Predetermined content
+     - Reproducible across runs
+     - Suitable for testing and verification
+
+  5. **Minimal complexity:**
+     - No abstract classes, interfaces, or design patterns
+     - Direct pathlib/subprocess calls
+     - Simple print-based logging
+     - Matches NFR-8 requirement for maintainability
+
+  ## Implementation Checklist
+
+  - [ ] Use pathlib.Path for file creation and validation
+  - [ ] Explicitly specify encoding='utf-8' in write_text()
+  - [ ] Validate file encoding (check for UTF-8 BOM absence)
+  - [ ] Validate line endings (confirm LF, not CRLF)
+  - [ ] Count sentences in prose and validate ≥2
+  - [ ] Use subprocess.run() with list arguments for git commands
+  - [ ] Implement specific exception handling (OSError, CalledProcessError, etc.)
+  - [ ] Log key steps (file creation, validation, git operations)
+  - [ ] Handle file existence (overwrite with log message)
+  - [ ] Return exit code 0 on success, 1 on failure
+  - [ ] Validate final commit was pushed (git status check)
+
+  ## Next Steps
+
+  1. **Implementation:** Write create_markdown_file_234.py script
+  2. **Testing:** Verify file properties (encoding, line endings, content)
+  3. **Git validation:** Confirm commit was created and pushed
+  4. **CI/CD integration:** Run in pipeline to validate automation
+
+  ---
+
+  _Research completed 2026-03-27. Ready for implementation phase._
