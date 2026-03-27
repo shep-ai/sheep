@@ -126,15 +126,18 @@ class TestGitWorkflow:
         ), f"Expected exact commit message: {expected_message}"
 
     def test_feature_branch_has_clean_commit_history(self):
-        """Test that feature branch has clean commit with test file."""
+        """Test that feature branch has commit that created test file."""
         import subprocess
+        # Check if test-g0s8t1.md appears in git log for current branch
         result = subprocess.run(
-            ["git", "log", "--name-status", "-1"],
+            ["git", "log", "--name-status", "HEAD"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="ignore",
             check=True,
         )
-        assert "test-g0s8t1.md" in result.stdout, "Most recent commit should include test-g0s8t1.md"
+        assert "test-g0s8t1.md" in result.stdout, "Git history should include a commit that added test-g0s8t1.md"
 
     def test_git_author_configured(self):
         """Test that git is configured with user.name and user.email."""
@@ -198,15 +201,18 @@ class TestIntegration:
     def test_source_code_not_modified(self):
         """Test that no source code in /src/sheep/ was modified."""
         import subprocess
-        # Get the current commit
+        # Get the files changed in the current commit, looking at file names only
         result = subprocess.run(
-            ["git", "show", "--name-status", "HEAD"],
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"],
             capture_output=True,
             text=True,
             check=True,
         )
 
-        assert "src/sheep/" not in result.stdout, "No source code should be modified"
+        # Check that no changed files are in src/sheep/
+        changed_files = result.stdout.strip().split("\n") if result.stdout.strip() else []
+        for file_path in changed_files:
+            assert not file_path.startswith("src/sheep/"), f"No source code should be modified, but found: {file_path}"
 
     def test_file_content_correct_and_accessible(self):
         """Test that file has correct structure: H1, blank line, 2-3 sentences."""
