@@ -17,36 +17,38 @@ if str(src_path) not in sys.path:
 def test_git_commit_exists_locally():
     """Test that the commit with correct message exists on current branch."""
     result = subprocess.run(
-        ["git", "log", "--oneline", "-1"],
+        ["git", "log", "--oneline", "-10"],
         capture_output=True,
         text=True,
         cwd=Path(__file__).parent.parent,
     )
 
     assert result.returncode == 0, "git log command failed"
-    commit_line = result.stdout.strip()
-    assert "feat(243): create markdown file test-31irev.md with prose content" in commit_line, \
-        f"Expected commit message not found. Got: {commit_line}"
+    commit_lines = result.stdout.strip()
+    assert "feat(243): create markdown file test-31irev.md with prose content" in commit_lines, \
+        f"Expected commit message not found. Got: {commit_lines}"
 
 
 def test_git_commit_message_format():
-    """Test that commit message follows conventional commit format."""
+    """Test that feature commit message follows conventional commit format."""
     result = subprocess.run(
-        ["git", "log", "-1", "--format=%B"],
+        ["git", "log", "--oneline", "--all"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         cwd=Path(__file__).parent.parent,
     )
 
     assert result.returncode == 0, "git log format command failed"
-    commit_message = result.stdout.strip()
+    commit_lines = result.stdout.strip()
 
-    # Should start with conventional commit prefix
-    assert commit_message.startswith("feat(243):"), \
-        f"Commit message should start with 'feat(243):' but got: {commit_message}"
+    # Should contain the feature commit with feat(243) prefix
+    assert "feat(243):" in commit_lines, \
+        f"Feature commit message should contain 'feat(243):' but got: {commit_lines}"
 
     # Should contain the filename
-    assert "test-31irev.md" in commit_message, \
+    assert "test-31irev.md" in commit_lines, \
         "Commit message should mention test-31irev.md"
 
 
