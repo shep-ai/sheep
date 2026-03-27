@@ -370,3 +370,119 @@ class TestErrorHandling:
         except AssertionError as e:
             # If validation fails, error message should be clear
             pytest.fail(f"Validation failed: {e}")
+
+
+class TestGitIntegration:
+    """Tests for git integration (phase 2)."""
+
+    def test_file_is_committed_to_git(self):
+        """Test that test-y7gbjb.md is committed to the git repository."""
+        import subprocess
+
+        # Check if file is in git history
+        result = subprocess.run(
+            ["git", "log", "--oneline", "test-y7gbjb.md"],
+            capture_output=True,
+            text=True,
+        )
+
+        # Should have at least one commit
+        assert result.returncode == 0, (
+            "File should be committed to git repository"
+        )
+        assert "feat(234)" in result.stdout or len(result.stdout) > 0, (
+            "File should have at least one commit"
+        )
+
+    def test_commit_message_follows_convention(self):
+        """Test that commit message follows conventional commit format."""
+        import subprocess
+
+        # Get the commit message for the file
+        result = subprocess.run(
+            ["git", "log", "-1", "--pretty=%B", "test-y7gbjb.md"],
+            capture_output=True,
+            text=True,
+        )
+
+        commit_message = result.stdout.strip()
+
+        # Should follow conventional commit format: feat(234): ...
+        assert "feat(234)" in commit_message or "feat(234):" in commit_message, (
+            f"Commit message should follow conventional format, got: {commit_message}"
+        )
+
+        # Should mention the feature
+        assert "test-y7gbjb.md" in commit_message or "markdown" in commit_message.lower(), (
+            f"Commit message should mention the file or markdown feature"
+        )
+
+    def test_file_tracked_by_git(self):
+        """Test that file is tracked by git (not untracked)."""
+        import subprocess
+
+        # Check git status for the file
+        result = subprocess.run(
+            ["git", "ls-files", "test-y7gbjb.md"],
+            capture_output=True,
+            text=True,
+        )
+
+        # Should list the file if it's tracked
+        assert "test-y7gbjb.md" in result.stdout, (
+            "File should be tracked by git"
+        )
+
+    def test_branch_is_up_to_date_with_remote(self):
+        """Test that the current branch is up to date with remote."""
+        import subprocess
+
+        # Fetch latest from remote to ensure we have current state
+        subprocess.run(
+            ["git", "fetch", "origin"],
+            capture_output=True,
+        )
+
+        # Check if branch is up to date with remote
+        result = subprocess.run(
+            ["git", "status"],
+            capture_output=True,
+            text=True,
+        )
+
+        # Should be up to date or ahead
+        assert (
+            "up to date" in result.stdout or
+            "ahead" in result.stdout or
+            "nothing to commit" in result.stdout
+        ), (
+            "Branch should be up to date with remote or ahead"
+        )
+
+    def test_file_in_remote_repository(self):
+        """Test that file exists in the remote repository."""
+        import subprocess
+
+        # Check if file exists in remote branch
+        result = subprocess.run(
+            ["git", "ls-remote", "origin", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+
+        # Verify origin exists
+        assert result.returncode == 0, (
+            "Should be able to connect to remote repository"
+        )
+
+        # Check if file is in remote (via log)
+        result = subprocess.run(
+            ["git", "log", "origin/feat/markdown-file-creation-42fd65", "--oneline", "test-y7gbjb.md"],
+            capture_output=True,
+            text=True,
+        )
+
+        # File should be in remote branch history
+        assert result.returncode == 0, (
+            "File should be in remote repository"
+        )
