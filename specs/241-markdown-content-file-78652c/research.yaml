@@ -1,0 +1,434 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-content-file-78652c
+summary: >
+  Technical analysis for feature 241: markdown file creation following established patterns from 170+ precedent
+  implementations. Implementation uses Python pathlib for file I/O with explicit UTF-8 encoding and Unix LF line endings,
+  subprocess for git operations with command injection prevention, and Claude API for coherent prose content generation
+  with validation. All technology choices are proven in the existing create_markdown.py utility module.
+
+relatedFeatures:
+  - name: "feature-240-markdown-content-file"
+    number: 240
+    relationship: "Identical pattern — direct predecessor with same implementation approach"
+  - name: "feature-199-markdown-file-creation"
+    number: 199
+    relationship: "Established pattern — original reference implementation with full validation framework"
+
+technologies:
+  - "Python 3.11+ (pathlib standard library)"
+  - "pathlib.Path (file I/O with encoding control)"
+  - "subprocess (git command execution with safety)"
+  - "Claude API via sheep.config.llm (content generation)"
+  - "Git (version control: add, commit, push)"
+  - "UTF-8 encoding (character encoding)"
+  - "Unix LF line endings (line termination)"
+  - "CommonMark markdown specification"
+
+relatedLinks:
+  - title: "Sheep create_markdown.py Utility Module"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-content-file-78652c/src/create_markdown.py"
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+
+decisions:
+  - title: "File I/O Implementation Method"
+    chosen: "Use pathlib.Path.write_text() with explicit encoding='utf-8' and newline='\\n' parameters"
+    rejected:
+      - "os.open() with low-level binary mode — requires manual encoding/decoding and is more verbose; pathlib is more idiomatic modern Python"
+      - "open() builtin with context manager — lacks explicit newline parameter control for cross-platform safety; pathlib is cleaner and ensures encoding at creation time"
+      - "Writing bytes directly — requires manual UTF-8 encoding; pathlib abstracts this safely and is proven in create_markdown.py"
+    rationale: >
+      The pathlib.Path.write_text() method with explicit encoding and newline parameters is the recommended approach.
+      This choice is proven in the existing create_markdown.py utility (line 380: `target_path.write_text(content, encoding='utf-8', newline='\n')`),
+      which already implements the exact pattern needed for feature 241. The pathlib approach:
+      1. Guarantees UTF-8 encoding at file creation time (prevents encoding issues)
+      2. Explicitly sets LF line endings via newline parameter (prevents CRLF on Windows)
+      3. Is idiomatic Python 3.11+ (pathlib standard library)
+      4. Provides cross-platform file path handling via Path objects
+      5. Is type-safe and integrates well with modern Python code
+
+  - title: "Content Generation Strategy"
+    chosen: "Use Claude API via sheep.config.llm with validation and retry logic"
+    rejected:
+      - "Hardcoded/manual prose — would require specification to pre-define content; contradicts spec requirement 'about any topic' and removes implementer flexibility"
+      - "Template-based generation with simple substitution — lacks coherence and semantic quality; fails quality requirement 'coherent and meaningful prose'"
+      - "No generation (empty placeholder) — fails spec requirements for 2-3 sentences of prose content"
+    rationale: >
+      The Claude API approach via sheep.config.llm is the only option that satisfies both the spec requirements
+      (coherent prose, 2-3 sentences) and the established pattern from 170+ existing test files. Analysis of existing
+      files shows they contain high-quality, topic-relevant prose — not placeholder text. The implementation pattern
+      from create_markdown.py demonstrates this approach (lines 40-109: generate_markdown_content function).
+      Key benefits: 1) Generates unique, coherent prose for each file (prevents duplication across 170+ files)
+      2) Ensures topic relevance and semantic meaning (satisfies quality requirements)
+      3) Supports implementer topic selection via Claude's reasoning capability
+      4) Integrates with sheep framework's LLM infrastructure
+      5) Includes validation against quality requirements (100-300 char prose, 2-3 sentences)
+
+  - title: "Git Operations Implementation"
+    chosen: "Use subprocess.run() with shell=False and command list format for all git operations"
+    rejected:
+      - "GitPython library — adds external dependency; subprocess is available in standard library and proven in create_markdown.py"
+      - "Shell commands via os.system() or shell=True — introduces command injection vulnerability; subprocess with shell=False is safer"
+      - "Manual git workflow via file manipulation — would require understanding git internals; subprocess provides safety and clarity"
+    rationale: >
+      The subprocess approach with shell=False is proven in create_markdown.py (lines 607-847) and provides
+      both safety and clarity. This choice prevents command injection by passing arguments as a list rather than
+      a shell string. Implementation pattern includes: 1) Validation of git configuration (user.name, user.email) before committing
+      2) Error handling with descriptive messages for common failure modes
+      3) Retry logic with exponential backoff for network transients (push operations)
+      4) Branch verification before push to prevent pushes to non-existent branches
+      All of these patterns are production-proven in the existing codebase.
+
+  - title: "Markdown Content Validation"
+    chosen: "Implement post-creation validation of file encoding, line endings, and markdown structure"
+    rejected:
+      - "No validation — trust that pathlib and Claude API produce correct output; risky because it bypasses verification of actual file properties"
+      - "Validation at generation time only — doesn't verify final written file; file system encoding issues could still occur"
+      - "Inline validation during file creation — adds complexity; separating generation and validation is cleaner and matches existing pattern"
+    rationale: >
+      Post-creation validation (after write_text) ensures the actual file on disk meets requirements. This approach
+      is implemented in create_markdown.py (lines 388-604) with three separate validation functions:
+      1) validate_file_encoding() — checks UTF-8 encoding and LF line endings (not CRLF)
+      2) validate_file_structure() — checks H1 heading, blank line separator, 2-3 sentences, file size (250-600 bytes)
+      3) validate_markdown_file() — comprehensive validation combining both checks
+      Benefits of this separation: Catch file system issues (permissions, encoding drift, line ending conversion), verify Claude-generated content meets quality standards, fail fast with clear error messages if validation fails, log and monitor validation independently from file creation.
+
+  - title: "Error Handling and Recovery"
+    chosen: "Implement comprehensive error handling with specific error messages and retry logic for network operations"
+    rejected:
+      - "Silent failure (ignore exceptions) — prevents debugging and makes failures invisible to operators"
+      - "Generic exception handling (catch all, log generic error) — loses context and makes root cause analysis difficult"
+      - "Fail immediately on any error without retries — network operations to git remote may have transient failures"
+    rationale: >
+      The create_markdown.py module demonstrates comprehensive error handling (lines 607-847) with:
+      1) Specific exception types captured (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError, etc.)
+      2) Contextual error messages that describe what failed and why
+      3) Retry logic with exponential backoff for network operations (push_to_feature_branch, lines 784-837)
+      4) Distinction between retryable errors (network, timeout) and non-retryable errors (branch not found, auth)
+      This approach enables operators to understand failures and allows transient network issues to resolve automatically.
+
+  - title: "File Encoding and Line Ending Strategy"
+    chosen: "Use UTF-8 encoding without BOM and Unix LF line endings, enforced via pathlib.write_text(newline='\\n')"
+    rejected:
+      - "Auto-detection of system encoding — would produce CRLF on Windows, breaking cross-platform consistency"
+      - "UTF-8 with BOM — not required by spec and adds unnecessary bytes; plain UTF-8 is standard"
+      - "Manual post-processing with str.replace() — adds complexity and risk of missed conversions"
+    rationale: >
+      The pathlib.write_text(newline='\\n') approach is the Python-idiomatic way to enforce LF line endings
+      across all platforms. According to Python documentation, the newline parameter controls how newlines are
+      interpreted: newline='\\n' means only LF is used, regardless of platform. This is proven in create_markdown.py
+      (line 380) and satisfies spec requirements: UTF-8 encoding (standard for text files, supported by all tools),
+      no BOM (Byte Order Mark) — plain UTF-8 without EF BB BF prefix, LF line endings (Unix standard, required by spec).
+      This choice ensures consistent behavior across Windows, Linux, and macOS.
+
+openQuestions:
+  - question: "Should implementation use the existing create_markdown.py utility or create a standalone implementation?"
+    resolved: true
+    options:
+      - option: "Use existing create_markdown.py utility module"
+        description: "Import and use the validated, production-proven create_and_commit_markdown_file() orchestration function from src/create_markdown.py. Requires passing filename and branch parameters."
+        selected: true
+      - option: "Create standalone implementation in feature branch"
+        description: "Implement file creation, validation, and git workflow directly in the feature branch without importing external utilities. Duplication of tested code across implementations."
+        selected: false
+      - option: "Create a new shared utility module"
+        description: "Extract common patterns into a new sheep.features.markdown_utils module. Adds complexity and requires module design decisions."
+        selected: false
+    selectionRationale: >
+      The existing create_markdown.py utility is the optimal choice because it is already developed, validated,
+      and used by 170+ similar features (069-240). The create_and_commit_markdown_file() orchestration function
+      (lines 922-1128) provides the complete workflow needed: content generation → file creation → validation →
+      staging → committing → pushing. This eliminates code duplication, reduces risk, and ensures consistency
+      with established patterns. The function requires only two parameters (filename='test-zgsuo4.md',
+      branch_name='feat/241-markdown-content-file-78652c') that are provided in the spec.
+
+  - question: "How should the prose content topic be selected if using Claude API?"
+    resolved: true
+    options:
+      - option: "Let Claude choose topic freely via the generation prompt"
+        description: "The existing MARKDOWN_GENERATION_PROMPT (line 22-33 in create_markdown.py) allows Claude to choose 'a topic of your choice'. Implements implementer flexibility requirement from spec."
+        selected: true
+      - option: "Specify a fixed topic upfront (e.g., 'nature', 'technology', 'science')"
+        description: "Would require extending the spec with topic assignment; contradicts spec wording 'about any topic'. Reduces implementer choice."
+        selected: false
+      - option: "Randomly select from a predefined list of topics"
+        description: "Adds configuration complexity; less flexible than Claude's selection; doesn't match existing implementation pattern."
+        selected: false
+    selectionRationale: >
+      Claude's free topic selection is the correct choice because it aligns with the spec requirement 'about any topic'
+      and matches the existing create_markdown.py implementation (MARKDOWN_GENERATION_PROMPT, line 23: 'Create an H1 heading
+      (format: # Title) on a new topic of your choice'). Analysis of 170+ existing test files shows diverse topics
+      (Resilience, Persistence, Automated File Creation, etc.), confirming this approach produces variety and quality.
+      This choice maintains consistency with 69-240 implementations and respects implementer autonomy in topic selection.
+
+  - question: "Should the feature validate generated content before or after file creation?"
+    resolved: true
+    options:
+      - option: "Validate content during generation (before file creation)"
+        description: "Check prose quality, sentence count, length constraints while generating with Claude. Prevents invalid files from being created. Matches create_markdown.py validate_content() (line 112)."
+        selected: true
+      - option: "Validate only after file is written to disk"
+        description: "Create file first, then validate encoding and structure post-creation. Catches file system issues but not content issues."
+        selected: false
+      - option: "No validation (trust Claude API and pathlib)"
+        description: "Skip validation entirely; assume both content generation and file creation work correctly. Highest risk; no feedback on failures."
+        selected: false
+    selectionRationale: >
+      Both validation phases should be used: content validation during generation (to catch bad prose before file creation)
+      and post-creation validation (to catch file system issues). The create_markdown.py module implements this dual approach:
+      1) Content validation during generation (validate_content, lines 112-208) — retries with exponential backoff if validation fails
+      2) Post-creation file validation (validate_markdown_file, lines 570-604) — checks encoding, line endings, structure
+      This layered validation provides defense-in-depth: content validation prevents invalid prose from being written,
+      and file validation verifies the actual disk file meets all requirements despite any system-level encoding issues.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation Method
+
+  **Chosen:** Use `pathlib.Path.write_text()` with explicit `encoding='utf-8'` and `newline='\n'` parameters
+
+  **Rejected:**
+  - `os.open()` with low-level binary mode — requires manual encoding/decoding, more verbose, less idiomatic than pathlib
+  - `open()` builtin — lacks explicit newline parameter for cross-platform safety, pathlib is cleaner
+  - Writing bytes directly — requires manual UTF-8 encoding, pathlib abstracts this safely
+
+  **Rationale:**
+  The pathlib approach is proven in the existing `create_markdown.py` utility (line 380):
+  ```python
+  target_path.write_text(content, encoding='utf-8', newline='\n')
+  ```
+  This ensures:
+  - UTF-8 encoding guaranteed at creation time (prevents encoding errors)
+  - LF line endings on all platforms (Windows/Linux/macOS) via `newline='\n'` parameter
+  - Idiomatic Python 3.11+ code
+  - Cross-platform file path handling via Path objects
+  - Atomic file creation (single method call)
+
+  ### 2. Content Generation Strategy
+
+  **Chosen:** Use Claude API via `sheep.config.llm` with validation and retry logic
+
+  **Rejected:**
+  - Hardcoded prose — contradicts spec requirement "about any topic", reduces flexibility
+  - Template-based substitution — lacks coherence and semantic quality, fails quality requirements
+  - No generation (placeholder) — fails spec requirement for 2-3 sentences of meaningful prose
+
+  **Rationale:**
+  Analysis of 170+ existing test files shows high-quality, topic-relevant prose (not placeholders).
+  The Claude API approach via `sheep.config.llm` is already proven in `create_markdown.py` (lines 40-109).
+  This enables:
+  - Unique, coherent prose for each file (prevents duplication)
+  - Implementer topic flexibility (Claude chooses freely per spec "about any topic")
+  - Quality validation (100-300 chars, 2-3 sentences, vocabulary variety)
+  - Retry logic with exponential backoff for API failures
+  - Integration with sheep framework's LLM infrastructure
+
+  ### 3. Git Operations Implementation
+
+  **Chosen:** Use `subprocess.run()` with `shell=False` and command list format
+
+  **Rejected:**
+  - GitPython library — external dependency; subprocess is in standard library, proven in codebase
+  - Shell commands via `shell=True` — command injection vulnerability risk
+  - Manual git file manipulation — requires understanding git internals, error-prone
+
+  **Rationale:**
+  Subprocess with `shell=False` is the safest approach, proven in `create_markdown.py` (lines 607-847).
+  Passing arguments as a list prevents command injection attacks. Implementation includes:
+  - Git config validation before committing (user.name, user.email)
+  - Clear error messages for common failure modes
+  - Retry logic with exponential backoff for push operations
+  - Branch verification before push (prevent pushes to non-existent branches)
+  - Distinction between retryable (network) and non-retryable (auth) errors
+
+  ### 4. Markdown Content Validation
+
+  **Chosen:** Implement two-phase validation (during generation + post-creation)
+
+  **Rejected:**
+  - No validation — risky, no verification of actual file properties on disk
+  - Generation-time only — doesn't catch file system encoding issues
+  - Post-creation only — doesn't catch bad prose before writing
+
+  **Rationale:**
+  Dual validation (as in `create_markdown.py`) provides defense-in-depth:
+  1. **Content validation (lines 112-208):** Validates prose during generation, retries on failure
+     - Sentence count: exactly 2-3 sentences
+     - Prose length: 100-300 characters
+     - Vocabulary variety: minimum 10 unique words
+     - Markdown structure: H1 heading, blank line separator
+  2. **File validation (lines 388-604):** Validates actual written file
+     - Encoding: valid UTF-8 without BOM
+     - Line endings: LF (not CRLF)
+     - Structure: H1 heading, blank line separator, 2-3 sentences
+     - File size: 250-600 bytes (natural result of proper structure)
+
+  Both phases must pass; if either fails, operations halt with clear error messages.
+
+  ### 5. Error Handling and Recovery
+
+  **Chosen:** Comprehensive error handling with specific exception types and retry logic for network operations
+
+  **Rejected:**
+  - Silent failure (ignore exceptions) — prevents debugging, failures invisible to operators
+  - Generic error handling — loses context, difficult root cause analysis
+  - Fail immediately without retries — network operations have transient failures
+
+  **Rationale:**
+  The `create_markdown.py` module demonstrates robust error handling:
+  - Specific exception types (subprocess.CalledProcessError, TimeoutExpired, OSError)
+  - Contextual error messages describing what failed and why
+  - Retry logic with exponential backoff for network operations
+  - Distinction between retryable and non-retryable errors
+  - Timeout enforcement on network operations (30 seconds for push)
+  This enables operators to understand failures and allows transient issues to resolve automatically.
+
+  ### 6. File Encoding and Line Ending Strategy
+
+  **Chosen:** UTF-8 encoding without BOM and Unix LF line endings via `pathlib.write_text(newline='\n')`
+
+  **Rejected:**
+  - Auto-detection of system encoding — produces CRLF on Windows, breaking cross-platform consistency
+  - UTF-8 with BOM — adds unnecessary bytes (EF BB BF), not required by spec
+  - Manual post-processing — adds complexity and risk of missed conversions
+
+  **Rationale:**
+  The `pathlib.write_text(newline='\n')` approach is Python-idiomatic and enforces LF line endings
+  on all platforms. Per Python documentation, `newline='\n'` means only LF is used, regardless of OS.
+  This satisfies spec requirements:
+  - UTF-8 encoding (standard for text files)
+  - No BOM (plain UTF-8)
+  - LF line endings (Unix standard)
+  - Cross-platform consistency
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O with explicit encoding control | **Use** | Standard library, idiomatic Python 3.11+, proven in create_markdown.py |
+  | subprocess | Execute git commands safely | **Use** | Standard library, shell=False prevents injection, proven pattern |
+  | sheep.config.llm | Claude API integration | **Use** | Framework-provided LLM interface, already in use across codebase |
+  | sheep.observability.logging | Structured logging | **Use** | Framework-provided logging, used in create_markdown.py |
+  | GitPython | Alternative git library | **Reject** | External dependency; subprocess is safer and in standard library |
+  | os module | Low-level file operations | **Reject** | More verbose than pathlib, less idiomatic for modern Python |
+  | sys module | System operations | **Reject** | Not needed; pathlib and subprocess handle all requirements |
+  | typing module | Type annotations | **Use** | Standard library, already in create_markdown.py, improves code clarity |
+
+  ## Security Considerations
+
+  ### Command Injection Prevention
+  - **Threat:** Malicious filenames or git commands executed via shell
+  - **Mitigation:** Use `subprocess.run()` with `shell=False` and pass arguments as a list (not a shell string)
+  - **Example:** `subprocess.run(['git', 'add', filename], ...)` prevents interpretation of shell metacharacters in filename
+
+  ### File Path Validation
+  - **Threat:** Directory traversal via filenames like `../../malicious.md`
+  - **Mitigation:** Use `pathlib.Path` which normalizes paths; validate filename format before use
+  - **Example:** Check that filename matches pattern `test-[a-z0-9]+\.md`
+
+  ### File Overwrite Protection
+  - **Threat:** Accidentally overwriting existing files
+  - **Mitigation:** Check `Path.exists()` before writing; raise `FileExistsError` if file exists
+  - **Code:** `if target_path.exists(): raise FileExistsError(...)`
+
+  ### UTF-8 Encoding Safety
+  - **Threat:** Encoding errors from non-UTF-8 content
+  - **Mitigation:** Validate all content is valid UTF-8 before writing; use `encoding='utf-8'` parameter
+  - **Validation:** Claude API generates valid UTF-8; pathlib validates during file creation
+
+  ### Git Configuration Validation
+  - **Threat:** Commits with missing or invalid git configuration
+  - **Mitigation:** Validate `user.name` and `user.email` before attempting commit
+  - **Code:** Query git config via subprocess, raise error if missing
+
+  ## Performance Considerations
+
+  ### File Creation Performance
+  - **Consideration:** Single file creation is minimal I/O (400-600 bytes)
+  - **Optimization:** Pathlib.write_text() is atomic and efficient
+  - **Impact:** Negligible; file creation completes in < 1ms
+
+  ### Claude API Latency
+  - **Consideration:** API call has variable latency (typically 2-5 seconds)
+  - **Optimization:** Retry logic with exponential backoff for transient failures
+  - **Impact:** Plan for 10-15 second total time including retries
+  - **Mitigation:** Retry limit of 3 with delays (1s, 2s, 4s) prevents indefinite waiting
+
+  ### Git Operations Latency
+  - **Consideration:** Network operations (push to remote) may have latency
+  - **Optimization:** 30-second timeout on push; retry network errors only
+  - **Impact:** Typical push completes in 2-5 seconds; timeout handles network issues
+  - **Mitigation:** Distinguish retryable (network) from non-retryable (auth) errors
+
+  ### Validation Performance
+  - **Consideration:** Post-creation file validation adds overhead
+  - **Optimization:** Validation functions are lightweight (file read + regex matching)
+  - **Impact:** Negligible; validation completes in < 100ms
+
+  ### Overall Workflow Performance
+  - **Expected:** Total time 10-15 seconds (content generation 5-10s + file/git operations < 5s)
+  - **Spec Requirement:** NFR-1 specifies completion in < 60 seconds
+  - **Status:** Well within specification
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Framework
+  - Implementation leverages existing `sheep.config.llm` for Claude API access
+  - Uses `sheep.observability.logging` for structured logging and observability
+  - Follows established patterns from 170+ similar features (069-240)
+  - No modifications needed to sheep core; feature is standalone utility
+
+  ### Consistency with Established Patterns
+  - **170+ existing test files** provide clear precedent for:
+    - File naming convention: `test-<random-string>.md`
+    - Structure: H1 heading, blank line, 2-3 sentences
+    - Encoding: UTF-8, LF line endings
+    - Quality: Coherent, meaningful prose relevant to topic
+  - Implementation follows exact pattern from `create_markdown.py` (Feature 199)
+  - All technology choices validated by prior implementations (Features 069-240)
+
+  ### Git Workflow Integration
+  - Feature branch `feat/241-markdown-content-file-78652c` pre-created
+  - Commits follow conventional commit format: `feat(241): Create markdown file test-zgsuo4.md with prose content`
+  - Git configuration (user.name, user.email) assumed to be already set up
+  - No modifications to CI/CD, main branch, or other repositories
+
+  ### Testing and Validation Strategy
+  - Post-creation validation ensures file meets all requirements before committing
+  - Error handling provides clear feedback if validation fails
+  - File is committed only after all validations pass
+  - Failure at any step is reported with actionable error messages
+
+  ## Implementation Approach
+
+  ### Recommended Execution Path
+  1. Import orchestration function from `src/create_markdown.py`:
+     ```python
+     from src.create_markdown import create_and_commit_markdown_file
+     ```
+  2. Call with feature-specific parameters:
+     ```python
+     result = create_and_commit_markdown_file(
+         filename="test-zgsuo4.md",
+         branch_name="feat/241-markdown-content-file-78652c"
+     )
+     ```
+  3. Check result dictionary for success/errors
+  4. Log completion with file path, commit hash, and branch name
+
+  ### Why Reuse Existing Utility
+  - **Proven:** Used by 170+ similar features without modification
+  - **Tested:** Comprehensive validation and error handling already in place
+  - **Consistent:** Ensures this feature matches established patterns exactly
+  - **Efficient:** Avoids code duplication across 241 implementations
+  - **Maintainable:** Bugs fixed in one place benefit all features using the utility
+
+  ---
+
+  _Research phase complete — technology decisions documented with clear rationale, library analysis completed, security
+  and performance implications identified, ready for implementation planning_
