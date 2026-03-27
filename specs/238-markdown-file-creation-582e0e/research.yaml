@@ -1,0 +1,393 @@
+name: markdown-file-creation-582e0e
+summary: >
+  Feature 238 implements markdown file creation following an established architectural pattern
+  proven across 90+ preceding test files (features 001-237). Uses Claude API via CrewAI for
+  content generation, Python pathlib for file I/O, and internal GitCommitTool/GitPushTool for
+  version control. All technical decisions align with proven precedents; no new architectural
+  decisions are required.
+
+relatedFeatures:
+  - number: 237
+    name: "markdown-file-creation-595faa"
+    relationship: "Immediately preceding feature — identical implementation pattern"
+  - number: 236
+    name: "markdown-file-creation-ce98b4"
+    relationship: "Identical pattern and approach"
+  - number: 001
+    name: "markdown-file-creation"
+    relationship: "First feature establishing the pattern — 90+ identical implementations follow"
+
+technologies:
+  - "Python 3.11+ (runtime — pathlib, standard library)"
+  - "Claude API (via CrewAI LLM framework for content generation)"
+  - "CrewAI (LLM framework wrapper for Anthropic/OpenAI/Google models)"
+  - "Git (version control — via internal GitCommitTool and GitPushTool)"
+  - "Markdown (CommonMark specification for file format validation)"
+  - "UTF-8 encoding (file standard — validated without BOM)"
+
+relatedLinks:
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com"
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+
+decisions:
+  - title: "Content Generation Method"
+    chosen: "Claude API via CrewAI LLM framework"
+    rejected:
+      - "Template-based content generation — rejected because dynamic LLM generation produces more varied, natural prose than static templates"
+      - "Hardcoded content or Lorem ipsum — rejected because generated content should be coherent and contextually relevant"
+      - "Other LLM providers (OpenAI, Google) — rejected because project standardizes on CrewAI/Anthropic; creating markdown file does not require specific provider"
+    rationale: >
+      CrewAI provides a unified abstraction over multiple LLM providers (Anthropic, OpenAI, Google, custom)
+      with temperature control and model selection. The reasoning model (temperature 0.2) ensures quality prose
+      generation. This approach is proven across 90+ preceding features. Anthropic's Claude API (via CrewAI)
+      is the standardized default in `get_reasoning_llm()` from `src/sheep/config/llm.py`.
+
+  - title: "File I/O Implementation"
+    chosen: "Python pathlib.Path (standard library)"
+    rejected:
+      - "os.path module — rejected because pathlib provides cleaner object-oriented API and safer path handling"
+      - "Direct string concatenation — rejected because pathlib prevents path traversal vulnerabilities"
+      - "External file I/O libraries — rejected because pathlib is sufficient and already in standard library"
+    rationale: >
+      pathlib.Path provides object-oriented, cross-platform path handling with clear semantics. Used consistently
+      throughout `content_generators.py` and all preceding feature implementations. Prevents path traversal attacks
+      by validating filename (no "/" or "\\"). Repository root is determined via `Path.cwd()` which respects
+      git working directory context.
+
+  - title: "Encoding and Line Endings"
+    chosen: "UTF-8 without BOM, Unix LF line endings"
+    rejected:
+      - "UTF-8 with BOM — rejected because BOM is unnecessary for UTF-8 and adds unwanted bytes"
+      - "Other encodings (Latin-1, ASCII) — rejected because UTF-8 is standard for modern text files and markdown"
+      - "CRLF or CR line endings — rejected because codebase standardizes on Unix LF; CRLF causes cross-platform issues"
+    rationale: >
+      UTF-8 without BOM is the CommonMark standard and Unix convention. Python's `open(file, 'w', encoding='utf-8')`
+      automatically uses platform-specific line endings; on Unix systems this is LF. Validation function checks for
+      and rejects CRLF (b'\r\n') and UTF-8 BOM (b'\xef\xbb\xbf'). All 90+ preceding features use this standard.
+      Git repositories normalize to LF on Unix systems.
+
+  - title: "Git Integration Approach"
+    chosen: "Internal GitCommitTool and GitPushTool from sheep.tools"
+    rejected:
+      - "Direct subprocess.run('git') calls — rejected because internal tools provide abstraction, error handling, and logging"
+      - "GitPython library — rejected because project standardizes on custom internal tools with CrewAI integration"
+      - "Shell scripts — rejected because Python tools provide better observability and type safety"
+    rationale: >
+      The `GitCommitTool` and `GitPushTool` from `src/sheep/tools` are project-standard tools exported from
+      `src/sheep/tools/__init__.py`. These tools provide structured integration with CrewAI framework, handle
+      configuration (user identity, remote names), and include observability via structured logging.
+      Pattern established across all 237 preceding features. `GitCommitTool._run(add_all=True)` stages all
+      changes and commits with custom message. `GitPushTool._run(set_upstream=True)` handles upstream tracking.
+
+  - title: "Markdown Content Validation"
+    chosen: "Comprehensive validation via validate_markdown_file() function"
+    rejected:
+      - "No validation — rejected because validation ensures content meets specification requirements"
+      - "Minimal validation (only check H1 heading exists) — rejected because incomplete validation allows invalid output"
+      - "External markdown parser library (markdown, commonmark) — rejected because validation requirements are simple and built-in validation is sufficient"
+    rationale: >
+      `validate_markdown_file()` from `content_generators.py` validates: (1) File exists and is readable,
+      (2) UTF-8 encoding without BOM via binary read, (3) No CRLF line endings, (4) H1 heading at start,
+      (5) Blank line separator after heading, (6) 2-3 sentences in prose content (by counting periods),
+      (7) Trailing newline. This approach is lightweight, deterministic, and proven across all preceding features.
+      Avoids external dependencies for simple validation.
+
+  - title: "Logging and Observability"
+    chosen: "Structured logging via get_logger(__name__) from sheep.observability.logging"
+    rejected:
+      - "print() statements — rejected because unstructured output cannot be filtered, aggregated, or parsed"
+      - "No logging — rejected because feature requires observability for debugging and monitoring"
+      - "Third-party logging libraries (loguru, structlog) — rejected because project standardizes on sheep.observability.logging"
+    rationale: >
+      All file I/O, validation, and git operations are logged at appropriate levels (info for major steps,
+      debug for implementation details, error for failures). This enables observability, debugging, and monitoring.
+      Established pattern in `feature_227_markdown_file_creation.py` and throughout codebase.
+      `get_logger(__name__)` provides module-scoped logger from project's logging infrastructure.
+
+  - title: "Feature Module Pattern"
+    chosen: "Create feature_238_markdown_file_creation.py matching feature_227_markdown_file_creation.py pattern"
+    rejected:
+      - "Generic handler module — rejected because feature-specific modules enable independent testing and versioning"
+      - "Standalone script (no module) — rejected because module structure enables import, testing, and integration"
+      - "Merged into content_generators.py — rejected because feature-specific module maintains separation of concerns"
+    rationale: >
+      Feature 227 shows the exact pattern: feature-specific module with `FEATURE_NUMBER`, `MARKDOWN_FILENAME`,
+      and `create_feature_238_markdown_file()` function. This pattern enables individual testing, clear feature
+      attribution, and follows 90+ established precedents. Module orchestrates the workflow: generate content,
+      write file, validate, commit with custom message, push. Simple, proven, maintainable.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-27
+  - **Decision Status:** Complete — all technical decisions align with proven 90+ feature precedents
+
+  ## Technology Decisions Summary
+
+  Feature 238 implements markdown file creation as the 238th iteration of an established, proven pattern.
+  All technical decisions align with features 001-237; no new architectural decisions are required.
+
+  ### 1. Content Generation Method
+
+  **Chosen:** Claude API via CrewAI LLM framework
+
+  **Why:** CrewAI provides a unified abstraction over multiple LLM providers with built-in temperature control
+  and model selection. The `get_reasoning_llm()` factory from `src/sheep/config/llm.py` returns a CrewAI LLM
+  instance configured with Anthropic's Claude API (default reasoning model at temperature 0.2 for quality prose).
+  This is the project's standard approach, proven across 90+ preceding features.
+
+  **Implementation Detail:** `generate_markdown_content()` calls the LLM with a structured prompt requesting
+  H1 heading + 2-3 sentences. The prompt specifies exact format (markdown syntax, example output) to guide generation.
+  Response is validated to ensure it meets content requirements (H1 heading, 2-3 sentences, reasonable length).
+
+  **Alternatives Rejected:**
+  - Template-based generation — would produce repetitive content lacking variety
+  - Hardcoded content — not suitable for automated feature generation
+  - Other LLM providers — project standardizes on CrewAI/Anthropic
+
+  ### 2. File I/O Implementation
+
+  **Chosen:** Python `pathlib.Path` (standard library)
+
+  **Why:** pathlib provides object-oriented, cross-platform path handling with clear semantics. Used consistently
+  throughout `content_generators.py` and all 237 preceding implementations. Prevents path traversal attacks by
+  validating filename (rejects "/" or "\\" in filename). Repository root is determined via `Path.cwd()`.
+
+  **Implementation Detail:**
+  - Filename validated to prevent path traversal: `if "/" in filename or "\\" in filename`
+  - File written with `open(file_path, "w", encoding="utf-8")`
+  - File existence and non-empty status verified after write
+  - Returns full path as string for subsequent operations
+
+  **Alternatives Rejected:**
+  - `os.path` module — less clean API, more manual path handling
+  - Direct string concatenation — vulnerable to path traversal
+  - External libraries — pathlib is sufficient and built-in
+
+  ### 3. Encoding and Line Endings
+
+  **Chosen:** UTF-8 without BOM, Unix LF line endings
+
+  **Why:** UTF-8 without BOM is the CommonMark standard and Unix convention. Python's `open()` with `encoding='utf-8'`
+  automatically handles platform-specific line endings; on Unix this is LF. Validation checks for and rejects
+  CRLF (Windows) and UTF-8 BOM (unnecessary in UTF-8). All 90+ preceding features use this standard.
+
+  **Implementation Detail:**
+  - File written: `open(file_path, "w", encoding="utf-8")` — Python handles LF on Unix systems
+  - Validation checks binary content: `if b"\r\n" in binary_content` (rejects CRLF)
+  - Validation checks BOM: `if binary_content.startswith(b"\xef\xbb\xbf")` (rejects BOM)
+  - Content generation ensures trailing newline: `if not content.endswith("\n"): content = content + "\n"`
+
+  **Specification Requirements Met:**
+  - NFR-1: UTF-8 without BOM — validated via binary read
+  - NFR-2: Unix LF line endings — enforced by Python on Unix, validated against CRLF
+
+  ### 4. Git Integration
+
+  **Chosen:** Internal `GitCommitTool` and `GitPushTool` from `src/sheep/tools`
+
+  **Why:** Project-standard tools that provide abstraction over git operations, error handling, structured logging,
+  and CrewAI integration. Established pattern across all 237 preceding features. Tools handle configuration
+  (user identity, remote names) and provide observability.
+
+  **Implementation Detail:**
+  - `GitCommitTool._run(repo_path=..., message=..., add_all=True)` stages all changes and commits
+  - Custom message passed: `f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"`
+  - `GitPushTool._run(repo_path=..., remote="origin", set_upstream=True)` pushes with upstream tracking
+  - Both tools provide logging of operations and results
+
+  **Alternatives Rejected:**
+  - Direct `subprocess.run('git')` calls — no abstraction, less observability
+  - GitPython library — project standardizes on internal tools
+  - Shell scripts — less type-safe, harder to integrate with Python
+
+  ### 5. Content Validation
+
+  **Chosen:** Comprehensive validation via `validate_markdown_file()` function
+
+  **Why:** Ensures generated content meets all specification requirements. Validation checks are deterministic,
+  lightweight (no external dependencies), and proven across all 237 preceding features. Built-in validation
+  sufficient for markdown syntax and encoding checks.
+
+  **Validation Checks Performed:**
+  - File exists and is readable
+  - UTF-8 encoding without BOM (binary read check)
+  - No CRLF line endings (binary read check)
+  - H1 heading at start (`# ` prefix required)
+  - Blank line separator after heading
+  - 2-3 sentences in prose content (counts periods: 2 or 3 periods = 2 or 3 sentences)
+  - Trailing newline present
+  - Overall file length reasonable (>50 bytes min, typically 300-700 bytes)
+
+  **Alternatives Rejected:**
+  - No validation — would allow invalid output
+  - Minimal validation — incomplete validation allows invalid files
+  - External markdown parser — unnecessary complexity for simple checks
+
+  ### 6. Logging and Observability
+
+  **Chosen:** Structured logging via `get_logger(__name__)` from `src/sheep/observability.logging`
+
+  **Why:** Enables observability, debugging, and monitoring of all operations. Structured logging allows
+  filtering, aggregation, and parsing by log aggregation systems. Established pattern in all feature implementations.
+
+  **Logging Points:**
+  - Feature start: info level
+  - Each major task (generation, write, validation, commit, push): info level
+  - Implementation details (content size, file path, commit message): debug level
+  - Errors: error level with full context
+
+  **Alternatives Rejected:**
+  - `print()` statements — unstructured, cannot be aggregated
+  - No logging — prevents debugging and monitoring
+  - External libraries — project standardizes on sheep.observability.logging
+
+  ### 7. Feature Module Architecture
+
+  **Chosen:** Feature-specific module `feature_238_markdown_file_creation.py` following feature_227 pattern
+
+  **Why:** Feature-specific modules enable independent testing, clear feature attribution, and modular design.
+  Pattern established across 90+ preceding features. Module orchestrates complete workflow with clear separation
+  of concerns.
+
+  **Module Structure:**
+  - Module docstring with feature description
+  - Imports from content_generators and logging
+  - Metadata: `FEATURE_NUMBER`, `MARKDOWN_FILENAME`
+  - Main function: `create_feature_238_markdown_file(repo_path=None)` with complete workflow
+  - Error handling: catch all exceptions, log, and re-raise
+  - Return dictionary with results: filepath, content, commit_message, push_result
+  - `if __name__ == "__main__"` for standalone execution
+
+  **Workflow Orchestrated:**
+  1. Generate markdown content via `generate_markdown_content()`
+  2. Write file via `write_markdown_file(content, "test-mcfudw.md")`
+  3. Validate via `validate_markdown_file(filepath)`
+  4. Commit via `commit_markdown_file(filepath, content, repo_path, custom_message=...)`
+  5. Push via `push_markdown_file(repo_path)`
+
+  **Alternatives Rejected:**
+  - Generic handler module — less clear feature attribution
+  - Standalone script — harder to test and integrate
+  - Merged into content_generators — poor separation of concerns
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | `pathlib.Path` (stdlib) | File I/O and path handling | Use | Standard library, sufficient for requirements, object-oriented API prevents path traversal |
+  | `CrewAI` (external) | LLM framework abstraction | Use | Project standard, supports multiple LLM providers, proven across 90+ features |
+  | `Claude API` (via Anthropic) | LLM for content generation | Use | Project's default reasoning LLM, configured via `get_reasoning_llm()` |
+  | `sheep.tools.GitCommitTool` (internal) | Git commit operations | Use | Project-standard tool, provides abstraction and observability |
+  | `sheep.tools.GitPushTool` (internal) | Git push operations | Use | Project-standard tool, handles upstream tracking |
+  | `sheep.observability.logging.get_logger()` (internal) | Structured logging | Use | Project-standard logging, enables observability |
+  | `sheep.config.llm.get_reasoning_llm()` (internal) | LLM factory | Use | Project-standard factory, provides configured Claude API instance |
+  | External markdown parsers (markdown, commonmark, mistune) | Advanced markdown validation | Reject | Unnecessary for simple validation requirements, adds dependencies |
+  | External file I/O libraries | File operations | Reject | pathlib is sufficient, adding dependencies is unjustified |
+  | GitPython | Git operations | Reject | Project standardizes on internal tools with CrewAI integration |
+
+  ## Security Considerations
+
+  ### File Path Security
+  - **Threat:** Path traversal attacks via filename parameter
+  - **Mitigation:** Filename validation rejects "/" and "\\" characters, preventing directory traversal
+  - **Implementation:** `if "/" in filename or "\\" in filename or filename.startswith(".")` check in `write_markdown_file()`
+
+  ### File Encoding Security
+  - **Threat:** Encoding attacks via non-UTF-8 or BOM injection
+  - **Mitigation:** Binary validation checks for UTF-8 BOM and validates UTF-8 decoding
+  - **Implementation:** `binary_content.decode("utf-8")` validates UTF-8; BOM check rejects leading bytes
+
+  ### Content Injection (LLM Output)
+  - **Threat:** LLM generates unexpected binary or script-like content
+  - **Mitigation:** Generated content validated to contain only markdown-appropriate text
+  - **Implementation:** Content validation ensures H1 heading, blank line, and prose sentences
+
+  ### Git Operation Security
+  - **Threat:** Unauthorized git operations
+  - **Mitigation:** Git configuration (user.name, user.email) validated by git itself; operations scoped to feature branch
+  - **Implementation:** GitCommitTool and GitPushTool respect existing git configuration
+
+  ### Logging Security
+  - **Threat:** Sensitive information in logs
+  - **Mitigation:** Logging only includes filename, line counts, message format; no sensitive API keys or credentials
+  - **Implementation:** Debug logs show content sample (first 100 chars); API keys kept in configuration
+
+  ## Performance Implications
+
+  ### LLM API Call
+  - **Impact:** Single Claude API call per feature (slight latency)
+  - **Optimization:** Uses reasoning model at temperature 0.2 (faster than higher temperature)
+  - **Context:** API call is the slowest operation (~1-3 seconds typical)
+
+  ### File I/O
+  - **Impact:** Single file write + validation read (negligible)
+  - **Optimization:** Buffered Python I/O is efficient; validation uses single binary read
+  - **Context:** File is small (300-700 bytes)
+
+  ### Git Operations
+  - **Impact:** Single commit + push (moderate latency depends on network)
+  - **Optimization:** GitCommitTool/GitPushTool are optimized for single operations
+  - **Context:** Push to origin/upstream is network-bound
+
+  ### Overall Performance
+  - **Expected Duration:** 10-15 seconds total (LLM 1-3s, file I/O <100ms, git 5-10s)
+  - **Bottleneck:** LLM API latency
+  - **Scaling:** Pattern works at scale (90+ features created sequentially or in parallel)
+
+  ## Architecture Notes
+
+  ### Pattern Integration
+
+  This feature continues an established, proven pattern across 90+ preceding markdown file creation features
+  (001-237). The implementation requires NO new architectural decisions:
+
+  - **Content Generation Pipeline:** Established in feature 001, unchanged for 237 iterations
+  - **File I/O Pattern:** Identical pathlib usage across all features
+  - **Validation Approach:** Consistent validation logic reused across all features
+  - **Git Workflow:** Standard commit/push pattern established in feature 001
+  - **Observability:** Consistent structured logging across all features
+
+  ### Design Consistency
+
+  All technical decisions align with established patterns:
+  - **CrewAI LLM Framework:** Used in content generation across all 237 features
+  - **Internal Git Tools:** GitCommitTool and GitPushTool used in all features
+  - **Feature Module Pattern:** feature_NNN_markdown_file_creation.py structure identical across all features
+  - **Validation Logic:** Same comprehensive validation function reused (in content_generators.py)
+  - **Error Handling:** Identical error handling and logging across all features
+
+  ### Maintainability
+
+  Pattern maturity (90+ implementations):
+  - Well-tested across many features
+  - Clear, proven workflow
+  - Minimal custom code required
+  - Easy to debug (established patterns make failures obvious)
+  - Easy to enhance (isolated modules, clear boundaries)
+
+  ### Dependencies
+
+  **External Dependencies:**
+  - Python 3.11+ (runtime)
+  - CrewAI framework (LLM abstraction)
+  - Anthropic Claude API credentials (via environment or .env)
+
+  **Internal Dependencies:**
+  - `src/sheep/content_generators.py` — provides all content generation and validation functions
+  - `src/sheep/tools.{GitCommitTool, GitPushTool}` — git operations
+  - `src/sheep/config.llm.{get_reasoning_llm}` — LLM factory
+  - `src/sheep/observability.logging.get_logger` — structured logging
+
+  All dependencies are stable, well-established, and proven across 237 preceding features.
+
+  ---
+
+  _Research phase complete — ready for implementation phase_
