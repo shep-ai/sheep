@@ -1,0 +1,272 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-87cda7"
+summary: >
+  Technical analysis for feature 248 markdown file creation. Decided to use Python pathlib for
+  file I/O (safe, standard-library, cross-platform), subprocess for git operations (direct CLI
+  integration), and basic structural validation (file existence, H1 heading, sentence count).
+  No external dependencies required; all operations use Python 3.11+ standard library.
+
+# Relationships
+relatedFeatures:
+  - number: 247
+    name: "markdown-file-creation"
+  - number: 246
+    name: "markdown-file-creation"
+  - number: 245
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (runtime and standard library)"
+  - "pathlib (file I/O — standard library, no external dependency)"
+  - "subprocess (git CLI integration — standard library)"
+  - "re module (regex for sentence validation — standard library)"
+  - "Markdown (file format, plain text)"
+  - "Git (version control, no library dependency)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Method"
+    chosen: "Python pathlib.Path.write_text()"
+    rejected:
+      - "Direct file handles (open/close) — Lower-level, requires explicit encoding specification and context management, more error-prone"
+      - "subprocess or os.system — Unnecessary overhead for simple file operations, platform-dependent behavior risks"
+      - "Third-party file libraries (pathlib2, py.path) — No benefit; pathlib is standard in Python 3.11+, available across all platforms"
+    rationale: >
+      pathlib.Path.write_text() is the standard, Pythonic approach for file creation in Python 3.11+.
+      It provides cross-platform compatibility (handles line ending conversion automatically),
+      UTF-8 encoding by default (meeting NFR-1 requirement), LF line endings on all platforms
+      (meeting NFR-2 requirement), and automatic file closing without explicit context management.
+      This matches the established pattern in the codebase (NFR-5) and requires zero external dependencies.
+
+  - title: "Git Integration Approach"
+    chosen: "subprocess.run() with shell=False and explicit argument lists"
+    rejected:
+      - "shell=True with command string concatenation — Security risk (command injection via filename or content), platform-dependent behavior, violates principle of least privilege"
+      - "GitPython library or similar — External dependency adds maintenance burden, larger attack surface; subprocess is standard library and sufficient for simple git operations"
+      - "Direct git plumbing (object creation) — Overly complex for this use case, unmaintainable, bypasses git's normal user-facing interface"
+    rationale: >
+      subprocess.run() with shell=False and explicit argument lists provides safe, direct integration
+      with git CLI. Using shell=False prevents command injection vulnerabilities and ensures consistent
+      behavior across Windows/Unix. Explicit argument lists (not shell command strings) make code
+      auditable and prevent filename-based injection attacks. This approach is documented in Python
+      security best practices and matches the pattern used in recent features (242-247).
+
+  - title: "Content Validation Scope"
+    chosen: "Basic structural validation (file existence, H1 presence, sentence count)"
+    rejected:
+      - "No validation — Assumes implementation is perfect; provides no error detection if file creation fails, produces no diagnostic information, violates defensive programming"
+      - "Comprehensive validation (file size, encoding, line endings, prose quality) — Over-specifies a minimal test artifact, adds 10+ minutes to implementation, exceeds size estimate"
+    rationale: >
+      Basic structural validation catches common errors (missing file, missing H1 heading, wrong
+      sentence count) without over-engineering. Aligns with the established pattern in features
+      245-247 which used minimal validation. Provides practical safety (detectable failures) within
+      the 10-15 minute size estimate. File encoding and line endings are guaranteed by pathlib
+      defaults and don't require validation.
+
+  - title: "Sentence Boundary Detection"
+    chosen: "Regex-based sentence detection: split on periods/question marks/exclamation marks followed by space or end-of-string"
+    rejected:
+      - "Simple sentence.split('.') — Fails on ellipses (...), abbreviations (e.g., 'Mr.'), decimal numbers; produces false positives"
+      - "NLTK or spacy — External NLP dependencies; overkill for simple sentence counting; adds significant setup overhead"
+    rationale: >
+      A pragmatic regex pattern (e.g., r'[.!?](?:\\s|$)') correctly handles most natural language
+      sentence boundaries without external dependencies. This matches the implementation approach
+      in features 245-247 and avoids adding heavyweight NLP libraries. The regex is simple enough
+      to be maintainable while handling real-world prose variations.
+
+  - title: "Error Handling and Rollback"
+    chosen: "Fail-fast approach: raise exceptions on errors, no automatic rollback (file is created, commit is staged but not pushed if errors occur)"
+    rejected:
+      - "Automatic rollback on any error — Adds complexity (restore file, undo git add); may mask real problems; contradicts transparency principle"
+      - "Silent error suppression — No diagnostic feedback, difficult to debug failures, contradicts fail-fast principle"
+    rationale: >
+      Fail-fast approach (raise exceptions with clear messages) provides immediate feedback and
+      diagnostic information. No automatic rollback because created files and staged changes are
+      not destructive; they can be manually inspected or cleaned up. This matches the transparent
+      error handling in features 245-247 and respects user expectations: if file creation fails,
+      the user should see why.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-28
+  - **Status:** Complete
+
+  ## Technology Decisions
+
+  ### 1. File I/O Method
+
+  **Chosen:** `pathlib.Path.write_text()`
+
+  **Rejected:**
+  - Direct file handles (open/close) — Lower-level API, requires explicit encoding and context management, more error-prone
+  - subprocess or os.system — Unnecessary overhead, platform-dependent line-ending handling
+  - Third-party libraries (pathlib2, py.path) — No benefit; pathlib is standard in Python 3.11+
+
+  **Rationale:**
+  pathlib is the standard Pythonic approach for file operations in Python 3.11+. It guarantees:
+  - UTF-8 encoding by default (requirement NFR-1)
+  - LF line endings on all platforms (requirement NFR-2)
+  - Cross-platform compatibility (Windows/Unix/Mac)
+  - No external dependencies (standard library)
+  - Matches established codebase patterns (features 245-247)
+
+  ### 2. Git Integration Approach
+
+  **Chosen:** `subprocess.run()` with `shell=False` and explicit argument lists
+
+  **Rejected:**
+  - shell=True with command strings — Security risk (command injection via filename), inconsistent cross-platform behavior
+  - GitPython or other git libraries — External dependency, larger attack surface, insufficient benefit for simple operations
+  - Direct git plumbing — Overly complex, unmaintainable, bypasses git's user-facing interface
+
+  **Rationale:**
+  subprocess.run() with shell=False is the secure, standard approach:
+  - Prevents command injection attacks (filename-based or content-based)
+  - Explicit argument lists make code auditable and maintainable
+  - Standard library (no dependencies)
+  - Matches Python security best practices and codebase patterns
+
+  ### 3. Content Validation Scope
+
+  **Chosen:** Basic structural validation (file existence, H1 heading, sentence count)
+
+  **Rejected:**
+  - No validation — Provides no error detection or diagnostic information
+  - Comprehensive validation (file size, encoding, line endings) — Over-engineers a simple test artifact, exceeds time estimate
+
+  **Rationale:**
+  Basic validation catches real errors (missing file, missing heading, wrong sentence count) without
+  over-specifying. Aligns with established patterns and stays within the 10-15 minute size estimate.
+  File encoding and line endings are guaranteed by pathlib defaults and require no validation.
+
+  ### 4. Sentence Boundary Detection
+
+  **Chosen:** Regex pattern: `r'[.!?](?:\s|$)'` to split sentences
+
+  **Rejected:**
+  - simple `str.split('.')` — Fails on ellipses, abbreviations, decimal numbers; produces false positives
+  - NLTK/spacy — External NLP dependencies; overkill for simple sentence counting
+
+  **Rationale:**
+  A pragmatic regex pattern correctly handles most sentence boundaries in natural language text
+  without external dependencies. This is simple, maintainable, and matches the implementation
+  approach used in recent features (245-247).
+
+  ### 5. Error Handling Strategy
+
+  **Chosen:** Fail-fast approach: raise exceptions on errors, no automatic rollback
+
+  **Rejected:**
+  - Automatic rollback — Adds complexity, may mask real problems, contradicts transparency
+  - Silent error suppression — No diagnostic feedback, difficult to debug
+
+  **Rationale:**
+  Fail-fast provides immediate, transparent feedback. No automatic rollback because created files
+  and staged changes are not destructive and can be manually inspected/cleaned. This matches
+  established patterns and respects user expectations for clear error messages.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | pathlib | File I/O (write_text) | Use (standard library) | Cross-platform, UTF-8 by default, LF line endings, no dependencies |
+  | subprocess | Git CLI integration | Use (standard library) | Safe (shell=False), direct git access, no dependencies |
+  | re | Sentence boundary detection | Use (standard library) | Simple regex pattern handles most natural language, no dependencies |
+  | GitPython | Git integration | Reject | Unnecessary external dependency for simple operations |
+  | NLTK/spacy | Sentence detection | Reject | Overkill for basic sentence counting, heavyweight dependencies |
+  | os.system or shell=True | Git commands | Reject | Security risk (command injection), inconsistent cross-platform behavior |
+
+  ## Security Considerations
+
+  **File Creation:**
+  - pathlib.write_text() uses UTF-8 with safe defaults; no injection risks
+  - File path is hardcoded (test-0c8bhn.md) with no user input; no path traversal risks
+  - File creation does not require elevated privileges
+
+  **Git Operations:**
+  - subprocess.run() with shell=False and explicit argument lists prevents command injection
+  - Git commands (add, commit, push) only operate on the created file; no access to other repository files
+  - Conventional commit message is hardcoded; no user input; no injection risks
+  - Feature branch is pre-created; no ability to create arbitrary branches
+
+  **Prose Content:**
+  - Content is human-authored (not generated); no algorithmic injection risks
+  - Content is written to a markdown file; no execution or code interpretation
+
+  **Overall Risk Profile:** LOW
+  - No external dependencies (no supply chain risks)
+  - No network calls (except git push to feature branch)
+  - No privilege escalation
+  - No sensitive data exposure
+  - Isolated to single file creation and git operations
+
+  ## Performance Implications
+
+  **File I/O Performance:**
+  - Single file write operation: negligible (microseconds)
+  - pathlib.write_text() is buffered; no performance overhead
+  - File size (300-800 bytes) is trivial for modern file systems
+
+  **Git Operations Performance:**
+  - git add: fast local operation (milliseconds)
+  - git commit: fast local operation (milliseconds)
+  - git push: network I/O (seconds), depends on upstream connectivity
+  - Overall: no performance bottlenecks; all operations are I/O-bound and inherently fast
+
+  **Validation Performance:**
+  - File existence check: fast (filesystem stat)
+  - Regex sentence splitting: fast (small text, <1000 characters)
+  - Overall validation: <10 milliseconds
+
+  **Conclusion:** No performance concerns; this feature has negligible impact on overall system performance.
+
+  ## Integration with Existing Codebase
+
+  **Pattern Compliance:**
+  - Follows established markdown-file-creation pattern from features 245-247
+  - Matches the 90+ existing test files at repository root (test-*.md)
+  - Uses identical file format, naming convention, and git workflow
+
+  **Dependencies:**
+  - No source code dependencies (no imports from /src/sheep/)
+  - No configuration changes required
+  - No new files or directories created (only test-0c8bhn.md)
+  - Standard git feature branch workflow (pre-created branch)
+
+  **Precedent:**
+  - Features 245-247 demonstrate this exact approach working efficiently within the 10-15 minute estimate
+  - Established patterns reduce architectural risk and support maintainability
+  - Clear precedent means implementation is straightforward and low-risk
+
+  ## Technology Stack Summary
+
+  | Component | Technology | Source | Justification |
+  | --- | --- | --- | --- |
+  | Runtime | Python 3.11+ | Standard | Specified in spec; standard library sufficient |
+  | File I/O | pathlib | Standard library | Cross-platform, UTF-8/LF defaults, no dependencies |
+  | Version Control | Git CLI | Via subprocess | Direct integration, safe argument handling |
+  | Sentence Parsing | re module | Standard library | Pragmatic regex pattern, no dependencies |
+  | Error Handling | Built-in exceptions | Standard | Fail-fast approach, clear diagnostics |
+
+  **External Dependencies:** NONE — All operations use Python 3.11+ standard library.
+
+  ---
+
+  _Research phase complete — technical decisions documented, libraries evaluated, security/performance
+  implications analyzed, ready for implementation phase_
