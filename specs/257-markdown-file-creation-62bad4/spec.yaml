@@ -6,7 +6,7 @@ userQuery: |
   create a single markdown file called test-oxy715.md with a title and 2-3 sentences about anything
 summary: >
   Create a new markdown file named test-oxy715.md in the repository root with an H1 heading and 2-3 sentences of meaningful prose content. The file must follow encoding standards (UTF-8 without BOM), use Unix LF line endings, be validated for quality, and be staged, committed, and pushed to the remote feature branch using established patterns from 256+ prior similar features.
-phase: "Analysis"
+phase: "Requirements"
 sizeEstimate: "S"
 
 relatedFeatures:
@@ -34,19 +34,96 @@ relatedLinks:
   - title: "Content generators wrapper module"
     url: "file:///src/sheep/content_generators.py"
 
-openQuestions: []
+openQuestions:
+  - question: "Should the feature retry on transient API failures, or fail immediately on the first error?"
+    resolved: true
+    options:
+      - option: "Fail-fast on first error"
+        description: "Stop immediately on any API error without retries. Simpler implementation, faster feedback, aligns with existing error handling patterns across 256+ prior features. Appropriate when API is generally stable and transient errors are rare."
+        selected: true
+      - option: "Single retry on transient errors"
+        description: "Attempt one automatic retry on network/timeout errors. Increases resilience to temporary API issues, but adds complexity and potential delay. Requires identifying which errors are retryable."
+        selected: false
+      - option: "Exponential backoff retries"
+        description: "Multiple retries with exponential backoff delays. Most resilient but most complex, unnecessary for a small feature with simple API call. Adds significant latency on failures."
+        selected: false
+    selectionRationale: "Fail-fast is recommended because (1) it aligns with NFR-5 explicit fail-fast requirement, (2) the API call is simple and stable across 256 precedents, (3) implementation remains 30-50 lines as specified in NFR-2, (4) clear error reporting (NFR-6) enables fast debugging, and (5) users can manually retry the feature execution if transient errors occur."
+    answer: "Fail-fast on first error"
+
+  - question: "What structured logging level should be used for observability — minimal, standard (info), or detailed?"
+    resolved: true
+    options:
+      - option: "Minimal logging"
+        description: "Log only errors and final result. Reduces log noise, fastest execution. Limits debugging visibility if issues occur."
+        selected: false
+      - option: "Standard info-level logging"
+        description: "Log major steps (API call started, file created, git commit, push completed) at INFO level. Standard operational logging, good observability without excessive noise. Industry best practice for feature modules."
+        selected: true
+      - option: "Detailed debug logging"
+        description: "Log all steps including generated content, file properties, git details at DEBUG level. Maximum observability but verbose, slower, more sensitive to data exposure."
+        selected: false
+    selectionRationale: "Standard info-level logging is recommended because (1) it provides necessary observability for operational monitoring as required by NFR-3, (2) it aligns with structlog best practices used across the Sheep platform, (3) it provides sufficient debugging context without excessive verbosity that could slow execution or expose sensitive content, and (4) it supports the clear error messages requirement (NFR-6)."
+    answer: "Standard info-level logging"
+
+  - question: "If generated content falls slightly outside the 250-600 byte target range, should the feature accept or reject it?"
+    resolved: true
+    options:
+      - option: "Strict range enforcement"
+        description: "Reject content outside 250-600 bytes and request regeneration. Ensures consistency with previous features. Risk: may require multiple API calls, delays implementation, might fail if API consistently generates content outside range."
+        selected: false
+      - option: "Natural tolerance"
+        description: "Accept any content that follows H1 + 2-3 sentences structure regardless of byte size. Aligns with NFR-8 (content must naturally result from proper structure, not be artificially padded). Simpler, faster, one API call."
+        selected: true
+      - option: "Log warning but accept"
+        description: "Accept content outside range but log a warning. Hybrid approach — provides visibility without blocking. Adds complexity for marginal benefit."
+        selected: false
+    selectionRationale: "Natural tolerance is recommended because (1) NFR-8 explicitly states content must not be artificially padded or truncated, meaning the 250-600 range is a natural outcome, not a strict requirement, (2) 256+ precedents show this approach works consistently, (3) it keeps implementation simple and avoids unnecessary retries, and (4) semantic structure (H1 + 2-3 sentences) is the actual requirement — byte range is a consequence, not a cause."
+    answer: "Natural tolerance"
+
+  - question: "Should partial artifacts (e.g., file created but git push failed) be cleaned up, or left for debugging?"
+    resolved: true
+    options:
+      - option: "Clean up on any failure"
+        description: "Delete partial markdown files and clean up any uncommitted changes when errors occur. Prevents incomplete artifacts in repository. Cleaner state but less debugging information available. Aligns with fail-fast principle."
+        selected: true
+      - option: "Leave artifacts for debugging"
+        description: "Keep partial files on failure to enable root cause analysis. Better for debugging but leaves incomplete work in repository. Risk: accidental commits of incomplete files."
+        selected: false
+      - option: "User configurable cleanup"
+        description: "Provide optional parameter to control cleanup behavior. Maximum flexibility but adds complexity and configuration burden."
+        selected: false
+    selectionRationale: "Clean up on failure is recommended because (1) it prevents incomplete markdown files from remaining in the repository after a failed attempt, (2) it maintains repository cleanliness and prevents confusion, (3) it aligns with the fail-fast principle and clear error reporting (NFR-6) — the error message provides sufficient debugging context without needing to inspect partial artifacts, (4) 256+ precedents follow this pattern, and (5) it requires no additional parameters or configuration."
+    answer: "Clean up on any failure"
+
+  - question: "For content quality validation, should the feature check only structural correctness or also semantic coherence?"
+    resolved: true
+    options:
+      - option: "Structural validation only"
+        description: "Verify H1 presence, sentence count (2-3), file encoding, line endings, size. Depends on Claude API to generate coherent content, validate structure after generation. Simpler, faster, one validation pass."
+        selected: true
+      - option: "Semantic coherence checks"
+        description: "In addition to structure, validate prose for coherence, logical flow, topic relevance. More rigorous but requires additional validation logic, potential API calls to check semantic quality. Significantly increases complexity beyond 30-50 lines."
+        selected: false
+    selectionRationale: "Structural validation only is recommended because (1) FR-3 specifies 'meaningful prose' must come from Claude API generation, implying the API is responsible for quality (2) existing utilities in src/create_markdown.py already implement structure validation as documented in Dependencies, (3) semantic validation would exceed the 30-50 line target (NFR-2) and violate NFR-7 (reuse without modifications), (4) 256+ precedents use structure validation alone successfully, and (5) failing to generate coherent prose is extremely rare with Claude 3.5 Sonnet."
+    answer: "Structural validation only"
 
 content: |
   ## Problem Statement
 
   Create a single markdown file called test-oxy715.md in the repository root with a clear H1 title and 2-3 sentences of prose content on any topic. The file must follow established patterns from 256 prior similar features, including UTF-8 encoding without BOM, Unix LF line endings, and proper Git integration (stage, commit with conventional message, push to feature branch).
 
+  The feature is fully constrained by:
+  - Explicit user query (filename, structure, topic flexibility)
+  - 256+ precedent implementations establishing identical patterns
+  - Existing, mature utility functions in src/create_markdown.py and src/sheep/content_generators.py
+  - Established technology stack (Claude API, CrewAI, structlog, pathlib, Git)
+
   ## Success Criteria
 
   - [ ] File test-oxy715.md exists in repository root with correct filename
   - [ ] File contains exactly one H1 markdown heading at the beginning
   - [ ] File contains 2-3 sentences of meaningful, coherent prose content (not gibberish or placeholder text)
-  - [ ] File size is between 250-600 bytes (natural outcome of proper structure)
+  - [ ] File size is between 250-600 bytes (natural outcome of proper structure, not enforced)
   - [ ] File encoding is UTF-8 without BOM (validated by encode/decode check)
   - [ ] File uses Unix LF line endings only (no CRLF, no mixed line endings)
   - [ ] Content validation passes: H1 structure, sentence count, and character bounds checks
@@ -62,6 +139,7 @@ content: |
   - [ ] All git operations (add, commit, push) complete without error
   - [ ] Content is generated using Anthropic Claude API (claude-3-5-sonnet or later)
   - [ ] Implementation follows fail-fast approach with clear error messages for API failures, file I/O issues, and git errors
+  - [ ] Partial artifacts cleaned up on any operation failure (file removal, uncommitted change cleanup)
 
   ## Functional Requirements
 
@@ -69,7 +147,7 @@ content: |
   - **FR-2**: File must contain one H1 heading (# syntax) followed by a blank line and 2-3 sentences of prose
   - **FR-3**: Generate meaningful prose content using Anthropic Claude API with Claude 3.5 Sonnet or later model
   - **FR-4**: Encode file as UTF-8 without BOM (use pathlib.Path.write_text() with encoding='utf-8')
-  - **FR-5**: Use Unix LF line endings (\\n) exclusively throughout the file
+  - **FR-5**: Use Unix LF line endings (\n) exclusively throughout the file
   - **FR-6**: Validate generated content structure: verify H1 presence, sentence count (2-3), and character bounds
   - **FR-7**: Validate file properties: size (250-600 bytes), encoding (UTF-8 no BOM), line endings (LF only), markdown syntax
   - **FR-8**: Stage file using git add test-oxy715.md
@@ -84,91 +162,25 @@ content: |
 
   - **NFR-1**: Code must follow established patterns from 256+ prior markdown file creation features (01-256)
   - **NFR-2**: Feature module implementation must be 30-50 lines of code when using high-level wrappers
-  - **NFR-3**: Include structured logging using structlog.get_logger(__name__) for observability and debugging
+  - **NFR-3**: Include structured logging at INFO level using structlog.get_logger(__name__) for observability and debugging
   - **NFR-4**: Content generation via Claude API must complete within standard API timeout (30 seconds)
   - **NFR-5**: Implement fail-fast error handling: stop execution and report error on any operation failure (API error, file write failure, git failure)
   - **NFR-6**: Provide clear, actionable error messages that identify the failure point (e.g., "API call failed", "File encoding validation failed", "Git push failed")
   - **NFR-7**: Reuse existing utility functions from src/create_markdown.py and src/sheep/content_generators.py without modifications or extensions
-  - **NFR-8**: File size must naturally result in 250-600 bytes as a consequence of proper H1 + 2-3 sentences structure (not artificially padded or truncated)
+  - **NFR-8**: File size must naturally result in 250-600 bytes as a consequence of proper H1 + 2-3 sentences structure (not enforced, not artificially padded or truncated)
   - **NFR-9**: No modifications to application source code, configuration files, or tests; feature is purely additive artifact creation
   - **NFR-10**: Feature must operate within existing CrewAI framework and Anthropic API integration without configuration changes
+  - **NFR-11**: On any operation failure, clean up partial artifacts (delete created files, revert uncommitted changes) to maintain repository cleanliness
 
-  ## Product Questions & AI Recommendations
+  ## Product Decisions
 
-  **Status**: No open product questions remain. Requirements are fully determined by:
-  1. **256+ precedents** establishing identical patterns and behavior
-  2. **Explicit user query** specifying filename, content structure, and topic flexibility
-  3. **Established technology stack** (Claude API, CrewAI, pathlib, structlog)
-  4. **Clear architectural patterns** documented across successful implementations
-
-  The feature scope is tightly constrained and does not require product decisions beyond the analysis phase. All functional and non-functional requirements are derived from prior implementations and user requirements.
-
-  ## Codebase Analysis
-
-  ### Project Structure
-
-  The Sheep repository is an agentic platform for automated code implementation using CrewAI. Key directories:
-
-  - **Repository root**: Contains 256+ test markdown files (test-*.md) following a consistent pattern established by features 001-256
-  - **src/sheep/**: Application source code (agents, configuration, flows, tools, observability)
-  - **src/sheep/features/**: Feature modules (feature_NNN_markdown_file_creation.py) implementing individual features
-  - **src/create_markdown.py**: Low-level utilities for markdown content generation, file creation, validation, and git operations
-  - **src/sheep/content_generators.py**: High-level wrapper functions abstracting file I/O, encoding, and git workflows
-  - **specs/**: Feature specification directory with subdirectories for each feature (specs/NNN-<feature-name>/)
-  - **tests/**: Test suite for the application
-  - **pyproject.toml**: Python 3.11+ project configuration (dependencies, build configuration, tools)
-  - **.github/**: GitHub workflows and CI/CD configuration
-  - **README.md**: Project documentation for the Sheep automation platform
-  - **Dockerfile**: Container configuration for the platform
-
-  Test markdown files at the repository root are validation artifacts produced by feature implementations, not application source code. They serve as functional test outputs for the automated system.
-
-  ### Architecture Patterns
-
-  **Established Markdown File Creation Pattern** (256+ precedents):
-  - Simple file creation using Python pathlib for I/O operations
-  - Each markdown file follows: `# <H1 Heading>\n\n<2-3 sentences of prose>`
-  - UTF-8 encoding without BOM, Unix LF line endings (`\n`)
-  - File size typically 250-600 bytes as natural outcome of proper structure
-  - Implementation uses high-level wrapper functions from content_generators.py or low-level utilities from create_markdown.py
-  - Files are isolated test artifacts with no dependencies on application source code
-  - Diverse topics observed across existing test files (nature, technology, science, history, culture, philosophy, etc.)
-
-  **Feature Module Pattern** (observed in features 001-256):
-  - File located at `src/sheep/features/feature_NNN_markdown_file_creation.py`
-  - Imports high-level utilities from content_generators.py
-  - Calls existing wrapper functions in sequence: generate content → write file → commit → push
-  - Implementation typically 30-50 lines using high-level wrappers
-  - Follows fail-fast approach with clear error handling
-  - Includes logging via `get_logger(__name__)` for observability
-  - Returns structured result with filepath, content, commit hash, and push status
-
-  **Git Workflow Pattern**:
-  - Feature branch pre-created as `feat/257-markdown-file-creation-62bad4`
-  - Files created/modified in working directory
-  - Stage with `git add test-oxy715.md`
-  - Commit with conventional format: `feat(257): create markdown file test-oxy715.md with prose content`
-  - Push to feature branch
-  - No modifications to source code or configuration files
-  - Branch naming: `feat/<number>-<feature-name>-<suffix>`
-
-  **Content Generation Pattern**:
-  - Uses Anthropic Claude API via CrewAI framework
-  - Generates H1 heading + 2-3 sentences on any topic
-  - Validates generated content: structure, character count, prose quality
-  - Validates file properties: encoding, line endings, size
-  - All validation logic exists in utility modules (no new validation code required)
-
-  ### Relevant Technologies
-
-  - **Python 3.11+**: Required minimum version (specified in pyproject.toml)
-  - **pathlib (stdlib)**: Cross-platform file path and I/O operations (Path.write_text(), etc.)
-  - **subprocess (stdlib)**: Git command execution (git add, git commit, git push)
-  - **Markdown syntax**: Simple format with H1 heading (#) and prose content per CommonMark spec
-  - **Git**: Version control; file staging, commits, and push operations
-  - **CrewAI**: Multi-agent framework for orchestration and tool integration
-  - **Anthropic Claude API**: Content generation via claude-3-5-sonnet or later model
-  - **structlog**: Structured logging for observability (used across Sheep platform)
+  | # | Decision | Resolved Answer | Rationale |
+  | - | -------- | --------------- | --------- |
+  | 1 | API retry strategy on transient failures | Fail-fast on first error (no retries) | Aligns with NFR-5, keeps implementation in 30-50 line target, 256+ precedents show stable API behavior, clear error reporting enables manual retry |
+  | 2 | Structured logging level | Standard INFO-level logging | Provides necessary observability per NFR-3, industry best practice for feature modules, sufficient debugging context without noise or data exposure |
+  | 3 | Byte range tolerance (250-600) | Natural tolerance (accept well-formed content) | NFR-8 requires content result naturally from structure, not be constrained; simpler implementation, one API call, 256+ precedents confirm this works |
+  | 4 | Artifact cleanup on failure | Clean up all partial artifacts | Prevents incomplete files in repository, maintains cleanliness, aligns with fail-fast principle, clear error messages provide debugging context |
+  | 5 | Content quality validation | Structural validation only (H1, sentence count, encoding) | Existing utilities handle structure validation, Claude API responsible for prose quality per FR-3, semantic validation exceeds 30-50 line target, 256+ precedents use this approach |
 
   ## Affected Areas
 
@@ -239,4 +251,4 @@ content: |
 
   ---
 
-  _Analysis complete — feature requirements clear, affected areas identified, established patterns documented, ready for implementation planning_
+  **Requirements phase complete** — All functional and non-functional requirements specified, product decisions resolved with structured options and rationale, ready for implementation planning
