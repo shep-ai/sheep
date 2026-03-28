@@ -1,0 +1,473 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-17ca12
+summary: >
+  Feature 255 is a simple markdown file creation task following an established pattern from 250+ prior implementations.
+  Core decisions: use pathlib.Path for file I/O (modern Python standard, already established across codebase),
+  leverage existing content_generators module for LLM-based prose generation to ensure quality and consistency,
+  use subprocess for git operations (explicit per spec), and rely on Python 3.11+ stdlib for UTF-8/LF validation.
+  No external dependencies required beyond project defaults. Implementation is straightforward with minimal technical risk.
+
+# Relationships
+relatedFeatures:
+  - number: 254
+    name: markdown-file-creation
+    relationship: "Identical implementation pattern — confirms viability of chosen approach"
+  - number: 253
+    name: markdown-file-creation
+    relationship: "Identical implementation pattern — confirms viability of chosen approach"
+  - number: 252
+    name: markdown-file-creation
+    relationship: "Identical implementation pattern — confirms viability of chosen approach"
+  - number: 201
+    name: markdown-file-creation
+    relationship: "Phase 3 example showing git operations pattern with comprehensive verification"
+
+technologies:
+  - "Python 3.11+ (runtime and pathlib module)"
+  - "pathlib.Path (file I/O and path operations)"
+  - "subprocess (git operations)"
+  - "Markdown (file format, CommonMark compatible)"
+  - "Git CLI (version control)"
+  - "UTF-8 encoding (text file standard)"
+  - "CrewAI content_generators module (LLM-based prose generation)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "CommonMark specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Git documentation"
+    url: "https://git-scm.com/doc"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Method for Creating Markdown File"
+    chosen: "Use pathlib.Path.write_text() with explicit UTF-8 encoding"
+    rejected:
+      - "os.path + open() — Less Pythonic, requires manual path joining, no encoding parameter validation. Viable but older approach."
+      - "subprocess shell command (echo/cat) — Introduces shell escaping complexity, potential for command injection, less portable, harder to verify encoding."
+    rationale: >
+      pathlib.Path is the modern Python standard (since 3.4) for path operations and file I/O, officially recommended
+      in Python documentation over os.path. Used consistently across the entire codebase: feature_201_markdown_file_creation.py
+      demonstrates the pattern (Path(filename).read_text(encoding="utf-8")), and content_generators.py uses it exclusively.
+      pathlib.Path.write_text() provides clean API with explicit encoding parameter, automatic UTF-8 handling, and cross-platform
+      path resolution. The codebase has established this as the standard approach across all 250+ markdown file creations.
+
+  - title: "Prose Content Generation Method"
+    chosen: "Use sheep.content_generators.generate_markdown_content() LLM-based generation"
+    rejected:
+      - "Hardcoded prose strings — Simple and deterministic, but reduces flexibility and creates maintenance burden if content patterns need to change. Violates DRY principle across similar features."
+      - "Manual hand-written content per feature — Flexible and appropriate, but introduces human variance in quality and format, requires more effort per feature, doesn't leverage existing infrastructure."
+    rationale: >
+      The sheep project has invested in content_generators module (src/sheep/content_generators.py) specifically for this purpose.
+      The module provides generate_markdown_content() which uses Claude API via CrewAI to generate coherent, contextually-appropriate
+      prose about any topic. This approach ensures: (1) consistent quality across all features, (2) adherence to format requirements
+      (H1 heading, blank line, 2-3 sentences, trailing newline), (3) reusable infrastructure tested across 250+ implementations,
+      (4) compliance with project's LLM-based generation patterns. The module includes comprehensive validation (_validate_markdown_content)
+      to ensure generated content meets all requirements before file creation.
+
+  - title: "Git Operations (Stage, Commit, Push)"
+    chosen: "Use subprocess module with explicit command lists (git add, git commit -m, git push)"
+    rejected:
+      - "GitPython library wrapper — Project includes gitpython>=3.1.0 in dependencies, cleaner object-oriented API, but adds abstraction layer. Spec explicitly requests subprocess; simpler shell commands are sufficient for straightforward operations."
+      - "shell=True with full git command strings — Simpler one-liners but introduces shell escaping complexity, security risks with unsanitized input, less portable, harder to debug."
+    rationale: >
+      The feature specification explicitly states: \"Git operations must use subprocess module for shell commands (no GitPython wrapper required)\".
+      The established pattern from feature_201 demonstrates this approach with check=True parameter for error handling,
+      capture_output=True to suppress output, and text=True for string handling. Using explicit command lists (not shell=True)
+      prevents shell injection vulnerabilities and makes debugging easier. For simple git operations (add, commit, push),
+      subprocess with command lists is simple, explicit, and follows the precedent of 250+ prior implementations.
+
+  - title: "Markdown Content Format Validation"
+    chosen: "Validate programmatically using pathlib and string operations (no external markdown library)"
+    rejected:
+      - "markdown or commonmark Python libraries — Would require external dependencies, adds complexity for simple structural validation, overkill for well-defined format requirements. Project does not use markdown parsing libs for this purpose."
+      - "Manual git log inspection — Less reliable, requires git operations to complete first, cannot validate before commit, harder to provide early feedback."
+    rationale: >
+      The feature has simple, well-defined format requirements: H1 heading on line 1, blank line on line 2, 2-3 sentences starting line 3.
+      These can be validated efficiently with pathlib and Python string operations (split(), count(), startswith()). The content_generators
+      module provides reference implementations (_validate_markdown_content, validate_markdown_file) used across the codebase.
+      No external markdown library is needed; validation is deterministic and based on format structure, not semantic content.
+
+  - title: "UTF-8 Encoding and Line Ending Handling"
+    chosen: "Rely on Python 3.11+ defaults: pathlib.Path.write_text() defaults to UTF-8; LF line endings are Unix default on Linux/Mac"
+    rejected:
+      - "Manual encoding specification for every file write — Redundant; Python 3 defaults to UTF-8 for text operations. Would add boilerplate without benefit."
+      - "Explicit newline mode handling (newline='\\n') — Python handles this correctly by default on Unix systems. Explicit handling is only needed for Windows-specific scenarios."
+    rationale: >
+      Python 3.11+ (the project's minimum requirement) uses UTF-8 as the default encoding for text operations on modern systems.
+      pathlib.Path.write_text() uses this default unless overridden. Line endings are handled correctly by the OS: Unix/Linux/Mac systems
+      use LF by default; Python's text mode normalizes line endings automatically. The feature validation (feature_201) verifies these
+      properties by checking binary content (no BOM, no CRLF), which is the correct approach. Given the codebase runs on Linux containers
+      (Azure Linux), relying on OS defaults is safe and simplifies code without sacrificing correctness.
+
+  - title: "Error Handling and Validation Strategy"
+    chosen: "Implement try/except blocks with specific exception types; validate at each phase (generation, write, git operations)"
+    rejected:
+      - "Minimal error handling — Risks silent failures and ambiguous error states. Makes debugging difficult, violates robustness principles."
+      - "Generic broad exception catching — Loses error context; makes it hard to distinguish between different failure modes (file I/O vs git vs validation)."
+    rationale: >
+      Feature 201 demonstrates comprehensive error handling with specific exception types: FileNotFoundError, ValueError, subprocess.CalledProcessError.
+      This pattern allows callers to distinguish between different failure categories and respond appropriately. Validation at each phase
+      (content generation, file write, git operations) provides early feedback and prevents cascading failures. The content_generators module
+      shows this pattern: exceptions are caught, logged with context, and re-raised with descriptive messages. This is essential for debugging
+      in an automated system where human visibility is limited.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should the implementation create a standalone feature module (feature_255_markdown_file_creation.py) or use the content_generators module directly?"
+    resolved: true
+    options:
+      - option: "Create standalone feature_255_markdown_file_creation.py module"
+        description: |
+          Follows the established pattern of features 1-254 (each has its own feature module in src/sheep/features/).
+          Provides: isolated implementation, explicit control over all steps, matches architectural precedent, easier to
+          test in isolation, simpler for feature-specific customization if needed.
+          Trade-offs: more boilerplate, duplication of logic (file I/O, git operations, validation already exist in content_generators).
+        selected: true
+      - option: "Use content_generators module functions directly without wrapper"
+        description: |
+          Direct consumption of create_markdown_file() function from content_generators.
+          Provides: minimal code, maximum code reuse, single source of truth for implementation logic.
+          Trade-offs: inconsistent with architectural pattern (all prior features have feature_N modules), harder to customize,
+          breaks convention that features are discoverable as feature_N_name.py modules.
+        selected: false
+      - option: "Create minimal wrapper that delegates to content_generators"
+        description: |
+          Thin feature_255 module that imports and calls content_generators functions.
+          Provides: maintains architectural convention (feature_255_markdown_file_creation.py exists), clear entry point,
+          flexibility for future customization, clean separation of concerns.
+          Trade-offs: thin abstraction layer adds minimal value, slight indirection over direct call.
+        selected: false
+    selectionRationale: >
+      Option 1 (standalone feature module) is selected to maintain consistency with the 250+ prior implementations
+      (features 1-254 all have individual feature_N_name.py modules in src/sheep/features/). This architectural
+      convention ensures: (1) discoverability — feature 255 is findable as feature_255_markdown_file_creation.py,
+      (2) consistency — developers expect this pattern, (3) testability — each feature can be tested as a unit.
+      While content_generators provides the underlying machinery, the feature module serves as the public API and
+      orchestration point for this specific feature. The module can import content_generators and call its functions,
+      adding feature-specific configuration (FILENAME, FEATURE_NUMBER, BRANCH_NAME, COMMIT_MESSAGE constants) and
+      verification steps. This follows the exact pattern shown in feature_201.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-28
+  - **Risk Level:** Very Low (established pattern, 250+ prior implementations)
+
+  ## Overview
+
+  Feature 255 creates a single markdown file (test-i3iccc.md) at the repository root with a title and 2-3 sentences
+  of prose content. This feature follows an established pattern from 250+ prior implementations (features 1-254),
+  with identical requirements and proven implementation approaches. No architectural decisions or technology choices
+  are novel; all patterns have been validated across the codebase.
+
+  ## Technology Decisions
+
+  ### 1. File I/O: pathlib.Path
+
+  **Chosen:** pathlib.Path.write_text() with explicit UTF-8 encoding parameter
+
+  **Rejected:**
+  - os.path + open() — Less Pythonic, requires manual path joining, indirect encoding handling
+  - subprocess shell commands — Introduces shell escaping, potential injection risk, harder to verify encoding
+
+  **Rationale:**
+  pathlib.Path is the modern Python standard for file I/O (official recommendation since Python 3.4).
+  Used consistently across the codebase: feature_201_markdown_file_creation.py shows the pattern,
+  and content_generators.py uses it exclusively. The API is clean, encoding is explicit, and cross-platform
+  path handling is automatic.
+
+  **Implementation Pattern (from feature_201):**
+  ```python
+  from pathlib import Path
+  filename = "test-i3iccc.md"
+  content = "# Title\n\nProse content here.\n"
+  Path(filename).write_text(content, encoding="utf-8")
+  ```
+
+  ### 2. Content Generation: LLM-Based via content_generators
+
+  **Chosen:** sheep.content_generators.generate_markdown_content() — LLM-based generation
+
+  **Rejected:**
+  - Hardcoded prose strings — Reduces flexibility, violates DRY principle across 255 features
+  - Manual hand-written content — Introduces human variance, less scalable, requires more effort per feature
+
+  **Rationale:**
+  The project has established content_generators module (src/sheep/content_generators.py) with comprehensive
+  prose generation and validation infrastructure. This module:
+  - Uses Claude API via CrewAI to generate coherent, contextually-appropriate prose
+  - Validates format compliance (H1 heading, blank line, 2-3 sentences, trailing newline)
+  - Has been tested and refined across 250+ prior feature implementations
+  - Ensures consistent quality and format adherence across all features
+
+  **Validation Infrastructure (in content_generators):**
+  - _validate_markdown_content() — Checks H1 heading, sentence count, content length
+  - validate_markdown_file() — Comprehensive validation: encoding, line endings, structure, prose content
+  - validate_file_properties() — Encoding and line ending checks
+
+  ### 3. Git Operations: subprocess Module
+
+  **Chosen:** subprocess.run() with explicit command lists (check=True, capture_output=True, text=True)
+
+  **Rejected:**
+  - GitPython wrapper — Available in dependencies but spec explicitly requests subprocess; unnecessary abstraction
+  - shell=True with full command strings — Security risks, shell escaping complexity, less portable
+
+  **Rationale:**
+  Feature specification explicitly states: \"Git operations must use subprocess module for shell commands\".
+  Pattern demonstrated in feature_201 with error handling via check=True and proper output handling.
+  For simple operations (git add, git commit, git push), subprocess with command lists is explicit,
+  safe, and matches precedent from 250+ implementations.
+
+  **Git Operation Pattern (from feature_201):**
+  ```python
+  import subprocess
+
+  # Stage file
+  subprocess.run(["git", "add", "test-i3iccc.md"], check=True, capture_output=True, text=True)
+
+  # Commit
+  msg = "feat(255): create markdown file test-i3iccc.md with prose content"
+  subprocess.run(["git", "commit", "-m", msg], check=True, capture_output=True, text=True)
+
+  # Push
+  subprocess.run(["git", "push", "-u", "origin", "feat/255-markdown-file-creation-17ca12"],
+                 check=True, capture_output=True, text=True)
+  ```
+
+  ### 4. Markdown Format Validation
+
+  **Chosen:** Programmatic validation using pathlib and string operations (no external libraries)
+
+  **Rejected:**
+  - markdown/commonmark Python libraries — External dependencies, overkill for simple structural validation
+  - Manual git log inspection — Less reliable, requires git completion, cannot provide early feedback
+
+  **Rationale:**
+  Format requirements are simple and well-defined:
+  - Line 1: H1 heading (# Title)
+  - Line 2: Blank line
+  - Lines 3+: Prose content (2-3 sentences)
+
+  These can be validated efficiently with pathlib.Path and string operations (split(), count(), startswith()).
+  The content_generators module provides reference validation implementations used across the codebase.
+
+  **Validation Pattern:**
+  ```python
+  from pathlib import Path
+
+  path = Path("test-i3iccc.md")
+  content = path.read_text(encoding="utf-8")
+  lines = content.split("\n")
+
+  # Check H1 heading on line 1
+  assert lines[0].startswith("# "), "Missing H1 heading"
+
+  # Check blank line on line 2
+  assert lines[1] == "", "Line 2 must be blank"
+
+  # Check prose content and sentence count
+  prose = "\n".join(lines[2:]).strip()
+  sentences = prose.count(".")
+  assert 2 <= sentences <= 3, "Expected 2-3 sentences"
+  ```
+
+  ### 5. Encoding and Line Endings
+
+  **Chosen:** Python 3.11+ defaults (UTF-8 encoding, LF line endings on Unix systems)
+
+  **Rejected:**
+  - Manual encoding specification for every write — Redundant, adds boilerplate
+  - Explicit newline mode (newline='\\n') — Unnecessary on Unix; correct by default
+
+  **Rationale:**
+  Python 3.11+ (project minimum) defaults to UTF-8 for text operations. pathlib.Path.write_text()
+  uses this default. Line endings are OS-dependent and handled automatically: Unix/Linux/Mac systems
+  produce LF by default. Feature validation (feature_201) verifies correctness by checking binary
+  content for BOM (should not be present) and CRLF (should not be present).
+
+  **Verification Pattern (from feature_201):**
+  ```python
+  from pathlib import Path
+
+  path = Path("test-i3iccc.md")
+  binary = path.read_bytes()
+
+  # Check for UTF-8 BOM
+  assert not binary.startswith(b"\\xef\\xbb\\xbf"), "File has BOM"
+
+  # Check for CRLF line endings
+  assert b"\\r\\n" not in binary, "File has CRLF"
+
+  # Verify valid UTF-8
+  binary.decode("utf-8")  # Raises UnicodeDecodeError if invalid
+  ```
+
+  ### 6. Error Handling and Validation
+
+  **Chosen:** try/except with specific exception types; validate at each phase
+
+  **Rejected:**
+  - Minimal error handling — Risks silent failures, ambiguous error states
+  - Generic broad exception catching — Loses error context and failure categorization
+
+  **Rationale:**
+  Feature 201 demonstrates comprehensive error handling pattern with specific exception types:
+  - FileNotFoundError — File operations fail
+  - ValueError — Validation checks fail
+  - subprocess.CalledProcessError — Git operations fail
+
+  This allows distinguishing between failure categories. Validation at each phase (content generation,
+  file write, git operations) provides early feedback and prevents cascading failures. Essential for
+  debugging in automated systems where human visibility is limited.
+
+  **Error Handling Pattern (from feature_201):**
+  ```python
+  try:
+      # Operations
+  except FileNotFoundError as e:
+      print(f"File error: {e}", file=sys.stderr)
+      sys.exit(1)
+  except ValueError as e:
+      print(f"Validation failed: {e}", file=sys.stderr)
+      sys.exit(1)
+  except subprocess.CalledProcessError as e:
+      print(f"Git operation failed: {e}", file=sys.stderr)
+      if e.stderr:
+          print(f"  stderr: {e.stderr}", file=sys.stderr)
+      sys.exit(1)
+  ```
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O and path operations | Use | Modern Python standard, explicit API, cross-platform, already established in codebase for this purpose |
+  | subprocess (stdlib) | Git command execution | Use | Explicit requirement in spec, simple for straightforward commands, secure with command lists instead of shell=True |
+  | content_generators (sheep.content_generators) | Markdown generation and validation | Use | Proven infrastructure tested across 250+ implementations, comprehensive validation, ensures format compliance |
+  | gitpython | Git operations (alternative) | Don't use | While available in dependencies, spec explicitly requests subprocess; unnecessary abstraction for simple operations |
+  | markdown/commonmark | Markdown parsing (alternative) | Don't use | External dependencies for simple structural validation; overkill for well-defined format; content_generators provides adequate validation |
+
+  ## Security Considerations
+
+  **Input Validation:**
+  - Filename (test-i3iccc.md) is pre-specified in feature requirements, not user-input. No validation needed.
+  - Git branch name (feat/255-markdown-file-creation-17ca12) is pre-created and provided. No validation needed.
+
+  **File Operations:**
+  - pathlib.Path prevents path traversal attacks (no directory traversal possible with valid filename)
+  - UTF-8 encoding has no special security implications for this simple prose content
+
+  **Git Operations:**
+  - Using subprocess with explicit command lists (not shell=True) prevents shell injection attacks
+  - Commit message is constructed from hardcoded template with minimal variable substitution (feature number, filename)
+  - No user input flows into git commands
+
+  **Content Generation:**
+  - content_generators module handles LLM API calls securely via CrewAI framework
+  - Generated prose is not evaluated or executed; it's written as literal text to a file
+  - No code injection vectors (file content is literal markdown, not code)
+
+  **Overall Risk:** Very Low — feature is simple file creation with no dynamic input, no network operations (except LLM generation which is handled by CrewAI framework), no code execution or evaluation.
+
+  ## Performance Considerations
+
+  **Runtime Performance:**
+  - File I/O: Single file write operation (~400 bytes) — negligible latency (microseconds)
+  - Content generation: LLM API call via content_generators.generate_markdown_content() — ~1-2 seconds depending on API latency
+  - Git operations: subprocess calls to git commands — ~100-500ms depending on repository state and network
+  - **Total expected time:** ~2-4 seconds, well within acceptable bounds for a feature this size
+
+  **Resource Usage:**
+  - Memory: Minimal — content is ~400 bytes, string operations on single file
+  - Disk: Single file creation (~400 bytes) — negligible
+  - Network: One LLM API call (content generation) — standard for automated implementation platform
+
+  **Optimization Potential:** None needed. Operations are already efficient. Content generation latency is unavoidable (LLM API calls); file I/O and git operations are subsecond.
+
+  **Comparison to 250+ Prior Features:** This feature has identical performance characteristics to features 1-254, all of which complete successfully without performance issues.
+
+  ## Architecture and Integration
+
+  **Codebase Architecture:**
+  The Sheep project uses modular feature architecture where each feature is self-contained:
+  - Feature module: src/sheep/features/feature_N_name.py — orchestrates feature implementation
+  - Specification: specs/N-name/feature.yaml, plan.yaml, research.yaml, spec.yaml, tasks.yaml
+  - Tests: tests/features/test_feature_N_name.py
+  - Artifacts: Root-level test files (test-*.md) as implementation outputs
+
+  **Integration Points:**
+  1. **Content Generation:** Feature imports content_generators.generate_markdown_content() for prose generation
+  2. **File Operations:** Uses pathlib.Path (stdlib) for file I/O
+  3. **Git Integration:** Uses subprocess (stdlib) for git staging, committing, pushing
+  4. **Feature Discovery:** Feature module registered in sheep CLI and discoverable as feature_255_markdown_file_creation.py
+
+  **Implementation Flow:**
+  ```
+  Feature 255 (feature_255_markdown_file_creation.py)
+    ├─ Content Generation (via content_generators.generate_markdown_content())
+    ├─ File Write (via pathlib.Path.write_text())
+    ├─ Validation (via content_generators.validate_markdown_file())
+    ├─ Git Staging (via subprocess: git add)
+    ├─ Git Commit (via subprocess: git commit -m)
+    └─ Git Push (via subprocess: git push -u origin)
+  ```
+
+  **Dependencies:**
+  - No new external dependencies required
+  - Uses existing project infrastructure: content_generators, pathlib, subprocess
+  - Existing creewai[anthropic,google-genai,tools]>=0.86.0 dependency provides LLM access
+
+  **Testing Strategy:**
+  Will follow pattern from feature_201 and other features:
+  - Unit tests for each validation function
+  - Integration test verifying end-to-end workflow (file creation → git push)
+  - Verification functions matching success criteria from requirements
+
+  ## Known Constraints and Assumptions
+
+  **Constraints:**
+  - Feature branch (feat/255-markdown-file-creation-17ca12) must exist pre-created in git
+  - Git configuration must have user.name and user.email configured (standard for development environments)
+  - LLM API credentials (Claude) must be configured for content generation
+  - Python 3.11+ with pathlib module available (project requirement)
+
+  **Assumptions:**
+  - Feature is run in Linux/Unix environment (Azure Linux per environment notes) — ensures LF line endings by default
+  - Current working directory is the repository root (standard assumption for feature implementations)
+  - Git repository is already initialized and has origin remote configured
+  - File write operations have permissions to create files in repository root directory
+
+  ## Risk Assessment
+
+  **Overall Risk Level:** Very Low
+
+  | Risk Category | Level | Mitigation |
+  | ------------- | ----- | ---------- |
+  | Technical Implementation | Very Low | Pattern proven across 250+ features; all technologies are standard and well-established |
+  | Integration | Very Low | Uses existing infrastructure (content_generators); no new integration points |
+  | Security | Very Low | No user input; subprocess prevents injection; pathlib prevents traversal; no code execution |
+  | Performance | Very Low | Simple file I/O; content generation latency is unavoidable but acceptable |
+  | Testing | Very Low | Straightforward testing; clear success criteria; validation functions already proven in content_generators |
+  | Dependencies | Very Low | No new external dependencies; uses project defaults |
+
+  ## Conclusion
+
+  Feature 255 is a straightforward file creation task with zero novel technical decisions. All implementation patterns
+  are established and proven across 250+ prior implementations (features 1-254). The chosen technologies (pathlib, subprocess,
+  content_generators) are the same tools used by prior features. No architectural changes, no new dependencies, and no
+  security or performance concerns. Ready to proceed to design/planning phase with high confidence.
+
+  ---
+
+  _Research phase complete — all technology decisions documented with clear rationale and established precedents._
