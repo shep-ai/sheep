@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """Script to create markdown file for feature 254: test-llstaq.md with title and prose content."""
 
+import subprocess
 from pathlib import Path
+
+# Git commit message (exact per specification)
+COMMIT_MESSAGE = "feat(254): Create markdown file test-llstaq.md with prose content"
 
 
 def main():
@@ -112,15 +116,71 @@ def main():
         print(f"[FAIL] Markdown structure validation failed: {e}")
         return False
 
+    # Task 4: Git Integration - add, commit, push
+    print("\nTask 4: Git integration...")
+    try:
+        # Stage the file
+        print("  Running: git add test-llstaq.md")
+        result = subprocess.run(
+            ["git", "add", "test-llstaq.md"],
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print("[OK] File staged in git")
+
+        # Commit with conventional commit message
+        print(f"  Running: git commit -m '{COMMIT_MESSAGE}'")
+        result = subprocess.run(
+            ["git", "commit", "-m", COMMIT_MESSAGE],
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print("[OK] File committed with exact message")
+
+        # Push to remote origin on feature branch
+        # Get current branch name to ensure we push to the right branch
+        branch_result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        current_branch = branch_result.stdout.strip()
+        print(f"  Current branch: {current_branch}")
+        print(f"  Running: git push origin {current_branch}")
+
+        result = subprocess.run(
+            ["git", "push", "origin", current_branch],
+            cwd=Path.cwd(),
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print("[OK] Changes pushed to remote origin")
+
+    except subprocess.CalledProcessError as e:
+        print(f"[FAIL] Git command failed: {e.cmd}")
+        if e.stderr:
+            print(f"       Error: {e.stderr}")
+        return False
+    except Exception as e:
+        print(f"[FAIL] Git integration failed: {e}")
+        return False
+
     # Summary
     print("\n" + "=" * 60)
-    print("[SUCCESS] Feature 254 phase 1 complete!")
+    print("[SUCCESS] Feature 254 complete!")
     print(f"  File: test-llstaq.md")
     print(f"  Size: {file_size} bytes")
     print(f"  Sentences: {sentence_count}")
     print("  Encoding: UTF-8 (no BOM)")
     print("  Line endings: LF")
-    print("  Ready for git operations (commit & push)")
+    print("  Git status: Committed and pushed to remote")
     return True
 
 
