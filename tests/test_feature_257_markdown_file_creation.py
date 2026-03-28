@@ -1,5 +1,8 @@
 """Tests for feature 257: Create markdown file test-fl139g.md with prose content."""
 
+import re
+import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -298,3 +301,271 @@ class TestWorkflowExecution:
             assert result["content"] == test_content
             assert result["commit_message"] == expected_message
             assert result["push_result"] == "push: success"
+
+
+class TestErrorHandling:
+    """Tests for error handling and exception propagation."""
+
+    def test_function_raises_on_generate_failure(self):
+        """Test that function propagates exceptions from generate_markdown_content."""
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            side_effect=ValueError("API call failed"),
+        ):
+            with pytest.raises(ValueError, match="API call failed"):
+                create_feature_257_markdown_file()
+
+    def test_function_raises_on_write_failure(self):
+        """Test that function propagates exceptions from write_markdown_file."""
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value="# Test\n\nSentence one. Sentence two.",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            side_effect=IOError("Permission denied"),
+        ):
+            with pytest.raises(IOError, match="Permission denied"):
+                create_feature_257_markdown_file()
+
+    def test_function_raises_on_validation_failure(self):
+        """Test that function propagates exceptions from validate_markdown_file."""
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value="# Test\n\nSentence one. Sentence two.",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/repo/test-fl139g.md",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            side_effect=ValueError("Invalid markdown structure"),
+        ):
+            with pytest.raises(ValueError, match="Invalid markdown structure"):
+                create_feature_257_markdown_file()
+
+    def test_function_raises_on_commit_failure(self):
+        """Test that function propagates exceptions from commit_markdown_file."""
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value="# Test\n\nSentence one. Sentence two.",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/repo/test-fl139g.md",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            side_effect=Exception("Git commit failed"),
+        ):
+            with pytest.raises(Exception, match="Git commit failed"):
+                create_feature_257_markdown_file()
+
+    def test_function_raises_on_push_failure(self):
+        """Test that function propagates exceptions from push_markdown_file."""
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value="# Test\n\nSentence one. Sentence two.",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/repo/test-fl139g.md",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit result",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            side_effect=Exception("Git push failed"),
+        ):
+            with pytest.raises(Exception, match="Git push failed"):
+                create_feature_257_markdown_file()
+
+    def test_all_return_dict_values_are_strings(self):
+        """Test that all return dict values are strings."""
+        test_content = "# Test\n\nSentence one. Sentence two."
+        test_filepath = "/repo/test-fl139g.md"
+
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value=test_filepath,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit result",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="push result",
+        ):
+            result = create_feature_257_markdown_file()
+            # Verify all values are strings
+            for key, value in result.items():
+                assert isinstance(value, str), f"Value for key '{key}' is not a string: {type(value)}"
+
+
+class TestSuccessCriteriaValidation:
+    """Integration tests validating all success criteria from feature specification."""
+
+    def test_file_structure_and_encoding(self):
+        """Test that markdown file has correct structure, encoding, and line endings."""
+        test_content = "# Software Engineering\n\nSoftware engineering is the systematic application of engineering principles to software development. It encompasses the entire lifecycle from initial design through maintenance. This discipline ensures that software is reliable, maintainable, and scalable."
+        test_filepath = "/tmp/test-fl139g.md"
+
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value=test_filepath,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit: abc123",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="Pushed to origin feat/257-markdown-file-creation-ef4e6e",
+        ):
+            result = create_feature_257_markdown_file()
+
+            # Verify H1 heading is present
+            assert result["content"].startswith("# "), "Content must start with H1 heading"
+
+            # Extract lines to verify structure
+            lines = result["content"].split("\n")
+            assert lines[0].startswith("# "), "First line must be H1 heading"
+            assert lines[1] == "", "Second line must be blank (after H1)"
+
+            # Verify 2-3 sentences exist in prose section
+            prose = "\n".join(lines[2:])
+            sentence_count = len(re.split(r"[.!?]+", prose.strip())) - 1
+            assert 2 <= sentence_count <= 3, f"Must have 2-3 sentences, got {sentence_count}"
+
+            # Verify file size is in expected range
+            file_size = len(result["content"].encode("utf-8"))
+            assert (
+                250 <= file_size <= 600
+            ), f"File size {file_size} not in range [250-600]"
+
+    def test_return_dict_complete_and_correct(self):
+        """Test that return dict contains all required keys with correct values."""
+        test_content = "# Technology\n\nTechnology is the application of scientific knowledge for practical purposes. It shapes how we live, work, and communicate in modern society. From smartphones to artificial intelligence, technology continues to transform every aspect of human life."
+        test_filepath = "/repo/test-fl139g.md"
+        expected_message = "feat(257): create markdown file test-fl139g.md with prose content"
+
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value=test_filepath,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit: abc123",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="Pushed to origin feat/257-markdown-file-creation-ef4e6e",
+        ):
+            result = create_feature_257_markdown_file()
+
+            # Verify all 4 required keys exist
+            required_keys = {"filepath", "content", "commit_message", "push_result"}
+            assert set(result.keys()) == required_keys, f"Missing keys: {required_keys - set(result.keys())}"
+
+            # Verify each value is a string
+            for key, value in result.items():
+                assert isinstance(
+                    value, str
+                ), f"Value for '{key}' must be string, got {type(value)}"
+
+            # Verify specific values
+            assert result["filepath"] == test_filepath
+            assert result["content"] == test_content
+            assert result["commit_message"] == expected_message
+            assert "Pushed to origin" in result["push_result"]
+
+    def test_markdown_validation_criteria(self):
+        """Test that content meets all markdown validation criteria."""
+        # Valid markdown: H1 heading + blank line + 2-3 sentences
+        valid_content = "# Nature\n\nNature encompasses the physical world and universe, including all living organisms and natural phenomena. It provides resources that sustain life and offers inspiration for art and science. Understanding nature is fundamental to addressing environmental challenges."
+
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value=valid_content,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/tmp/test-fl139g.md",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit result",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="push result",
+        ):
+            result = create_feature_257_markdown_file()
+
+            # Parse and validate markdown structure
+            content = result["content"]
+            lines = content.split("\n")
+
+            # Check H1 heading
+            assert lines[0].startswith("# "), "First line must be H1 heading"
+            heading = lines[0][2:].strip()
+            assert len(heading) > 0, "H1 heading text cannot be empty"
+
+            # Check blank line after heading
+            assert lines[1] == "", "Second line must be blank"
+
+            # Check prose content (2-3 sentences)
+            prose = "\n".join(lines[2:]).strip()
+            # Count sentences (split by . ! or ?)
+            sentences = [
+                s.strip() for s in re.split(r"[.!?]+", prose) if s.strip()
+            ]
+            assert 2 <= len(sentences) <= 3, f"Expected 2-3 sentences, got {len(sentences)}"
+
+    def test_git_operations_result(self):
+        """Test that git operations complete with expected results."""
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value="# Topic\n\nSentence one. Sentence two.",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/repo/test-fl139g.md",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit: abc123",
+        ) as mock_commit, patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="Pushed to origin feat/257-markdown-file-creation-ef4e6e",
+        ) as mock_push:
+            result = create_feature_257_markdown_file()
+
+            # Verify commit was called with exact message
+            commit_call_kwargs = mock_commit.call_args.kwargs
+            assert (
+                commit_call_kwargs.get("custom_message")
+                == "feat(257): create markdown file test-fl139g.md with prose content"
+            )
+
+            # Verify push was called
+            mock_push.assert_called_once()
+
+            # Verify push result is in return dict
+            assert "push_result" in result
+            assert "Pushed to origin" in result["push_result"]
