@@ -1,0 +1,362 @@
+name: "markdown-file-creation-8e107d"
+summary: "Technical research for markdown file creation (test-yoduvz.md). Uses pathlib for file I/O per spec requirements, subprocess for git operations (no new dependencies), and hardcoded prose content for quality assurance. Follows established pattern from 181+ existing test files."
+
+relatedFeatures:
+  - number: 250
+    name: "markdown-file-creation"
+  - number: 249
+    name: "markdown-file-creation"
+  - number: 248
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (runtime)"
+  - "pathlib.Path (standard library for file I/O)"
+  - "subprocess (standard library for git commands)"
+  - "Git (version control system)"
+  - "Markdown (file format per CommonMark spec)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3.11/library/pathlib.html"
+  - title: "Python subprocess module"
+    url: "https://docs.python.org/3.11/library/subprocess.html"
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+
+decisions:
+  - title: "File I/O Library and Approach"
+    chosen: "pathlib.Path with write_text() method"
+    rejected:
+      - "open() function with manual encoding — more verbose, requires explicit context manager, less idiomatic for file creation"
+      - "os module (os.write) — too low-level, requires manual byte encoding, doesn't handle text encoding cleanly"
+    rationale: "NFR-5 explicitly requires pathlib.Path for file I/O. pathlib.write_text(encoding='utf-8') is idiomatic, concise, and automatically handles encoding without BOM. The method signature is Path(filename).write_text(content, encoding='utf-8'), which ensures UTF-8 encoding and proper text handling. This aligns with established pattern across 181+ existing test files."
+
+  - title: "Content Generation Strategy"
+    chosen: "Hardcoded prose content with manually validated quality"
+    rejected:
+      - "Random/procedurally generated content — requires additional logic or external libraries, harder to ensure prose readability and grammatical correctness (FR-5)"
+      - "Template-based content with variable substitution — unnecessary complexity for a simple, one-off file"
+    rationale: "Product question #3 resolves that prose readability is validated by implementer manual review (standard practice across 181+ existing files). Hardcoded content ensures consistent quality, readability, and grammatical correctness. This approach is simple, deterministic, and matches the established pattern."
+
+  - title: "Encoding and Line Ending Handling"
+    chosen: "pathlib.Path.write_text() with encoding='utf-8' parameter"
+    rejected:
+      - "open() with mode='w', encoding='utf-8', newline='' — achieves same result but more verbose, requires context manager"
+      - "Manual byte encoding with write_bytes() — too low-level, error-prone, requires explicit UTF-8 encoding and LF byte sequences"
+    rationale: "pathlib.write_text(encoding='utf-8') ensures UTF-8 encoding without BOM (Python's text codec default behavior). Unix systems (including this codebase environment) use LF line endings natively in text mode. This approach satisfies NFR-1 (UTF-8 without BOM) and NFR-2 (LF line endings) with minimal code. NFR-4 (CommonMark compliance) is ensured by proper markdown syntax in the hardcoded content."
+
+  - title: "Git Integration Implementation"
+    chosen: "subprocess module with git command-line interface"
+    rejected:
+      - "GitPython library (git.Repo API) — violates NFR-9 (no new dependencies), would require adding external package"
+      - "PyGit2 library — same dependency constraint violation, adds complexity for simple operations"
+    rationale: "NFR-9 explicitly prohibits new external dependencies. subprocess is in Python's standard library and sufficient for required operations: git add, git commit, git push. The codebase is already in a git repository with pre-created feature branch, so subprocess commands will work without additional git configuration. This approach is lightweight and follows Unix philosophy of composing standard tools."
+
+  - title: "Validation and Error Handling"
+    chosen: "No explicit post-creation validation — rely on manual review and test execution"
+    rejected:
+      - "Automated validation script checking file properties — adds code complexity, may introduce false positives, not standard practice in test file creation"
+      - "Inline validation during creation — complicates code flow, requires additional assertions and error handling"
+    rationale: "This is test content, not production code. Manual review by implementer (per FR-5 and product question #3) is standard practice. The implementation is straightforward and file requirements are clear. Success criteria in the spec are measurable and can be validated post-implementation through file inspection and git log. Adding validation logic would be premature abstraction (code review guidance: 'Don't add error handling for scenarios that can't happen')."
+
+openQuestions:
+  - question: "Should implementation be a standalone Python script or integrated into the Sheep platform?"
+    resolved: true
+    options:
+      - option: "Standalone Python script in repository root"
+        description: "Create a simple .py file that can be executed directly, contains all file creation and git logic. Flexible and testable but creates extra file in root."
+        selected: false
+      - option: "Direct implementation as part of this research task"
+        description: "Implement the file creation directly as part of the agent work, using Python code executed in the current environment. Simplest approach, no extra files created, integrated with spec management."
+        selected: true
+      - option: "Implement as Sheep platform feature (agent/flow)"
+        description: "Create an agent or flow in src/sheep/ that handles file creation. Most aligned with platform architecture but requires source code modification which this feature doesn't need."
+        selected: false
+    selectionRationale: "Features 069-250 demonstrate that implementation happens directly within the agent task execution — the markdown file is created as a direct output of the work. No separate script files are needed. This approach is simplest, matches established pattern, and keeps repository structure clean (no extra .py files cluttering the root)."
+
+  - question: "How should prose content topic be selected?"
+    resolved: true
+    options:
+      - option: "Random selection from predefined list of topics"
+        description: "Maintain a curated list of diverse topics (nature, science, technology, history, philosophy, etc.) and randomly select one. Adds variety to test files but requires list maintenance."
+        selected: false
+      - option: "Implementer chooses freely within quality constraints"
+        description: "Implementer selects any topic they prefer, subject only to readability/grammar requirement (FR-5). Simple, matches product question #2 resolution (free-form topics)."
+        selected: true
+      - option: "Topic determined by filename or feature number"
+        description: "Derive topic from the test filename 'test-yoduvz.md' or feature number. Deterministic but constrains creative freedom."
+        selected: false
+    selectionRationale: "Product question #2 explicitly resolves that topics are free-form with no constraints ('about anything'). User query states 'about anything' with no business constraints. Observing 181+ existing test files shows diverse topics are already used. Implementer freedom to choose topic reduces friction and aligns with specification intent."
+
+  - question: "What mechanism ensures file encoding is UTF-8 without BOM in write operations?"
+    resolved: true
+    options:
+      - option: "Explicit encoding parameter in pathlib.write_text()"
+        description: "Pass encoding='utf-8' parameter to write_text(). Python's UTF-8 codec natively omits BOM. Clear, explicit, and reliable."
+        selected: true
+      - option: "Verify with post-creation file inspection"
+        description: "Write file, then read bytes to verify no BOM present. Adds complexity but provides verification."
+        selected: false
+      - option: "Use UTF-8 with explicit BOM removal"
+        description: "Write UTF-8 with BOM marker, then strip it. Unnecessary since Python's codec doesn't add BOM in the first place."
+        selected: false
+    selectionRationale: "Python's utf-8 codec (used by pathlib.write_text() when encoding='utf-8' is specified) does NOT produce a BOM by default. This is different from utf-8-sig which adds BOM. Explicit encoding='utf-8' parameter in write_text() satisfies NFR-1 (UTF-8 without BOM) without additional complexity. This is well-documented Python behavior and standard practice."
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-28
+  - **Status:** Complete — all technical decisions documented and justified
+
+  ## Overview
+
+  Feature 251 creates a single markdown file (`test-yoduvz.md`) in the repository root following the established pattern from 181+ existing test files. The implementation requires:
+
+  1. Creating a markdown file with proper structure (H1 heading + 2-3 prose sentences)
+  2. Ensuring UTF-8 encoding without BOM and LF line endings
+  3. Staging the file in git with a conventional commit message
+  4. Pushing to the feature branch
+
+  All technical decisions are straightforward due to the explicit requirements in the spec and the clear precedent from existing test files.
+
+  ## Technology Stack
+
+  | Component | Technology | Justification |
+  | --------- | ---------- | ------------- |
+  | **File I/O** | Python pathlib.Path | Required by NFR-5; standard library; modern, idiomatic approach |
+  | **Git operations** | subprocess + Git CLI | Required by NFR-9 (no new dependencies); standard library; Git already a project dependency |
+  | **File encoding** | UTF-8 (via pathlib) | Enforced by NFR-1; Python's utf-8 codec avoids BOM by default |
+  | **Line endings** | LF (native Unix) | Enforced by NFR-2; Unix systems use LF natively in text mode |
+  | **Markdown syntax** | CommonMark | Spec references CommonMark compliance (NFR-4); simple syntax only (heading + text) |
+  | **Runtime** | Python 3.11+ | Project requirement (from pyproject.toml); no compatibility concerns |
+
+  ## Technical Decisions
+
+  ### 1. File I/O: pathlib.Path with write_text()
+
+  **Chosen:** pathlib.Path(filename).write_text(content, encoding='utf-8')
+
+  **Rejected:**
+  - `open()` function — requires context manager, explicit encoding parameter, less idiomatic for simple file creation
+  - `os` module functions (os.write) — too low-level, requires manual byte encoding and handling
+
+  **Rationale:**
+  - NFR-5 explicitly mandates pathlib.Path for file I/O
+  - pathlib is modern Python standard library (since 3.4), widely used in contemporary code
+  - write_text() is concise and handles text encoding automatically
+  - Avoids context manager boilerplate needed with open()
+  - Consistent with established pattern across 181+ existing test files
+
+  **Implementation pattern:**
+  ```python
+  from pathlib import Path
+
+  content = "# Title\n\nSentence one. Sentence two. Sentence three."
+  Path("test-yoduvz.md").write_text(content, encoding='utf-8')
+  ```
+
+  ### 2. Content Generation: Hardcoded Prose with Manual Quality Review
+
+  **Chosen:** Hardcoded prose content, validated manually by implementer during creation
+
+  **Rejected:**
+  - Random/procedurally generated content — adds complexity, harder to ensure FR-5 (grammatical correctness)
+  - Template-based generation — unnecessary complexity for single file creation
+
+  **Rationale:**
+  - Product question #3 resolves that prose readability is validated by implementer (standard practice in test file creation)
+  - Hardcoded content ensures consistent quality and grammatical correctness
+  - Simple and deterministic — no additional logic or libraries needed
+  - Matches established pattern: all 181+ existing test files use hand-written prose
+  - Implementer manually reviews their own content before committing
+
+  **File structure requirement:**
+  ```
+  # Heading Title\n
+  \n
+  Prose sentence one. Prose sentence two. [Optional: Prose sentence three.]
+  ```
+
+  **Size assurance:** Natural 400-600 byte range results from:
+  - Heading: ~20-30 bytes (e.g., "# Technology and Innovation")
+  - Blank line: 1 byte (newline)
+  - 2-3 sentences: ~350-550 bytes (prose content)
+  - Total: typically 370-580 bytes (within target range)
+
+  ### 3. Encoding and Line Endings: pathlib UTF-8 with Native LF
+
+  **Chosen:**
+  - Encoding: pathlib.write_text(encoding='utf-8')
+  - Line endings: Native LF (Unix text mode default)
+
+  **Rejected:**
+  - open() with newline='' parameter — achieves same result but more verbose
+  - Manual write_bytes() with explicit encoding — too low-level and error-prone
+
+  **Rationale:**
+  - **UTF-8 without BOM:** Python's utf-8 codec (distinct from utf-8-sig) does NOT add BOM. The encoding='utf-8' parameter in write_text() ensures UTF-8 encoding without BOM, satisfying NFR-1.
+  - **LF line endings:** Unix systems (including this environment, per `uname` output) use LF natively. Python's text mode on Unix preserves LF line endings automatically, satisfying NFR-2.
+  - **CommonMark compliance:** Standard markdown syntax with H1 heading (#) and plain text prose automatically complies with CommonMark specification (NFR-4).
+
+  **Verification:**
+  - File will be UTF-8 encoded: `file -b test-yoduvz.md` will show "UTF-8 Unicode text"
+  - File will have LF endings: `od -c test-yoduvz.md | grep \\n` shows Unix line endings, not `\r\n`
+
+  ### 4. Git Integration: subprocess with Standard Git Commands
+
+  **Chosen:** subprocess.run() with standard git CLI commands:
+  - `git add test-yoduvz.md`
+  - `git commit -m "feat(251): create markdown file test-yoduvz.md with prose content"`
+  - `git push -u origin HEAD` (or branch name)
+
+  **Rejected:**
+  - GitPython library — violates NFR-9 (no new dependencies)
+  - PyGit2 library — violates NFR-9, adds unnecessary complexity
+
+  **Rationale:**
+  - NFR-9 explicitly prohibits new external dependencies
+  - subprocess is standard library and lightweight
+  - Git is already a project dependency (version control system)
+  - Repository is pre-configured on feature branch `feat/251-markdown-file-creation-8e107d`
+  - Standard git user configuration (user.name, user.email) is already in place
+
+  **Implementation pattern:**
+  ```python
+  import subprocess
+
+  subprocess.run(["git", "add", "test-yoduvz.md"], check=True)
+  subprocess.run(["git", "commit", "-m", "feat(251): create markdown file test-yoduvz.md with prose content"], check=True)
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  ```
+
+  **Error handling:** Using check=True raises CalledProcessError on non-zero exit code, appropriate for this use case.
+
+  ### 5. Validation: No Explicit Validation — Manual Review Pattern
+
+  **Chosen:** No automated validation script; rely on manual review and test execution
+
+  **Rejected:**
+  - Automated validation checking file size, encoding, syntax — adds code complexity without clear benefit
+  - Inline validation assertions — complicates code flow
+
+  **Rationale:**
+  - This is test content, not production code
+  - Manual review per FR-5 is standard practice across 181+ existing test files
+  - Success criteria are clear and measurable post-implementation (file exists, git history shows commit, file content correct)
+  - Code review guidance: "Don't add error handling for scenarios that can't happen"
+  - Validation happens naturally through CI/test execution if needed
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Rationale |
+  | ------------ | ------- | -------- | --------- |
+  | pathlib | File I/O | **Use** | Standard library, required by NFR-5, idiomatic modern Python |
+  | subprocess | Git command execution | **Use** | Standard library, sufficient for git operations, complies with NFR-9 (no new dependencies) |
+  | GitPython | Git operations alternative | **Reject** | Violates NFR-9 (new external dependency); subprocess is sufficient |
+  | PyGit2 | Git operations alternative | **Reject** | Violates NFR-9 (new external dependency); added complexity not needed |
+  | Grammar validators | Prose quality assurance | **Reject** | Implementer manual review sufficient (product question #3); external NLP tools unnecessary |
+
+  ## Security Considerations
+
+  1. **File creation:** Creating a markdown file in the repository root has no security implications. The file contains only prose content, no executable code, credentials, or sensitive data.
+
+  2. **Encoding:** UTF-8 without BOM prevents encoding-based attacks or misinterpretation. Standard, safe practice.
+
+  3. **Git operations via subprocess:**
+     - Using subprocess.run() with argument list (not string shell execution) prevents command injection
+     - Arguments are properly separated: `["git", "add", "test-yoduvz.md"]`
+     - No user input in the command itself (filename and message are hardcoded from spec)
+     - check=True flag ensures errors are raised, not silently ignored
+
+  4. **No external dependencies:** Rejecting external libraries (GitPython, etc.) reduces supply chain risk and attack surface.
+
+  5. **File permissions:** Created file inherits default umask permissions from repository; typically readable by all project members (appropriate for test artifacts).
+
+  ## Performance Considerations
+
+  1. **File I/O:** Single small file (~400-600 bytes) creation is negligible performance impact.
+
+  2. **Git operations:**
+     - git add: O(1) for single file, <1ms typical
+     - git commit: O(1) for file-only commit, <10ms typical
+     - git push: Network dependent, but typical local feature branch push <1s
+     - Total: <2 seconds expected
+
+  3. **Memory:** All operations use minimal memory (file content ~500 bytes, git metadata <1KB).
+
+  4. **No optimization needed:** This is a one-time file creation, not a performance-critical operation. Straightforward implementation is appropriate.
+
+  ## Architecture Notes
+
+  ### Relationship to Existing Codebase
+
+  - **Repository structure:** Feature adds one file to existing collection of 181+ test markdown files (test-*.md at root)
+  - **No source code impact:** Feature is purely file creation; does not modify /src/sheep/ or any application code
+  - **No test modifications:** Feature doesn't add test cases or modify test infrastructure
+  - **No dependencies:** Uses only Python standard library and git (already required)
+  - **Pattern consistency:** Identical implementation to features 069-250, proving established pattern
+
+  ### Established Pattern (Features 069-250)
+
+  All prior markdown-file-creation features follow this pattern:
+  1. Create markdown file with H1 heading + 2-3 prose sentences
+  2. Use pathlib for file I/O
+  3. Stage with git add
+  4. Commit with conventional commit message
+  5. Push to feature branch
+  6. No modifications to source code or configuration
+
+  This feature (251) follows the exact same pattern, with only the filename changing (test-yoduvz.md vs other test-*.md filenames).
+
+  ### Integration Points
+
+  - **Git repository:** Uses existing repository configuration (user.name, user.email, remote origin)
+  - **Feature branch:** Pre-created as `feat/251-markdown-file-creation-8e107d`, ready for commits
+  - **Git history:** Commits follow conventional commit format, appear in git log
+  - **CI/CD:** If CI processes markdown files, this file will be included in standard checks
+
+  ## Implementation Summary
+
+  The implementation is straightforward:
+
+  ```python
+  from pathlib import Path
+  import subprocess
+
+  # 1. Create markdown content
+  content = "# [Chosen Topic]\n\n[2-3 sentences of prose content]"
+
+  # 2. Write file with pathlib
+  Path("test-yoduvz.md").write_text(content, encoding='utf-8')
+
+  # 3. Stage in git
+  subprocess.run(["git", "add", "test-yoduvz.md"], check=True)
+
+  # 4. Commit with conventional message
+  subprocess.run([
+      "git", "commit", "-m",
+      "feat(251): create markdown file test-yoduvz.md with prose content"
+  ], check=True)
+
+  # 5. Push to feature branch
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  ```
+
+  Total code: ~10 lines, using only standard library modules, no external dependencies.
+
+  ## Decision Rationale Summary
+
+  | Decision | Chosen Option | Why |
+  | -------- | ------------- | --- |
+  | File I/O | pathlib.Path.write_text() | Required by NFR-5, idiomatic, clean |
+  | Content | Hardcoded prose | Product question #3: manual review is standard; simple, quality-assured |
+  | Encoding | UTF-8 via pathlib | NFR-1: Python's utf-8 codec avoids BOM by default |
+  | Line endings | Native LF (Unix text mode) | NFR-2: Unix environment uses LF natively |
+  | Git integration | subprocess + git CLI | NFR-9: no new dependencies; subprocess is standard library |
+  | Validation | Manual review | Test content; manual validation is standard practice across precedents |
+
+  ---
+
+  _Research phase complete — all technical decisions documented with evaluation of alternatives. Ready for implementation phase._
