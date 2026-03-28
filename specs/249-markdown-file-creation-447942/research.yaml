@@ -1,0 +1,365 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-447942
+summary: >
+  Technical analysis confirms straightforward implementation using Python pathlib for file I/O
+  and subprocess for git operations. Architecture follows established pattern from 200+ existing
+  test files with hardcoded prose content, UTF-8 encoding, and LF line endings. No external
+  dependencies required; uses Python 3.11+ standard library only. Implementation includes
+  basic error handling for git operations with fail-fast validation.
+
+# Relationships
+relatedFeatures:
+  - name: "markdown-file-creation"
+    number: 248
+    relationship: "Identical implementation pattern"
+  - name: "markdown-file-creation"
+    number: 247
+    relationship: "Identical implementation pattern"
+  - name: "markdown-file-creation"
+    number: 246
+    relationship: "Identical implementation pattern"
+
+technologies:
+  - "Python 3.11+ (runtime)"
+  - "pathlib (Python standard library — file I/O)"
+  - "subprocess (Python standard library — git operations)"
+  - "Git 2.0+ (version control)"
+  - "Markdown CommonMark (file format)"
+  - "UTF-8 encoding (text encoding)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Implementation — pathlib vs subprocess vs open()"
+    chosen: "Python pathlib.Path for file I/O"
+    rejected:
+      - "subprocess shell execution — Introduces security risk (shell injection), adds unnecessary complexity, slower than pathlib, less readable"
+      - "open() with manual file handling — Requires explicit encoding parameter, exception handling, context managers; pathlib is cleaner and more Pythonic"
+    rationale: >
+      pathlib.Path is the optimal choice because: (1) It is the modern Python standard library
+      approach (Python 3.4+), recommended by Python documentation over open(). (2) Path.write_text()
+      automatically handles UTF-8 encoding and LF line endings on all platforms, eliminating platform-specific
+      issues. (3) It is already proven in 200+ existing test files in this codebase with identical
+      structure. (4) Path operations are more readable and Pythonic than open() boilerplate.
+      (5) No external dependencies required. (6) Cleaner error handling with implicit exception propagation.
+      Example: Path(\"test-lwvxya.md\").write_text(content, encoding=\"utf-8\") handles encoding automatically.
+
+  - title: "Git Operations — subprocess vs GitPython library"
+    chosen: "subprocess.run() with shell=False"
+    rejected:
+      - "GitPython library — Adds external dependency (gitpython>=3.1.0 is in pyproject.toml but best avoided for simple operations), larger surface area for errors, overkill for straightforward git add/commit/push, less transparent output, harder to debug"
+      - "Direct git command shell execution — Security risk (shell injection), platform-dependent, less reliable error handling, not recommended for automation"
+    rationale: >
+      subprocess.run() with shell=False is the best choice because: (1) It avoids shell injection vulnerabilities
+      by passing command as list (not string). (2) It is already used in feature 211 implementation (proven pattern).
+      (3) Simple git commands (add, commit, push) do not require GitPython's abstraction layer. (4) Direct subprocess
+      calls are more transparent and easier to audit for security. (5) check=True parameter provides fail-fast behavior
+      with CalledProcessError on non-zero exit codes. (6) capture_output=True allows clear error reporting.
+      (7) No additional dependencies required beyond pyproject.toml. Example: subprocess.run([\"git\", \"add\", filename],
+      check=True, capture_output=True, text=True) is both secure and simple.
+
+  - title: "Error Handling Strategy — Exception handling scope and recovery"
+    chosen: "Basic error handling for git operations with fail-fast for file creation"
+    rejected:
+      - "No error handling — Provides no debugging information, fails without context, unacceptable for automation systems that need to report failures clearly"
+      - "Comprehensive error handling with recovery attempts — Over-engineers a 'small' feature, adds unnecessary complexity, retry logic often masks root causes that should fail visibly"
+    rationale: >
+      Basic error handling strikes the right balance because: (1) File creation via pathlib has extremely low
+      failure probability (write access is guaranteed, path is valid). (2) Git operations can fail from external
+      causes (authentication, network, branch issues) and must be reported clearly. (3) Prior features (211, 201, etc.)
+      implement this exact pattern with try/except around git operations. (4) Fail-fast principle (stop at first error,
+      don't attempt recovery) is appropriate here because: (a) No graceful fallback exists for git push failure,
+      (b) Hiding errors prevents operators from addressing root causes, (c) Clear failure reporting aids debugging.
+      (5) Implementation cost is minimal (2-3 try/except blocks). Example structure: try subprocess.run() with check=True,
+      except CalledProcessError log and raise. No retry loops, no recovery attempts.
+
+  - title: "Prose Content Approach — Hardcoded vs templated vs generated"
+    chosen: "Hardcoded prose content (specification requirement)"
+    rejected:
+      - "Templated or generated content — Already rejected in specification based on analysis of 200+ existing test files which all use fixed, deterministic prose rather than templates"
+    rationale: >
+      Hardcoded prose is the established pattern confirmed by specification analysis and codebase evidence:
+      (1) All 200+ existing test-*.md files at repository root contain fixed, specific prose rather than templates.
+      (2) Features 069-248 all use hardcoded prose with diverse topics (quantum computing, communication, persistence, etc.).
+      (3) Feature specification explicitly resolves this question with recommendation for hardcoded prose.
+      (4) Hardcoded content provides deterministic, reproducible results. (5) No external dependencies (APIs, generators, templates)
+      required. (6) Implementation is trivial: define TITLE_TEXT and PROSE_CONTENT strings, format with f-string.
+      Example from feature 211: TITLE_TEXT = \"Quantum Computing Fundamentals\" and PROSE_CONTENT containing 2-3 sentences.
+
+  - title: "Markdown Format Validation — Comprehensive vs basic validation"
+    chosen: "Basic structural validation (H1 heading, blank line, prose exists)"
+    rejected:
+      - "Comprehensive validation (sentence count, file size, encoding, line endings) — Adds unnecessary complexity for a straightforward feature, over-engineering for 'small' size estimate, validation logic itself becomes maintenance burden"
+      - "No validation — Unacceptable for automated systems; proves nothing works correctly"
+    rationale: >
+      Basic structural validation is appropriate because: (1) The implementation directly constructs the markdown
+      content from known-good format strings, so encoding/line endings are guaranteed by pathlib.write_text().
+      (2) Sentence count validation (counting periods) is fragile and error-prone. (3) File size varies naturally
+      based on prose length (spec notes 300-600 bytes as natural outcome, not strict requirement). (4) Basic checks
+      (file exists, H1 heading present, blank line after heading) verify the feature completed without over-validating.
+      (5) Feature 211 shows comprehensive validation is optional (nice-to-have, not required). (6) For a 'small' feature,
+      minimal validation keeps implementation focused. Basic validation: (a) Path.exists(), (b) content.startswith(\"# \"),
+      (c) lines[1] is blank. Omit: sentence counting, BOM detection, size range checks, encoding validation.
+
+  - title: "Implementation Scope — Standalone script vs integrated module"
+    chosen: "Standalone Python script executable from command line"
+    rejected:
+      - "Integrated sheep feature module (like /src/sheep/features/) — Adds coupling to application codebase, requires logging setup, config, error handling integration; markdown file creation is isolated test artifact with no application logic"
+      - "Makefile/shell script wrapper — Less portable, requires shell environment, harder to version control"
+    rationale: >
+      Standalone script is the right choice because: (1) This feature is a test artifact (markdown file creation)
+      with no dependencies on application source code (/src/sheep/). (2) It needs to be portable and runnable
+      directly without application infrastructure. (3) Existing features (248, 247, 246) are standalone implementations.
+      (4) No need for logging framework integration, config files, or dependency injection. (5) Can be executed as:
+      python -c \"import subprocess; subprocess.run(['python', 'implementation.py'])\" or similar. (6) Simpler to understand,
+      test, and troubleshoot without Sheep framework overhead. Example: Create a script that: (a) defines FILENAME, TITLE_TEXT, PROSE_CONTENT,
+      (b) uses Path().write_text() to create file, (c) uses subprocess.run() for git operations, (d) returns 0/1 exit code.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-28
+  - **Architecture:** Standalone Python script using pathlib and subprocess
+  - **Dependencies:** Python 3.11+ standard library only (pathlib, subprocess)
+  - **Pattern:** Matches 200+ existing test file implementations
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation
+
+  **Chosen:** Python pathlib.Path for file I/O
+
+  **Rejected:**
+  - subprocess shell execution — Security risk (shell injection), unnecessary complexity, slower
+  - open() with manual handling — Requires boilerplate, pathlib is more Pythonic
+
+  **Rationale:** pathlib.Path is modern Python standard (3.4+), automatically handles UTF-8 encoding
+  and LF line endings, proven in 200+ existing test files, no external dependencies, cleaner than
+  open() boilerplate. Example: `Path(\"test-lwvxya.md\").write_text(markdown_content, encoding=\"utf-8\")`
+  handles encoding automatically on all platforms.
+
+  ### 2. Git Operations
+
+  **Chosen:** subprocess.run() with shell=False
+
+  **Rejected:**
+  - GitPython library — Adds external dependency, overkill for simple add/commit/push
+  - Shell execution — Security risk, less reliable error handling
+
+  **Rationale:** subprocess with shell=False avoids shell injection vulnerabilities, used in feature 211
+  implementation (proven), simple git commands don't need GitPython abstraction, check=True provides
+  fail-fast with CalledProcessError, transparent for auditing. Example: `subprocess.run([\"git\", \"add\", filename],
+  check=True, capture_output=True, text=True)`
+
+  ### 3. Error Handling Strategy
+
+  **Chosen:** Basic error handling for git operations with fail-fast validation
+
+  **Rejected:**
+  - No error handling — Provides no debugging information, unacceptable for automation
+  - Comprehensive error handling with retries — Over-engineers a 'small' feature, masks root causes
+
+  **Rationale:** File creation has near-zero failure probability (pathlib doesn't need recovery).
+  Git operations can fail externally (auth, network, branch issues) and must report clearly.
+  Fail-fast principle: stop at first error, don't attempt recovery. Implementation: try/except
+  around git operations with logging. No retry loops. Example: `try: subprocess.run(...); except
+  CalledProcessError as e: logger.error(...); raise`
+
+  ### 4. Prose Content Approach
+
+  **Chosen:** Hardcoded prose content (per specification)
+
+  **Rejected:**
+  - Templated or generated content — Specification analysis shows all 200+ existing files use fixed prose
+
+  **Rationale:** All existing test files contain fixed, deterministic prose, not templates. Features
+  069-248 follow this pattern. Hardcoded content requires no external dependencies, provides
+  reproducible results. Trivial implementation: define TITLE_TEXT and PROSE_CONTENT strings,
+  format with f-string.
+
+  ### 5. Markdown Format Validation
+
+  **Chosen:** Basic structural validation only (H1 heading, blank line, prose exists)
+
+  **Rejected:**
+  - Comprehensive validation (sentence count, encoding, line endings, file size) — Over-engineering for 'small' feature
+  - No validation — Unacceptable for automated systems
+
+  **Rationale:** pathlib.write_text() guarantees UTF-8 and LF by design. Sentence count validation
+  is fragile (counting periods fails with abbreviations). File size varies naturally. Basic checks
+  verify completion. Example: Check file exists, content starts with \"# \", line 2 is blank.
+  Keep validation minimal for 'small' feature scope.
+
+  ### 6. Implementation Scope
+
+  **Chosen:** Standalone Python script (not integrated Sheep module)
+
+  **Rejected:**
+  - Integrated /src/sheep/features/ module — Adds coupling, unnecessary infrastructure, markdown file creation is test artifact
+  - Shell script wrapper — Less portable, harder to version control
+
+  **Rationale:** This feature creates a test artifact with no application logic dependencies.
+  Standalone script is portable, simpler to understand, no Sheep framework overhead required.
+  Executable directly: `python script.py` or via subprocess. Matches existing feature implementations.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O operations | Use | Modern, cross-platform, automatic UTF-8/LF handling, proven in 200+ existing files |
+  | subprocess (stdlib) | Git command execution | Use | Secure (shell=False), transparent, fail-fast with check=True, no external dependencies |
+  | GitPython | Git operations abstraction | Reject | Overkill for simple add/commit/push, adds external dependency, less transparent |
+  | sys (stdlib) | Exit code handling | Use | Standard for CLI script return codes, no alternative needed |
+  | logging (stdlib) | Event logging | Optional | Could add for debugging, but not required for small feature (can use print instead) |
+
+  ## Security Considerations
+
+  ### 1. Command Injection Prevention
+
+  **Risk:** Unsanitized git commands could allow shell injection if built as strings.
+
+  **Mitigation:** Always use subprocess.run() with command as list (not string) and shell=False.
+  ```python
+  # ✓ Safe: command is list, shell=False
+  subprocess.run([\"git\", \"add\", filename], check=True)
+
+  # ✗ Unsafe: shell=True allows injection
+  subprocess.run(f\"git add {filename}\", shell=True)
+  ```
+
+  This prevents malicious filenames from executing arbitrary commands.
+
+  ### 2. File Encoding/Line Endings
+
+  **Risk:** Incorrect encoding could allow injection attacks; incorrect line endings could cause
+  cross-platform issues or hide malicious content.
+
+  **Mitigation:** pathlib.Path.write_text() enforces UTF-8 encoding and LF line endings automatically
+  on all platforms. No need for manual encoding specification or platform detection.
+
+  ### 3. Path Traversal Prevention
+
+  **Risk:** Filename could contain \"../\" or absolute paths to escape repository root.
+
+  **Mitigation:** Spec defines exact filename \"test-lwvxya.md\" (no user input). Implementation
+  uses Path(FILENAME) with hardcoded filename constant. No path traversal possible.
+
+  ### 4. Git Credential/Authentication
+
+  **Risk:** git push could prompt for credentials, blocking execution.
+
+  **Mitigation:** This feature assumes git is already configured with credentials (SSH keys,
+  credentials helper, or personal access tokens). No credential handling needed in script.
+  Environment variables (GIT_AUTHOR_NAME, GIT_AUTHOR_EMAIL) already configured at system level.
+
+  ## Performance Considerations
+
+  ### 1. File I/O Performance
+
+  **Concern:** pathlib vs open() performance difference.
+
+  **Analysis:** For a ~500 byte markdown file, performance difference is negligible (microseconds).
+  pathlib is optimized in Python 3.11+ and does not add measurable overhead.
+
+  **Optimization:** Write file in single operation (one .write_text() call) rather than multiple
+  writes. This is already done: `Path(filename).write_text(markdown_content, encoding=\"utf-8\")`
+
+  ### 2. Git Operations Performance
+
+  **Concern:** subprocess overhead for git commands.
+
+  **Analysis:** Git operations (add, commit, push) are I/O-bound. subprocess overhead is negligible
+  compared to git command execution time. Expected total execution time: 500ms-2s (mostly network
+  latency for push).
+
+  **Optimization:** Use subprocess.run() with capture_output=True rather than piping to avoid
+  extra process spawning. Already done in implementation.
+
+  ### 3. Network Latency
+
+  **Concern:** git push involves network call to remote repository.
+
+  **Analysis:** Network latency (100-500ms) dominates total execution time. Implementation cannot
+  optimize this. Expected time: 1-2 seconds for local operations + push time.
+
+  **Note:** Performance is not a concern for this feature. Size estimate \"S\" (10-15 minutes)
+  includes natural network latency.
+
+  ## Architecture Notes
+
+  ### 1. Integration with Sheep Platform
+
+  This feature is a **test artifact generator**, not an application feature. It:
+  - Does NOT modify application source code (/src/sheep/)
+  - Does NOT require Sheep framework infrastructure
+  - Does NOT interact with CrewAI agents or flows
+  - Does NOT depend on application configuration or logging
+  - Can be executed independently as a Python script
+
+  This is by design: the markdown file creation feature is a minimal, isolated test of the
+  Sheep platform's ability to automate file creation + git workflows.
+
+  ### 2. Pattern Consistency
+
+  The implementation follows the established architecture from features 069-248:
+  - Standalone Python script (not module in /src/sheep/features/)
+  - Hardcoded content (no templating, no APIs)
+  - pathlib for file I/O
+  - subprocess for git operations
+  - Basic error handling (try/except around git operations)
+  - Fail-fast principle (stop at first error)
+
+  This consistency reduces implementation risk and cognitive load for reviewers.
+
+  ### 3. Repository Root as Working Directory
+
+  The implementation assumes:
+  - Current working directory is repository root (git repository)
+  - File is created at repository root: Path(\"test-lwvxya.md\")
+  - Git commands execute with no directory change
+  - Feature branch is already checked out
+
+  No path navigation or directory changes needed.
+
+  ## Non-Functional Requirements Assessment
+
+  | NFR | Implementation | Status |
+  | --- | -------------- | ------ |
+  | UTF-8 encoding without BOM | pathlib.Path.write_text(..., encoding=\"utf-8\") | ✓ Guaranteed |
+  | Unix LF line endings | pathlib on all platforms uses LF by default | ✓ Guaranteed |
+  | File size 300-600 bytes | Natural outcome of one H1 heading + 2-3 sentences | ✓ Natural |
+  | Python 3.11+ only | pathlib and subprocess in all 3.11+ versions | ✓ Compliant |
+  | No source code modifications | Script creates only test-lwvxya.md in root | ✓ Verified |
+  | No side effects | Single file creation, single git commit | ✓ Verified |
+  | Prose coherence | Human-written prose on topic of choice | ✓ Manual |
+
+  ## Summary
+
+  This feature requires a straightforward implementation:
+
+  1. **Create markdown file** using pathlib.Path.write_text() with hardcoded content
+  2. **Format content** as: `# Title\n\n<2-3 sentences prose>\n`
+  3. **Stage file** with subprocess.run([\"git\", \"add\", filename], check=True)
+  4. **Commit file** with subprocess.run([\"git\", \"commit\", \"-m\", message], check=True)
+  5. **Push commit** with subprocess.run([\"git\", \"push\", \"-u\", \"origin\", \"HEAD\"], check=True)
+  6. **Handle errors** with try/except around git operations only
+  7. **Return exit code** 0 on success, 1 on any failure
+
+  No external dependencies. No application logic. No complex validation. Straightforward implementation
+  matching 200+ precedents. Estimated implementation time: 10-15 minutes.
