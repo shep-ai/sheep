@@ -1,0 +1,255 @@
+name: "markdown-file-creation-acee8f"
+summary: >
+  Implementation plan for feature 255: Create markdown file test-zbl9x9.md with H1 heading and 2-3 sentences of prose. Uses high-level wrappers from content_generators.py for content generation, file operations, and git integration. Fail-fast error handling with comprehensive logging via structlog. Follows established patterns from 200+ prior features (particularly feature 227).
+
+relatedFeatures:
+  - "feature_227"
+  - "feature_254"
+
+technologies:
+  - "Python 3.10+"
+  - "CrewAI"
+  - "Anthropic Claude API"
+  - "Git"
+  - "structlog"
+  - "pathlib"
+
+relatedLinks:
+  - title: "Feature 227 implementation pattern (template)"
+    url: "file:///src/sheep/features/feature_227_markdown_file_creation.py"
+  - title: "High-level utility wrappers"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "Low-level markdown utilities reference"
+    url: "file:///src/create_markdown.py"
+  - title: "Logging configuration"
+    url: "file:///src/sheep/observability/logging.py"
+  - title: "LLM configuration system"
+    url: "file:///src/sheep/config/llm.py"
+
+phases:
+  - id: "phase-1"
+    name: "Module Setup and Configuration"
+    description: "Create the feature module with necessary imports, logging configuration, and metadata constants. This phase establishes the foundation for all subsequent implementation steps."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Core Implementation"
+    description: "Implement the main orchestration function that coordinates five sequential steps: content generation, file writing, validation, git commit, and push. Each step calls existing wrapper functions from content_generators.py."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Testing and Verification"
+    description: "Write comprehensive integration tests that verify all aspects: file creation, encoding/line endings, content validation, git operations, and return value structure. Run end-to-end verification."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_255_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 255 implements a straightforward orchestration pattern that coordinates five existing utility functions from the `content_generators.py` module. The feature module acts as a thin wrapper that:
+
+  1. **Generates markdown content** (H1 + prose) via Claude API with deterministic settings
+  2. **Writes the file** with UTF-8 encoding (no BOM) and Unix LF line endings
+  3. **Validates the file** for structure, encoding, line endings, and content quality
+  4. **Stages and commits** with conventional commit message: `feat(255): create markdown file test-zbl9x9.md with prose content`
+  5. **Pushes to remote** feature branch with upstream tracking
+
+  This design follows the established pattern demonstrated in feature 227 and aligns with the "high-level wrapper" architecture decision documented in the research findings. The feature module is intentionally thin (~30-40 lines) to:
+  - Avoid code duplication across 255 features
+  - Leverage mature, battle-tested utility functions
+  - Enable centralized improvements (validation logic changes propagate automatically)
+  - Keep focus on orchestration, not implementation details
+
+  ### Integration Points
+
+  - **Content Generation**: Via `content_generators.generate_markdown_content()` which wraps Claude API with temperature=0.2 for deterministic output
+  - **File Operations**: Via `content_generators.write_markdown_file()` (enforces encoding standards) and `content_generators.validate_markdown_file()` (comprehensive validation)
+  - **Git Operations**: Via `content_generators.commit_markdown_file()` and `content_generators.push_markdown_file()` (which wrap CrewAI's GitCommitTool and GitPushTool)
+  - **Logging**: Via `sheep.observability.logging.get_logger(__name__)` for structured, contextual logging
+  - **Configuration**: Via existing `sheep.config` system (LLM settings, repository paths)
+
+  ## Key Design Decisions
+
+  ### 1. High-Level Wrapper Pattern (Specification Requirement NFR-5)
+
+  **Decision**: Use high-level functions from `content_generators.py` rather than low-level functions or custom implementations.
+
+  **Why this decision**:
+  - Specification explicitly requires reusing existing utilities without creating new ones (NFR-5)
+  - Wrappers are production-tested across 200+ features with consistent behavior
+  - Reduces feature module code from ~70 lines (direct low-level) to ~30-40 lines
+  - Centralizes validation logic—changes to validation rules propagate automatically
+  - Follows established pattern in feature 227, the most recent predecessor
+  - Aligns with DRY principle: avoid reimplementing the same orchestration in 255 places
+
+  **Impact**:
+  - Feature module stays lean and focused on orchestration only
+  - Reduced code duplication improves maintainability
+  - Consistent behavior across all features in the system
+
+  ### 2. Fail-Fast Error Handling (Specification Requirement #2)
+
+  **Decision**: Propagate exceptions immediately on validation failure; no automatic retries.
+
+  **Why this decision**:
+  - Specification explicitly selects fail-fast approach (open question #2, answer selected)
+  - Clear error messages enable operator debugging and manual intervention
+  - CrewAI LLM layer already handles API-level retries automatically
+  - Content generation failures are rare with temperature=0.2 (promotes deterministic output)
+  - Operator retains full control over error recovery and retry logic
+  - Keeps implementation simple, focused on happy path
+
+  **Impact**:
+  - Operators see immediate, actionable error messages
+  - No complexity of retry loops or state management
+  - Clean code path aligned with established patterns across 254 prior features
+
+  ### 3. Sequential Orchestration (Not Parallelized)
+
+  **Decision**: Execute steps in strict sequence: generate → write → validate → commit → push.
+
+  **Why this decision**:
+  - Steps have strict dependencies: file must exist before validation; validation must pass before git operations
+  - Total latency dominated by LLM request (1-3s) and network I/O (2-4s for git push), not computation
+  - Parallelization would add significant complexity without meaningful performance gain
+  - Sequential flow is easier to understand, debug, and test
+  - Aligns with established patterns
+
+  **Impact**:
+  - Expected total runtime: 3-7 seconds (acceptable for a small feature)
+  - Code is straightforward and easy to reason about
+  - No concurrency-related bugs or race conditions
+
+  ### 4. Structured Logging (Specification Requirement NFR-8)
+
+  **Decision**: Use `get_logger(__name__)` from `sheep.observability.logging` for all observability.
+
+  **Why this decision**:
+  - Specification explicitly requires logging for observability (NFR-8)
+  - System integrates structlog with Rich console output and context preservation
+  - Structured logging enables machine-readable audit trails and filtering
+  - Feature modules simply instantiate logger and call standard methods
+  - Infrastructure automatically handles formatting, timestamps, context, and log level filtering
+
+  **Impact**:
+  - Visibility into feature execution without adding code complexity
+  - Logs are searchable, filterable, and machine-readable
+  - Audit trail for git operations and validation steps
+  - No logging boilerplate needed in feature code
+
+  ### 5. UTF-8 Encoding with Unix LF (Specification Requirements NFR-1, NFR-2)
+
+  **Decision**: Trust `write_markdown_file()` wrapper to enforce encoding standards; validate via binary-level checks.
+
+  **Why this decision**:
+  - Specification requires UTF-8 without BOM and Unix LF line endings
+  - `write_markdown_file()` wrapper enforces encoding consistently across all 255 features
+  - `validate_markdown_file()` performs binary-level validation (BOM check, CRLF check)
+  - No feature-specific encoding logic needed
+
+  **Impact**:
+  - Ensures consistent encoding across all features
+  - Validation is reliable, testable, and centralized
+  - Feature module doesn't need encoding knowledge or complexity
+
+  ### 6. Git Integration via CrewAI Tools
+
+  **Decision**: Use `GitCommitTool` and `GitPushTool` via `content_generators.py` wrappers.
+
+  **Why this decision**:
+  - CrewAI tools provide consistent abstraction for external operations
+  - Tools integrate transparently with logging and error handling infrastructure
+  - Avoids direct subprocess calls, which require manual error handling
+  - Reduces feature code responsibility and enables centralized improvements
+  - Not in current tech stack: no need to add GitPython or other Git libraries
+
+  **Impact**:
+  - Clean abstraction over git operations
+  - Error messages from git operations are logged and propagated clearly
+  - Future improvements to git handling benefit all features automatically
+
+  ## Implementation Strategy
+
+  ### Phase 1: Module Setup (Foundation)
+
+  Create the feature module with proper structure, imports, and configuration. This step establishes the foundation for all subsequent work.
+
+  **Deliverables**:
+  - Create `src/sheep/features/feature_255_markdown_file_creation.py`
+  - Import required modules: `content_generators`, `get_logger`, `pathlib`
+  - Instantiate module-level logger via `get_logger(__name__)`
+  - Define metadata constants: `FEATURE_NUMBER = 255`, `MARKDOWN_FILENAME = \"test-zbl9x9.md\"`
+  - Add module docstring describing purpose and architecture
+
+  **Why this comes first**:
+  - Module structure must be established before implementation
+  - Logger must be instantiated at module level to enable logging throughout
+  - Constants provide centralized configuration points
+  - Establishes namespace and import context for all subsequent work
+
+  ### Phase 2: Core Implementation (Five Sequential Steps)
+
+  Implement the main orchestration function that coordinates the five steps. Each step calls existing wrapper functions from `content_generators.py`; the feature module provides sequencing and error logging.
+
+  **Step 1: Content Generation**
+  - Call `generate_markdown_content()` to produce H1 heading + 2-3 sentences of prose
+  - Log generated content details (length, preview)
+
+  **Step 2: File Writing**
+  - Call `write_markdown_file(content, MARKDOWN_FILENAME)` to write file to repository root
+  - File created with UTF-8 encoding (no BOM) and Unix LF line endings (enforced by wrapper)
+  - Log file creation with path and size information
+
+  **Step 3: File Validation**
+  - Call `validate_markdown_file(file_path)` to verify structure, encoding, line endings, and content
+  - Validates: structure (H1 + blank line), sentence count (2-3), UTF-8 no BOM, Unix LF, file size
+  - Log validation results or raise exception if validation fails (fail-fast)
+
+  **Step 4: Git Commit**
+  - Call `commit_markdown_file(file_path, content, repo_path, custom_message)` with conventional message
+  - Message format: `\"feat(255): create markdown file test-zbl9x9.md with prose content\"`
+  - Log commit details (message, file path, status)
+
+  **Step 5: Git Push**
+  - Call `push_markdown_file(repo_path)` to push committed changes to feature branch
+  - Log push results (remote, branch, status)
+
+  **Return Value**:
+  - Return dict with required fields: `filepath`, `content`, `commit_message`, `push_status`
+  - Aligns with specification FR-8
+
+  ### Phase 3: Testing and Verification
+
+  Write comprehensive integration tests that verify the complete feature flow. Tests should cover:
+
+  - **File Creation**: Verify file exists in repository root with correct name
+  - **Content Structure**: Verify H1 heading and exactly 2-3 sentences
+  - **Encoding Compliance**: Verify UTF-8 without BOM, Unix LF line endings
+  - **Git Operations**: Verify commit message format and push to correct branch
+  - **Return Value**: Verify dict structure and all required fields populated
+  - **End-to-End**: Run complete feature flow and verify all steps succeed
+
+  **Why testing comes last**:
+  - Implementation must be complete before comprehensive testing
+  - Integration tests verify that all phases work together correctly
+  - End-to-end tests catch issues that unit tests might miss
+  - Validates against actual file system and git repository
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Content generation fails to produce H1 + sentences | Validation in `generate_markdown_content()` checks format before returning. Fail-fast propagates error with clear message. Temperature=0.2 ensures consistent output. |
+  | File encoding is not UTF-8 without BOM | `write_markdown_file()` wrapper enforces encoding standard on write. `validate_markdown_file()` performs binary-level verification. Test harness validates encoding. |
+  | Git commit/push fails | CrewAI tools handle authentication transparently. Error messages propagate. Test verifies git operations in isolated environment. |
+  | File already exists in repository | Specification allows file creation/overwrite. `write_markdown_file()` wrapper handles existing files. Test uses unique filename pattern to avoid conflicts. |
+  | Validation logic changes in `content_generators.py` | Feature module relies on wrapper functions, so changes propagate automatically. This is intentional design (DRY principle). |
+  | Module import fails or not found | Package structure must match spec: feature module in `src/sheep/features/` with name `feature_255_markdown_file_creation.py`. Test setup verifies import works. |
+  | CrewAI/Claude API configuration missing | LLM configuration via `sheep.config.llm` must be established. Content generation fails early with clear error. Operator can diagnose and fix. |
+  | Network latency delays push operation | Expected git push latency 2-4 seconds (normal). No timeout configuration needed. If network issues occur, operator can manually push via git CLI. |
