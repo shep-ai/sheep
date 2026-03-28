@@ -1,5 +1,7 @@
 """Tests for feature 257: Create markdown file test-fl139g.md with prose content."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from sheep.features.feature_257_markdown_file_creation import (
@@ -117,3 +119,182 @@ class TestFeature257Integration:
         source = inspect.getsource(module)
         # Check that the module source includes __main__ execution
         assert 'if __name__ == "__main__"' in source
+
+
+class TestWorkflowExecution:
+    """Tests for the actual workflow execution."""
+
+    def test_workflow_calls_generate_markdown_content(self):
+        """Test that workflow calls generate_markdown_content()."""
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value="# Test\n\nThis is a test sentence. This is another test sentence.",
+        ) as mock_generate, patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/repo/test-fl139g.md",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit: abc123",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="push: success",
+        ):
+            result = create_feature_257_markdown_file()
+            # Verify generate_markdown_content was called
+            mock_generate.assert_called_once()
+
+    def test_workflow_stores_content_and_filepath(self):
+        """Test that workflow stores content and composes filepath correctly."""
+        test_content = "# Test Heading\n\nThis is sentence one. This is sentence two."
+        test_filepath = "/tmp/test-fl139g.md"
+
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value=test_filepath,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit result",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="push result",
+        ):
+            result = create_feature_257_markdown_file()
+            # Verify result contains expected keys
+            assert "filepath" in result
+            assert "content" in result
+            assert "commit_message" in result
+            assert "push_result" in result
+
+    def test_workflow_calls_write_markdown_file(self):
+        """Test that workflow calls write_markdown_file with correct arguments."""
+        test_content = "# Test\n\nSentence one. Sentence two."
+
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/repo/test-fl139g.md",
+        ) as mock_write, patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="result",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="result",
+        ):
+            create_feature_257_markdown_file()
+            # Verify write_markdown_file was called with correct arguments
+            mock_write.assert_called_once_with(test_content, MARKDOWN_FILENAME)
+
+    def test_workflow_calls_validate_markdown_file(self):
+        """Test that workflow calls validate_markdown_file()."""
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value="# Test\n\nSentence. Sentence.",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/repo/test-fl139g.md",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ) as mock_validate, patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="result",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="result",
+        ):
+            create_feature_257_markdown_file()
+            # Verify validate_markdown_file was called
+            mock_validate.assert_called_once()
+
+    def test_workflow_calls_commit_with_exact_message(self):
+        """Test that workflow calls commit_markdown_file with exact required message."""
+        expected_message = "feat(257): create markdown file test-fl139g.md with prose content"
+
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value="# Test\n\nSentence. Sentence.",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/repo/test-fl139g.md",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit result",
+        ) as mock_commit, patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="push result",
+        ):
+            create_feature_257_markdown_file()
+            # Verify commit was called with the exact message
+            mock_commit.assert_called_once()
+            call_args = mock_commit.call_args
+            # The custom_message parameter should match exactly
+            assert call_args.kwargs.get("custom_message") == expected_message
+
+    def test_workflow_calls_push_markdown_file(self):
+        """Test that workflow calls push_markdown_file()."""
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value="# Test\n\nSentence. Sentence.",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value="/repo/test-fl139g.md",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="result",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="push result",
+        ) as mock_push:
+            create_feature_257_markdown_file()
+            # Verify push was called
+            mock_push.assert_called_once()
+
+    def test_workflow_returns_correct_structure(self):
+        """Test that workflow returns dict with required keys."""
+        test_content = "# Test\n\nSentence one. Sentence two."
+        test_filepath = "/repo/test-fl139g.md"
+        expected_message = "feat(257): create markdown file test-fl139g.md with prose content"
+
+        with patch(
+            "sheep.features.feature_257_markdown_file_creation.generate_markdown_content",
+            return_value=test_content,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.write_markdown_file",
+            return_value=test_filepath,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.validate_markdown_file",
+            return_value=True,
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.commit_markdown_file",
+            return_value="commit: abc123",
+        ), patch(
+            "sheep.features.feature_257_markdown_file_creation.push_markdown_file",
+            return_value="push: success",
+        ):
+            result = create_feature_257_markdown_file()
+            # Verify result structure
+            assert isinstance(result, dict)
+            assert result["filepath"] == test_filepath
+            assert result["content"] == test_content
+            assert result["commit_message"] == expected_message
+            assert result["push_result"] == "push: success"
