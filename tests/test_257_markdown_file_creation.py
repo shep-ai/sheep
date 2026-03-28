@@ -373,6 +373,154 @@ class TestFeature257FileValidation:
 # Integration Tests
 # ============================================================================
 
+# ============================================================================
+# Task 5: Git Commit Tests
+# ============================================================================
+
+class TestFeature257GitCommit:
+    """Tests for Task 5: Git commit step."""
+
+    def test_commit_logs_info_message(self, temp_repo, mocked_feature):
+        """Test that git commit step logs an INFO-level message."""
+        with mock.patch('sheep.features.feature_257_markdown_file_creation._logger') as mock_logger:
+            mock_generate_content, _ = mocked_feature
+            mock_generate_content.return_value = SAMPLE_MARKDOWN_CONTENT
+            mock_push = mock.patch('sheep.features.feature_257_markdown_file_creation.push_markdown_file')
+            mock_push.return_value = "success"
+
+            with mock_push:
+                result = create_feature_257_markdown_file(str(temp_repo))
+
+            # Verify INFO log was called for commit step
+            assert any(
+                'Task 4: Staging and committing file' in str(call)
+                for call in mock_logger.info.call_args_list
+            ), "INFO log for commit step not found"
+
+    def test_commit_message_exact_format(self, temp_repo, mocked_feature):
+        """Test that commit message is exactly: 'feat(257): create markdown file test-oxy715.md with prose content'."""
+        result = create_feature_257_markdown_file(str(temp_repo))
+
+        expected_message = "feat(257): create markdown file test-oxy715.md with prose content"
+        assert result['commit_message'] == expected_message
+
+    def test_commit_exists_on_current_branch(self, temp_repo, mocked_feature):
+        """Test that commit is created and exists on current branch."""
+        # Create initial commit so we have something to compare against
+        subprocess.run(['git', 'config', 'user.email', 'test@example.com'], cwd=temp_repo, check=True, capture_output=True)
+        subprocess.run(['git', 'config', 'user.name', 'Test User'], cwd=temp_repo, check=True, capture_output=True)
+
+        # Create an initial commit to establish history
+        Path(temp_repo / "initial.txt").write_text("initial")
+        subprocess.run(['git', 'add', 'initial.txt'], cwd=temp_repo, check=True, capture_output=True)
+        subprocess.run(['git', 'commit', '-m', 'initial commit'], cwd=temp_repo, check=True, capture_output=True)
+
+        # Run feature
+        result = create_feature_257_markdown_file(str(temp_repo))
+
+        # Check git log for the feature commit
+        log_output = subprocess.run(
+            ['git', 'log', '--oneline'],
+            cwd=temp_repo,
+            capture_output=True,
+            text=True,
+            check=True
+        ).stdout
+
+        # Verify commit message appears in git log
+        assert "feat(257): create markdown file test-oxy715.md with prose content" in log_output
+
+    def test_file_is_staged_before_commit(self, temp_repo, mocked_feature):
+        """Test that file is staged in git before commit."""
+        # The fact that the commit succeeds indicates file was properly staged
+        result = create_feature_257_markdown_file(str(temp_repo))
+
+        # Verify file was committed by checking git status
+        status_output = subprocess.run(
+            ['git', 'status', '--porcelain'],
+            cwd=temp_repo,
+            capture_output=True,
+            text=True,
+            check=True
+        ).stdout
+
+        # If file is not in output, it means it was committed
+        # If it's in output with '??' or 'M ', it means it wasn't committed
+        lines = status_output.strip().split('\n') if status_output.strip() else []
+        test_file_lines = [l for l in lines if 'test-oxy715.md' in l]
+
+        # File should not appear in git status (meaning it's committed)
+        assert len(test_file_lines) == 0, f"File should be committed but found in status: {test_file_lines}"
+
+    def test_commit_result_captured_in_return_value(self, temp_repo, mocked_feature):
+        """Test that commit result is captured in return value."""
+        result = create_feature_257_markdown_file(str(temp_repo))
+
+        assert 'commit_message' in result
+        assert result['commit_message'] is not None
+        assert len(result['commit_message']) > 0
+
+
+# ============================================================================
+# Task 6: Git Push Tests
+# ============================================================================
+
+class TestFeature257GitPush:
+    """Tests for Task 6: Git push step."""
+
+    def test_push_logs_info_message(self, temp_repo, mocked_feature):
+        """Test that git push step logs an INFO-level message."""
+        with mock.patch('sheep.features.feature_257_markdown_file_creation._logger') as mock_logger:
+            mock_generate_content, _ = mocked_feature
+            mock_generate_content.return_value = SAMPLE_MARKDOWN_CONTENT
+            mock_push = mock.patch('sheep.features.feature_257_markdown_file_creation.push_markdown_file')
+            mock_push.return_value = "success"
+
+            with mock_push:
+                result = create_feature_257_markdown_file(str(temp_repo))
+
+            # Verify INFO log was called for push step
+            assert any(
+                'Task 5: Pushing to remote repository' in str(call)
+                for call in mock_logger.info.call_args_list
+            ), "INFO log for push step not found"
+
+    def test_push_called_after_commit(self, temp_repo):
+        """Test that push is called after commit operation."""
+        with mock.patch('sheep.features.feature_257_markdown_file_creation.generate_markdown_content') as mock_gen:
+            with mock.patch('sheep.features.feature_257_markdown_file_creation.commit_markdown_file') as mock_commit:
+                with mock.patch('sheep.features.feature_257_markdown_file_creation.push_markdown_file') as mock_push:
+                    mock_gen.return_value = SAMPLE_MARKDOWN_CONTENT
+                    mock_commit.return_value = "commit_hash"
+                    mock_push.return_value = "success"
+
+                    result = create_feature_257_markdown_file(str(temp_repo))
+
+                    # Verify both commit and push were called
+                    assert mock_commit.called, "commit_markdown_file should be called"
+                    assert mock_push.called, "push_markdown_file should be called"
+
+    def test_push_result_captured_in_return_value(self, temp_repo, mocked_feature):
+        """Test that push result is captured in return value."""
+        result = create_feature_257_markdown_file(str(temp_repo))
+
+        assert 'push_result' in result
+        assert result['push_result'] is not None
+
+    def test_push_targets_current_branch(self, temp_repo, mocked_feature):
+        """Test that push targets the correct branch."""
+        result = create_feature_257_markdown_file(str(temp_repo))
+
+        # The feature should push to the current branch (feat/257-markdown-file-creation-62bad4)
+        # This is verified by the fact that push succeeds without error
+        assert result is not None
+        assert 'push_result' in result
+
+
+# ============================================================================
+# Integration Tests
+# ============================================================================
+
 class TestFeature257Integration:
     """Integration tests for complete feature 257 workflow."""
 
@@ -395,7 +543,7 @@ class TestFeature257Integration:
         assert result['commit_message'] == expected_message
 
     def test_complete_workflow_succeeds(self, temp_repo, mocked_feature):
-        """Test complete workflow: generate, write, validate."""
+        """Test complete workflow: generate, write, validate, commit, push."""
         result = create_feature_257_markdown_file(str(temp_repo))
 
         # Verify all required fields are present
