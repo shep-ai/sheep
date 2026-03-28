@@ -1,14 +1,15 @@
 """Tests for feature 148: markdown file creation."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from sheep.feature_148_markdown_file_creation import (
+    FILENAME,
+    main,
     task_2_generate_markdown_content,
     task_3_write_markdown_file_to_disk,
-    main,
-    FILENAME,
 )
 
 
@@ -110,7 +111,7 @@ def test_task_3_returns_filepath_with_correct_filename(mock_write, mock_stat, cl
 @patch("sheep.feature_148_markdown_file_creation.write_markdown_file")
 def test_task_3_error_handling(mock_write, cleanup_test_file):
     """Test task_3 propagates exceptions."""
-    mock_write.side_effect = IOError("File write failed")
+    mock_write.side_effect = OSError("File write failed")
     test_content = "# Test\n\nContent."
 
     with pytest.raises(IOError, match="File write failed"):
@@ -220,7 +221,7 @@ def test_main_error_in_task_3_propagates(mock_write, mock_generate, cleanup_test
     """Test main() propagates exceptions from task_3."""
     mock_content = "# Test\n\nContent."
     mock_generate.return_value = mock_content
-    mock_write.side_effect = IOError("Write failed")
+    mock_write.side_effect = OSError("Write failed")
 
     with pytest.raises(IOError, match="Write failed"):
         main()

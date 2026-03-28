@@ -57,7 +57,7 @@ def generate_prose(feature_number: int = FEATURE_NUMBER) -> str:
         ValueError: If generated prose is invalid or doesn't meet requirements
         Exception: If Claude API call fails
     """
-    _logger.info(f"Generating prose content using Claude API (temperature=0)")
+    _logger.info("Generating prose content using Claude API (temperature=0)")
 
     try:
         # Create LLM with temperature=0 for deterministic generation
@@ -125,7 +125,7 @@ def generate_title(feature_number: int = FEATURE_NUMBER) -> str:
         ValueError: If generated title is invalid
         Exception: If Claude API call fails
     """
-    _logger.info(f"Generating title using Claude API (temperature=0)")
+    _logger.info("Generating title using Claude API (temperature=0)")
 
     try:
         # Create LLM with temperature=0 for deterministic generation
@@ -611,7 +611,7 @@ def git_commit(filename: str = FILENAME, message: str = COMMIT_MESSAGE) -> None:
             capture_output=True,
             text=True,
         )
-        _logger.info(f"Successfully committed changes")
+        _logger.info("Successfully committed changes")
     except subprocess.CalledProcessError as e:
         error_msg = f"git commit failed: {e.stderr or e.stdout}"
         _logger.error(error_msg)

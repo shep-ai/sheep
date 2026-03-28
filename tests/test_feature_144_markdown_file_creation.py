@@ -1,7 +1,8 @@
 """Tests for feature 144: Creating markdown file test-ghy0tt.md with title and prose content."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 import pytest
 
 
@@ -18,10 +19,11 @@ class TestFeature144MarkdownFileCreation:
 
     def test_function_signature(self):
         """Test that the function has the correct signature."""
+        import inspect
+
         from sheep.features.feature_144_markdown_file_creation import (
             create_feature_144_markdown_file,
         )
-        import inspect
 
         sig = inspect.signature(create_feature_144_markdown_file)
         assert "repo_path" in sig.parameters
@@ -30,9 +32,9 @@ class TestFeature144MarkdownFileCreation:
     def test_feature_constants(self):
         """Test that feature constants are defined correctly."""
         from sheep.features.feature_144_markdown_file_creation import (
+            COMMIT_MESSAGE,
             FEATURE_NUMBER,
             MARKDOWN_FILENAME,
-            COMMIT_MESSAGE,
         )
 
         assert FEATURE_NUMBER == 144
@@ -96,8 +98,8 @@ class TestFeature144MarkdownFileCreation:
     ):
         """Test that the function returns the correct dictionary structure."""
         from sheep.features.feature_144_markdown_file_creation import (
-            create_feature_144_markdown_file,
             COMMIT_MESSAGE,
+            create_feature_144_markdown_file,
         )
 
         # Setup mock returns

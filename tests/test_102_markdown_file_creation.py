@@ -1,13 +1,13 @@
 """Tests for feature 102: Creating markdown file test-59p72q.md with title and prose content."""
 
-from pathlib import Path
-import pytest
 from unittest import mock
 
+import pytest
+
 from sheep.features.feature_102_markdown_file_creation import (
-    create_feature_102_markdown_file,
     FEATURE_NUMBER,
     MARKDOWN_FILENAME,
+    create_feature_102_markdown_file,
 )
 
 

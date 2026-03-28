@@ -1,6 +1,5 @@
 """Tests for feature 244: Creating markdown file test-uwaoqn.md with title and prose content."""
 
-from pathlib import Path
 
 
 class TestMarkdownFileCreation:

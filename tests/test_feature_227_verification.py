@@ -10,11 +10,10 @@ Tests verify that all verification functions correctly validate:
 7. Comprehensive verification harness
 """
 
+import os
 import sys
 import tempfile
-import os
 from pathlib import Path
-from unittest import mock
 
 # Add src to path
 src_path = Path(__file__).parent.parent / "src"
@@ -49,8 +48,8 @@ def test_verify_file_exists_passes_for_valid_file():
 def test_verify_file_exists_fails_for_missing_file():
     """Test that verify_file_exists raises VerificationError for missing file."""
     from sheep.features.feature_227_verification import (
-        verify_file_exists,
         VerificationError,
+        verify_file_exists,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -86,8 +85,8 @@ def test_verify_file_in_repository_root_passes():
 def test_verify_file_in_repository_root_fails_for_wrong_name():
     """Test that verify_file_in_repository_root fails for wrong filename."""
     from sheep.features.feature_227_verification import (
-        verify_file_in_repository_root,
         VerificationError,
+        verify_file_in_repository_root,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -130,8 +129,8 @@ def test_verify_heading_format_passes():
 def test_verify_heading_format_fails_for_missing_heading():
     """Test that verify_heading_format fails without H1 heading."""
     from sheep.features.feature_227_verification import (
-        verify_heading_format,
         VerificationError,
+        verify_heading_format,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -174,8 +173,8 @@ def test_verify_blank_line_separator_passes():
 def test_verify_blank_line_separator_fails_without_blank_line():
     """Test that verify_blank_line_separator fails without blank line."""
     from sheep.features.feature_227_verification import (
-        verify_blank_line_separator,
         VerificationError,
+        verify_blank_line_separator,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -219,8 +218,8 @@ def test_verify_prose_structure_passes():
 def test_verify_prose_structure_fails_with_wrong_sentence_count():
     """Test that verify_prose_structure fails with incorrect sentence count."""
     from sheep.features.feature_227_verification import (
-        verify_prose_structure,
         VerificationError,
+        verify_prose_structure,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -265,8 +264,8 @@ def test_verify_utf8_encoding_without_bom_passes():
 def test_verify_utf8_encoding_without_bom_fails_with_bom():
     """Test that verify_utf8_encoding_without_bom fails with BOM."""
     from sheep.features.feature_227_verification import (
-        verify_utf8_encoding_without_bom,
         VerificationError,
+        verify_utf8_encoding_without_bom,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -311,8 +310,8 @@ def test_verify_lf_line_endings_passes():
 def test_verify_lf_line_endings_fails_with_crlf():
     """Test that verify_lf_line_endings fails with CRLF line endings."""
     from sheep.features.feature_227_verification import (
-        verify_lf_line_endings,
         VerificationError,
+        verify_lf_line_endings,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -358,8 +357,8 @@ def test_verify_file_size_passes():
 def test_verify_file_size_fails_for_too_small_file():
     """Test that verify_file_size fails for file that is too small."""
     from sheep.features.feature_227_verification import (
-        verify_file_size,
         VerificationError,
+        verify_file_size,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -402,8 +401,8 @@ def test_verify_trailing_newline_passes():
 def test_verify_trailing_newline_fails_without_newline():
     """Test that verify_trailing_newline fails without trailing newline."""
     from sheep.features.feature_227_verification import (
-        verify_trailing_newline,
         VerificationError,
+        verify_trailing_newline,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:

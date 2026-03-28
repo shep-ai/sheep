@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from src.create_markdown import create_and_commit_markdown_file
+
 from sheep.observability.logging import get_logger
 
 _logger = get_logger(__name__)

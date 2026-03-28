@@ -338,7 +338,7 @@ class TestCreateMarkdownFileOrchestration:
         """Test that errors during file writing are propagated."""
         test_content = "# Test\n\nOne. Two. Three.\n"
         mock_generate.return_value = test_content
-        mock_write.side_effect = IOError("Permission denied")
+        mock_write.side_effect = OSError("Permission denied")
 
         with pytest.raises(IOError, match="Permission denied"):
             create_markdown_file("test.md", "/repo")

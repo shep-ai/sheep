@@ -8,12 +8,10 @@ Tests verify that:
 5. main() orchestrates all phases correctly
 """
 
-import sys
 import subprocess
-import tempfile
-import os
+import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def setup_module():
@@ -26,8 +24,8 @@ def setup_module():
 def test_git_add_file_calls_subprocess_run():
     """Test that git_add_file() calls subprocess.run with correct arguments."""
     from sheep.features.feature_208_markdown_file_creation import (
-        git_add_file,
         FILENAME,
+        git_add_file,
     )
 
     with patch("subprocess.run") as mock_run:
@@ -47,8 +45,8 @@ def test_git_add_file_calls_subprocess_run():
 def test_git_add_file_raises_on_failure():
     """Test that git_add_file() raises CalledProcessError on failure."""
     from sheep.features.feature_208_markdown_file_creation import (
-        git_add_file,
         FILENAME,
+        git_add_file,
     )
 
     with patch("subprocess.run") as mock_run:
@@ -67,8 +65,8 @@ def test_git_add_file_raises_on_failure():
 def test_git_commit_calls_subprocess_run():
     """Test that git_commit() calls subprocess.run with correct arguments."""
     from sheep.features.feature_208_markdown_file_creation import (
-        git_commit,
         COMMIT_MESSAGE,
+        git_commit,
     )
 
     with patch("subprocess.run") as mock_run:
@@ -108,8 +106,8 @@ def test_git_commit_with_custom_message():
 def test_git_commit_raises_on_failure():
     """Test that git_commit() raises CalledProcessError on failure."""
     from sheep.features.feature_208_markdown_file_creation import (
-        git_commit,
         COMMIT_MESSAGE,
+        git_commit,
     )
 
     with patch("subprocess.run") as mock_run:
@@ -128,8 +126,8 @@ def test_git_commit_raises_on_failure():
 def test_git_push_calls_subprocess_run():
     """Test that git_push() calls subprocess.run with correct arguments."""
     from sheep.features.feature_208_markdown_file_creation import (
-        git_push,
         BRANCH_NAME,
+        git_push,
     )
 
     with patch("subprocess.run") as mock_run:
@@ -149,8 +147,8 @@ def test_git_push_calls_subprocess_run():
 def test_git_push_raises_on_failure():
     """Test that git_push() raises CalledProcessError on failure."""
     from sheep.features.feature_208_markdown_file_creation import (
-        git_push,
         BRANCH_NAME,
+        git_push,
     )
 
     with patch("subprocess.run") as mock_run:

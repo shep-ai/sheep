@@ -4,8 +4,8 @@ Test suite for markdown file creation (test-9mxq6q.md).
 Validates file existence, format, encoding, line endings, size, and prose quality.
 """
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 
 class TestMarkdownFileCreation:

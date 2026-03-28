@@ -12,7 +12,6 @@ this local implementation generates meaningful prose directly.
 
 import sys
 from pathlib import Path
-import re
 
 FILENAME = "test-2xz0x5.md"
 
@@ -120,7 +119,7 @@ def validate_file_properties(filepath: str) -> bool:
     except UnicodeDecodeError as e:
         raise ValueError(f"File is not valid UTF-8: {e}")
 
-    print(f"✓ File encoding validation passed (UTF-8, LF line endings)")
+    print("✓ File encoding validation passed (UTF-8, LF line endings)")
     return True
 
 
@@ -137,7 +136,7 @@ def validate_markdown_structure(filepath: str) -> bool:
     path = Path(filepath)
 
     # Read as text
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         text_content = f.read()
 
     lines = text_content.split("\n")
@@ -176,7 +175,7 @@ def validate_markdown_structure(filepath: str) -> bool:
     if not (250 <= file_size <= 600):
         print(f"  Warning: File size {file_size} bytes is outside typical range (250-600)")
 
-    print(f"✓ Markdown structure validation passed")
+    print("✓ Markdown structure validation passed")
     print(f"  - H1 heading: '{lines[0]}'")
     print(f"  - Sentences: {sentence_count}")
     print(f"  - File size: {file_size} bytes")
@@ -213,7 +212,7 @@ def main():
         print("=== Phase 2 Complete ===")
         print(f"File: {FILENAME}")
         print(f"Path: {full_path}")
-        print(f"Status: Ready for Phase 3 (Git Integration & Push)")
+        print("Status: Ready for Phase 3 (Git Integration & Push)")
 
         return 0
 

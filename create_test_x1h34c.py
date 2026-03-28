@@ -4,7 +4,6 @@ Implementation script for feature 156: markdown-file-creation-aa5012
 Creates test-x1h34c.md with proper markdown structure and validation.
 """
 
-import subprocess
 import sys
 from pathlib import Path
 

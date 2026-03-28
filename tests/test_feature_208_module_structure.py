@@ -19,12 +19,12 @@ def test_module_imports_successfully():
         sys.path.insert(0, str(src_path))
 
     from sheep.features.feature_208_markdown_file_creation import (
-        FILENAME,
-        FEATURE_NUMBER,
         BRANCH_NAME,
         COMMIT_MESSAGE,
-        TITLE_TEXT,
+        FEATURE_NUMBER,
+        FILENAME,
         PROSE_CONTENT,
+        TITLE_TEXT,
         _logger,
     )
 
@@ -78,11 +78,11 @@ def test_constants_are_strings():
         sys.path.insert(0, str(src_path))
 
     from sheep.features.feature_208_markdown_file_creation import (
-        FILENAME,
         BRANCH_NAME,
         COMMIT_MESSAGE,
-        TITLE_TEXT,
+        FILENAME,
         PROSE_CONTENT,
+        TITLE_TEXT,
     )
 
     assert isinstance(FILENAME, str)

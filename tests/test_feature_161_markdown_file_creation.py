@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 
@@ -18,10 +19,11 @@ class TestFeature161MarkdownFileCreation:
 
     def test_function_signature(self):
         """Test that the function has the correct signature."""
+        import inspect
+
         from sheep.features.feature_161_markdown_file_creation import (
             create_feature_161_markdown_file,
         )
-        import inspect
 
         sig = inspect.signature(create_feature_161_markdown_file)
         assert "repo_path" in sig.parameters
@@ -30,9 +32,9 @@ class TestFeature161MarkdownFileCreation:
     def test_feature_constants(self):
         """Test that feature constants are defined correctly."""
         from sheep.features.feature_161_markdown_file_creation import (
+            COMMIT_MESSAGE,
             FEATURE_NUMBER,
             MARKDOWN_FILENAME,
-            COMMIT_MESSAGE,
         )
 
         assert FEATURE_NUMBER == 161
@@ -90,8 +92,8 @@ class TestFeature161MarkdownFileCreation:
     ):
         """Test that the function returns the correct dictionary structure."""
         from sheep.features.feature_161_markdown_file_creation import (
-            create_feature_161_markdown_file,
             COMMIT_MESSAGE,
+            create_feature_161_markdown_file,
         )
 
         # Setup mock returns
@@ -463,7 +465,7 @@ class TestGitIntegration:
 
         expected_message = "feat(161): Create markdown file test-fzgsdv.md with prose content"
         assert (
-            COMMIT_MESSAGE == expected_message
+            expected_message == COMMIT_MESSAGE
         ), f"Expected '{expected_message}', got '{COMMIT_MESSAGE}'"
 
     @patch("sheep.features.feature_161_markdown_file_creation.push_markdown_file")
@@ -495,7 +497,6 @@ class TestGitIntegration:
         """Test that commit message for feature 161 exists in git history."""
         import subprocess
 
-        from sheep.features.feature_161_markdown_file_creation import COMMIT_MESSAGE
 
         # Search git log for the specific feature 161 commit message
         result = subprocess.run(

@@ -1,14 +1,14 @@
 """Tests for feature 179: Creating markdown file test-cyktqk.md with title and prose content."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from sheep.content_generators import (
-    write_markdown_file,
     validate_markdown_file,
+    write_markdown_file,
 )
 
 # Test content that meets all requirements

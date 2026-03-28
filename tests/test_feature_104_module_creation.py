@@ -1,6 +1,5 @@
 """Tests for feature_104_markdown_file_creation module."""
 
-import pytest
 
 from sheep.features.feature_104_markdown_file_creation import (
     FEATURE_NAME,

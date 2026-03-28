@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from sheep.content_generators import generate_markdown_content
 
 

@@ -3,8 +3,8 @@
 Create and validate markdown file test-3pz04c.md with proper structure and encoding.
 """
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 
 def create_markdown_file():
@@ -39,7 +39,7 @@ def validate_file(filepath, content):
 
     # 2. Read file to verify encoding and line endings
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, encoding='utf-8') as f:
             file_content = f.read()
     except UnicodeDecodeError:
         errors.append("FAIL: File is not valid UTF-8")

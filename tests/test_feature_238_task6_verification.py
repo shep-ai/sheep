@@ -17,10 +17,10 @@ Acceptance Criteria:
 - File exists on remote repository ✓
 """
 
-import sys
 import os
-import tempfile
 import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from unittest import mock
 
@@ -55,10 +55,10 @@ class TestTask6Verification:
     def test_task6_feature_module_imports(self):
         """Acceptance Criterion 1: Feature module can be imported without errors."""
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
-            FEATURE_NUMBER,
             FEATURE_NAME,
+            FEATURE_NUMBER,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         assert FEATURE_NUMBER == 238
@@ -97,8 +97,8 @@ class TestTask6Verification:
     def test_task6_file_exists_at_repo_root(self):
         """Acceptance Criterion 3: File test-mcfudw.md exists at repository root."""
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -136,7 +136,7 @@ class TestTask6Verification:
 
                 filepath = Path(result["filepath"])
 
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     lines = f.readlines()
 
                 # Must have H1 heading
@@ -221,8 +221,8 @@ class TestTask6Verification:
     def test_task6_file_is_staged_in_git(self):
         """Acceptance Criterion 7: File is staged in git (git status shows staged)."""
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -266,9 +266,9 @@ class TestTask6Verification:
     def test_task6_commit_message_format(self):
         """Acceptance Criterion 8: Commit message matches conventional format."""
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
             FEATURE_NUMBER,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -317,8 +317,8 @@ class TestTask6Verification:
     def test_task6_working_directory_clean(self):
         """Acceptance Criterion 10: Working directory is clean (no other files modified or deleted)."""
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -355,9 +355,9 @@ class TestTask6Verification:
         acceptance criteria in a single integrated test.
         """
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
             FEATURE_NUMBER,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -379,7 +379,7 @@ class TestTask6Verification:
                 assert filepath.parent == Path.cwd()
 
                 # Criterion 4: Valid markdown with H1 and prose
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     lines = f.readlines()
                 assert lines[0].startswith("# ")
                 assert lines[1].strip() == ""

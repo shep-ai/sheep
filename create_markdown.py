@@ -11,9 +11,9 @@ This script:
 6. Pushes to remote origin
 """
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 # Hardcoded prose content: H1 heading + exactly 2-3 sentences
 # Topic: The Moon and its influence on Earth

@@ -8,14 +8,13 @@ Tests cover:
 - Both create_file() and validate_file() functions
 """
 
-import pytest
 import subprocess
 from pathlib import Path
-import tempfile
-import os
+
+import pytest
 
 # Import the functions to test
-from create_test_file import create_file, validate_file, git_operations
+from create_test_file import create_file, git_operations, validate_file
 
 
 class TestCreateFile:

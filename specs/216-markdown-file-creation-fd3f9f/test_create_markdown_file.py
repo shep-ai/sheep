@@ -21,18 +21,18 @@ test environments and invalid test files for comprehensive validation testing.
 
 import os
 import subprocess
+
+# Import the functions from the script
+import sys
 import tempfile
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
-# Import the functions from the script
-import sys
 script_path = Path(__file__).parent / "create_markdown_file.py"
 sys.path.insert(0, str(Path(__file__).parent))
-from create_markdown_file import create_file, validate_file, git_operations
-
+from create_markdown_file import create_file, git_operations, validate_file
 
 # ============================================================================
 # Pytest Fixtures

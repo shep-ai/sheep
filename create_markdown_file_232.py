@@ -6,8 +6,8 @@ Phase 1: File Creation & Content Composition
 No validation layer per spec requirement.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 # Module-level constants

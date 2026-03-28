@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).parent.parent
 RANDOM_WORD_FILE = REPO_ROOT / "RANDOM_WORD.txt"
 

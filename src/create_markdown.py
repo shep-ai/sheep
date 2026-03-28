@@ -1126,3 +1126,193 @@ def create_and_commit_markdown_file(
             'commit_hash': None,
             'errors': all_errors,
         }
+
+
+
+
+def validate_markdown_file(file_path: str) -> bool:
+    """
+    Validate markdown file structure, encoding, and line endings.
+
+    Checks that the file:
+    1. Exists and is readable
+    2. Uses UTF-8 encoding without BOM
+    3. Uses Unix-style LF line endings (not CRLF)
+    4. Contains exactly one H1 heading (line starting with "# ")
+    5. Contains exactly 2-3 sentences of prose (detected by . ! ? punctuation)
+
+    Args:
+        file_path: Path to the markdown file to validate (string or Path-like)
+
+    Returns:
+        True if all validation checks pass
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If any validation check fails (heading format, sentence count, encoding, line endings)
+    """
+    from pathlib import Path
+
+    file_path = Path(file_path)
+
+    # Check 1: File exists
+    if not file_path.exists():
+        raise FileNotFoundError(f"File does not exist: {file_path}")
+
+    _logger.debug(f"Validating markdown file: {file_path}")
+
+    # Read binary content first to check for BOM and CRLF early
+    binary_content = file_path.read_bytes()
+
+    # Check 2: Validate UTF-8 encoding without BOM (check early to fail before structural checks)
+    if binary_content.startswith(b"\xef\xbb\xbf"):
+        raise ValueError(
+            "File encoding invalid: contains UTF-8 BOM, must be UTF-8 without BOM"
+        )
+
+    _logger.debug("✓ Valid UTF-8 encoding (no BOM)")
+
+    # Check 3: Validate LF line endings (no CRLF)
+    if b"\r\n" in binary_content:
+        raise ValueError(
+            "File line endings invalid: contains CRLF, must use LF (Unix-style) line endings"
+        )
+
+    _logger.debug("✓ Valid LF line endings")
+
+    # Read file content for structural validation
+    try:
+        text_content = file_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as e:
+        raise ValueError(f"File is not valid UTF-8 text: {e}")
+
+    # Check 4: File has proper structure (heading + blank line + prose)
+    lines = text_content.split("\n")
+
+    # Find heading (first non-empty line)
+    heading_line = None
+    heading_index = None
+    for i, line in enumerate(lines):
+        if line.strip():
+            heading_line = line
+            heading_index = i
+            break
+
+    if heading_line is None:
+        raise ValueError("File heading missing: no non-empty first line found")
+
+    # Check 5: Heading must be H1 (start with "# ")
+    if not heading_line.startswith("# "):
+        raise ValueError(
+            f"File heading format invalid: heading must start with '# ', got '{heading_line[:20]}...'"
+        )
+
+    _logger.debug(f"✓ Valid H1 heading: {heading_line[:50]}...")
+
+    # Check 6: Must have blank line after heading
+    if heading_index + 1 >= len(lines) or lines[heading_index + 1].strip() != "":
+        raise ValueError("File structure invalid: must have blank line after heading")
+
+    # Check 7: Extract prose content (everything after blank line)
+    prose_start = heading_index + 2
+    prose_lines = lines[prose_start:]
+    prose_content = "\n".join(prose_lines).strip()
+
+    if not prose_content:
+        raise ValueError("File prose missing: no content after heading")
+
+    # Check 8: Count sentences using regex pattern
+    # Pattern: count . ! ? as sentence endings
+    sentence_endings = re.findall(r'[.!?]', prose_content)
+    sentence_count = len(sentence_endings)
+
+    if sentence_count < 2 or sentence_count > 3:
+        raise ValueError(
+            f"File prose invalid: expected 2-3 sentences, found {sentence_count}"
+        )
+
+    _logger.debug(f"✓ Valid sentence count: {sentence_count} sentences")
+
+    _logger.info(f"✓ File validation passed: {file_path}")
+    return True
+
+
+def git_workflow(
+    file_path: str = "test-440dhk.md",
+    commit_message: str = "feat(247): create markdown file test-440dhk.md with prose content",
+) -> None:
+    """
+    Complete git workflow: validate, stage, commit, and push markdown file.
+
+    Implements fail-fast behavior: validation must pass before git operations execute.
+    All git operations use subprocess.run() with proper error handling.
+
+    Args:
+        file_path: Path to the markdown file (default: "test-440dhk.md")
+        commit_message: Commit message (default: conventional format with feature number)
+
+    Returns:
+        None
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If validation fails (heading format, sentence count, encoding, line endings)
+        subprocess.CalledProcessError: If any git operation fails
+    """
+    from pathlib import Path
+
+    file_path_obj = Path(file_path)
+
+    # Phase 1: Validation (fail-fast behavior)
+    _logger.info(f"Starting git workflow for {file_path}...")
+    _logger.info("Phase 1: Validating markdown file...")
+    validate_markdown_file(file_path)
+    _logger.info("✓ Validation passed")
+
+    # Phase 2: Stage file with git add
+    _logger.info("Phase 2: Staging file with git add...")
+    try:
+        result = subprocess.run(
+            ["git", "add", file_path],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"✓ File staged: {file_path}")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git add failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise
+
+    # Phase 3: Commit with conventional message and Co-Authored-By trailer
+    _logger.info("Phase 3: Creating commit...")
+    commit_with_trailer = f"{commit_message}\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+    try:
+        result = subprocess.run(
+            ["git", "commit", "-m", commit_with_trailer],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"✓ Commit created: {commit_message}")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git commit failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise
+
+    # Phase 4: Push to feature branch
+    _logger.info("Phase 4: Pushing to feature branch...")
+    try:
+        result = subprocess.run(
+            ["git", "push", "-u", "origin", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info("✓ Push to origin successful")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git push failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise
+
+    _logger.info(f"✓ Git workflow completed successfully for {file_path}")

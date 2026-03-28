@@ -20,8 +20,8 @@ Cloud computing has fundamentally transformed how organizations deploy and manag
     Path(filename).write_text(prose_content, encoding='utf-8', newline='\n')
 
     print(f"✓ Created {filename}")
-    print(f"  Encoding: UTF-8 (no BOM)")
-    print(f"  Line endings: Unix-style LF (\\n)")
+    print("  Encoding: UTF-8 (no BOM)")
+    print("  Line endings: Unix-style LF (\\n)")
     print(f"  Content length: {len(prose_content)} characters")
 
 

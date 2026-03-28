@@ -7,12 +7,12 @@ Tests verify that all git operations work correctly:
 4. main() - orchestrates complete workflow
 """
 
+import os
+import subprocess
 import sys
 import tempfile
-import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-import subprocess
+from unittest.mock import MagicMock, patch
 
 
 def setup_module():
@@ -44,8 +44,8 @@ class TestGitAddFile:
     def test_git_add_file_uses_default_filename(self):
         """Test git_add_file uses FILENAME default."""
         from sheep.features.feature_207_markdown_file_creation import (
-            git_add_file,
             FILENAME,
+            git_add_file,
         )
 
         with patch("sheep.features.feature_207_markdown_file_creation.subprocess.run") as mock_run:
@@ -95,8 +95,8 @@ class TestGitCommit:
     def test_git_commit_uses_default_message(self):
         """Test git_commit uses COMMIT_MESSAGE default."""
         from sheep.features.feature_207_markdown_file_creation import (
-            git_commit,
             COMMIT_MESSAGE,
+            git_commit,
         )
 
         with patch("sheep.features.feature_207_markdown_file_creation.subprocess.run") as mock_run:
@@ -147,7 +147,6 @@ class TestGitPush:
         """Test git_push uses BRANCH_NAME default."""
         from sheep.features.feature_207_markdown_file_creation import (
             git_push,
-            BRANCH_NAME,
         )
 
         with patch("sheep.features.feature_207_markdown_file_creation.subprocess.run") as mock_run:
@@ -217,8 +216,8 @@ class TestMain:
     def test_main_creates_file_successfully(self):
         """Test main creates the markdown file."""
         from sheep.features.feature_207_markdown_file_creation import (
-            main,
             FILENAME,
+            main,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -244,8 +243,8 @@ class TestMain:
     def test_main_validates_file_successfully(self):
         """Test main validates the created file."""
         from sheep.features.feature_207_markdown_file_creation import (
-            main,
             FILENAME,
+            main,
             validate_markdown_file,
         )
 
@@ -274,7 +273,6 @@ class TestMain:
         """Test main returns 1 if validation fails."""
         from sheep.features.feature_207_markdown_file_creation import (
             main,
-            create_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:

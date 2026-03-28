@@ -12,14 +12,15 @@ with mocked git operations to avoid actual repository modifications.
 """
 
 import os
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
+
 from sheep.features.feature_147_markdown_file_creation import (
-    create_feature_147_markdown_file,
-    MARKDOWN_FILENAME,
     COMMIT_MESSAGE,
-    FEATURE_NUMBER,
+    MARKDOWN_FILENAME,
+    create_feature_147_markdown_file,
 )
 
 

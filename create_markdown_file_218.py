@@ -4,8 +4,8 @@ Implementation script for feature 218: markdown-file-creation-e92f29
 Creates test-gmvvpm.md with proper markdown structure and validation.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 # Module-level constants

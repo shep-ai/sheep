@@ -11,8 +11,8 @@ for git operations, and markdown library for CommonMark validation.
 """
 
 from pathlib import Path
-import markdown
 
+import markdown
 
 # ============================================================================
 # Constants
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     # Execute git operations
     try:
         git_operations()
-        print(f"Git operations completed successfully")
+        print("Git operations completed successfully")
     except Exception as e:
         print(f"Git operations failed: {e}")
         raise

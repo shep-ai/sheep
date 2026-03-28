@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-
 FILENAME = "test-h8ylmx.md"
 FEATURE_NUMBER = 151
 

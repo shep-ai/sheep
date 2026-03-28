@@ -16,10 +16,9 @@ and adheres to project requirements:
 - Conventional commit message format
 """
 
-from pathlib import Path
 import subprocess
 import sys
-
+from pathlib import Path
 
 # Module-level constants
 FILENAME = "test-zyx4xn.md"

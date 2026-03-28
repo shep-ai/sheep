@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Verify all success criteria from the feature specification."""
 
+import subprocess
 import sys
 from pathlib import Path
-import subprocess
 
 filepath = Path("test-5iigac.md")
 
@@ -36,7 +36,7 @@ checks.append(("✓" if h1_check else "✗", f"First line is H1 heading: {lines[
 
 # Check 5: Blank line separator
 blank_line_check = len(lines) > 1 and lines[1] == ""
-checks.append(("✓" if blank_line_check else "✗", f"Second line is blank separator"))
+checks.append(("✓" if blank_line_check else "✗", "Second line is blank separator"))
 
 # Check 6: Prose content (2-3 sentences)
 prose_lines = lines[2:]
@@ -50,15 +50,15 @@ checks.append(("✓" if prose_check else "✗", f"Prose has 2-3 sentences: {sent
 # Check 7: UTF-8 encoding without BOM
 binary = filepath.read_bytes()
 bom_check = not binary.startswith(b"\xef\xbb\xbf")
-checks.append(("✓" if bom_check else "✗", f"UTF-8 encoding without BOM"))
+checks.append(("✓" if bom_check else "✗", "UTF-8 encoding without BOM"))
 
 # Check 8: LF line endings (not CRLF)
 lf_check = b"\r\n" not in binary and b"\n" in binary
-checks.append(("✓" if lf_check else "✗", f"Uses Unix LF line endings (not CRLF)"))
+checks.append(("✓" if lf_check else "✗", "Uses Unix LF line endings (not CRLF)"))
 
 # Check 9: Trailing newline
 trailing_check = content.endswith("\n")
-checks.append(("✓" if trailing_check else "✗", f"Ends with trailing newline"))
+checks.append(("✓" if trailing_check else "✗", "Ends with trailing newline"))
 
 # Check 10: Git status
 git_status = subprocess.run(

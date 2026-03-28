@@ -11,14 +11,13 @@ These tests validate that the generated markdown file meets all success criteria
 - All validation checks pass
 """
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-import tempfile
-import os
+from unittest.mock import MagicMock, patch
 
-from sheep.feature_148_markdown_file_creation import main, FILENAME
-from sheep.content_generators import validate_markdown_file, validate_file_properties
+import pytest
+
+from sheep.content_generators import validate_file_properties, validate_markdown_file
+from sheep.feature_148_markdown_file_creation import FILENAME, main
 
 
 @pytest.fixture
@@ -380,7 +379,7 @@ def test_feature_148_integration_with_file_validation(mock_generate, cleanup_tes
 
         # 3. File has content
         file_size = test_file.stat().st_size
-        assert file_size > 0, f"File is empty"
+        assert file_size > 0, "File is empty"
 
         # 4. Validate file properties (encoding, line endings)
         validate_file_properties(str(test_file))

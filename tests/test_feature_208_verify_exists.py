@@ -7,10 +7,11 @@ Tests verify that:
 4. Function accepts custom filename parameter
 """
 
-import sys
-from pathlib import Path
-import tempfile
 import os
+import sys
+import tempfile
+from pathlib import Path
+
 import pytest
 
 
@@ -24,8 +25,8 @@ def setup_module():
 def test_verify_file_exists_returns_none():
     """Test that verify_file_exists() returns None when file exists."""
     from sheep.features.feature_208_markdown_file_creation import (
-        verify_file_exists,
         FILENAME,
+        verify_file_exists,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -45,8 +46,8 @@ def test_verify_file_exists_returns_none():
 def test_verify_file_exists_raises_when_missing():
     """Test that verify_file_exists() raises FileNotFoundError when file missing."""
     from sheep.features.feature_208_markdown_file_creation import (
-        verify_file_exists,
         FILENAME,
+        verify_file_exists,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -66,8 +67,8 @@ def test_verify_file_exists_raises_when_missing():
 def test_verify_file_exists_error_message():
     """Test that error message is clear and identifies the missing file."""
     from sheep.features.feature_208_markdown_file_creation import (
-        verify_file_exists,
         FILENAME,
+        verify_file_exists,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -109,8 +110,8 @@ def test_verify_file_exists_custom_filename():
 def test_verify_file_exists_default_filename():
     """Test that function uses FILENAME default when no parameter provided."""
     from sheep.features.feature_208_markdown_file_creation import (
-        verify_file_exists,
         FILENAME,
+        verify_file_exists,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:

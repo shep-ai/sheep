@@ -1,7 +1,5 @@
 """Tests for feature 101: Creating markdown file test-59xln4.md with title and prose content."""
 
-from pathlib import Path
-import pytest
 
 
 class TestMarkdownFileCreation:

@@ -10,10 +10,10 @@ Tests verify that:
 7. File size is within specification (300-800 bytes)
 """
 
-import sys
-from pathlib import Path
-import tempfile
 import os
+import sys
+import tempfile
+from pathlib import Path
 
 
 def setup_module():
@@ -26,8 +26,8 @@ def setup_module():
 def test_create_markdown_file_returns_path():
     """Test that create_markdown_file() returns a Path object."""
     from sheep.features.feature_207_markdown_file_creation import (
-        create_markdown_file,
         FILENAME,
+        create_markdown_file,
     )
 
     # Change to a temporary directory for testing
@@ -45,8 +45,8 @@ def test_create_markdown_file_returns_path():
 def test_create_markdown_file_creates_file():
     """Test that create_markdown_file() actually creates a file."""
     from sheep.features.feature_207_markdown_file_creation import (
-        create_markdown_file,
         FILENAME,
+        create_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -68,9 +68,9 @@ def test_create_markdown_file_creates_file():
 def test_create_markdown_file_contains_h1_heading():
     """Test that created file contains H1 heading with TITLE_TEXT."""
     from sheep.features.feature_207_markdown_file_creation import (
-        create_markdown_file,
         FILENAME,
         TITLE_TEXT,
+        create_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -90,8 +90,8 @@ def test_create_markdown_file_contains_h1_heading():
 def test_create_markdown_file_contains_blank_line():
     """Test that created file has blank line separator."""
     from sheep.features.feature_207_markdown_file_creation import (
-        create_markdown_file,
         FILENAME,
+        create_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -112,9 +112,9 @@ def test_create_markdown_file_contains_blank_line():
 def test_create_markdown_file_contains_prose():
     """Test that created file contains PROSE_CONTENT."""
     from sheep.features.feature_207_markdown_file_creation import (
-        create_markdown_file,
         FILENAME,
         PROSE_CONTENT,
+        create_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -124,7 +124,7 @@ def test_create_markdown_file_contains_prose():
             create_markdown_file()
             content = Path(FILENAME).read_text(encoding="utf-8")
 
-            assert PROSE_CONTENT in content, f"File should contain PROSE_CONTENT"
+            assert PROSE_CONTENT in content, "File should contain PROSE_CONTENT"
         finally:
             os.chdir(original_cwd)
 
@@ -132,8 +132,8 @@ def test_create_markdown_file_contains_prose():
 def test_create_markdown_file_uses_utf8_encoding():
     """Test that created file uses UTF-8 encoding without BOM."""
     from sheep.features.feature_207_markdown_file_creation import (
-        create_markdown_file,
         FILENAME,
+        create_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -155,8 +155,8 @@ def test_create_markdown_file_uses_utf8_encoding():
 def test_create_markdown_file_uses_lf_line_endings():
     """Test that created file uses Unix LF line endings."""
     from sheep.features.feature_207_markdown_file_creation import (
-        create_markdown_file,
         FILENAME,
+        create_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -178,8 +178,8 @@ def test_create_markdown_file_uses_lf_line_endings():
 def test_create_markdown_file_size_in_range():
     """Test that created file size is within specification (300-800 bytes)."""
     from sheep.features.feature_207_markdown_file_creation import (
-        create_markdown_file,
         FILENAME,
+        create_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:

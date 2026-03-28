@@ -8,9 +8,8 @@ of prose content. Tests cover:
 - Task 3: File structure validation and content validation (sentence count, file size)
 """
 
-import os
-import unittest
 import tempfile
+import unittest
 from pathlib import Path
 
 

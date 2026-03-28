@@ -22,6 +22,7 @@ from src.create_markdown import (
     create_markdown_file,
     validate_markdown_file,
 )
+
 from sheep.observability.logging import get_logger
 
 _logger = get_logger(__name__)
@@ -48,7 +49,7 @@ def execute_phase_2():
 
     # Task 2-1: File Writing
     _logger.info("\nTask 2-1: Creating markdown file with pathlib...")
-    _logger.info(f"  Filename: test-y9go1c.md")
+    _logger.info("  Filename: test-y9go1c.md")
     _logger.info(f"  Title: {title}")
     _logger.info(f"  Prose length: {len(prose)} characters")
 
@@ -104,14 +105,14 @@ def execute_phase_2():
     }
 
     if validation_result['is_valid']:
-        _logger.info(f"✓ Phase 2 completed successfully")
+        _logger.info("✓ Phase 2 completed successfully")
         _logger.info(f"  File: {file_path}")
-        _logger.info(f"  Validation: PASSED")
-        _logger.info(f"  Ready for Phase 3 (Git Integration)")
+        _logger.info("  Validation: PASSED")
+        _logger.info("  Ready for Phase 3 (Git Integration)")
     else:
-        _logger.warning(f"Phase 2 completed with validation warnings")
+        _logger.warning("Phase 2 completed with validation warnings")
         _logger.info(f"  File: {file_path}")
-        _logger.warning(f"  Validation: WARNINGS")
+        _logger.warning("  Validation: WARNINGS")
         _logger.warning(f"  Issues: {len(validation_result['errors'])} error(s)")
 
     _logger.info("=" * 80)
@@ -129,7 +130,7 @@ def main():
     print(f"Success: {result['success']}")
     print(f"File: {result['file_path']}")
     if result['validation']:
-        print(f"Validation Result:")
+        print("Validation Result:")
         print(f"  - is_valid: {result['validation']['is_valid']}")
         print(f"  - errors: {len(result['validation']['errors'])} error(s)")
         if result['validation']['errors']:

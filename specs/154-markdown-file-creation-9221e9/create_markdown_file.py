@@ -16,9 +16,9 @@ and adheres to project requirements:
 - Conventional commit message format
 """
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 
 def create_file():

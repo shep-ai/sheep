@@ -1,13 +1,14 @@
 """Tests for markdown file creation and validation functions."""
 
 import os
+
+# Import the functions from the script
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-# Import the functions from the script
-import sys
 script_path = Path(__file__).parent / "create_markdown_file.py"
 sys.path.insert(0, str(Path(__file__).parent))
 from create_markdown_file import create_file, validate_file

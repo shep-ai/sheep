@@ -20,10 +20,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from sheep.content_generators import (
-    write_markdown_file,
-    validate_markdown_file,
     commit_markdown_file,
     push_markdown_file,
+    validate_markdown_file,
+    write_markdown_file,
 )
 
 
@@ -58,18 +58,18 @@ Quantum computers exploit quantum mechanical phenomena like superposition and en
             content,
             custom_message="feat(145): create markdown file test-5dl5yi.md with prose content"
         )
-        print(f"✓ Commit successful")
+        print("✓ Commit successful")
 
         # Step 4: Push to remote
         print("\nStep 4: Pushing to remote...")
         push_result = push_markdown_file()
-        print(f"✓ Pushed to origin")
+        print("✓ Pushed to origin")
 
         print("\n" + "=" * 60)
         print("✓ Phase 1 Complete - test-5dl5yi.md created successfully!")
         print(f"  File: {filename}")
         print(f"  Size: {Path(filepath).stat().st_size} bytes")
-        print(f"  Commit: feat(145): create markdown file test-5dl5yi.md with prose content")
+        print("  Commit: feat(145): create markdown file test-5dl5yi.md with prose content")
 
     except Exception as e:
         print(f"\n✗ Error: {e}", file=sys.stderr)

@@ -4,23 +4,19 @@ Tests for feature 223: markdown-file-creation-995640
 Tests the create_file() function and git integration functions.
 """
 
-import subprocess
 import sys
 from pathlib import Path
-import tempfile
-import os
 
 # Import the script module
 sys.path.insert(0, str(Path(__file__).parent))
 from create_markdown_file_223 import (
+    FILENAME,
+    PROSE,
+    TITLE,
     create_file,
     git_add,
     git_commit,
     git_push,
-    FILENAME,
-    TITLE,
-    PROSE,
-    COMMIT_MESSAGE,
 )
 
 

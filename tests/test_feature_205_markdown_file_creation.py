@@ -1,31 +1,31 @@
 """Tests for feature 205: Create markdown file test-m6zeml.md with hard-coded content."""
 
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
-import subprocess
+
 import pytest
 
 from sheep.features.feature_205_markdown_file_creation import (
-    FILENAME,
-    FEATURE_NUMBER,
     BRANCH_NAME,
     COMMIT_MESSAGE,
-    TITLE_TEXT,
+    FILENAME,
     PROSE_CONTENT,
-    create_markdown_file,
-    verify_file_exists,
-    validate_markdown_format,
-    validate_sentence_count,
-    validate_encoding,
-    validate_line_endings,
-    validate_file_size,
-    validate_markdown_file,
-    extract_prose_content,
+    TITLE_TEXT,
     count_sentences,
+    create_markdown_file,
+    extract_prose_content,
     git_add_file,
     git_commit,
     git_push,
     main,
+    validate_encoding,
+    validate_file_size,
+    validate_line_endings,
+    validate_markdown_file,
+    validate_markdown_format,
+    validate_sentence_count,
+    verify_file_exists,
 )
 
 

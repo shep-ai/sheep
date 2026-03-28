@@ -5,12 +5,13 @@ Tests create_file() and git operations functions.
 No validation layer per spec requirement.
 """
 
-import pytest
-import tempfile
 import subprocess
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from create_markdown_file_219 import create_file, git_add, git_commit, git_push, TITLE, PROSE
+from unittest.mock import patch
+
+import pytest
+from create_markdown_file_219 import PROSE, TITLE, create_file, git_add, git_commit, git_push
 
 
 class TestCreateFile:
@@ -44,7 +45,6 @@ class TestCreateFile:
             original_dir = os.getcwd()
             try:
                 os.chdir(tmpdir)
-                from create_markdown_file_219 import FILENAME
                 with pytest.raises(FileExistsError):
                     create_file()
             finally:
@@ -224,10 +224,10 @@ class TestMainOrchestrator:
 
     def test_main_complete_workflow_success(self, tmp_path):
         """Test main successfully orchestrates complete workflow."""
-        from create_markdown_file_219 import main, FILENAME
-
         # Change to temp directory for test
         import os
+
+        from create_markdown_file_219 import FILENAME, main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -248,9 +248,9 @@ class TestMainOrchestrator:
 
     def test_main_exits_with_1_on_file_exists(self, tmp_path):
         """Test main exits with code 1 when file already exists."""
-        from create_markdown_file_219 import main, FILENAME
-
         import os
+
+        from create_markdown_file_219 import FILENAME, main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -269,9 +269,9 @@ class TestMainOrchestrator:
 
     def test_main_exits_with_1_on_git_failure(self, tmp_path):
         """Test main exits with code 1 on git command failure."""
-        from create_markdown_file_219 import main
-
         import os
+
+        from create_markdown_file_219 import main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -290,9 +290,9 @@ class TestMainOrchestrator:
 
     def test_main_calls_functions_in_order(self, tmp_path):
         """Test main calls functions in correct order."""
-        from create_markdown_file_219 import main
-
         import os
+
+        from create_markdown_file_219 import main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -329,9 +329,9 @@ class TestMainOrchestrator:
 
     def test_main_with_oserror(self, tmp_path):
         """Test main exits with 1 on OSError."""
-        from create_markdown_file_219 import main
-
         import os
+
+        from create_markdown_file_219 import main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)

@@ -7,12 +7,11 @@ This module contains comprehensive tests for:
 - Task 7: Error handling and main orchestration
 """
 
-import os
+import subprocess
 import sys
 from pathlib import Path
-import tempfile
-import subprocess
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 # Add src to path for imports
@@ -20,19 +19,19 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from sheep.features.feature_197_markdown_file_creation import (
     FILENAME,
-    TITLE,
     PROSE,
+    TITLE,
     check_file_does_not_exist,
-    create_markdown_file,
-    validate_encoding,
-    validate_line_endings,
     count_sentences,
-    validate_structure,
-    validate_file_size,
+    create_markdown_file,
     git_add,
     git_commit,
     git_push,
     main,
+    validate_encoding,
+    validate_file_size,
+    validate_line_endings,
+    validate_structure,
 )
 
 
@@ -588,9 +587,8 @@ class TestErrorHandling:
         create_markdown_file()
         Path(FILENAME).write_text("Invalid content", encoding="utf-8", newline="\n")
 
-        with patch("sys.stderr") as mock_stderr:
-            with patch("sys.exit"):
-                main()
+        with patch("sys.stderr") as mock_stderr, patch("sys.exit"):
+            main()
             # stderr.write or print should be called
             # (depending on implementation)
 
@@ -637,9 +635,8 @@ class TestErrorHandling:
         create_markdown_file()
         Path(FILENAME).write_text("# Title\n\nOnly one.\n", encoding="utf-8", newline="\n")
 
-        with patch("sys.exit"):
-            with patch("sys.stderr"):
-                main()
+        with patch("sys.exit"), patch("sys.stderr"):
+            main()
 
         # git_add should never be called
         add_calls = [c for c in mock_run.call_args_list if "add" in str(c)]

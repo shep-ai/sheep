@@ -3,8 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from sheep.tools.file_tools import DirectoryTreeTool, FileReadTool, FileWriteTool
 
 

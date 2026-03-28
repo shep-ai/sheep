@@ -10,12 +10,11 @@ Provides comprehensive status reporting for each phase.
 """
 
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-from validate_markdown_file import validate_file, ValidationError, FILENAME
 from git_workflow import GitWorkflow, GitWorkflowError
-
+from validate_markdown_file import FILENAME, ValidationError, validate_file
 
 # ============================================================================
 # Constants

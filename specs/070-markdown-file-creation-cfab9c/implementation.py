@@ -129,7 +129,7 @@ def validate_file():
         sentence_count += prose_content.count("!") + prose_content.count("?")
 
         print(f"✓ Prose content: {len(prose_content)} characters")
-        print(f"✓ UTF-8 encoding confirmed (read without errors)")
+        print("✓ UTF-8 encoding confirmed (read without errors)")
 
         return True
 

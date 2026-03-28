@@ -19,7 +19,6 @@ from unittest.mock import patch
 
 import pytest
 
-
 # Load the feature 176 implementation module directly from file
 SPECS_DIR = Path(__file__).parent.parent / "specs" / "176-markdown-file-creation-d0cf94"
 MODULE_PATH = SPECS_DIR / "create_markdown_file.py"
