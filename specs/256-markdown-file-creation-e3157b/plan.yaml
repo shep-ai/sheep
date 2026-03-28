@@ -1,0 +1,350 @@
+# Implementation Plan (YAML)
+# This is the source of truth for architecture, design decisions, and phase descriptions.
+# Concrete task breakdown is in tasks.yaml (not duplicated here).
+
+name: "markdown-file-creation-e3157b"
+summary: >
+  Feature 256 implements markdown file creation following the proven pattern from feature 255.
+  Implementation is a thin orchestrator module (~40 lines) that sequences existing utility functions
+  from content_generators.py: generate_markdown_content → write_markdown_file → validate_markdown_file
+  → commit_markdown_file → push_markdown_file. No utility modifications needed; all dependencies
+  exist and are proven across 255 features. Technical decisions prioritize simplicity: Claude Sonnet
+  4.6 for content generation, fail-fast error handling, and explicit failure on conflicts. The feature
+  creates test-rlrl92.md with H1 heading + 2-3 sentences of prose, commits with conventional message,
+  and pushes to the feature branch.
+
+relatedFeatures:
+  - "feature_255_markdown_file_creation.py"
+  - "Features 1-254 (established pattern)"
+
+technologies:
+  - "Python 3.11+"
+  - "Anthropic Claude API (Sonnet 4.6)"
+  - "GitPython"
+  - "CrewAI"
+  - "structlog"
+  - "pathlib"
+
+relatedLinks:
+  - title: "Feature 255 implementation reference"
+    url: "file:///src/sheep/features/feature_255_markdown_file_creation.py"
+  - title: "Content generators utility module"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "LLM configuration factory"
+    url: "file:///src/sheep/config/llm.py"
+  - title: "Git tools integration"
+    url: "file:///src/sheep/tools/__init__.py"
+
+phases:
+  - id: "phase-1"
+    name: "Feature Module Implementation"
+    description: >
+      Create feature_256_markdown_file_creation.py (~40 lines) by adapting feature 255.
+      This thin orchestrator imports utility functions, defines create_feature_256_markdown_file(),
+      adds module docstring and logging setup. No new utilities needed; all dependencies
+      (generate_markdown_content, write_markdown_file, validate_markdown_file, commit_markdown_file,
+      push_markdown_file) already exist in content_generators.py and are proven across 255 features.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Feature Execution and Validation"
+    description: >
+      Execute the feature module to generate test-rlrl92.md and perform Git operations (commit,
+      push). Verify orchestration logic sequences utilities correctly: LLM generates H1 + prose,
+      file is written with UTF-8 + LF, validation passes, git commit is created with correct
+      message, push to remote succeeds. All validation performed by existing utilities; orchestrator
+      handles sequencing and error propagation.
+    parallel: false
+
+  - id: "phase-3"
+    name: "Integration Verification and Completion"
+    description: >
+      Final verification that all success criteria are met. Confirm test-rlrl92.md exists in
+      repository root with correct content, encoding, line endings. Verify git log contains exactly
+      one commit with proper message format. Verify push to remote succeeded. Ensure feature branch
+      is clean with no orphaned changes. Complete feature branch work by committing the feature
+      module.
+    parallel: false
+
+filesToCreate:
+  - "/src/sheep/features/feature_256_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 256 follows the **modular feature pattern** established by features 1-255. The implementation
+  uses a **thin orchestrator** design that composes existing, well-tested utility functions from
+  `/src/sheep/content_generators.py`.
+
+  ### Component Structure
+
+  **Feature Module** (`feature_256_markdown_file_creation.py`):
+  - Single Python module in `/src/sheep/features/`
+  - Function: `create_feature_256_markdown_file(repo_path: str | None = None) -> dict[str, str]`
+  - ~40 lines (docstring, imports, logging, orchestration logic)
+  - No business logic; pure composition of utility function calls
+
+  **Utility Layer** (existing in `/src/sheep/content_generators.py`):
+  - `generate_markdown_content(prompt, model, temperature) → str` — LLM content generation
+  - `write_markdown_file(repo_path, filename, content) → str` — File I/O with validation
+  - `validate_markdown_file(filepath) → dict` — Encoding, line endings, structure validation
+  - `commit_markdown_file(repo_path, filename, custom_message) → str` — Git staging + commit
+  - `push_markdown_file(repo_path) → str` — Git push with upstream tracking
+
+  **LLM Configuration** (existing in `/src/sheep/config/llm.py`):
+  - `get_reasoning_llm() → Claude Sonnet 4.6` — Pre-configured instance (temperature=0.2)
+
+  ### Orchestration Flow
+
+  ```
+  Feature module executes linear sequence:
+    1. generate_markdown_content()  → "# Title\n\n2-3 sentences..."
+    2. write_markdown_file(content) → "/repo/test-rlrl92.md"
+    3. validate_markdown_file()     → Checks encoding, line endings, H1, sentence count
+    4. commit_markdown_file()       → "feat(256): create markdown file..."
+    5. push_markdown_file()         → Pushes to feat/256-markdown-file-creation-e3157b
+    6. Return: {"filepath": "...", "content": "...", "commit_message": "...", "push_result": "..."}
+  ```
+
+  Each step encapsulates complexity in utilities; orchestrator simply sequences and logs transitions.
+  Exceptions from utilities propagate to caller; no catch/suppress in orchestrator.
+
+  ### Integration with Sheep Platform
+
+  - **Module location**: `/src/sheep/features/feature_256_markdown_file_creation.py`
+  - **LLM access**: Via `get_reasoning_llm()` factory (Sonnet 4.6, temperature=0.2)
+  - **Logging**: Via `get_logger(__name__)` from `/src/sheep/observability/logging`
+  - **Git tools**: Via `GitCommitTool` and `GitPushTool` wrapped in utilities
+  - **Error handling**: Exceptions from utilities propagate unchanged
+  - **Documentation**: Module docstring + structured logging (no function docstrings or inline comments)
+
+  ### Why This Architecture
+
+  1. **Proven Pattern**: Features 1-255 demonstrate this approach is reliable and maintainable
+  2. **No Code Duplication**: All complexity lives in utility layer; feature is pure orchestration
+  3. **Centralized Maintenance**: Encoding, line endings, git operations managed once in utilities
+  4. **Testability**: Utilities are unit-tested separately; feature verified via integration tests
+  5. **Observability**: Utilities log diagnostics; orchestrator logs transitions
+  6. **Simplicity**: Feature module is self-evident (linear sequence of calls)
+
+  ## Key Design Decisions
+
+  ### 1. LLM Model: Claude Sonnet 4.6
+
+  **Chosen**: Pre-configured Sonnet 4.6 from `get_reasoning_llm()` with temperature=0.2
+
+  **Rationale**:
+  - Balances prose quality with execution speed (~2-3s) and API cost
+  - Temperature=0.2 ensures focused, coherent prose generation
+  - Proven across 255 prior features (established pattern)
+  - Meets FR-4 requirement (grammatically correct content)
+
+  **Why not Opus**: Unnecessary latency (5-10s) and cost; Sonnet quality is sufficient
+
+  **Why not Haiku**: Risk of grammar/coherence issues; Sonnet proven in practice
+
+  ### 2. Orchestration: Thin Feature Module + Utility Composition
+
+  **Chosen**: 40-line orchestrator calling existing utility functions in sequence
+
+  **Rationale**:
+  - Feature 255 demonstrates this pattern is optimal
+  - All utilities exist and are proven; no duplication
+  - Orchestrator logic is self-evident (no complex branching or error handling)
+  - Reduces implementation time and maintenance burden
+
+  **Why not monolithic**: Would duplicate 255 features worth of proven patterns
+
+  **Why not new utilities**: Adds abstraction for single use case; violates DRY principle
+
+  ### 3. Error Handling: Fail Fast with Clear Diagnostics
+
+  **Chosen**: No automatic retries; propagate exceptions from utilities with full context
+
+  **Rationale**:
+  - LLM reliability proven across 255 features (failures are rare)
+  - Explicit failure allows caller to decide on retry logic
+  - Each utility raises descriptive exceptions
+  - Single-responsibility: feature orchestrates happy-path; caller handles recovery
+
+  **Why not automatic retry**: Increases latency and cost for hypothetical failures
+
+  **Why not fallback template**: Silently degrades quality; undermines prose requirement
+
+  ### 4. File Existence: Fail if File Already Exists
+
+  **Chosen**: Raise error if `test-rlrl92.md` already exists
+
+  **Rationale**:
+  - FR-1 specifies "create" (not "create or update")
+  - Feature branch pattern assumes clean, ephemeral branches
+  - Explicit failure forces caller to handle cleanup intentionally
+  - Prevents silent overwrites and data loss
+
+  **Why not overwrite**: Risks data loss; unclear behavior on re-run
+
+  **Why not numbered suffix**: Creates orphaned files; breaks naming convention
+
+  ### 5. File Encoding and Line Endings: UTF-8 + Unix LF
+
+  **Chosen**: Enforce via utility functions (write_markdown_file, validate_markdown_file)
+
+  **Rationale**:
+  - Requirements NFR-1 and NFR-2 are explicit
+  - Python's `open(file, 'w', encoding='utf-8')` naturally produces LF
+  - Validation checks for UTF-8 BOM and CRLF; fails fast if detected
+  - Cross-platform consistency guaranteed
+
+  **Why not platform-native**: CRLF on Windows breaks requirement NFR-2
+
+  **Why not optional validation**: Defers detection to later stages; violates fail-fast
+
+  ### 6. Git Integration: Use Wrapped Tools from `content_generators.py`
+
+  **Chosen**: Call `commit_markdown_file()` and `push_markdown_file()` utilities
+
+  **Rationale**:
+  - Utilities provide correct error handling, logging, proven correctness
+  - GitPushTool automatically sets upstream tracking
+  - Avoids reimplementation of git logic
+  - Consistent with 255 prior features
+
+  **Why not direct GitPython**: Reimplements error handling and logging; violates DRY
+
+  **Why not subprocess git**: Loses abstraction; harder to test and log
+
+  ### 7. Commit Message: Fixed Conventional Commit Format
+
+  **Chosen**: `feat(256): create markdown file test-rlrl92.md with prose content`
+
+  **Rationale**:
+  - Requirement FR-6 specifies this exact format
+  - Machine-parseable for downstream automation
+  - Fixed format ensures consistency (no LLM-generated variations)
+  - Matches feature 255 and 255 prior features
+
+  **Why not auto-generated topic**: Varies by LLM output; breaks format consistency
+
+  **Why not minimal message**: Reduces commit history clarity
+
+  ### 8. Logging: Structured via `get_logger(__name__)`
+
+  **Chosen**: Use `get_logger()` from `/src/sheep/observability/logging`
+
+  **Rationale**:
+  - Established pattern across features 1-255
+  - Provides consistent formatting, level control, Langfuse tracing
+  - Satisfies NFR-8 requirement (observability)
+  - Enables trace-level debugging
+
+  **Why not silent execution**: Loses observability; violates NFR-8
+
+  **Why not print statements**: Unstructured; no Langfuse integration
+
+  ### 9. Documentation: Module-Level Docstring Only
+
+  **Chosen**: Module docstring explaining feature purpose and workflow
+
+  **Rationale**:
+  - Thin orchestrator's logic is self-evident (linear sequence)
+  - Detailed documentation in utility layer (content_generators.py)
+  - Aligns with ~40-line feature pattern from features 1-255
+  - Reduces verbosity while maintaining clarity
+
+  **Why not function docstrings**: Utilities already documented; adds unnecessary lines
+
+  **Why not inline comments**: Over-documents simple orchestration
+
+  ### 10. Return Value: Comprehensive Dictionary
+
+  **Chosen**: `{"filepath": str, "content": str, "commit_message": str, "push_result": str}`
+
+  **Rationale**:
+  - Supports observability: caller can verify all outputs
+  - Enables testing: caller can assert on any field
+  - Sufficient context for error diagnosis
+  - Consistent with feature 255 pattern
+
+  **Why not filepath only**: Insufficient context for verification
+
+  **Why not boolean success**: No diagnostic information
+
+  ## Implementation Strategy
+
+  ### Phase Ordering: Why This Sequence
+
+  **Phase 1 (Feature Module) → Phase 2 (Execution) → Phase 3 (Verification)**
+
+  **Phase 1 first** because:
+  - Creates the orchestrator code that all subsequent phases depend on
+  - Can be implemented and tested independently
+  - No external dependencies: just Python imports
+  - Establishes the structure for phases 2 and 3
+
+  **Phase 2 second** because:
+  - Depends on phase 1 completion
+  - Actually executes the feature to generate artifacts
+  - Validates orchestration logic sequences utilities correctly
+  - Provides concrete outputs for phase 3 verification
+
+  **Phase 3 last** because:
+  - Depends on phase 2 completion
+  - Confirms all requirements met
+  - Lowest risk phase (verification only)
+  - Final step before closing feature branch
+
+  ### Clear Dependencies
+
+  All phases have linear dependencies:
+  - Phase 1 → Phase 2: Feature module must exist before execution
+  - Phase 2 → Phase 3: Artifacts must be created before verification
+  - No circular dependencies or parallel work
+
+  ### Fail-Fast Approach
+
+  Each phase produces observable outputs that can be inspected:
+  - Phase 1: Python module exists and is syntactically correct
+  - Phase 2: test-rlrl92.md file created, git commit appears in log, push succeeds
+  - Phase 3: All requirements verified; feature branch clean
+
+  If any phase fails, diagnose and fix before proceeding to next phase.
+
+  ## Risk Mitigation
+
+  | Risk | Probability | Impact | Mitigation |
+  | ---- | ----------- | ------ | ---------- |
+  | LLM API rate limit or timeout | Low | Content generation fails; no file created | LLM proven reliable across 255 features; timeout acceptable in CI/CD; caller can retry |
+  | File already exists from prior run | Low | Feature fails with error; requires cleanup | Explicit error acceptable for ephemeral feature branch pattern; caller handles cleanup |
+  | Git authentication failure on push | Low | Push fails; feature incomplete | Credentials already configured in execution environment; test in staging first |
+  | Incorrect file encoding or line endings | Very Low | File fails validation | write_markdown_file() and validate_markdown_file() proven across 255 features |
+  | Git branch divergence | Very Low | Push fails | Feature branch isolated/ephemeral; conflicts only if concurrent work on same branch |
+  | Typo in feature number or filename | Low | Creates wrong file; wrong commit message | Code review catches typos; copying from feature 255 reduces transcription errors |
+  | Module import or syntax error | Low | Feature fails to run | Dependencies verified (utilities exist); syntax checked before execution |
+
+  ## Success Criteria
+
+  Implementation is complete when:
+
+  1. **File Created**: `test-rlrl92.md` exists in repository root
+  2. **Content Valid**: H1 heading + 2-3 sentences, 100-300 character prose
+  3. **File Format**: UTF-8 without BOM, Unix LF, 250-600 bytes total
+  4. **Validation Passes**: All checks pass (encoding, line endings, structure, sentence count)
+  5. **Git Commit**: Single commit with message `feat(256): create markdown file test-rlrl92.md with prose content`
+  6. **Git Push**: Commit on remote branch `feat/256-markdown-file-creation-e3157b`
+  7. **Feature Module**: Created at `/src/sheep/features/feature_256_markdown_file_creation.py` (~40 lines)
+  8. **Logging**: All transitions logged; failures logged with context
+  9. **Branch Clean**: Feature branch has exactly one new commit; no orphaned changes
+  10. **Return Value**: Function returns dict with filepath, content, commit_message, push_result
+
+  ## Implementation Notes
+
+  - **Copy from Feature 255**: Safest approach is to copy `feature_255_markdown_file_creation.py` and customize constants (feature number, filename, function name, commit message). Ensures structural consistency.
+  - **Reuse All Utilities**: Do not create new utility functions or duplicate logic from `content_generators.py`. Feature module is pure orchestration.
+  - **Error Propagation**: Let exceptions from utilities propagate unchanged. Orchestrator does not catch and suppress errors.
+  - **No Workarounds**: If feature fails, diagnose root cause in utilities rather than working around in feature module.
+  - **Integration Testing**: Write tests that verify full workflow (generate → write → validate → commit → push) rather than unit tests that mock utilities. Utilities already tested.
+
