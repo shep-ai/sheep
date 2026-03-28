@@ -1,0 +1,268 @@
+name: "markdown-file-creation-b2e09d"
+summary: >
+  Technical research for feature 248 (markdown file creation) identifies pathlib.Path.write_text()
+  as the optimal file I/O solution with explicit UTF-8 encoding and newline parameter handling to
+  enforce strict LF line endings and no BOM. Implementation requires no external dependencies
+  beyond Python standard library and Git, uses subprocess for git operations, and implements basic
+  structural validation to ensure file meets requirements before commit.
+
+relatedFeatures:
+  - number: 247
+    name: "markdown-file-creation"
+  - number: 246
+    name: "markdown-file-creation"
+  - number: 245
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (runtime — required by project)"
+  - "pathlib (Python standard library — file I/O)"
+  - "Git (command-line tool — version control)"
+  - "subprocess (Python standard library — git CLI invocation)"
+  - "Markdown format (CommonMark specification)"
+
+relatedLinks:
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "UTF-8 Encoding Specification"
+    url: "https://en.wikipedia.org/wiki/UTF-8"
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Git Conventional Commits"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "File I/O Implementation Method"
+    chosen: "pathlib.Path.write_text() with explicit UTF-8 encoding"
+    rejected:
+      - "Built-in open() function — verbose boilerplate for encoding/newline handling, requires manual mode and encoding parameters, less idiomatic for Python 3.11+"
+      - "External file I/O libraries (e.g., pathspec, fileinput) — unnecessary external dependencies for a single file operation, adds complexity without benefit"
+    rationale: >
+      pathlib.Path.write_text() is the idiomatic Python 3.11+ approach for simple file writing.
+      It provides a clean, single-method API that handles encoding, file creation, and safe file
+      closing automatically. The method signature write_text(data, encoding='utf-8', errors='strict',
+      newline=None) allows explicit control over encoding and newline handling required by the
+      spec. It's part of Python's standard library (no external dependencies) and is the pattern
+      used in modern Python code. The codebase requires Python 3.11+, making pathlib the natural choice.
+
+  - title: "Encoding Enforcement (UTF-8 without BOM)"
+    chosen: "Use encoding='utf-8' parameter in write_text(); verify no BOM in validation step"
+    rejected:
+      - "Use encoding='utf-8-sig' — this automatically adds BOM, violating NFR-1 requirement for no BOM"
+      - "Use locale-based encoding — risks platform-specific divergence (UTF-16 on Windows, UTF-8 on Linux), creates CRLF/encoding inconsistencies"
+    rationale: >
+      The spec explicitly requires UTF-8 encoding without BOM (NFR-1). Using encoding='utf-8'
+      (not 'utf-8-sig') ensures no BOM is added. Python's 'utf-8' codec writes pure UTF-8 bytes
+      without a BOM prefix. Validation post-write should verify the first three bytes are not the
+      UTF-8 BOM sequence (EF BB BF in hex). This approach maintains consistency with 250+ existing
+      test files and prevents encoding divergence across platforms.
+
+  - title: "Line Ending Enforcement (LF only, not CRLF)"
+    chosen: "Use newline='\\n' parameter in write_text() to force Unix LF line endings"
+    rejected:
+      - "Use platform default newlines — results in CRLF on Windows, LF on Linux/Mac; creates inconsistent version control diffs and violates NFR-2"
+      - "Manual post-write line ending replacement — adds complexity, risk of double-replacement if prose already contains LF"
+    rationale: >
+      Python's pathlib.write_text() with newline parameter controls line ending behavior. Setting
+      newline='\\n' ensures that all '\\n' characters in the content are written as Unix LF (U+000A),
+      not converted to platform-specific CRLF. This is documented in PEP 3116 and enforces the
+      NFR-2 requirement for LF-only line endings. The newline parameter operates at the text layer,
+      so it's the cleanest, most reliable way to enforce universal LF across all platforms.
+
+  - title: "Validation Strategy"
+    chosen: "Basic post-write structural validation: file exists, size bounds, H1 count, sentence count, encoding/BOM verification"
+    rejected:
+      - "No validation — risks committing files with missing heading, wrong encoding, or malformed structure; defeats purpose of automated validation"
+      - "Comprehensive validation with grammar/readability checks — over-engineering for a test artifact, adds 5-10 min overhead per file, requires NLP library dependency"
+    rationale: >
+      The spec resolves to \"Basic structural validation\" in the requirements (open question 2).
+      This means: (1) file exists after write, (2) file size is within 300-800 byte range, (3) exactly
+      one H1 heading (regex: '^# [^#]'), (4) contains 2-3 sentences (simple sentence-split heuristic),
+      (5) first 3 bytes are not UTF-8 BOM, (6) no CRLF line endings. These checks are lightweight
+      (~50 lines of Python), catch real errors without over-engineering, and align with the
+      established pattern that prioritizes safety over complexity.
+
+  - title: "Prose Content Generation"
+    chosen: "Manual prose writing (human-authored, coherent, substantive)"
+    rejected:
+      - "Programmatic generation with templates/random text — produces generic placeholder prose that doesn't match the human-authored quality of existing 250+ test files, risks incoherent/gibberish output"
+      - "Copy/paste from existing test files — violates uniqueness and defeats purpose of creating distinct content"
+    rationale: >
+      The spec resolves to \"Manual writing\" in requirements (open question 3). This ensures prose
+      content is substantive and coherent (FR-5), matches the human-authored quality of existing
+      test files, and maintains narrative coherence. While this adds ~2-3 minutes per file compared
+      to templates, it's necessary to maintain pattern fidelity and prevent gibberish. The codebase
+      has 250+ examples of well-written, diverse prose; manual writing ensures parity with this
+      established standard.
+
+  - title: "Git Integration Approach"
+    chosen: "Use subprocess.run() to invoke git CLI commands (stage, commit, push)"
+    rejected:
+      - "GitPython library — adds external dependency (not in pyproject.toml), requires installation and maintenance, unnecessary for simple CLI operations"
+      - "Manual git operations via os.system() — shell injection risks, no error handling, less portable"
+    rationale: >
+      The feature requires git operations: git add, git commit, git push. Using subprocess.run()
+      with a list of arguments (not shell=True) is the safe, standard Python approach. It's
+      available in Python 3.11+ standard library, avoids external dependencies, and provides
+      proper error handling via return codes and exceptions. Each operation is straightforward
+      enough that a full git library isn't justified. The feature branch is pre-created, so no
+      branch creation logic is needed — only stage, commit (with conventional message), and push.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation
+
+  **Chosen:** `pathlib.Path.write_text()` with explicit UTF-8 encoding and LF newline parameter
+
+  **Rejected:**
+  - Built-in `open()` function — verbose, requires manual mode and encoding parameters, less idiomatic for Python 3.11+
+  - External file I/O libraries — unnecessary external dependencies for a single file write operation
+
+  **Rationale:** pathlib is the modern, idiomatic Python approach. The `write_text(data, encoding='utf-8', newline='\n')` API handles file creation, encoding, newline conversion, and safe closing in a single method call. It's part of Python's standard library (no dependencies) and is the pattern used in contemporary Python code. The codebase requires Python 3.11+, making pathlib the natural, zero-dependency choice.
+
+  ### 2. Encoding Enforcement (UTF-8 without BOM)
+
+  **Chosen:** Use `encoding='utf-8'` parameter in `write_text()`; validate no BOM in post-write checks
+
+  **Rejected:**
+  - `encoding='utf-8-sig'` — automatically adds BOM, violating NFR-1
+  - Platform-default encoding — risks CRLF and locale-specific divergence across platforms
+
+  **Rationale:** Python's `'utf-8'` codec writes pure UTF-8 without BOM. The 'utf-8-sig' variant is explicitly avoided because it adds a 3-byte BOM prefix (EF BB BF), violating the requirement. Post-write validation checks that the file's first three bytes are not the BOM sequence. This approach maintains consistency with 250+ existing test files and prevents platform-specific encoding drift.
+
+  ### 3. Line Ending Enforcement (LF only, not CRLF)
+
+  **Chosen:** Use `newline='\n'` parameter in `write_text()` to universally enforce Unix LF line endings
+
+  **Rejected:**
+  - Platform-default newlines — results in CRLF on Windows, LF on Unix, creating inconsistent diffs and violating NFR-2
+  - Manual post-write replacement — adds complexity and risks double-replacement if content already contains LF
+
+  **Rationale:** Python's `pathlib.write_text(newline='\n')` ensures that all '\n' characters are written as Unix LF (U+000A), not converted to platform-specific CRLF (U+000D U+000A). This is the documented, correct way to enforce cross-platform line ending consistency per PEP 3116. The newline parameter operates at the text layer, making it reliable and clean — no need for post-write text manipulation.
+
+  ### 4. Validation Strategy
+
+  **Chosen:** Basic post-write structural validation (file exists, size bounds, H1 count, sentence count, encoding/BOM verification)
+
+  **Rejected:**
+  - No validation — risks committing malformed files (missing heading, wrong encoding, etc.)
+  - Comprehensive validation with grammar/readability checks — over-engineering for a test artifact, requires NLP library, adds 5-10 min overhead
+
+  **Rationale:** The feature spec resolves to "Basic structural validation." This means lightweight checks: (1) file exists, (2) size 300–800 bytes, (3) exactly one H1 heading, (4) contains 2–3 sentences, (5) no BOM, (6) no CRLF. These ~50 lines of Python catch real errors (missing heading, encoding issues) without unnecessary complexity. The validation approach aligns with the established pattern: safety without over-engineering.
+
+  ### 5. Prose Content Generation
+
+  **Chosen:** Manual prose writing — human-authored, substantive, coherent content
+
+  **Rejected:**
+  - Programmatic generation (templates, random text generators) — produces generic placeholder text that doesn't match the human-authored quality of 250+ existing test files
+  - Copy/paste from existing files — violates uniqueness principle
+
+  **Rationale:** The feature spec resolves to "Manual writing" in requirements (open question 3). Manual prose ensures content is substantive (FR-5), coherent, and matches the human-authored standard of existing test files. While this adds ~2–3 minutes per file, it's necessary for pattern fidelity and prevents gibberish output. The codebase demonstrates that diverse, well-written prose topics (nature, science, history, culture, philosophy) are the norm — manual writing maintains this quality.
+
+  ### 6. Git Integration
+
+  **Chosen:** Use `subprocess.run()` to invoke git CLI commands (stage, commit, push)
+
+  **Rejected:**
+  - GitPython library — adds external dependency not in pyproject.toml, requires installation, unnecessary for simple CLI operations
+  - `os.system()` — vulnerable to shell injection, no error handling, less portable
+
+  **Rationale:** The feature requires git operations: `git add`, `git commit`, `git push`. Using `subprocess.run(cmd_list)` (with `shell=False`) is the safe, standard Python approach. It's in the standard library, provides proper error handling via return codes and exceptions, and avoids external dependencies. The feature branch is pre-created, so no branch creation logic is needed.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | pathlib | File I/O operations | **Use** | Python 3.11+ standard library, idiomatic, handles encoding/newline parameters. Zero external dependencies. Required by NFR-3. |
+  | subprocess | Git CLI invocation (git add/commit/push) | **Use** | Python standard library, safe CLI invocation, proper error handling. No shell injection risks with `shell=False`. |
+  | GitPython | Alternative git integration | **Reject** | External dependency not in pyproject.toml. Unnecessary for simple git operations (3 commands). Adds complexity without benefit. |
+  | re (regex) | Validation: H1 heading detection | **Use** | Python standard library. Simple pattern matching for `^# [^#]` to detect H1 headings. ~1 line of code. |
+  | os.path / pathlib alternatives | File operations | **Reject** (in favor of pathlib) | Less idiomatic, more verbose than pathlib. `os.path` is legacy; pathlib is modern standard. |
+  | tempfile | Temporary file for validation | **Use** (optional) | Standard library. Could be used for intermediate validation before writing, but not required for this simple feature. |
+
+  ## Security Considerations
+
+  ### 1. File Path Validation
+  - **Risk**: Arbitrary file path could be used if feature is later generalized
+  - **Mitigation**: File path is hard-coded as `test-98fzdw.md` in the feature spec. No user input accepted. Path is relative to repository root (same level as README.md). No path traversal possible.
+
+  ### 2. File Overwrite Safety
+  - **Risk**: Existing file at `test-98fzdw.md` could be silently overwritten
+  - **Mitigation**: This is the intended behavior per the feature spec. However, a pre-write check could verify the file doesn't already exist (to detect accidental re-runs). The feature spec assumes first-time execution.
+
+  ### 3. Git Command Injection
+  - **Risk**: If git commit message contained user input, injection is possible
+  - **Mitionale**: Commit message is hard-coded in the feature spec: `feat(248): create markdown file test-98fzdw.md with prose content`. No user input. No shell=True usage. Safe via `subprocess.run(cmd_list)`.
+
+  ### 4. Content Injection / Code Execution
+  - **Risk**: Prose content could contain executable code or malicious markdown
+  - **Mitigation**: This is a markdown file (text-only), not executable code. Content is author-written, not dynamically generated. Markdown rendering is responsibility of downstream consumers. No code execution from markdown file creation itself.
+
+  ### 5. Encoding Attacks
+  - **Risk**: Incorrect encoding could allow Unicode normalization attacks or overlong UTF-8 sequences
+  - **Mitigation**: Python's UTF-8 codec strictly validates encoding. Using `errors='strict'` (default) in `write_text()` ensures invalid UTF-8 sequences are rejected. Standard UTF-8 encoding prevents normalization attacks.
+
+  ### 6. Line Ending Vulnerabilities
+  - **Risk**: CRLF injection could create different behavior on Unix vs Windows (e.g., in line-based parsing)
+  - **Mitigation**: Enforcing LF-only line endings (newline='\n') prevents CRLF from being introduced. Consistent across all platforms.
+
+  ## Performance Considerations
+
+  ### 1. File I/O Performance
+  - **Single file write** (~400–600 bytes) is negligible: <1ms on modern hardware
+  - **No optimization needed**: File size is small, single I/O operation
+  - **pathlib overhead**: Minimal; pathlib's overhead is <1ms for single file operations
+
+  ### 2. Git Operations Performance
+  - **Three git commands** (add, commit, push) require subprocess invocations and network I/O (push)
+  - **Expected timing**: `git add` (<1ms), `git commit` (1–5ms), `git push` (100–5000ms depending on network/server latency)
+  - **No optimization needed**: Feature estimate is 10–15 min total; git operations are small fraction
+  - **Recommendation**: Don't optimize git operations; they're I/O bound and expected to take time
+
+  ### 3. Validation Performance
+  - **Structural validation** (file exists, size check, regex matching for heading count) is <10ms
+  - **Negligible impact**: Validation overhead is minimal compared to file write and git operations
+
+  ### 4. Memory Usage
+  - **Minimal**: Single 300–800 byte file in memory
+  - **No streaming needed**: File size is small enough to fit in memory easily
+
+  ## Architecture Notes
+
+  ### Integration with Existing Codebase
+
+  This feature follows the established pattern of 250+ existing test markdown files in the repository root:
+
+  1. **Repository Structure Preserved**: No changes to /src/sheep/, /tests/, specs/, or any source code directories. Single file addition to repository root.
+  2. **No Source Code Dependencies**: Feature is purely file I/O and git operations. Does not import from /src/sheep/ or any application code (NFR-4).
+  3. **Standard Python Only**: Uses Python 3.11+ standard library (pathlib, subprocess). No external dependencies to add to pyproject.toml.
+  4. **Git Workflow Pattern**: Follows the established pattern: create file → stage → commit with conventional message → push to feature branch.
+  5. **No Configuration Changes**: No updates to pyproject.toml, GitHub workflows, or other configuration files.
+  6. **Test Artifact**: This markdown file is a test artifact, not part of the application logic. It serves as a validation artifact for the automated implementation system (similar to 250+ existing test-*.md files).
+
+  ### Relationship to Recent Features
+
+  Features 245, 246, and 247 follow the identical pattern:
+  - Same feature requirements (markdown file creation with heading + prose)
+  - Same git workflow (stage, commit, push to feature branch)
+  - Same validation approach (basic structural checks)
+  - Recent commits show successful implementations of identical features
+
+  This research documents the technical approach for feature 248, which is identical in scope and implementation to features 245–247. The pattern is well-established and proven.
+
+  ## Implementation Plan (High-Level)
+
+  1. **Create prose content**: Write 2–3 coherent sentences about a chosen topic (unrestricted).
+  2. **Write file**: Use `pathlib.Path('test-98fzdw.md').write_text(content, encoding='utf-8', newline='\n')`
+  3. **Validate structure**: Check H1 count, sentence count, file size, encoding/BOM, line endings
+  4. **Stage file**: `subprocess.run(['git', 'add', 'test-98fzdw.md'])`
+  5. **Commit**: `subprocess.run(['git', 'commit', '-m', 'feat(248): create markdown file test-98fzdw.md with prose content'])`
+  6. **Push**: `subprocess.run(['git', 'push', '-u', 'origin', 'feat/248-markdown-file-creation-b2e09d'])`
+
+  ---
+
+  _Research phase complete — technology decisions documented with rationale, library choices evaluated, security and performance implications identified, architecture integration analyzed. Ready for implementation._
