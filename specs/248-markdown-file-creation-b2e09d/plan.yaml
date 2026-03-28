@@ -1,0 +1,220 @@
+name: "markdown-file-creation-b2e09d"
+summary: >
+  Implementation plan for feature 248: create a single markdown test file (test-98fzdw.md) at
+  repository root with H1 heading and 2-3 sentences of prose. Architecture leverages the
+  established pattern of 250+ existing test files, uses pathlib for encoding-safe file I/O
+  and subprocess for git operations, with basic structural validation and manual prose writing
+  to maintain pattern consistency.
+
+relatedFeatures:
+  - number: 247
+    name: "markdown-file-creation"
+  - number: 246
+    name: "markdown-file-creation"
+  - number: 245
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (runtime — required by project)"
+  - "pathlib (Python standard library — file I/O with encoding control)"
+  - "subprocess (Python standard library — git CLI invocation)"
+  - "Git (command-line tool — version control)"
+  - "Markdown format (CommonMark specification)"
+
+relatedLinks:
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "UTF-8 Encoding Specification"
+    url: "https://en.wikipedia.org/wiki/UTF-8"
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Git Conventional Commits"
+    url: "https://www.conventionalcommits.org/"
+
+phases:
+  - id: "phase-1"
+    name: "File Creation & Validation"
+    description: >
+      Author prose content, create the markdown file with proper UTF-8 encoding and LF line
+      endings using pathlib, and implement basic structural validation to ensure the file
+      meets all requirements before git operations. This phase focuses on the core artifact —
+      the test-98fzdw.md file itself.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Git Integration"
+    description: >
+      Stage the created markdown file, commit with conventional commit message, and push to
+      the feature branch. This phase integrates the artifact into version control following
+      the established git workflow pattern.
+    parallel: false
+
+filesToCreate:
+  - "test-98fzdw.md"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature extends the established pattern of 250+ test markdown files in the repository
+  root. The implementation is straightforward and isolated:
+
+  - **Repository Structure**: Adds one markdown file (test-98fzdw.md) to the existing
+    collection at repository root. No changes to /src/sheep/, /tests/, specs/, or any
+    configuration files.
+
+  - **No Source Code Dependencies**: Feature uses only Python standard library (pathlib,
+    subprocess) and Git CLI. Does not import from application source code, maintaining
+    isolation per NFR-4.
+
+  - **Pattern Precedent**: 250+ existing test-*.md files provide clear architectural
+    precedent for structure (H1 heading + prose), encoding (UTF-8 no BOM, LF line endings),
+    content quality (human-authored, substantive), and git workflow (stage → commit →
+    push to feature branch).
+
+  - **Minimal Scope**: Single-file creation with no dependencies, no test modifications,
+    no configuration changes. Follows the established pattern from features 245-247.
+
+  ## Key Design Decisions
+
+  ### 1. File I/O Implementation: pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path.write_text(content, encoding='utf-8', newline='\n')`
+
+  **Rationale:**
+  - Idiomatic Python 3.11+ approach for simple file writing
+  - Single method call handles file creation, encoding, and newline conversion
+  - Explicit `encoding='utf-8'` ensures no BOM (critical for NFR-1)
+  - Explicit `newline='\n'` enforces Unix LF line endings across all platforms (NFR-2)
+  - Part of Python standard library — zero external dependencies
+  - Provides automatic safe file closing and exception handling
+
+  **Alternatives Rejected:**
+  - Built-in `open()` function: verbose boilerplate, requires manual mode/encoding parameters
+  - External libraries (e.g., pathspec): unnecessary dependencies for single-file operation
+
+  ### 2. Encoding Enforcement: UTF-8 without BOM
+
+  **Chosen:** Use `encoding='utf-8'` parameter; validate no BOM in post-write checks
+
+  **Rationale:**
+  - Python's `'utf-8'` codec writes pure UTF-8 without BOM prefix (avoids 'utf-8-sig' which
+    adds 3-byte EF BB BF prefix, violating NFR-1)
+  - Validation step checks first 3 bytes are not UTF-8 BOM sequence
+  - Maintains consistency with 250+ existing test files
+  - Prevents platform-specific encoding divergence (UTF-16 on Windows, UTF-8 on Linux)
+
+  ### 3. Line Ending Enforcement: LF Only (Unix Style)
+
+  **Chosen:** Use `newline='\n'` parameter in `write_text()` to force Unix LF line endings
+
+  **Rationale:**
+  - Python's `newline='\n'` parameter ensures all '\n' characters are written as Unix LF
+    (U+000A), not converted to platform-specific CRLF (U+000D U+000A)
+  - Per PEP 3116, this operates at text layer and is the documented, correct way to enforce
+    cross-platform line ending consistency
+  - Avoids CRLF-related version control diffs and platform divergence (violates NFR-2)
+  - Cleaner and more reliable than post-write text manipulation
+
+  ### 4. Validation Strategy: Basic Structural Checks
+
+  **Chosen:** Post-write validation: file exists, size bounds (300-800 bytes), H1 count
+  (exactly 1), sentence count (2-3), UTF-8 encoding (no BOM), line endings (LF only)
+
+  **Rationale:**
+  - Spec resolves to "Basic structural validation" in requirements (open question 2)
+  - Lightweight checks (~50 lines of Python) catch real errors without over-engineering:
+    * Missing H1 heading
+    * Wrong encoding or BOM presence
+    * CRLF line endings
+    * Insufficient or excess content
+  - Aligns with established pattern: safety without unnecessary complexity
+  - Avoids comprehensive NLP/grammar validation which would add 5-10 min overhead per file
+
+  **Implementation Details:**
+  - File existence and size check: `Path('test-98fzdw.md').stat().st_size`
+  - H1 count: regex match `r'^# [^#]'` (multiline mode)
+  - Sentence count: simple heuristic (count periods followed by spaces/EOF)
+  - BOM detection: check first 3 bytes are not `b'\xef\xbb\xbf'`
+  - CRLF detection: verify `'\r\n'` does not appear in content
+
+  ### 5. Prose Content: Manual Writing
+
+  **Chosen:** Hand-author 2-3 coherent, substantive sentences about chosen topic
+
+  **Rationale:**
+  - Spec resolves to "Manual writing" in requirements (open question 3)
+  - Ensures prose is substantive and coherent (FR-5), matching human-authored quality of
+    existing 250+ test files
+  - Prevents placeholder/gibberish output that would fail validation and reduce pattern
+    fidelity
+  - Diverse topics observed in existing test files (nature, science, history, culture,
+    philosophy); manual writing maintains this standard
+  - While adding ~2-3 minutes per file, it's necessary for narrative coherence and pattern
+    consistency
+
+  ### 6. Git Integration: subprocess.run() with CLI
+
+  **Chosen:** Use `subprocess.run(cmd_list, check=True)` to invoke git CLI commands
+
+  **Rationale:**
+  - Standard Python approach for CLI invocation; available in standard library (Python 3.11+)
+  - `shell=False` (default) prevents shell injection vulnerabilities
+  - `check=True` raises exception on non-zero return code, enabling error handling
+  - Avoids external dependencies (GitPython not in pyproject.toml)
+  - Feature branch is pre-created, so only stage, commit, push operations needed (no branch
+    creation logic)
+
+  **Git Operations:**
+  1. `git add test-98fzdw.md` — stage the file
+  2. `git commit -m 'feat(248): create markdown file test-98fzdw.md with prose content'` —
+     commit with conventional message
+  3. `git push -u origin feat/248-markdown-file-creation-b2e09d` — push to feature branch
+
+  ## Implementation Strategy
+
+  ### Phase Ordering Rationale
+
+  **Phase 1 (File Creation & Validation)** comes first because:
+  - Prose authoring and file creation are prerequisite for any git operations
+  - Validation ensures file meets all requirements before committing to version control
+  - Logical dependency: create artifact → verify → integrate with VCS
+
+  **Phase 2 (Git Integration)** comes second because:
+  - Depends on Phase 1 completion (file must exist and be valid)
+  - Follows established git workflow pattern: stage → commit → push
+  - Final integration step that makes the work visible in version control
+
+  ### Overall Flow
+
+  1. **Author prose content** — Write 2-3 coherent sentences about chosen topic (manual,
+     unrestricted)
+  2. **Create markdown file** — Use pathlib.Path.write_text() with explicit UTF-8 encoding
+     and LF newline parameter
+  3. **Validate file structure** — Implement checks for H1 count, sentence count, file size,
+     encoding/BOM, line endings
+  4. **Stage file** — `git add test-98fzdw.md`
+  5. **Commit** — `git commit -m '<conventional message>'`
+  6. **Push** — `git push -u origin <feature_branch>`
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | **File encoding divergence** | Explicit `encoding='utf-8'` parameter and validation check for BOM ensure no divergence from 250+ existing test files; prevents platform-specific encoding drift |
+  | **Platform-specific line endings** | Explicit `newline='\n'` parameter enforces Unix LF across all platforms; validation check ensures no CRLF; prevents version control diffs noise |
+  | **File overwrite without warning** | Feature spec assumes first-time execution; if re-run, could silently overwrite; mitigation: pre-write check verifies file doesn't exist (optional safety feature) |
+  | **Missing or malformed H1 heading** | Basic validation confirms exactly one H1 heading before commit; catches structural errors early |
+  | **Insufficient or excess sentence count** | Validation checks sentence count is 2-3; catches content errors before commit |
+  | **Git operation failure** | Using `subprocess.run(check=True)` raises exception on non-zero return code; enables proper error handling and failure detection |
+  | **Incorrect commit message format** | Commit message is hard-coded in feature spec; no user input; message format is pre-verified; prevents conventional commit violations |
+  | **Feature branch missing or incorrect** | Feature branch is pre-created (feat/248-markdown-file-creation-b2e09d); push specifies exact branch name; no branch creation logic needed |
+
+  ---
+
+  _Planning phase complete — architecture designed to extend established pattern of 250+ test
+  files, technology decisions documented with rationale, implementation phases defined with
+  clear ordering, ready for task breakdown and implementation._
