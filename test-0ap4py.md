@@ -1,3 +1,3 @@
-# The Future of Artificial Intelligence
+# The Wonders of Space Exploration
 
-Artificial intelligence is transforming industries at an unprecedented pace. Machine learning models can now perform tasks once thought impossible. The impact of AI on society continues to grow exponentially.
+Space exploration has always captured human imagination and curiosity. Technological advances enable us to reach further into the cosmos. Future missions promise even more groundbreaking discoveries.
