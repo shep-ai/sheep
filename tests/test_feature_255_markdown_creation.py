@@ -100,3 +100,228 @@ def test_feature_255_function_has_docstring():
 
     assert create_feature_255_markdown_file.__doc__ is not None
     assert "feature 255" in create_feature_255_markdown_file.__doc__.lower()
+
+
+class TestFeature255Integration:
+    """Integration tests for feature 255 core functionality with mocks."""
+
+    def test_create_feature_255_returns_dict(self, tmp_path, monkeypatch):
+        """Test that create_feature_255_markdown_file returns a dictionary."""
+        import unittest.mock as mock
+
+        monkeypatch.chdir(tmp_path)
+
+        # Mock the Claude API and git operations at the module where they're used
+        mock_content = "# Test Title\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with mock.patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content") as mock_gen, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.commit_markdown_file") as mock_commit, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.push_markdown_file") as mock_push:
+
+            mock_gen.return_value = mock_content
+            mock_commit.return_value = "commit result"
+            mock_push.return_value = "push result"
+
+            from sheep.features.feature_255_markdown_file_creation import (
+                create_feature_255_markdown_file,
+            )
+
+            result = create_feature_255_markdown_file()
+
+            assert isinstance(result, dict)
+
+    def test_create_feature_255_return_value_has_required_fields(self, tmp_path, monkeypatch):
+        """Test that return dict has all required fields."""
+        import unittest.mock as mock
+
+        monkeypatch.chdir(tmp_path)
+
+        mock_content = "# Test Title\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with mock.patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content") as mock_gen, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.commit_markdown_file") as mock_commit, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.push_markdown_file") as mock_push:
+
+            mock_gen.return_value = mock_content
+            mock_commit.return_value = "commit result"
+            mock_push.return_value = "push result"
+
+            from sheep.features.feature_255_markdown_file_creation import (
+                create_feature_255_markdown_file,
+            )
+
+            result = create_feature_255_markdown_file()
+
+            required_fields = ["filepath", "content", "commit_message", "push_result"]
+            for field in required_fields:
+                assert field in result, f"Missing required field: {field}"
+
+    def test_create_feature_255_file_created(self, tmp_path, monkeypatch):
+        """Test that markdown file is created in repository root."""
+        import unittest.mock as mock
+
+        monkeypatch.chdir(tmp_path)
+
+        mock_content = "# Test Title\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with mock.patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content") as mock_gen, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.commit_markdown_file") as mock_commit, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.push_markdown_file") as mock_push:
+
+            mock_gen.return_value = mock_content
+            mock_commit.return_value = "commit result"
+            mock_push.return_value = "push result"
+
+            from sheep.features.feature_255_markdown_file_creation import (
+                create_feature_255_markdown_file,
+                MARKDOWN_FILENAME,
+            )
+
+            result = create_feature_255_markdown_file()
+            file_path = Path(result["filepath"])
+
+            assert file_path.exists(), "File should exist after creation"
+            assert file_path.name == MARKDOWN_FILENAME, "File should have correct name"
+
+    def test_create_feature_255_generated_content_starts_with_h1(self, tmp_path, monkeypatch):
+        """Test that generated content starts with H1 heading."""
+        import unittest.mock as mock
+
+        monkeypatch.chdir(tmp_path)
+
+        mock_content = "# Test Title\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with mock.patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content") as mock_gen, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.commit_markdown_file") as mock_commit, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.push_markdown_file") as mock_push:
+
+            mock_gen.return_value = mock_content
+            mock_commit.return_value = "commit result"
+            mock_push.return_value = "push result"
+
+            from sheep.features.feature_255_markdown_file_creation import (
+                create_feature_255_markdown_file,
+            )
+
+            result = create_feature_255_markdown_file()
+            content = result["content"]
+
+            assert content.startswith("# "), "Content should start with H1 heading"
+
+    def test_create_feature_255_content_length_reasonable(self, tmp_path, monkeypatch):
+        """Test that generated content has reasonable length."""
+        import unittest.mock as mock
+
+        monkeypatch.chdir(tmp_path)
+
+        mock_content = "# Quantum Computing\n\nQuantum computing represents a fundamental shift in how we process information by leveraging the principles of quantum mechanics. This technology enables quantum bits to exist in superposition states, allowing for exponential speedup in solving certain computational problems. Applications range from cryptography and drug discovery to optimization and financial modeling.\n"
+
+        with mock.patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content") as mock_gen, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.commit_markdown_file") as mock_commit, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.push_markdown_file") as mock_push:
+
+            mock_gen.return_value = mock_content
+            mock_commit.return_value = "commit result"
+            mock_push.return_value = "push result"
+
+            from sheep.features.feature_255_markdown_file_creation import (
+                create_feature_255_markdown_file,
+            )
+
+            result = create_feature_255_markdown_file()
+            content = result["content"]
+
+            # Content should be between 50-1000 characters (reasonable range)
+            assert 50 <= len(content) <= 1000, "Content length should be reasonable"
+
+    def test_create_feature_255_commit_message_format(self, tmp_path, monkeypatch):
+        """Test that commit message follows conventional format."""
+        import unittest.mock as mock
+
+        monkeypatch.chdir(tmp_path)
+
+        mock_content = "# Test Title\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with mock.patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content") as mock_gen, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.commit_markdown_file") as mock_commit, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.push_markdown_file") as mock_push:
+
+            mock_gen.return_value = mock_content
+            mock_commit.return_value = "commit result"
+            mock_push.return_value = "push result"
+
+            from sheep.features.feature_255_markdown_file_creation import (
+                create_feature_255_markdown_file,
+            )
+
+            result = create_feature_255_markdown_file()
+            commit_message = result["commit_message"]
+
+            assert commit_message.startswith("feat(255):"), "Commit message should start with feat(255):"
+            assert "test-zbl9x9.md" in commit_message, "Commit message should contain filename"
+
+    def test_create_feature_255_file_utf8_encoding(self, tmp_path, monkeypatch):
+        """Test that file uses UTF-8 encoding without BOM."""
+        import unittest.mock as mock
+
+        monkeypatch.chdir(tmp_path)
+
+        mock_content = "# Test Title\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with mock.patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content") as mock_gen, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.commit_markdown_file") as mock_commit, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.push_markdown_file") as mock_push:
+
+            mock_gen.return_value = mock_content
+            mock_commit.return_value = "commit result"
+            mock_push.return_value = "push result"
+
+            from sheep.features.feature_255_markdown_file_creation import (
+                create_feature_255_markdown_file,
+            )
+
+            result = create_feature_255_markdown_file()
+            file_path = Path(result["filepath"])
+
+            # Read file as binary
+            with open(file_path, "rb") as f:
+                raw_bytes = f.read()
+
+            # Check for UTF-8 BOM (should not be present)
+            assert not raw_bytes.startswith(b"\xef\xbb\xbf"), "File should not have UTF-8 BOM"
+
+            # Check that file is valid UTF-8
+            try:
+                raw_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                assert False, "File should be valid UTF-8"
+
+    def test_create_feature_255_file_lf_line_endings(self, tmp_path, monkeypatch):
+        """Test that file uses Unix LF line endings only."""
+        import unittest.mock as mock
+
+        monkeypatch.chdir(tmp_path)
+
+        mock_content = "# Test Title\n\nThis is test sentence one. This is test sentence two. This is test sentence three.\n"
+
+        with mock.patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content") as mock_gen, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.commit_markdown_file") as mock_commit, \
+             mock.patch("sheep.features.feature_255_markdown_file_creation.push_markdown_file") as mock_push:
+
+            mock_gen.return_value = mock_content
+            mock_commit.return_value = "commit result"
+            mock_push.return_value = "push result"
+
+            from sheep.features.feature_255_markdown_file_creation import (
+                create_feature_255_markdown_file,
+            )
+
+            result = create_feature_255_markdown_file()
+            file_path = Path(result["filepath"])
+
+            # Read file as binary
+            with open(file_path, "rb") as f:
+                raw_bytes = f.read()
+
+            # Check for Windows CRLF (should not be present)
+            assert b"\r\n" not in raw_bytes, "File should not have CRLF line endings"
