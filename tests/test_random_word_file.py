@@ -18,4 +18,5 @@ def test_file_ends_with_single_lf():
     raw = RANDOM_WORD_FILE.read_bytes()
     assert raw.endswith(b"\n"), "File does not end with a newline"
     assert not raw.endswith(b"\r\n"), "File has Windows-style CRLF line ending"
-    assert raw.count(b"\n") == 1, f"Expected exactly 1 newline, got {raw.count(b'\\n')}"
+    newline_count = raw.count(b"\n")
+    assert newline_count == 1, f"Expected exactly 1 newline, got {newline_count}"
