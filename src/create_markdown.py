@@ -1235,3 +1235,84 @@ def validate_markdown_file(file_path: str) -> bool:
 
     _logger.info(f"✓ File validation passed: {file_path}")
     return True
+
+
+def git_workflow(
+    file_path: str = "test-440dhk.md",
+    commit_message: str = "feat(247): create markdown file test-440dhk.md with prose content",
+) -> None:
+    """
+    Complete git workflow: validate, stage, commit, and push markdown file.
+
+    Implements fail-fast behavior: validation must pass before git operations execute.
+    All git operations use subprocess.run() with proper error handling.
+
+    Args:
+        file_path: Path to the markdown file (default: "test-440dhk.md")
+        commit_message: Commit message (default: conventional format with feature number)
+
+    Returns:
+        None
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If validation fails (heading format, sentence count, encoding, line endings)
+        subprocess.CalledProcessError: If any git operation fails
+    """
+    from pathlib import Path
+
+    file_path_obj = Path(file_path)
+
+    # Phase 1: Validation (fail-fast behavior)
+    _logger.info(f"Starting git workflow for {file_path}...")
+    _logger.info("Phase 1: Validating markdown file...")
+    validate_markdown_file(file_path)
+    _logger.info("✓ Validation passed")
+
+    # Phase 2: Stage file with git add
+    _logger.info("Phase 2: Staging file with git add...")
+    try:
+        result = subprocess.run(
+            ["git", "add", file_path],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"✓ File staged: {file_path}")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git add failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise
+
+    # Phase 3: Commit with conventional message and Co-Authored-By trailer
+    _logger.info("Phase 3: Creating commit...")
+    commit_with_trailer = f"{commit_message}\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+    try:
+        result = subprocess.run(
+            ["git", "commit", "-m", commit_with_trailer],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info(f"✓ Commit created: {commit_message}")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git commit failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise
+
+    # Phase 4: Push to feature branch
+    _logger.info("Phase 4: Pushing to feature branch...")
+    try:
+        result = subprocess.run(
+            ["git", "push", "-u", "origin", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _logger.info("✓ Push to origin successful")
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git push failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise
+
+    _logger.info(f"✓ Git workflow completed successfully for {file_path}")
