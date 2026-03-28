@@ -1,0 +1,225 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-62bad4"
+summary: |
+  Feature 257 implements markdown file creation following an established pattern from 256+ prior
+  features. The implementation is a thin 30-50 line orchestration module that calls high-level
+  wrapper functions from content_generators.py in sequence (generate → write → validate → commit → push).
+  Key architecture decisions: use wrapper abstraction layer (not low-level utilities), fail-fast
+  error handling with artifact cleanup, standard INFO-level logging via structlog, and structured
+  return values. No new dependencies, modifications to existing code, or architectural changes required.
+
+# Relationships
+relatedFeatures:
+  - number: 256
+    name: "markdown-file-creation-5a0573"
+    relationship: "Identical pattern — provides proven implementation template"
+  - number: 255
+    name: "markdown-file-creation-acee8f"
+    relationship: "Identical pattern — validates precedent approach"
+
+technologies:
+  - "Python 3.11+ (pathlib, standard library)"
+  - "Anthropic Claude 3.5 Sonnet API (via CrewAI LLM wrapper)"
+  - "structlog (structured logging at INFO level)"
+  - "Git (staging, commits, push operations)"
+  - "Markdown syntax (H1 headings, 2-3 sentence prose)"
+  - "src/sheep/content_generators.py (high-level wrappers)"
+
+relatedLinks:
+  - title: "Feature 256 implementation (proven template)"
+    url: "file:///src/sheep/features/feature_256_markdown_file_creation.py"
+  - title: "Feature 255 implementation (validated precedent)"
+    url: "file:///src/sheep/features/feature_255_markdown_file_creation.py"
+  - title: "High-level wrapper functions"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "Low-level utilities (reference only, not used directly)"
+    url: "file:///src/create_markdown.py"
+  - title: "Structured logging integration"
+    url: "file:///src/sheep/observability/logging.py"
+
+# Structured implementation phases
+phases:
+  - id: "phase-1"
+    name: "Foundation: Module Structure & Setup"
+    description: "Create the feature module file with basic structure, imports, constants, and logger setup. This phase establishes the foundation for all subsequent workflow steps."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Workflow Implementation: Generate, Write, Validate"
+    description: "Implement the first three steps of the orchestration workflow: content generation via Claude API, file writing with UTF-8 encoding and LF line endings, and structural validation."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Integration: Git Commit & Push"
+    description: "Implement the git integration steps: commit with conventional message format and push to remote feature branch with upstream tracking."
+    parallel: false
+
+  - id: "phase-4"
+    name: "Resilience: Error Handling & Cleanup"
+    description: "Add comprehensive try-except error handling with automatic cleanup of partial artifacts on any failure. Implements fail-fast principle."
+    parallel: false
+
+  - id: "phase-5"
+    name: "Results & Execution: Return Value & __main__"
+    description: "Implement structured return value and __main__ block for standalone feature execution and testing."
+    parallel: false
+
+  - id: "phase-6"
+    name: "Verification: End-to-End Testing"
+    description: "Execute the feature end-to-end and verify all success criteria are met."
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - "src/sheep/features/feature_257_markdown_file_creation.py"
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  Feature 257 follows the proven architecture pattern from 256+ prior markdown file creation
+  features. The implementation uses a three-layer abstraction stack:
+
+  ```
+  Feature Module (30-50 lines orchestration)
+    ↓
+  High-level Wrappers (content_generators.py)
+    ↓
+  Low-level Utilities (create_markdown.py)
+    ↓
+  System APIs (pathlib, subprocess, git, Claude API)
+  ```
+
+  **Feature module responsibility**: Orchestrate the workflow by calling high-level wrapper
+  functions in sequence. Each call is atomic — either succeeds completely or fails with an
+  exception. On failure, cleanup of partial artifacts and error re-raise.
+
+  **High-level wrapper responsibility**: Encapsulate business logic for each step
+  (generate, write, validate, commit, push). These are proven implementations used across 256+
+  features and already handle error conditions, validation sequencing, and INFO-level logging.
+
+  **Why this layering?** The abstraction layer prevents feature modules from becoming
+  orchestration-heavy (80-100 lines). Each feature stays focused on its workflow, reusing
+  consistent error handling and validation logic from content_generators.py.
+
+  ## Key Design Decisions
+
+  ### 1. Utility Abstraction Layer — High-level Wrappers vs Low-level Utilities
+
+  **Chosen:** Use high-level wrapper functions from src/sheep/content_generators.py
+
+  **Rationale:**
+  - Proven by 256 successful preceding features with identical pattern
+  - Features 256, 255 validate this approach yields exactly 30-50 line modules
+  - Wrappers encapsulate orchestration with proper error handling and logging
+  - Aligns with NFR-7: reuse existing functions without modification
+  - Existing wrappers already handle UTF-8 encoding, LF line endings, validation,
+    conventional commits, and git push with upstream tracking
+  - Lower cognitive load — feature logic is readable and self-documenting
+
+  **Alternative rejected:** Call low-level utilities from create_markdown.py directly
+  - Would require 80-100 lines of orchestration code, violates NFR-2 (30-50 line target)
+  - Increases maintenance burden by duplicating error handling and validation sequencing
+
+  ### 2. Error Handling Strategy — Fail-fast with Cleanup
+
+  **Chosen:** Stop on first error, clean up partial artifacts, re-raise exception
+
+  **Rationale:**
+  - Mandated by NFR-5 (explicit fail-fast requirement) and spec decision PD-1
+  - Keeps implementation within 30-50 line target by avoiding retry loop logic
+  - Clear error messages (NFR-6) enable immediate user action when failures occur
+  - 256+ precedents show Claude API is stable for this simple operation
+  - Cleanup maintains repository integrity — prevents incomplete markdown files from persisting
+  - Aligns with architectural principle: fast feedback, clear errors, user-driven retries
+
+  **Cleanup scope:**
+  - If file creation fails before commit: Path(filepath).unlink() removes incomplete file
+  - If git operations fail: git uncommitted changes are automatically reverted
+  - Error logging provides sufficient debugging context without needing partial artifacts
+
+  **Alternative rejected:** Preserve partial artifacts for debugging
+  - Contradicts fail-fast principle, leaves incomplete files in repository creating confusion
+  - Error messages and logs provide sufficient debugging context per NFR-6
+
+  ### 3. Logging Strategy — Standard INFO Level
+
+  **Chosen:** INFO-level logging for major workflow steps
+
+  **Rationale:**
+  - Spec decision PD-2 resolved this with strong rationale
+  - Provides necessary observability for operational monitoring per NFR-3
+  - Aligns with structlog best practices used across Sheep platform
+  - Logs major steps without excessive verbosity
+  - No sensitive data exposure — only step names and operation status logged
+  - Consistent pattern with content_generators.py and existing feature modules
+
+  **Alternative rejected:** Minimal logging or Detailed DEBUG logging
+  - Minimal: insufficient for operational observability per NFR-3
+  - DEBUG: verbose output, slower execution, for development not operations
+
+  ### 4. Content Generation — Single API Call, Fail-fast
+
+  **Chosen:** Single Claude API call with immediate error propagation, no automatic retries
+
+  **Rationale:**
+  - Spec decision PD-1 (fail-fast on first error) — no retries
+  - Implementation remains simple and within 30-50 line target
+  - 256+ precedents show Claude API is stable for this operation
+  - Transient errors are extremely rare with Claude 3.5 Sonnet
+  - Users can manually retry feature execution if needed (transparent, user-controlled)
+  - Keeps total feature execution time to 5-10 seconds end-to-end
+
+  ### 5. Validation Scope — Structural Only
+
+  **Chosen:** Validate H1 presence, sentence count (2-3), encoding (UTF-8), line endings (LF)
+
+  **Rationale:**
+  - Spec decision PD-5 resolved this
+  - Claude API is responsible for prose quality per FR-3
+  - Existing validate_markdown_file() function in content_generators.py already
+    implements structural validation
+  - Semantic validation would exceed 30-50 line target per NFR-2
+  - Claude 3.5 Sonnet has extremely low failure rate for generating coherent prose
+  - Structural validation successfully used in 256 prior features
+
+  ## Implementation Strategy
+
+  The implementation proceeds through six phases in strict order:
+
+  **Phase 1: Foundation** → Create module file, imports, constants, logger (~15 min)
+  **Phase 2: Core Workflow** → Implement generate → write → validate sequence (~20 min)
+  **Phase 3: Git Integration** → Implement commit → push sequence (~15 min)
+  **Phase 4: Resilience** → Add error handling and cleanup (~15 min)
+  **Phase 5: Results & Execution** → Implement return value and __main__ (~10 min)
+  **Phase 6: Verification** → Execute end-to-end and validate (~10 min)
+
+  **Total estimated effort: 1.5 hours** (aligns with S size estimate from spec)
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | API timeout or failure | Fail-fast error handling with clear message enables immediate user retry |
+  | File encoding issues | Wrapper functions in content_generators.py handle encoding explicitly with validation |
+  | Line ending issues (CRLF) | Python 3 on Unix writes LF automatically; validation checks for CRLF |
+  | Git configuration missing | GitCommitTool from sheep.tools handles this; fails with clear error if missing |
+  | ANTHROPIC_API_KEY not set | CrewAI wrapper raises exception immediately on import/use |
+  | Partial file created but commit fails | Cleanup logic deletes incomplete file; only committed files persist |
+  | Feature module doesn't exist | First task creates the module; all subsequent tasks depend on it |
+  | Markdown file already exists | test-oxy715.md is unique per feature; no conflict risk with 256+ prior test-*.md files |
+  | Commit message format wrong | Wrapper functions format message correctly; feature just passes title string |
+  | Push to wrong branch | Feature branch is pre-created; wrapper pushes to current branch |
+  | Return value missing keys | Task 6 implements all expected keys explicitly with tests |
+
+  ---
+
+  **Status:** Planning phase complete — Ready for implementation
+  **Last updated:** 2026-03-28
