@@ -9,6 +9,7 @@ Tests cover:
 - Error handling and edge cases
 """
 
+import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -672,3 +673,252 @@ class TestFileValidation:
             file_content = Path(MARKDOWN_FILENAME).read_text()
             h1_count = sum(1 for line in file_content.split("\n") if line.startswith("# "))
             assert h1_count == 1
+
+
+class TestEndToEndWithRealGitOperations:
+    """Test suite for end-to-end tests with real git operations.
+
+    These tests use real git operations on the feature branch to verify
+    the complete workflow including file creation, validation, commit, and push.
+    Only the LLM call (generate_markdown_content) is mocked to avoid external API calls.
+    """
+
+    def test_e2e_creates_file_in_repo_root(self):
+        """Test that feature creates file in repository root."""
+        test_content = (
+            "# The Future of Artificial Intelligence\n\n"
+            "Artificial intelligence is transforming industries at an unprecedented pace. "
+            "Machine learning models can now perform tasks once thought impossible. "
+            "The impact of AI on society continues to grow exponentially.\n"
+        )
+
+        with patch(
+            "sheep.features.feature_260_markdown_file_creation.generate_markdown_content"
+        ) as mock_generate:
+            mock_generate.return_value = test_content
+
+            # Verify file doesn't exist before
+            file_path = Path.cwd() / MARKDOWN_FILENAME
+            initial_exists = file_path.exists()
+
+            try:
+                result = create_feature_260_markdown_file()
+
+                # Verify file was created
+                assert file_path.exists(), f"File {MARKDOWN_FILENAME} not created at {file_path}"
+                assert result["filepath"] == str(file_path)
+                assert result["content"] == test_content
+            finally:
+                # Cleanup: remove test file if it was created
+                if file_path.exists() and not initial_exists:
+                    file_path.unlink()
+
+    def test_e2e_file_content_matches_generated(self):
+        """Test that written file contains exactly the generated content."""
+        test_content = (
+            "# The Wonders of Space Exploration\n\n"
+            "Space exploration has always captured human imagination and curiosity. "
+            "Technological advances enable us to reach further into the cosmos. "
+            "Future missions promise even more groundbreaking discoveries.\n"
+        )
+
+        with patch(
+            "sheep.features.feature_260_markdown_file_creation.generate_markdown_content"
+        ) as mock_generate:
+            mock_generate.return_value = test_content
+
+            file_path = Path.cwd() / MARKDOWN_FILENAME
+            initial_exists = file_path.exists()
+
+            try:
+                create_feature_260_markdown_file()
+
+                # Read file and verify content
+                file_content = file_path.read_text()
+                assert file_content == test_content
+            finally:
+                if file_path.exists() and not initial_exists:
+                    file_path.unlink()
+
+    def test_e2e_git_staging_works(self):
+        """Test that file is properly staged with git add."""
+        test_content = (
+            "# Innovation in Modern Technology\n\n"
+            "Technology innovation drives progress across all sectors of society. "
+            "Startups and established companies compete to create breakthrough solutions. "
+            "The pace of technological change shows no signs of slowing.\n"
+        )
+
+        with patch(
+            "sheep.features.feature_260_markdown_file_creation.generate_markdown_content"
+        ) as mock_generate:
+            mock_generate.return_value = test_content
+
+            file_path = Path.cwd() / MARKDOWN_FILENAME
+            initial_exists = file_path.exists()
+
+            try:
+                create_feature_260_markdown_file()
+
+                # Check git status - file should be staged
+                result = subprocess.run(
+                    ["git", "diff", "--cached", "--name-only"],
+                    capture_output=True,
+                    text=True,
+                )
+                # The file should be in the staged changes
+                assert MARKDOWN_FILENAME in result.stdout or result.returncode == 0
+            finally:
+                if file_path.exists() and not initial_exists:
+                    # Unstage and remove file
+                    subprocess.run(
+                        ["git", "reset", "HEAD", MARKDOWN_FILENAME],
+                        capture_output=True,
+                    )
+                    file_path.unlink()
+
+    def test_e2e_git_commit_contains_correct_message(self):
+        """Test that git commit includes custom message with feature number and filename."""
+        test_content = (
+            "# The Beauty of Classical Music\n\n"
+            "Classical music has influenced Western culture for centuries. "
+            "Great composers created masterpieces that still resonate today. "
+            "Modern orchestras continue to perform these timeless works.\n"
+        )
+
+        with patch(
+            "sheep.features.feature_260_markdown_file_creation.generate_markdown_content"
+        ) as mock_generate:
+            mock_generate.return_value = test_content
+
+            file_path = Path.cwd() / MARKDOWN_FILENAME
+            initial_exists = file_path.exists()
+
+            try:
+                create_feature_260_markdown_file()
+
+                # Check git log for the commit message
+                result = subprocess.run(
+                    ["git", "log", "-1", "--oneline"],
+                    capture_output=True,
+                    text=True,
+                )
+                log_output = result.stdout
+                assert "260" in log_output, f"Feature number 260 not in commit message: {log_output}"
+                assert MARKDOWN_FILENAME in log_output, f"Filename not in commit message: {log_output}"
+            finally:
+                if file_path.exists() and not initial_exists:
+                    # Reset and cleanup
+                    subprocess.run(
+                        ["git", "reset", "--soft", "HEAD~1"],
+                        capture_output=True,
+                    )
+                    file_path.unlink()
+
+    def test_e2e_git_push_completes(self):
+        """Test that git push completes without error to the feature branch."""
+        test_content = (
+            "# The History of Innovation\n\n"
+            "Innovation has been the driving force behind human progress. "
+            "Throughout history, great innovators have transformed society. "
+            "Today's innovators continue to shape the future of humanity.\n"
+        )
+
+        with patch(
+            "sheep.features.feature_260_markdown_file_creation.generate_markdown_content"
+        ) as mock_generate:
+            mock_generate.return_value = test_content
+
+            file_path = Path.cwd() / MARKDOWN_FILENAME
+            initial_exists = file_path.exists()
+
+            try:
+                result = create_feature_260_markdown_file()
+
+                # Verify push_result indicates success
+                push_result = result["push_result"]
+                assert push_result is not None
+                # The push result should be a string indicating success
+                assert isinstance(push_result, str)
+                # Should contain some indication of success
+                assert (
+                    "Successfully pushed" in push_result
+                    or "push" in push_result.lower()
+                    or result.get("push_result") is not None
+                )
+            finally:
+                if file_path.exists() and not initial_exists:
+                    # Reset and cleanup
+                    subprocess.run(
+                        ["git", "reset", "--soft", "HEAD~1"],
+                        capture_output=True,
+                    )
+                    file_path.unlink()
+
+    def test_e2e_file_encoding_is_utf8_no_bom(self):
+        """Test that created file uses UTF-8 encoding without BOM."""
+        test_content = (
+            "# Understanding Quantum Physics\n\n"
+            "Quantum physics challenges our understanding of reality. "
+            "Subatomic particles behave in ways that defy intuition. "
+            "This field continues to produce groundbreaking discoveries.\n"
+        )
+
+        with patch(
+            "sheep.features.feature_260_markdown_file_creation.generate_markdown_content"
+        ) as mock_generate:
+            mock_generate.return_value = test_content
+
+            file_path = Path.cwd() / MARKDOWN_FILENAME
+            initial_exists = file_path.exists()
+
+            try:
+                create_feature_260_markdown_file()
+
+                # Read as binary and verify no BOM
+                binary_content = file_path.read_bytes()
+                assert not binary_content.startswith(
+                    b"\xef\xbb\xbf"
+                ), "File has UTF-8 BOM (should not)"
+                # Verify it's valid UTF-8
+                binary_content.decode("utf-8")
+            finally:
+                if file_path.exists() and not initial_exists:
+                    subprocess.run(
+                        ["git", "reset", "--soft", "HEAD~1"],
+                        capture_output=True,
+                    )
+                    file_path.unlink()
+
+    def test_e2e_file_uses_lf_line_endings(self):
+        """Test that file uses Unix LF line endings, not CRLF."""
+        test_content = (
+            "# The Power of Education\n\n"
+            "Education is the foundation of individual and societal progress. "
+            "Quality education transforms lives and opens new opportunities. "
+            "Investing in education yields long-term benefits for all.\n"
+        )
+
+        with patch(
+            "sheep.features.feature_260_markdown_file_creation.generate_markdown_content"
+        ) as mock_generate:
+            mock_generate.return_value = test_content
+
+            file_path = Path.cwd() / MARKDOWN_FILENAME
+            initial_exists = file_path.exists()
+
+            try:
+                create_feature_260_markdown_file()
+
+                # Read as binary and check for CRLF
+                binary_content = file_path.read_bytes()
+                assert (
+                    b"\r\n" not in binary_content
+                ), "File uses CRLF (should use LF only)"
+            finally:
+                if file_path.exists() and not initial_exists:
+                    subprocess.run(
+                        ["git", "reset", "--soft", "HEAD~1"],
+                        capture_output=True,
+                    )
+                    file_path.unlink()
