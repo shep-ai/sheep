@@ -6,11 +6,13 @@ Tests cover:
 - Error handling for invalid content
 - File writing with UTF-8 encoding and LF line endings
 - File verification for encoding, line endings, and structure
-- Complete phases 1-2 orchestration (generate + validate + write + verify)
+- Git workflow: staging, committing, and pushing
+- Complete phases 1-3 orchestration (generate + validate + write + verify + git)
 """
 
+import subprocess
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 
 import pytest
 
@@ -19,8 +21,11 @@ from sheep.features.feature_255_markdown_file_creation import (
     COMMIT_MESSAGE_TEMPLATE,
     FEATURE_NUMBER,
     FILENAME,
+    commit_file,
     generate_content,
+    push_file,
     run,
+    stage_file,
     validate_content,
     write_file,
     verify_file,
@@ -394,28 +399,227 @@ class TestVerifyFile:
         assert result is True
 
 
+class TestStageFile:
+    """Tests for git staging functionality."""
+
+    def test_stage_file_returns_true_on_success(self):
+        """Test that stage_file returns True on successful staging."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            result = stage_file()
+            assert result is True
+
+    def test_stage_file_calls_git_add_with_filename(self):
+        """Test that stage_file calls git add with correct filename."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            stage_file()
+            mock_run.assert_called_once_with(
+                ["git", "add", FILENAME],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+
+    def test_stage_file_uses_correct_subprocess_parameters(self):
+        """Test that stage_file uses check=True, capture_output=True, text=True."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            stage_file()
+
+            # Verify call parameters
+            call_args = mock_run.call_args
+            assert call_args[1]["check"] is True
+            assert call_args[1]["capture_output"] is True
+            assert call_args[1]["text"] is True
+
+    def test_stage_file_raises_on_git_failure(self):
+        """Test that stage_file raises CalledProcessError on git failure."""
+        error = subprocess.CalledProcessError(1, ["git", "add"], stderr="fatal: not a git repository")
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run",
+                   side_effect=error), \
+             pytest.raises(subprocess.CalledProcessError):
+            stage_file()
+
+    def test_stage_file_raises_on_command_not_found(self):
+        """Test that stage_file raises on command execution failure."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run",
+                   side_effect=FileNotFoundError("git command not found")), \
+             pytest.raises(FileNotFoundError):
+            stage_file()
+
+
+class TestCommitFile:
+    """Tests for git commit functionality."""
+
+    def test_commit_file_returns_true_on_success(self):
+        """Test that commit_file returns True on successful commit."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            result = commit_file()
+            assert result is True
+
+    def test_commit_file_calls_git_commit_with_message(self):
+        """Test that commit_file calls git commit with correct message."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            commit_file()
+            mock_run.assert_called_once_with(
+                ["git", "commit", "-m", COMMIT_MESSAGE_TEMPLATE],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+
+    def test_commit_file_uses_conventional_commit_format(self):
+        """Test that commit message follows conventional commit format."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            commit_file()
+
+            # Verify message format
+            call_args = mock_run.call_args[0][0]
+            message = call_args[3]  # Fourth element is the message
+            assert message.startswith("feat(255):")
+            assert FILENAME in message
+            assert "create markdown file" in message
+
+    def test_commit_file_uses_correct_subprocess_parameters(self):
+        """Test that commit_file uses check=True, capture_output=True, text=True."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            commit_file()
+
+            # Verify call parameters
+            call_args = mock_run.call_args
+            assert call_args[1]["check"] is True
+            assert call_args[1]["capture_output"] is True
+            assert call_args[1]["text"] is True
+
+    def test_commit_file_raises_on_git_failure(self):
+        """Test that commit_file raises CalledProcessError on git failure."""
+        error = subprocess.CalledProcessError(1, ["git", "commit"], stderr="nothing to commit")
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run",
+                   side_effect=error), \
+             pytest.raises(subprocess.CalledProcessError):
+            commit_file()
+
+    def test_commit_file_raises_on_command_execution_error(self):
+        """Test that commit_file raises on command execution failure."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run",
+                   side_effect=Exception("Command failed")), \
+             pytest.raises(Exception):
+            commit_file()
+
+
+class TestPushFile:
+    """Tests for git push functionality."""
+
+    def test_push_file_returns_true_on_success(self):
+        """Test that push_file returns True on successful push."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            result = push_file()
+            assert result is True
+
+    def test_push_file_calls_git_push_with_branch(self):
+        """Test that push_file calls git push with correct branch."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            push_file()
+            mock_run.assert_called_once_with(
+                ["git", "push", "-u", "origin", BRANCH_NAME],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+
+    def test_push_file_uses_upstream_flag(self):
+        """Test that push_file uses -u flag for upstream tracking."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            push_file()
+
+            # Verify -u flag is present
+            call_args = mock_run.call_args[0][0]
+            assert "-u" in call_args
+
+    def test_push_file_uses_origin_remote(self):
+        """Test that push_file pushes to origin remote."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            push_file()
+
+            # Verify origin is specified
+            call_args = mock_run.call_args[0][0]
+            assert "origin" in call_args
+
+    def test_push_file_uses_correct_branch_name(self):
+        """Test that push_file pushes to correct branch."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            push_file()
+
+            # Verify correct branch
+            call_args = mock_run.call_args[0][0]
+            assert BRANCH_NAME in call_args
+
+    def test_push_file_uses_correct_subprocess_parameters(self):
+        """Test that push_file uses check=True, capture_output=True, text=True."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            push_file()
+
+            # Verify call parameters
+            call_args = mock_run.call_args
+            assert call_args[1]["check"] is True
+            assert call_args[1]["capture_output"] is True
+            assert call_args[1]["text"] is True
+
+    def test_push_file_raises_on_git_failure(self):
+        """Test that push_file raises CalledProcessError on git failure."""
+        error = subprocess.CalledProcessError(1, ["git", "push"], stderr="fatal: authentication failed")
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run",
+                   side_effect=error), \
+             pytest.raises(subprocess.CalledProcessError):
+            push_file()
+
+    def test_push_file_raises_on_command_execution_error(self):
+        """Test that push_file raises on command execution failure."""
+        with patch("sheep.features.feature_255_markdown_file_creation.subprocess.run",
+                   side_effect=Exception("Network error")), \
+             pytest.raises(Exception):
+            push_file()
+
+
 class TestOrchestration:
-    """Tests for main orchestration function (run) - phases 1-2."""
+    """Tests for main orchestration function (run) - phases 1-3."""
 
     def test_run_successful_workflow(self, tmp_path, monkeypatch):
-        """Test run() completes successfully through phases 1-2."""
+        """Test run() completes successfully through phases 1-3."""
         monkeypatch.chdir(tmp_path)
         mock_content = "# Artificial Intelligence and Deep Learning\n\nArtificial intelligence systems learn patterns from data through advanced machine learning algorithms and neural networks. Neural networks enable deep learning capabilities for extremely complex pattern recognition and classification tasks. This technology is transforming industries worldwide by automating decision making and improving human productivity.\n"
 
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   return_value=mock_content):
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
             result = run()
             assert result is True
 
         # Verify file was created
         assert (tmp_path / FILENAME).exists()
+        # Verify git operations were called (3 subprocess calls: add, commit, push)
+        assert mock_run.call_count == 3
 
     def test_run_returns_true_on_success(self, tmp_path, monkeypatch):
-        """Test that run() returns True on successful completion of phases 1-2."""
+        """Test that run() returns True on successful completion of phases 1-3."""
         monkeypatch.chdir(tmp_path)
         mock_content = "# Programming and Software Development\n\nProgramming is the practice of writing computer instructions to solve real-world problems and create innovative solutions. Developers use various programming languages and frameworks to build robust and scalable applications for diverse use cases. The field continues to evolve with new technologies and methodologies each year.\n"
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   return_value=mock_content):
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
             result = run()
             assert result is True
 
@@ -427,12 +631,66 @@ class TestOrchestration:
         monkeypatch.chdir(tmp_path)
         mock_content = "# Blockchain Technology and Decentralization\n\nBlockchain technology enables distributed ledger systems with transparency, immutability and cryptographic security features. Cryptocurrency implementations use blockchain for secure transaction management and permanent record keeping. This architecture is revolutionizing how we think about decentralized systems and trust.\n"
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   return_value=mock_content):
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
             run()
 
         # Verify file content
         written = (tmp_path / FILENAME).read_text(encoding="utf-8")
         assert written == mock_content
+
+    def test_run_calls_git_add(self, tmp_path, monkeypatch):
+        """Test that run() calls git add during phase 3a."""
+        monkeypatch.chdir(tmp_path)
+        # Use properly-sized mock content (350-650 bytes) with exactly 3 sentences
+        mock_content = "# Testing Git Workflows\n\nGit workflows are essential for managing code changes and collaboration in software development projects. Version control systems provide distributed repositories that enable teams to work simultaneously on different features. This integration ensures proper code quality through staged commits, clear messages, and systematic tracking.\n"
+        with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            run()
+
+            # Verify git add was called
+            calls = [call_obj[0][0] for call_obj in mock_run.call_args_list]
+            git_add_call = next((c for c in calls if "add" in c), None)
+            assert git_add_call is not None
+            assert git_add_call == ["git", "add", FILENAME]
+
+    def test_run_calls_git_commit(self, tmp_path, monkeypatch):
+        """Test that run() calls git commit during phase 3b."""
+        monkeypatch.chdir(tmp_path)
+        # Use properly-sized mock content (350-650 bytes) with exactly 3 sentences
+        mock_content = "# Testing Git Workflows\n\nGit workflows are essential for managing code changes and collaboration in software development projects. Version control systems provide distributed repositories that enable teams to work simultaneously on different features. This integration ensures proper code quality through staged commits, clear messages, and systematic tracking.\n"
+        with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            run()
+
+            # Verify git commit was called
+            calls = [call_obj[0][0] for call_obj in mock_run.call_args_list]
+            git_commit_call = next((c for c in calls if "commit" in c), None)
+            assert git_commit_call is not None
+            assert git_commit_call[0:2] == ["git", "commit"]
+            assert COMMIT_MESSAGE_TEMPLATE in git_commit_call
+
+    def test_run_calls_git_push(self, tmp_path, monkeypatch):
+        """Test that run() calls git push during phase 3c."""
+        monkeypatch.chdir(tmp_path)
+        # Use properly-sized mock content (350-650 bytes) with exactly 3 sentences
+        mock_content = "# Testing Git Workflows\n\nGit workflows are essential for managing code changes and collaboration in software development projects. Version control systems provide distributed repositories that enable teams to work simultaneously on different features. This integration ensures proper code quality through staged commits, clear messages, and systematic tracking.\n"
+        with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
+            run()
+
+            # Verify git push was called
+            calls = [call_obj[0][0] for call_obj in mock_run.call_args_list]
+            git_push_call = next((c for c in calls if "push" in c), None)
+            assert git_push_call is not None
+            assert git_push_call == ["git", "push", "-u", "origin", BRANCH_NAME]
 
     def test_run_fails_on_generation_error(self):
         """Test that run() propagates generation errors."""
@@ -470,7 +728,9 @@ class TestOrchestration:
         monkeypatch.chdir(tmp_path)
         mock_content = "# Unicode and Internationalization Standards\n\nModern applications must support émojis and spëcial characters from many different languages around the world today. UTF-8 encoding handles all unicode symbols worldwide correctly without any data loss or corruption issues. This is the global standard for text representation and has been adopted universally.\n"
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   return_value=mock_content):
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock()
             run()
 
         # Verify UTF-8 encoding
@@ -487,4 +747,58 @@ class TestOrchestration:
              patch("sheep.features.feature_255_markdown_file_creation.verify_file",
                    side_effect=ValueError("Verification failed")), \
              pytest.raises(ValueError, match="Verification failed"):
+            run()
+
+    def test_run_fails_if_git_add_fails(self, tmp_path, monkeypatch):
+        """Test that run() fails if git add fails in phase 3a."""
+        monkeypatch.chdir(tmp_path)
+        # Use properly-sized mock content (350-650 bytes) with exactly 3 sentences
+        mock_content = "# Testing Git Workflows\n\nGit workflows are essential for managing code changes and collaboration in software development projects. Version control systems provide distributed repositories that enable teams to work simultaneously on different features. This integration ensures proper code quality through staged commits, clear messages, and systematic tracking.\n"
+        error = subprocess.CalledProcessError(1, ["git", "add"], stderr="fatal: not a git repository")
+
+        with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run",
+                   side_effect=error), \
+             pytest.raises(subprocess.CalledProcessError):
+            run()
+
+    def test_run_fails_if_git_commit_fails(self, tmp_path, monkeypatch):
+        """Test that run() fails if git commit fails in phase 3b."""
+        monkeypatch.chdir(tmp_path)
+        # Use properly-sized mock content (350-650 bytes) with exactly 3 sentences
+        mock_content = "# Testing Git Workflows\n\nGit workflows are essential for managing code changes and collaboration in software development projects. Version control systems provide distributed repositories that enable teams to work simultaneously on different features. This integration ensures proper code quality through staged commits, clear messages, and systematic tracking.\n"
+
+        def subprocess_side_effect(*args, **kwargs):
+            # First call (git add) succeeds, second call (git commit) fails
+            if "add" in args[0]:
+                return MagicMock()
+            elif "commit" in args[0]:
+                raise subprocess.CalledProcessError(1, ["git", "commit"], stderr="nothing to commit")
+            return MagicMock()
+
+        with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run",
+                   side_effect=subprocess_side_effect), \
+             pytest.raises(subprocess.CalledProcessError):
+            run()
+
+    def test_run_fails_if_git_push_fails(self, tmp_path, monkeypatch):
+        """Test that run() fails if git push fails in phase 3c."""
+        monkeypatch.chdir(tmp_path)
+        # Use properly-sized mock content (350-650 bytes) with exactly 3 sentences
+        mock_content = "# Testing Git Workflows\n\nGit workflows are essential for managing code changes and collaboration in software development projects. Version control systems provide distributed repositories that enable teams to work simultaneously on different features. This integration ensures proper code quality through staged commits, clear messages, and systematic tracking.\n"
+
+        def subprocess_side_effect(*args, **kwargs):
+            # First two calls (git add, git commit) succeed, third call (git push) fails
+            if "push" in args[0]:
+                raise subprocess.CalledProcessError(1, ["git", "push"], stderr="fatal: authentication failed")
+            return MagicMock()
+
+        with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
+                   return_value=mock_content), \
+             patch("sheep.features.feature_255_markdown_file_creation.subprocess.run",
+                   side_effect=subprocess_side_effect), \
+             pytest.raises(subprocess.CalledProcessError):
             run()

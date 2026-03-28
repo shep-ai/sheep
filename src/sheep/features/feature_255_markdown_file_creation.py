@@ -21,6 +21,7 @@ Subsequent phases (not in scope for this module):
   4. Integration tests and verification
 """
 
+import subprocess
 from pathlib import Path
 
 from sheep.content_generators import generate_markdown_content, validate_markdown_file
@@ -225,10 +226,125 @@ def verify_file() -> bool:
         raise ValueError(f"Error verifying file: {e}") from e
 
 
-def run() -> bool:
-    """Main orchestration function for feature 255 phases 1-2.
+def stage_file() -> bool:
+    """Stage the markdown file in git using git add.
 
-    Coordinates content generation, validation, file creation, and file verification:
+    Adds test-i3iccc.md to the git index, preparing it for commit.
+    Uses subprocess to execute the git add command explicitly.
+
+    Returns:
+        True if file was successfully staged.
+
+    Raises:
+        subprocess.CalledProcessError: If git add command fails.
+        Exception: If git command execution fails for other reasons.
+    """
+    _logger.info(f"Staging file in git: {FILENAME}")
+
+    try:
+        subprocess.run(
+            ["git", "add", FILENAME],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        _logger.debug("Git add command succeeded")
+        _logger.info(f"File staged successfully: {FILENAME}")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Git add failed for {FILENAME}: {e}")
+        if e.stderr:
+            _logger.error(f"  stderr: {e.stderr}")
+        raise
+    except Exception as e:
+        _logger.error(f"Failed to stage file: {e}")
+        raise
+
+
+def commit_file() -> bool:
+    """Commit the staged file with conventional commit message.
+
+    Creates a git commit with the message following conventional commit format:
+    "feat(255): create markdown file test-i3iccc.md with prose content"
+
+    Uses subprocess to execute the git commit command explicitly.
+
+    Returns:
+        True if file was successfully committed.
+
+    Raises:
+        subprocess.CalledProcessError: If git commit command fails.
+        Exception: If git command execution fails for other reasons.
+    """
+    _logger.info(f"Committing staged file: {FILENAME}")
+
+    try:
+        subprocess.run(
+            ["git", "commit", "-m", COMMIT_MESSAGE_TEMPLATE],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        _logger.debug("Git commit command succeeded")
+        _logger.info(f"File committed successfully with message: {COMMIT_MESSAGE_TEMPLATE}")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Git commit failed: {e}")
+        if e.stderr:
+            _logger.error(f"  stderr: {e.stderr}")
+        raise
+    except Exception as e:
+        _logger.error(f"Failed to commit file: {e}")
+        raise
+
+
+def push_file() -> bool:
+    """Push the commit to the remote feature branch.
+
+    Pushes commits to the feature branch (feat/255-markdown-file-creation-17ca12)
+    on the origin remote, setting up upstream tracking with the -u flag.
+
+    Uses subprocess to execute the git push command explicitly.
+
+    Returns:
+        True if commit was successfully pushed.
+
+    Raises:
+        subprocess.CalledProcessError: If git push command fails.
+        Exception: If git command execution fails for other reasons.
+    """
+    _logger.info(f"Pushing commit to remote branch: {BRANCH_NAME}")
+
+    try:
+        subprocess.run(
+            ["git", "push", "-u", "origin", BRANCH_NAME],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+
+        _logger.debug("Git push command succeeded")
+        _logger.info(f"Commit pushed successfully to {BRANCH_NAME}")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Git push failed to branch {BRANCH_NAME}: {e}")
+        if e.stderr:
+            _logger.error(f"  stderr: {e.stderr}")
+        raise
+    except Exception as e:
+        _logger.error(f"Failed to push commit: {e}")
+        raise
+
+
+def run() -> bool:
+    """Main orchestration function for feature 255 phases 1-3.
+
+    Coordinates content generation, validation, file creation, file verification, and git workflow:
 
     Phase 1: Content Generation & Validation
       1a. Generate markdown content using LLM
@@ -238,6 +354,11 @@ def run() -> bool:
       2a. Write validated content to disk using pathlib.Path
       2b. Verify file encoding, line endings, and structure
 
+    Phase 3: Git Workflow Integration
+      3a. Stage file in git using git add
+      3b. Commit with conventional commit message
+      3c. Push to remote feature branch with upstream tracking
+
     Returns:
         True on success.
 
@@ -245,9 +366,10 @@ def run() -> bool:
         ValueError: If validation fails.
         FileNotFoundError: If file operations fail.
         IOError: If disk write fails.
+        subprocess.CalledProcessError: If git operations fail.
         Exception: If content generation or other operations fail.
     """
-    _logger.info("Starting feature 255 phases 1-2: Content Generation, Validation, File Creation & Verification")
+    _logger.info("Starting feature 255 phases 1-3: Content Generation, File Creation, Git Workflow")
 
     try:
         # Phase 1a: Generate content
@@ -266,7 +388,19 @@ def run() -> bool:
         _logger.info("Phase 2b: Verifying file encoding and structure")
         verify_file()
 
-        _logger.info("✓ Feature 255 phases 1-2 completed successfully")
+        # Phase 3a: Stage file
+        _logger.info("Phase 3a: Staging file in git")
+        stage_file()
+
+        # Phase 3b: Commit file
+        _logger.info("Phase 3b: Committing file with conventional message")
+        commit_file()
+
+        # Phase 3c: Push file
+        _logger.info("Phase 3c: Pushing commit to remote branch")
+        push_file()
+
+        _logger.info("✓ Feature 255 phases 1-3 completed successfully")
         return True
 
     except ValueError as e:
@@ -278,8 +412,11 @@ def run() -> bool:
     except IOError as e:
         _logger.error(f"Disk write failed: {e}")
         raise
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"Git operation failed: {e}")
+        raise
     except Exception as e:
-        _logger.error(f"Feature 255 phases 1-2 failed: {e}")
+        _logger.error(f"Feature 255 phases 1-3 failed: {e}")
         raise
 
 
