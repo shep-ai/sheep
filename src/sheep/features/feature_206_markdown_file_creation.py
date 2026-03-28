@@ -22,7 +22,6 @@ This approach provides:
 """
 
 import subprocess
-import sys
 from pathlib import Path
 
 from sheep.observability.logging import get_logger
@@ -423,7 +422,7 @@ def git_commit(commit_message: str = COMMIT_MESSAGE) -> None:
             capture_output=True,
             text=True,
         )
-        _logger.debug(f"✓ Successfully created commit")
+        _logger.debug("✓ Successfully created commit")
 
     except subprocess.CalledProcessError as e:
         _logger.error(f"Git commit failed: {e.stderr}")

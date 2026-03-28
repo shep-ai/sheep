@@ -7,11 +7,11 @@ Tests the following functions:
 - generate_title(): Deterministic title generation via Claude API (temperature=0)
 """
 
-import pytest
-import tempfile
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 import sys
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add src to path to import the feature module
 sys.path.insert(0, str(Path(__file__).parent / "src"))
@@ -19,7 +19,6 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from sheep.features.feature_204_markdown_file_creation import (
     generate_prose,
     generate_title,
-    FILENAME,
 )
 
 

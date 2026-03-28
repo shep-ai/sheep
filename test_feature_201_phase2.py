@@ -7,10 +7,7 @@ This test suite validates that:
 3. File creation and validation are executed successfully (task-2-3)
 """
 
-import pytest
 from pathlib import Path
-import tempfile
-import os
 
 from src.create_markdown import (
     create_markdown_file,

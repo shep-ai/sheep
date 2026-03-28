@@ -8,17 +8,17 @@ Tests cover:
 - Task 3: Markdown structure and prose quality validation
 """
 
-import pytest
-from pathlib import Path
-import tempfile
 import os
+import tempfile
+from pathlib import Path
+
+import pytest
 from feature_194_implementation import (
+    FILENAME,
+    TITLE,
     create_file,
     validate_encoding,
     validate_structure,
-    FILENAME,
-    TITLE,
-    PROSE,
 )
 
 

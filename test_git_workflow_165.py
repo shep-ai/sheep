@@ -1,6 +1,5 @@
 """Tests for git workflow (stage, commit, push) for feature 165."""
 
-import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest

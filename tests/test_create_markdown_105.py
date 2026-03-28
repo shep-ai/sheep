@@ -3,7 +3,7 @@
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -212,7 +212,7 @@ class TestEncodingValidation:
         import create_test_knejqo
 
         # UTF-8 BOM bytes
-        binary_content = b'\xef\xbb\xbf' + "# Heading\n\nSentence. Sentence. Sentence.".encode('utf-8')
+        binary_content = b'\xef\xbb\xbf' + b"# Heading\n\nSentence. Sentence. Sentence."
         with pytest.raises(ValueError, match="BOM"):
             create_test_knejqo.validate_encoding_and_line_endings(binary_content)
 
@@ -246,7 +246,7 @@ class TestLineEndingValidation:
         sys.path.insert(0, str(Path(__file__).parent.parent))
         import create_test_knejqo
 
-        binary_content = "# Heading\r\n\r\nSentence. Sentence. Sentence.\r\n".encode('utf-8')
+        binary_content = b"# Heading\r\n\r\nSentence. Sentence. Sentence.\r\n"
         with pytest.raises(ValueError, match="CRLF"):
             create_test_knejqo.validate_encoding_and_line_endings(binary_content)
 
@@ -278,7 +278,7 @@ class TestFileSizeValidation:
         sys.path.insert(0, str(Path(__file__).parent.parent))
         import create_test_knejqo
 
-        binary_content = "# H\n\nS.".encode('utf-8')
+        binary_content = b"# H\n\nS."
         with pytest.raises(ValueError, match="outside expected range"):
             create_test_knejqo.validate_file_size(binary_content)
 

@@ -85,7 +85,7 @@ def verify_commit_message():
             f"Expected: {COMMIT_MESSAGE}\n"
             f"Got: {commit_msg}"
         )
-    print(f"✓ Verified: commit message matches")
+    print("✓ Verified: commit message matches")
 
 
 def push_to_remote():

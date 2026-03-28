@@ -11,10 +11,11 @@ Tests cover:
 8. validate_markdown_file() - Master orchestration
 """
 
-import sys
-from pathlib import Path
-import tempfile
 import os
+import sys
+import tempfile
+from pathlib import Path
+
 import pytest
 
 
@@ -30,8 +31,8 @@ def setup_module():
 def test_validate_markdown_format_valid():
     """Test that validate_markdown_format() returns None for valid format."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_markdown_format,
         FILENAME,
+        validate_markdown_format,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -52,8 +53,8 @@ def test_validate_markdown_format_valid():
 def test_validate_markdown_format_no_h1():
     """Test that validate_markdown_format() raises if first line missing H1."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_markdown_format,
         FILENAME,
+        validate_markdown_format,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -74,8 +75,8 @@ def test_validate_markdown_format_no_h1():
 def test_validate_markdown_format_no_blank_line():
     """Test that validate_markdown_format() raises if second line not blank."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_markdown_format,
         FILENAME,
+        validate_markdown_format,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -96,8 +97,8 @@ def test_validate_markdown_format_no_blank_line():
 def test_validate_markdown_format_multiple_h1():
     """Test that validate_markdown_format() raises if multiple H1 headings."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_markdown_format,
         FILENAME,
+        validate_markdown_format,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -120,8 +121,8 @@ def test_validate_markdown_format_multiple_h1():
 def test_extract_prose_content_valid():
     """Test that extract_prose_content() extracts text after blank line."""
     from sheep.features.feature_208_markdown_file_creation import (
-        extract_prose_content,
         FILENAME,
+        extract_prose_content,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -140,8 +141,8 @@ def test_extract_prose_content_valid():
 def test_extract_prose_content_empty():
     """Test that extract_prose_content() returns empty string for minimal file."""
     from sheep.features.feature_208_markdown_file_creation import (
-        extract_prose_content,
         FILENAME,
+        extract_prose_content,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -205,8 +206,8 @@ def test_count_sentences_one():
 def test_validate_sentence_count_valid_two():
     """Test that validate_sentence_count() returns None for 2 sentences."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_sentence_count,
         FILENAME,
+        validate_sentence_count,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -226,8 +227,8 @@ def test_validate_sentence_count_valid_two():
 def test_validate_sentence_count_valid_three():
     """Test that validate_sentence_count() returns None for 3 sentences."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_sentence_count,
         FILENAME,
+        validate_sentence_count,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -247,8 +248,8 @@ def test_validate_sentence_count_valid_three():
 def test_validate_sentence_count_one_raises():
     """Test that validate_sentence_count() raises ValueError for 1 sentence."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_sentence_count,
         FILENAME,
+        validate_sentence_count,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -268,8 +269,8 @@ def test_validate_sentence_count_one_raises():
 def test_validate_sentence_count_four_raises():
     """Test that validate_sentence_count() raises ValueError for 4 sentences."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_sentence_count,
         FILENAME,
+        validate_sentence_count,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -291,8 +292,8 @@ def test_validate_sentence_count_four_raises():
 def test_validate_encoding_valid():
     """Test that validate_encoding() returns None for valid UTF-8 no BOM."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_encoding,
         FILENAME,
+        validate_encoding,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -312,8 +313,8 @@ def test_validate_encoding_valid():
 def test_validate_encoding_bom_raises():
     """Test that validate_encoding() raises ValueError for file with UTF-8 BOM."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_encoding,
         FILENAME,
+        validate_encoding,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -335,8 +336,8 @@ def test_validate_encoding_bom_raises():
 def test_validate_encoding_invalid_utf8_raises():
     """Test that validate_encoding() raises ValueError for invalid UTF-8."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_encoding,
         FILENAME,
+        validate_encoding,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -359,8 +360,8 @@ def test_validate_encoding_invalid_utf8_raises():
 def test_validate_line_endings_valid():
     """Test that validate_line_endings() returns None for LF-only file."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_line_endings,
         FILENAME,
+        validate_line_endings,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -380,8 +381,8 @@ def test_validate_line_endings_valid():
 def test_validate_line_endings_crlf_raises():
     """Test that validate_line_endings() raises ValueError for CRLF."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_line_endings,
         FILENAME,
+        validate_line_endings,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -402,8 +403,8 @@ def test_validate_line_endings_crlf_raises():
 def test_validate_line_endings_cr_raises():
     """Test that validate_line_endings() raises ValueError for CR."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_line_endings,
         FILENAME,
+        validate_line_endings,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -426,8 +427,8 @@ def test_validate_line_endings_cr_raises():
 def test_validate_file_size_valid():
     """Test that validate_file_size() returns None for valid size (300-800)."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_file_size,
         FILENAME,
+        validate_file_size,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -455,8 +456,8 @@ def test_validate_file_size_valid():
 def test_validate_file_size_too_small_raises():
     """Test that validate_file_size() raises ValueError for file < 300 bytes."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_file_size,
         FILENAME,
+        validate_file_size,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -477,8 +478,8 @@ def test_validate_file_size_too_small_raises():
 def test_validate_file_size_too_large_raises():
     """Test that validate_file_size() raises ValueError for file > 800 bytes."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_file_size,
         FILENAME,
+        validate_file_size,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -499,8 +500,8 @@ def test_validate_file_size_too_large_raises():
 def test_validate_file_size_custom_range():
     """Test that validate_file_size() accepts custom min/max parameters."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_file_size,
         FILENAME,
+        validate_file_size,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -544,8 +545,8 @@ def test_validate_markdown_file_valid():
 def test_validate_markdown_file_stops_at_first_error():
     """Test that validate_markdown_file() stops at first error (fail-fast)."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_markdown_file,
         FILENAME,
+        validate_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -566,8 +567,8 @@ def test_validate_markdown_file_stops_at_first_error():
 def test_validate_markdown_file_missing_file_raises():
     """Test that validate_markdown_file() raises for missing file."""
     from sheep.features.feature_208_markdown_file_creation import (
-        validate_markdown_file,
         FILENAME,
+        validate_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:

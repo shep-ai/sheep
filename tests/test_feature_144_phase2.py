@@ -9,8 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from sheep.content_generators import write_markdown_file
-from sheep.content_generators import validate_file_properties
+from sheep.content_generators import validate_file_properties, write_markdown_file
 
 
 class TestWriteMarkdownFilePhase2:

@@ -539,7 +539,7 @@ def git_commit(filename: str = FILENAME, message: str = COMMIT_MESSAGE) -> None:
             capture_output=True,
             text=True,
         )
-        _logger.info(f"Successfully committed changes")
+        _logger.info("Successfully committed changes")
     except subprocess.CalledProcessError as e:
         error_msg = f"git commit failed: {e.stderr or e.stdout}"
         _logger.error(error_msg)

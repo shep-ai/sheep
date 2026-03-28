@@ -14,7 +14,6 @@ import re
 import subprocess
 from pathlib import Path
 
-
 # ============================================================================
 # Constants
 # ============================================================================
@@ -249,7 +248,7 @@ if __name__ == "__main__":
     # Execute git operations
     try:
         git_operations()
-        print(f"Git operations completed successfully")
+        print("Git operations completed successfully")
     except subprocess.CalledProcessError as e:
         print(f"Git operations failed: {e}")
         raise

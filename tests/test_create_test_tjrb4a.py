@@ -8,10 +8,8 @@ Tests verify that the create_test_tjrb4a.py script:
 5. File size is approximately 400-600 bytes
 """
 
-import os
-import sys
 from pathlib import Path
-import subprocess
+
 import pytest
 
 

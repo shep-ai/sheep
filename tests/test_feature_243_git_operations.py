@@ -10,7 +10,6 @@ Tests verify that the git integration is properly implemented:
 
 import subprocess
 from pathlib import Path
-import pytest
 
 
 class TestGitAddOperation:

@@ -185,7 +185,7 @@ class TestEncodingValidation:
         import create_test_laceiq
 
         # UTF-8 BOM bytes
-        binary_content = b'\xef\xbb\xbf' + "# Heading\n\nSentence. Sentence. Sentence.".encode('utf-8')
+        binary_content = b'\xef\xbb\xbf' + b"# Heading\n\nSentence. Sentence. Sentence."
         with pytest.raises(ValueError, match="BOM"):
             create_test_laceiq.validate_encoding_and_line_endings(binary_content)
 
@@ -215,7 +215,7 @@ class TestLineEndingValidation:
         """Test that validate_encoding_and_line_endings raises when CRLF is present."""
         import create_test_laceiq
 
-        binary_content = "# Heading\r\n\r\nSentence. Sentence. Sentence.\r\n".encode('utf-8')
+        binary_content = b"# Heading\r\n\r\nSentence. Sentence. Sentence.\r\n"
         with pytest.raises(ValueError, match="CRLF"):
             create_test_laceiq.validate_encoding_and_line_endings(binary_content)
 
@@ -243,7 +243,7 @@ class TestFileSizeValidation:
         """Test that validate_file_size raises when file is too small."""
         import create_test_laceiq
 
-        binary_content = "# H\n\nS.".encode('utf-8')
+        binary_content = b"# H\n\nS."
         with pytest.raises(ValueError, match="outside expected range"):
             create_test_laceiq.validate_file_size(binary_content)
 

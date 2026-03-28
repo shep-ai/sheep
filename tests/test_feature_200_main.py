@@ -8,10 +8,8 @@ This module contains comprehensive tests for feature_200_main.py:
 """
 
 import sys
-import subprocess
 from pathlib import Path
-from unittest.mock import patch, MagicMock, call
-import pytest
+from unittest.mock import patch
 
 # Add project root to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -43,8 +41,9 @@ class TestModuleStructure:
 
     def test_imports_correct_modules(self):
         """Test that module imports required dependencies."""
-        import feature_200_main
         import sys
+
+        import feature_200_main
         assert feature_200_main.sys is sys
         assert hasattr(feature_200_main, 'Path')
         assert hasattr(feature_200_main, 'create_and_commit_markdown_file')
@@ -411,7 +410,6 @@ class TestConsistencyWithFeature199:
 
     def test_feature_200_parameters_differ_from_feature_199(self):
         """Test that Feature 200 uses different filename and branch than Feature 199."""
-        import feature_200_main
 
         # Read the source to verify parameters
         script_content = Path(__file__).parent.parent / "feature_200_main.py"

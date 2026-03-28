@@ -22,29 +22,28 @@ test environments and invalid test files for comprehensive validation testing.
 """
 
 import os
+
+# Import the validation functions
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-# Import the validation functions
-import sys
-
 script_path = Path(__file__).parent / "validate_markdown_file.py"
 sys.path.insert(0, str(Path(__file__).parent))
 from validate_markdown_file import (
-    validate_file,
+    count_sentences,
+    validate_blank_line_separator,
     validate_encoding,
-    validate_line_endings,
-    validate_trailing_newline,
+    validate_file,
     validate_file_size,
     validate_h1_heading,
-    validate_blank_line_separator,
+    validate_line_endings,
     validate_prose_content,
-    count_sentences,
     validate_sentence_count,
+    validate_trailing_newline,
 )
-
 
 # ============================================================================
 # Pytest Fixtures

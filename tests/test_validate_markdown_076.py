@@ -4,15 +4,14 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from validate_markdown import (
-    validate_encoding,
-    validate_line_endings,
-    validate_structure,
-    validate_prose_sentences,
-    validate_file_size,
-    validate_file,
     ValidationError,
+    validate_encoding,
+    validate_file,
+    validate_file_size,
+    validate_line_endings,
+    validate_prose_sentences,
+    validate_structure,
 )
 
 
@@ -32,7 +31,7 @@ class TestValidateEncoding:
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
             # Write file with UTF-8 BOM
-            bom_content = b'\xef\xbb\xbf' + "# Heading\n\nSentence. Sentence. Sentence.".encode('utf-8')
+            bom_content = b'\xef\xbb\xbf' + b"# Heading\n\nSentence. Sentence. Sentence."
             test_file.write_bytes(bom_content)
             with pytest.raises(ValidationError, match="BOM"):
                 validate_encoding(test_file)
@@ -308,7 +307,7 @@ class TestValidateFileIntegration:
         """Test that validate_file raises when encoding is invalid."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.md"
-            bom_content = b'\xef\xbb\xbf' + "# Heading\n\nSentence. Sentence. Sentence.".encode('utf-8')
+            bom_content = b'\xef\xbb\xbf' + b"# Heading\n\nSentence. Sentence. Sentence."
             test_file.write_bytes(bom_content)
             with pytest.raises(ValidationError):
                 validate_file(test_file)

@@ -19,19 +19,18 @@ test environments and invalid test files for comprehensive validation testing.
 """
 
 import os
+
+# Import the functions from the implementation script
+import sys
 import tempfile
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
-# Import the functions from the implementation script
-import sys
-
 script_path = Path(__file__).parent / "create_markdown_file.py"
 sys.path.insert(0, str(Path(__file__).parent))
-from create_markdown_file import create_file, validate_file, git_operations
-
+from create_markdown_file import create_file, git_operations, validate_file
 
 # ============================================================================
 # Pytest Fixtures
@@ -191,8 +190,8 @@ class TestCreateFile:
         create_file()
         content = Path("test-kn5qkm.md").read_text(encoding="utf-8")
         period_count = content.count(".")
-        assert period_count >= 2, f"File should contain at least 2 sentences"
-        assert period_count <= 3, f"File should contain at most 3 sentences"
+        assert period_count >= 2, "File should contain at least 2 sentences"
+        assert period_count <= 3, "File should contain at most 3 sentences"
 
     @pytest.mark.skip(reason="Requires LLM environment setup")
     def test_file_uses_utf8_encoding(self, temp_dir):

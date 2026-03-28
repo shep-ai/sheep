@@ -527,8 +527,8 @@ class TestGitIntegration:
             line
             for line in output.split("\n")
             if line
-            and not "specs/" in line
-            and not "tests/test_feature_168" in line  # Our test additions
+            and "specs/" not in line
+            and "tests/test_feature_168" not in line  # Our test additions
         ]
 
         assert (

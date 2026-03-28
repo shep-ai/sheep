@@ -10,12 +10,12 @@ These tests create actual files and perform real git operations
 to ensure the complete workflow succeeds.
 """
 
-import sys
 import os
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -76,12 +76,12 @@ def test_integration_full_workflow(temp_git_repo):
     5. Verify commit appears in git history
     """
     from sheep.features.feature_208_markdown_file_creation import (
+        COMMIT_MESSAGE,
+        FILENAME,
         create_markdown_file,
-        validate_markdown_file,
         git_add_file,
         git_commit,
-        FILENAME,
-        COMMIT_MESSAGE,
+        validate_markdown_file,
     )
 
     # Change to temp repo directory
@@ -159,7 +159,6 @@ def test_integration_file_created_with_correct_format(temp_git_repo):
     """
     from sheep.features.feature_208_markdown_file_creation import (
         create_markdown_file,
-        FILENAME,
     )
 
     original_cwd = os.getcwd()
@@ -206,11 +205,11 @@ def test_integration_sentence_count_validation(temp_git_repo):
     Verifies that exactly 2-3 sentences are present and properly counted.
     """
     from sheep.features.feature_208_markdown_file_creation import (
-        create_markdown_file,
-        validate_sentence_count,
-        extract_prose_content,
-        count_sentences,
         FILENAME,
+        count_sentences,
+        create_markdown_file,
+        extract_prose_content,
+        validate_sentence_count,
     )
 
     original_cwd = os.getcwd()
@@ -358,20 +357,20 @@ def test_integration_docstrings_complete():
     - Example section (if applicable)
     """
     from sheep.features.feature_208_markdown_file_creation import (
-        create_markdown_file,
-        verify_file_exists,
-        validate_markdown_format,
-        extract_prose_content,
         count_sentences,
-        validate_sentence_count,
-        validate_encoding,
-        validate_line_endings,
-        validate_file_size,
-        validate_markdown_file,
+        create_markdown_file,
+        extract_prose_content,
         git_add_file,
         git_commit,
         git_push,
         main,
+        validate_encoding,
+        validate_file_size,
+        validate_line_endings,
+        validate_markdown_file,
+        validate_markdown_format,
+        validate_sentence_count,
+        verify_file_exists,
     )
 
     functions_to_check = [
@@ -466,12 +465,8 @@ def test_integration_error_messages_clear():
     what went wrong and how to fix it.
     """
     from sheep.features.feature_208_markdown_file_creation import (
-        verify_file_exists,
         validate_markdown_format,
-        validate_sentence_count,
-        validate_encoding,
-        validate_line_endings,
-        validate_file_size,
+        verify_file_exists,
     )
 
     # Test file not found error
@@ -501,15 +496,14 @@ def test_integration_cross_platform_paths():
 
     Verifies that pathlib.Path is used for cross-platform compatibility.
     """
-    from sheep.features.feature_208_markdown_file_creation import (
-        create_markdown_file,
-    )
-
     # create_markdown_file should return a Path object
     # (test only in current directory, no actual file creation needed)
     # This test verifies the module uses pathlib throughout
-
     import inspect
+
+    from sheep.features.feature_208_markdown_file_creation import (
+        create_markdown_file,
+    )
     source = inspect.getsource(create_markdown_file)
     assert "Path" in source, "Should use pathlib.Path for cross-platform compatibility"
     assert "pathlib" in source or "from pathlib" in source, \

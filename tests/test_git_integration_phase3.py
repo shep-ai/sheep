@@ -3,14 +3,15 @@
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 import pytest
 
 from sheep.content_generators import (
     commit_markdown_file,
-    push_markdown_file,
     create_markdown_file,
     extract_topic_from_content,
+    push_markdown_file,
 )
 
 

@@ -10,7 +10,6 @@ Requirements verified:
 """
 
 from pathlib import Path
-import re
 
 from sheep.observability.logging import get_logger
 
@@ -139,7 +138,7 @@ def verify_heading_format(filepath: str) -> bool:
         VerificationError: If heading format is invalid.
     """
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             first_line = f.readline().rstrip("\n")
 
         if not first_line:
@@ -181,7 +180,7 @@ def verify_blank_line_separator(filepath: str) -> bool:
         VerificationError: If blank line is missing or format is incorrect.
     """
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             lines = f.readlines()
 
         if len(lines) < 3:
@@ -225,7 +224,7 @@ def verify_prose_structure(filepath: str) -> bool:
         VerificationError: If prose structure is invalid or sentence count is wrong.
     """
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             content = f.read()
 
         lines = content.split("\n")
@@ -448,7 +447,7 @@ def verify_git_trackable(filepath: str) -> bool:
         gitignore_path = Path.cwd() / ".gitignore"
 
         if gitignore_path.exists():
-            with open(gitignore_path, "r") as f:
+            with open(gitignore_path) as f:
                 gitignore_content = f.read()
 
             # Check for common patterns that would exclude test-*.md files
@@ -497,7 +496,7 @@ def verify_markdown_syntax(filepath: str) -> bool:
         VerificationError: If markdown syntax is invalid.
     """
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             content = f.read()
 
         lines = content.split("\n")

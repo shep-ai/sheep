@@ -9,9 +9,9 @@ Phase 1 (Core Implementation): File creation and validation
 Phase 2 (Git Integration & Delivery): Git workflow (add, commit, push)
 """
 
-from pathlib import Path
-import sys
 import subprocess
+import sys
+from pathlib import Path
 
 
 def create_file() -> None:
@@ -107,7 +107,7 @@ def validate_file() -> bool:
     print(f"  - Size: {file_size} bytes (target: 400-600)")
     print(f"  - Heading: {lines[0]}")
     print(f"  - Sentences: {sentence_count}")
-    print(f"  - Encoding: UTF-8 (valid)")
+    print("  - Encoding: UTF-8 (valid)")
 
     return True
 

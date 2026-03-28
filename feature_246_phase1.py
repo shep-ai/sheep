@@ -253,21 +253,21 @@ def main() -> None:
         print(f"✓ File created: {filepath}")
 
         # Task 2: Validate encoding and line endings
-        print(f"\n[Task 2] Validating file encoding and line endings")
+        print("\n[Task 2] Validating file encoding and line endings")
         validate_file_encoding(filepath)
         print("✓ File has UTF-8 encoding without BOM")
         validate_file_line_endings(filepath)
         print("✓ File uses Unix LF line endings (no CRLF)")
 
         # Task 3: Validate file structure and content
-        print(f"\n[Task 3] Validating file structure and content")
+        print("\n[Task 3] Validating file structure and content")
         validate_file_structure(filepath)
         print("✓ File has correct markdown structure (H1 heading, blank line, prose)")
         validate_file_content(filepath)
         print("✓ File contains 2-3 sentences and proper file size")
 
         # Run comprehensive validation
-        print(f"\n[Validation] Running comprehensive validation")
+        print("\n[Validation] Running comprehensive validation")
         validate_file(filepath)
         print("✓ All validation checks passed")
 

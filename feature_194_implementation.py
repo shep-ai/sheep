@@ -6,9 +6,9 @@ Creates test-9zebfj.md with proper markdown structure and comprehensive validati
 This implementation demonstrates the established pattern from 193 preceding features.
 """
 
+import subprocess
 import sys
 from pathlib import Path
-import subprocess
 
 # Configuration
 FILENAME = "test-9zebfj.md"

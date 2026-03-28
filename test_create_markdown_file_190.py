@@ -4,12 +4,13 @@ Test suite for feature 190: markdown-file-creation-6778d8
 Tests create_file() and validate_file() functions.
 """
 
-import pytest
-import tempfile
 import subprocess
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from create_markdown_file_190 import create_file, validate_file, TITLE, PROSE
+from unittest.mock import patch
+
+import pytest
+from create_markdown_file_190 import PROSE, TITLE, create_file, validate_file
 
 
 class TestCreateFile:
@@ -147,7 +148,7 @@ class TestValidateFile:
             test_file = Path(tmpdir) / "with_bom.md"
             # Write with BOM
             test_file.write_bytes(
-                b"\xef\xbb\xbf" + "# Title\n\nContent.\n".encode("utf-8")
+                b"\xef\xbb\xbf" + b"# Title\n\nContent.\n"
             )
             with pytest.raises(ValueError, match="UTF-8 BOM"):
                 validate_file(test_file)
@@ -158,7 +159,7 @@ class TestValidateFile:
             test_file = Path(tmpdir) / "with_crlf.md"
             # Write with CRLF
             test_file.write_bytes(
-                f"# {TITLE}\r\n\r\n{PROSE}\r\n".encode("utf-8")
+                f"# {TITLE}\r\n\r\n{PROSE}\r\n".encode()
             )
             with pytest.raises(ValueError, match="CRLF"):
                 validate_file(test_file)
@@ -220,7 +221,7 @@ class TestValidateFile:
         """Test that validate_file raises ValueError without trailing newline."""
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "no_trailing.md"
-            test_file.write_bytes(f"# Title\n\nOne. Two. Three.".encode("utf-8"))
+            test_file.write_bytes(b"# Title\n\nOne. Two. Three.")
             with pytest.raises(ValueError, match="newline"):
                 validate_file(test_file)
 
@@ -430,10 +431,10 @@ class TestMainOrchestrator:
 
     def test_main_complete_workflow_success(self, tmp_path):
         """Test main successfully orchestrates complete workflow."""
-        from create_markdown_file_190 import main, FILENAME
-
         # Change to temp directory for test
         import os
+
+        from create_markdown_file_190 import FILENAME, main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -454,9 +455,9 @@ class TestMainOrchestrator:
 
     def test_main_exits_with_1_on_file_exists(self, tmp_path):
         """Test main exits with code 1 when file already exists."""
-        from create_markdown_file_190 import main, FILENAME
-
         import os
+
+        from create_markdown_file_190 import FILENAME, main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -475,9 +476,9 @@ class TestMainOrchestrator:
 
     def test_main_exits_with_1_on_validation_error(self, tmp_path):
         """Test main exits with code 1 on validation error."""
-        from create_markdown_file_190 import main, FILENAME
-
         import os
+
+        from create_markdown_file_190 import main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -499,9 +500,9 @@ class TestMainOrchestrator:
 
     def test_main_exits_with_1_on_git_failure(self, tmp_path):
         """Test main exits with code 1 on git command failure."""
-        from create_markdown_file_190 import main
-
         import os
+
+        from create_markdown_file_190 import main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -524,9 +525,9 @@ class TestMainOrchestrator:
 
     def test_main_calls_functions_in_order(self, tmp_path):
         """Test main calls functions in correct order."""
-        from create_markdown_file_190 import main
-
         import os
+
+        from create_markdown_file_190 import main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)
@@ -568,9 +569,9 @@ class TestMainOrchestrator:
 
     def test_main_with_oserror(self, tmp_path):
         """Test main exits with 1 on OSError."""
-        from create_markdown_file_190 import main
-
         import os
+
+        from create_markdown_file_190 import main
         original_dir = os.getcwd()
         try:
             os.chdir(tmp_path)

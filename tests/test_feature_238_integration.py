@@ -13,10 +13,10 @@ Note: Tests mock only the external Claude API at the boundary (generate_markdown
 All file I/O, validation, and git operations use real functions to test integration.
 """
 
-import sys
 import os
-import tempfile
 import subprocess
+import sys
+import tempfile
 from pathlib import Path
 from unittest import mock
 
@@ -89,7 +89,7 @@ class TestFeature238Integration:
     @staticmethod
     def verify_markdown_structure(filepath: str) -> bool:
         """Verify markdown has H1 heading, blank line, and prose content."""
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             lines = f.readlines()
 
         if not lines:
@@ -123,8 +123,8 @@ class TestFeature238Integration:
     def test_complete_workflow_integration(self):
         """Test complete feature 238 workflow with real utilities (LLM mocked at boundary)."""
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -160,8 +160,8 @@ class TestFeature238Integration:
     def test_file_existence_and_location(self):
         """Test that file is created at repository root with correct name."""
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -306,7 +306,7 @@ class TestFeature238Integration:
                 filepath = result["filepath"]
 
                 # Read actual file content
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     file_content = f.read()
 
                 # Should match return dict content
@@ -320,9 +320,9 @@ class TestFeature238Integration:
     def test_commit_message_format(self):
         """Test that commit message follows conventional format."""
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
             FEATURE_NUMBER,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -360,7 +360,6 @@ class TestFeature238Integration:
         """Test that file is staged in git after operation."""
         from sheep.features.feature_238_markdown_file_creation import (
             create_feature_238_markdown_file,
-            MARKDOWN_FILENAME,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -393,8 +392,8 @@ class TestFeature238Integration:
     def test_no_unexpected_files_created(self):
         """Test that only test-mcfudw.md is created, no other files."""
         from sheep.features.feature_238_markdown_file_creation import (
-            create_feature_238_markdown_file,
             MARKDOWN_FILENAME,
+            create_feature_238_markdown_file,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -442,7 +441,7 @@ class TestFeature238Integration:
 
                 filepath = result["filepath"]
 
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     lines = f.readlines()
 
                 # Get prose content (skip heading and blank line)
@@ -473,7 +472,7 @@ class TestFeature238Integration:
 
                 filepath = result["filepath"]
 
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     first_line = f.readline()
 
                 assert first_line.startswith("# "), (
@@ -506,7 +505,7 @@ class TestFeature238Integration:
 
                 filepath = result["filepath"]
 
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     lines = f.readlines()
 
                 assert len(lines) >= 2, "File should have at least 2 lines"
@@ -532,7 +531,7 @@ class TestFeature238Integration:
 
                 filepath = result["filepath"]
 
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     lines = f.readlines()
 
                 # Prose is from line 3 onward

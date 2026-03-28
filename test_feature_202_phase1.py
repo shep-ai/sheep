@@ -9,26 +9,27 @@ Tests the following functions:
 - Validation functions for encoding, line endings, sentence count, H1 heading
 """
 
-import pytest
+import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-import sys
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add src to path to import the feature module
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from sheep.features.feature_202_markdown_file_creation import (
+    FILENAME,
+    create_markdown_file,
     generate_prose,
     generate_title,
-    create_markdown_file,
     verify_file_exists,
+    verify_file_size,
     verify_h1_heading,
+    verify_lf_line_endings,
     verify_prose_content,
     verify_utf8_encoding,
-    verify_lf_line_endings,
-    verify_file_size,
-    FILENAME,
 )
 
 

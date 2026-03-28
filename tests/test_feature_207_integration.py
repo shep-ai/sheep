@@ -8,12 +8,12 @@ These tests verify the entire feature 207 workflow from start to finish:
 Integration tests ensure all phases work together correctly.
 """
 
+import os
+import subprocess
 import sys
 import tempfile
-import os
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-import subprocess
+from unittest.mock import MagicMock, patch
 
 
 def setup_module():
@@ -184,8 +184,8 @@ class TestMainIntegration:
     def test_file_exists_after_main_succeeds(self):
         """Integration test: File exists after create phase completes."""
         from sheep.features.feature_207_markdown_file_creation import (
-            main,
             FILENAME,
+            main,
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -214,8 +214,8 @@ class TestMainIntegration:
     def test_validation_passes_after_main_succeeds(self):
         """Integration test: Validation passes after file creation."""
         from sheep.features.feature_207_markdown_file_creation import (
-            main,
             FILENAME,
+            main,
             validate_markdown_file,
         )
 
@@ -241,7 +241,7 @@ class TestMainIntegration:
 
     def test_file_is_staged_after_git_operations(self):
         """Integration test: File is committed after git operations complete."""
-        from sheep.features.feature_207_markdown_file_creation import main, FILENAME, COMMIT_MESSAGE
+        from sheep.features.feature_207_markdown_file_creation import COMMIT_MESSAGE, FILENAME, main
 
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = os.getcwd()

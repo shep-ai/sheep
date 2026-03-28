@@ -10,8 +10,8 @@ This script demonstrates:
 5. File size validation (400-600 bytes)
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 # Hardcoded prose content: H1 heading + exactly 2-3 sentences
 # Topic: The Nature of Curiosity (unrestricted topic selection per product decision)

@@ -7,6 +7,7 @@ Tests covering:
 
 import tempfile
 from pathlib import Path
+
 import pytest
 
 
@@ -111,7 +112,7 @@ class TestFeature195FileWriting:
                 write_file_with_encoding("test.md", content)
 
                 # Read and verify structure
-                with open("test.md", "r", encoding="utf-8") as f:
+                with open("test.md", encoding="utf-8") as f:
                     lines = f.read().split("\n")
 
                 assert lines[0].startswith("# "), "First line should be H1 heading"

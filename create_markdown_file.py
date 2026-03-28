@@ -4,8 +4,8 @@ Implementation script for feature 174: markdown-file-creation-1fc9b9
 Creates test-u9soe6.md with proper markdown structure and validation.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 # Module-level constants

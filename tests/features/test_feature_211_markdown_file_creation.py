@@ -11,12 +11,11 @@ Tests cover:
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from sheep.features.feature_211_markdown_file_creation import (
-    BRANCH_NAME,
     COMMIT_MESSAGE,
     FILENAME,
     PROSE_CONTENT,

@@ -1,23 +1,23 @@
 """Tests for Feature 199: Content generation and validation for markdown file creation."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
-import tempfile
 import os
 import subprocess
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
 
+import pytest
 from src.create_markdown import (
-    generate_markdown_content,
-    validate_content,
-    validate_sentence_count,
-    validate_prose_length,
     create_markdown_file,
+    generate_markdown_content,
+    push_to_feature_branch,
+    stage_and_commit_file,
+    validate_content,
     validate_file_encoding,
     validate_file_structure,
     validate_markdown_file,
-    stage_and_commit_file,
-    push_to_feature_branch,
+    validate_prose_length,
+    validate_sentence_count,
 )
 
 
@@ -649,7 +649,7 @@ class TestFileEncodingValidation:
             # Write with UTF-8 BOM
             with open(filepath, 'wb') as f:
                 f.write(b'\xef\xbb\xbf')  # UTF-8 BOM
-                f.write("# BOM Test\n\nFirst sentence. Second sentence. Third sentence.".encode('utf-8'))
+                f.write(b"# BOM Test\n\nFirst sentence. Second sentence. Third sentence.")
 
             result = validate_file_encoding(filepath)
 
@@ -898,7 +898,7 @@ class TestGitStageAndCommit:
         with patch('src.create_markdown.subprocess.run') as mock_run:
             with patch('src.create_markdown._validate_git_config') as mock_validate:
                 mock_validate.return_value = {'is_valid': True, 'errors': []}
-                
+
                 # Mock successful git add and commit
                 mock_run.side_effect = [
                     MagicMock(returncode=0, stdout='', stderr=''),  # git add
@@ -989,7 +989,7 @@ class TestGitStageAndCommit:
         with patch('src.create_markdown.subprocess.run') as mock_run:
             with patch('src.create_markdown._validate_git_config') as mock_validate:
                 mock_validate.return_value = {'is_valid': True, 'errors': []}
-                
+
                 # Mock git add failure
                 error = subprocess.CalledProcessError(1, 'git add')
                 error.stderr = 'fatal: pathspec "test-nttet0.md" did not match any files'
@@ -1006,7 +1006,7 @@ class TestGitStageAndCommit:
         with patch('src.create_markdown.subprocess.run') as mock_run:
             with patch('src.create_markdown._validate_git_config') as mock_validate:
                 mock_validate.return_value = {'is_valid': True, 'errors': []}
-                
+
                 # Mock git add success but commit failure
                 error = subprocess.CalledProcessError(1, 'git commit')
                 error.stderr = 'nothing added to commit but untracked files present'
@@ -1107,7 +1107,7 @@ class TestGitPush:
             with patch('src.create_markdown.time.sleep'):  # Mock sleep to avoid delays
                 error = subprocess.CalledProcessError(1, 'git push')
                 error.stderr = 'fatal: unable to access repository: Could not resolve host'
-                
+
                 mock_run.side_effect = [
                     MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),
                     error,
@@ -1125,7 +1125,7 @@ class TestGitPush:
             with patch('src.create_markdown.time.sleep'):
                 error = subprocess.CalledProcessError(1, 'git push')
                 error.stderr = 'fatal: unable to access repository: Could not resolve host'
-                
+
                 mock_run.side_effect = [
                     MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),
                     error,
@@ -1144,7 +1144,7 @@ class TestGitPush:
             with patch('src.create_markdown.time.sleep') as mock_sleep:
                 error = subprocess.CalledProcessError(1, 'git push')
                 error.stderr = 'fatal: Authentication failed for'
-                
+
                 mock_run.side_effect = [
                     MagicMock(returncode=0, stdout='  origin/feat/199-markdown-file-creation-5e3e07\n', stderr=''),
                     error,

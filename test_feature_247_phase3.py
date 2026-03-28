@@ -11,17 +11,17 @@ Tests the git workflow function:
   - Uses subprocess.run() with proper error handling
 """
 
-import pytest
-import tempfile
 import subprocess
-from pathlib import Path
-from unittest.mock import patch, MagicMock, call
 import sys
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add src to path to import the module
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from create_markdown import git_workflow, validate_markdown_file
+from create_markdown import git_workflow
 
 
 class TestTask3_GitWorkflow:

@@ -12,9 +12,9 @@ Tests verify that all validation functions work correctly:
 9. validate_markdown_file() - orchestrates all validations
 """
 
+import os
 import sys
 import tempfile
-import os
 from pathlib import Path
 
 

@@ -10,26 +10,26 @@ Tests the git integration functions and main orchestration:
 - End-to-end integration testing
 """
 
-import pytest
-import tempfile
 import subprocess
-from pathlib import Path
-from unittest.mock import patch, MagicMock, call
 import sys
+import tempfile
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add src to path to import the feature module
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from sheep.features.feature_204_markdown_file_creation import (
+    BRANCH_NAME,
+    COMMIT_MESSAGE,
+    FILENAME,
     git_add_file,
     git_commit,
     git_push,
-    create_markdown_file,
-    validate_markdown_file,
     main,
-    FILENAME,
-    BRANCH_NAME,
-    COMMIT_MESSAGE,
+    validate_markdown_file,
 )
 
 

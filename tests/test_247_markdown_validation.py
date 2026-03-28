@@ -1,7 +1,7 @@
 """Tests for feature 247: Structural validation and error handling for markdown file creation."""
 
-import re
 from pathlib import Path
+
 import pytest
 
 

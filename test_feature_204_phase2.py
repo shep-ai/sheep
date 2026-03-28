@@ -13,24 +13,24 @@ Tests the comprehensive validation functions required by the specification:
 - validate_markdown_file(): Comprehensive validation orchestration
 """
 
-import pytest
+import sys
 import tempfile
 from pathlib import Path
-import sys
+
+import pytest
 
 # Add src to path to import the feature module
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from sheep.features.feature_204_markdown_file_creation import (
-    validate_markdown_format,
-    extract_prose_content,
     count_sentences,
-    validate_sentence_count,
+    extract_prose_content,
     validate_encoding,
-    validate_line_endings,
     validate_file_size,
+    validate_line_endings,
     validate_markdown_file,
-    FILENAME,
+    validate_markdown_format,
+    validate_sentence_count,
 )
 
 

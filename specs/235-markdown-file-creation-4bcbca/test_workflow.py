@@ -7,17 +7,16 @@ executes correctly and reports status appropriately.
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
-
 from workflow import (
-    main,
-    create_markdown_file,
-    validate_markdown_file,
-    execute_git_operations,
     WorkflowStatus,
+    create_markdown_file,
+    execute_git_operations,
+    main,
+    validate_markdown_file,
 )
-
 
 # ============================================================================
 # Tests for WorkflowStatus

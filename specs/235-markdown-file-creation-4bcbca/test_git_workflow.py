@@ -5,12 +5,10 @@ Tests verify that git operations (add, commit, push) are executed correctly
 with proper error handling.
 """
 
-import subprocess
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
+
 import pytest
-
-from git_workflow import GitWorkflow, GitWorkflowError, COMMIT_MESSAGE, FEATURE_BRANCH
-
+from git_workflow import COMMIT_MESSAGE, FEATURE_BRANCH, GitWorkflow, GitWorkflowError
 
 # ============================================================================
 # Test Fixtures

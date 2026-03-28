@@ -17,8 +17,8 @@ from sheep.content_generators import (
     write_markdown_file,
 )
 from sheep.features.feature_115_markdown_file_creation import (
-    create_feature_115_markdown_file,
     MARKDOWN_FILENAME,
+    create_feature_115_markdown_file,
 )
 
 
@@ -100,7 +100,7 @@ class TestTask2WriteMarkdownFile:
                 filepath = write_markdown_file(content, filename)
 
                 # Verify file content matches input
-                with open(filepath, "r", encoding="utf-8") as f:
+                with open(filepath, encoding="utf-8") as f:
                     file_content = f.read()
                 assert file_content == content, "File content must match input exactly"
             finally:

@@ -4,21 +4,22 @@ Test suite for feature 218: markdown-file-creation-e92f29
 Tests create_file(), validate_file(), and git workflow functions.
 """
 
-import pytest
-import tempfile
 import subprocess
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+import pytest
 from create_markdown_file_218 import (
+    COMMIT_MESSAGE,
+    FILENAME,
+    PROSE,
+    TITLE,
     create_file,
-    validate_file,
     git_add,
     git_commit,
     git_push,
-    TITLE,
-    PROSE,
-    FILENAME,
-    COMMIT_MESSAGE,
+    validate_file,
 )
 
 

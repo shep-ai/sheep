@@ -1,9 +1,9 @@
 """Tests for feature 174: Creating markdown file test-u9soe6.md with title and prose content."""
 
-from pathlib import Path
-import pytest
-import tempfile
 import os
+from pathlib import Path
+
+import pytest
 
 
 class TestCreateFileFunction:
@@ -545,10 +545,10 @@ class TestGitOperations:
 
             # Create, stage, and commit file
             from create_markdown_file import (
+                COMMIT_MESSAGE,
                 create_file,
                 git_add,
                 git_commit,
-                COMMIT_MESSAGE,
             )
 
             create_file()
@@ -603,7 +603,8 @@ class TestMainFunction:
 
         try:
             import subprocess
-            from unittest.mock import patch, MagicMock
+            from unittest.mock import patch
+
             from create_markdown_file import main
 
             # Initialize git repo
@@ -642,6 +643,7 @@ class TestMainFunction:
 
         try:
             from unittest.mock import patch
+
             from create_markdown_file import main
 
             # Mock validate_file to raise ValueError
@@ -668,6 +670,7 @@ class TestMainFunction:
         try:
             import subprocess
             from unittest.mock import patch
+
             from create_markdown_file import main
 
             # Mock git_add to raise CalledProcessError

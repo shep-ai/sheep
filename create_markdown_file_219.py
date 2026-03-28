@@ -5,8 +5,8 @@ Creates test-6ess1a.md with proper markdown structure.
 No validation layer per spec requirement.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 # Module-level constants

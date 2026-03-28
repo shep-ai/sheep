@@ -3,8 +3,6 @@
 import subprocess
 from pathlib import Path
 
-import pytest
-
 from sheep.content_generators import commit_markdown_file, push_markdown_file
 
 

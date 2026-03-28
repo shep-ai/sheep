@@ -545,7 +545,7 @@ def main() -> int:
         git_push(BRANCH_NAME)
         _logger.info("✓ Changes pushed to remote")
 
-        _logger.info(f"✓ Feature 208 implementation completed successfully")
+        _logger.info("✓ Feature 208 implementation completed successfully")
         return 0
 
     except (FileNotFoundError, ValueError, subprocess.CalledProcessError) as e:

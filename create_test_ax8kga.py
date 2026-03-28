@@ -4,7 +4,6 @@ Implementation script for feature 152: markdown-file-creation-c858eb
 Creates test-ax8kga.md with proper markdown structure and validation.
 """
 
-import subprocess
 import sys
 from pathlib import Path
 

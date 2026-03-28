@@ -5,10 +5,9 @@ This module contains comprehensive tests for:
 - Task 4: Comprehensive validation (5 checks)
 """
 
-import os
 import sys
 from pathlib import Path
-import tempfile
+
 import pytest
 
 # Add src to path for imports
@@ -16,16 +15,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from sheep.features.feature_196_markdown_file_creation import (
     FILENAME,
-    TITLE,
     PROSE,
+    TITLE,
     check_file_does_not_exist,
+    count_sentences,
     create_markdown_file,
     validate_encoding,
-    validate_line_endings,
-    count_sentences,
-    validate_structure,
     validate_file_size,
-    main,
+    validate_line_endings,
+    validate_structure,
 )
 
 

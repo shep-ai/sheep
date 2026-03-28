@@ -4,8 +4,8 @@ Implementation script for feature 190: markdown-file-creation-6778d8
 Creates test-08hm34.md with proper markdown structure and validation.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 # Module-level constants

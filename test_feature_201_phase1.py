@@ -6,13 +6,12 @@ This test suite validates that:
 2. Content for test-y9go1c.md is generated and validated (task-1-2)
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
 from src.create_markdown import (
     generate_markdown_content,
-    validate_sentence_count,
     validate_prose_length,
+    validate_sentence_count,
 )
 
 

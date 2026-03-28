@@ -98,8 +98,8 @@ class TestFeature191FileCreation:
         """Test that file contains H1 heading, blank line, and prose."""
         from sheep.features.feature_191_markdown_file_creation import (
             FILENAME,
-            TITLE,
             PROSE,
+            TITLE,
             create_markdown_file,
         )
 
@@ -148,7 +148,6 @@ class TestFeature191FileCreation:
     def test_create_markdown_file_raises_if_exists(self):
         """Test that create_markdown_file() raises error if file already exists."""
         from sheep.features.feature_191_markdown_file_creation import (
-            FILENAME,
             create_markdown_file,
         )
 
@@ -578,7 +577,7 @@ class TestFeature191GitIntegration:
 
     def test_git_add_calls_subprocess_with_correct_filename(self):
         """Test that git_add() calls subprocess.run with correct git add command."""
-        from sheep.features.feature_191_markdown_file_creation import git_add, FILENAME
+        from sheep.features.feature_191_markdown_file_creation import FILENAME, git_add
 
         with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
             git_add(FILENAME)
@@ -592,7 +591,7 @@ class TestFeature191GitIntegration:
 
     def test_git_add_with_default_filename(self):
         """Test that git_add() uses FILENAME constant by default."""
-        from sheep.features.feature_191_markdown_file_creation import git_add, FILENAME
+        from sheep.features.feature_191_markdown_file_creation import FILENAME, git_add
 
         with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
             git_add()
@@ -782,7 +781,6 @@ class TestFeature191Integration:
 
     def test_main_exits_with_zero_on_success(self):
         """Test that main() exits with code 0 on successful completion."""
-        from sheep.features.feature_191_markdown_file_creation import FILENAME
 
         # Mock subprocess.run to avoid actual git operations
         with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
@@ -811,7 +809,6 @@ class TestFeature191Integration:
 
     def test_main_exits_with_one_on_git_failure(self):
         """Test that main() exits with code 1 on git operation failure."""
-        from sheep.features.feature_191_markdown_file_creation import FILENAME
 
         # Mock git operations to fail
         with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:
@@ -841,7 +838,6 @@ class TestFeature191Integration:
 
     def test_main_prints_progress_messages(self, capsys):
         """Test that main() prints progress messages for each phase."""
-        from sheep.features.feature_191_markdown_file_creation import FILENAME
 
         # Mock subprocess.run to avoid actual git operations
         with patch("sheep.features.feature_191_markdown_file_creation.subprocess.run") as mock_run:

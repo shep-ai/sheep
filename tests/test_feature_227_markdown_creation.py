@@ -9,10 +9,10 @@ Tests verify that:
 6. All validation checks pass
 """
 
-import sys
-from pathlib import Path
-import tempfile
 import os
+import sys
+import tempfile
+from pathlib import Path
 from unittest import mock
 
 # Add src to path to enable imports
@@ -168,8 +168,8 @@ def test_file_uses_lf_line_endings():
 def test_validate_markdown_file_passes_for_valid_file():
     """Test that validate_markdown_file() passes for properly created file."""
     from sheep.content_generators import (
-        write_markdown_file,
         validate_markdown_file,
+        write_markdown_file,
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -230,11 +230,11 @@ def test_file_ends_with_newline():
 def test_feature_227_module_imports():
     """Test that feature 227 module imports without errors."""
     from sheep.features.feature_227_markdown_file_creation import (
-        FEATURE_NUMBER,
         FEATURE_NAME,
+        FEATURE_NUMBER,
         MARKDOWN_FILENAME,
-        create_feature_227_markdown_file,
         _logger,
+        create_feature_227_markdown_file,
     )
 
     assert FEATURE_NUMBER == 227

@@ -3,8 +3,6 @@
 import os
 from unittest.mock import patch
 
-import pytest
-
 
 def test_settings_defaults():
     """Test that settings have sensible defaults."""
@@ -16,7 +14,7 @@ def test_settings_defaults():
         "SHEEP_LOG_LEVEL",
     ]
 
-    with patch.dict(os.environ, {k: "" for k in env_vars_to_clear}, clear=False):
+    with patch.dict(os.environ, dict.fromkeys(env_vars_to_clear, ""), clear=False):
         # Need to clear the lru_cache to get fresh settings
         from sheep.config.settings import get_settings
 

@@ -73,7 +73,7 @@ def test_content_coherence():
 
 def test_no_trailing_whitespace():
     """Verify no unwanted trailing whitespace in file."""
-    with open(TEST_FILE, "r", encoding="utf-8") as f:
+    with open(TEST_FILE, encoding="utf-8") as f:
         lines = f.readlines()
 
     for i, line in enumerate(lines[:-1]):  # Check all but last line

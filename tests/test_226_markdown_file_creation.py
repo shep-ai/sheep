@@ -1,6 +1,5 @@
 """Tests for feature 226: Creating markdown file test-ttapg5.md with title and prose content."""
 
-from pathlib import Path
 
 
 class TestMarkdownFileCreation:

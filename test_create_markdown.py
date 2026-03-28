@@ -45,7 +45,7 @@ class TestMarkdownFileCreation(unittest.TestCase):
     def test_file_encoding_is_utf8(self):
         """Test that file encoding is UTF-8 (no BOM)."""
         try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
+            with open(self.file_path, encoding='utf-8') as f:
                 f.read()
         except UnicodeDecodeError:
             self.fail(f"{self.FILENAME} is not valid UTF-8 encoded")
@@ -76,7 +76,7 @@ class TestMarkdownFileCreation(unittest.TestCase):
 
     def test_file_contains_level1_heading(self):
         """Test that file contains exactly one level-1 heading (#)."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
+        with open(self.file_path, encoding='utf-8') as f:
             content = f.read()
 
         # Count level-1 headings (lines starting with single #)
@@ -89,7 +89,7 @@ class TestMarkdownFileCreation(unittest.TestCase):
 
     def test_heading_is_first_line(self):
         """Test that level-1 heading is on the first line."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
+        with open(self.file_path, encoding='utf-8') as f:
             first_line = f.readline().strip()
 
         self.assertTrue(
@@ -99,7 +99,7 @@ class TestMarkdownFileCreation(unittest.TestCase):
 
     def test_blank_line_after_heading(self):
         """Test that there is exactly one blank line after the heading."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
+        with open(self.file_path, encoding='utf-8') as f:
             lines = f.readlines()
 
         self.assertGreaterEqual(
@@ -115,7 +115,7 @@ class TestMarkdownFileCreation(unittest.TestCase):
 
     def test_prose_content_exists(self):
         """Test that file contains prose content after the heading."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
+        with open(self.file_path, encoding='utf-8') as f:
             lines = f.readlines()
 
         prose_lines = [line for line in lines[2:] if line.strip()]
@@ -127,7 +127,7 @@ class TestMarkdownFileCreation(unittest.TestCase):
 
     def test_contains_2_or_3_sentences(self):
         """Test that prose contains 2-3 sentences."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
+        with open(self.file_path, encoding='utf-8') as f:
             lines = f.readlines()
 
         # Get prose content (everything after heading and blank line)
@@ -152,7 +152,7 @@ class TestMarkdownFileCreation(unittest.TestCase):
 
     def test_prose_is_grammatically_correct(self):
         """Test that prose starts with a capital letter and is well-formed."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
+        with open(self.file_path, encoding='utf-8') as f:
             lines = f.readlines()
 
         prose = ''.join(lines[2:]).strip()
@@ -169,7 +169,7 @@ class TestMarkdownFileCreation(unittest.TestCase):
 
     def test_prose_content_is_meaningful(self):
         """Test that prose content is not empty placeholder text."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
+        with open(self.file_path, encoding='utf-8') as f:
             lines = f.readlines()
 
         prose = ''.join(lines[2:]).strip()
@@ -204,7 +204,7 @@ class TestMarkdownFileCreation(unittest.TestCase):
 
     def test_markdown_syntax_is_valid(self):
         """Test that file contains valid markdown (no unmatched brackets/parens)."""
-        with open(self.file_path, 'r', encoding='utf-8') as f:
+        with open(self.file_path, encoding='utf-8') as f:
             content = f.read()
 
         # Check for unmatched brackets

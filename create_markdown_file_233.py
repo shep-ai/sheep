@@ -9,8 +9,8 @@ and features 061-232. It creates a markdown file with H1 heading, blank line,
 and 2-3 sentences of prose content. File is UTF-8 encoded with LF line endings.
 """
 
-import sys
 import subprocess
+import sys
 from pathlib import Path
 
 # Module-level constants
