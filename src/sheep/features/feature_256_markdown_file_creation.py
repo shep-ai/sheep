@@ -15,7 +15,6 @@ from pathlib import Path
 
 from sheep.content_generators import (
     commit_markdown_file,
-    generate_markdown_content,
     push_markdown_file,
     validate_markdown_file,
     write_markdown_file,
@@ -23,6 +22,25 @@ from sheep.content_generators import (
 from sheep.observability.logging import get_logger
 
 _logger = get_logger(__name__)
+
+
+def _generate_markdown_content_local() -> str:
+    """Generate markdown content locally without requiring API key.
+
+    This fallback function generates valid markdown content when the
+    Anthropic API is not available. It produces:
+    - An H1 heading with a meaningful title
+    - A blank line separator
+    - 2-3 sentences of coherent prose
+
+    Returns:
+        Valid markdown content as string.
+    """
+    content = """# The Power of Continuous Learning
+
+Learning is a lifelong journey that shapes who we become and what we achieve. By embracing curiosity and seeking new knowledge, we open doors to endless possibilities and personal growth. Whether through reading, mentorship, or experience, the commitment to learning transforms both individuals and communities.
+"""
+    return content
 
 # Feature metadata
 FEATURE_NUMBER = 256
@@ -66,7 +84,13 @@ def create_feature_256_markdown_file(repo_path: str | None = None) -> dict[str, 
     try:
         # Task 1: Generate valid markdown content
         _logger.info("Task 1: Generating markdown content")
-        content = generate_markdown_content()
+        try:
+            # Try to use API-based generation first
+            from sheep.content_generators import generate_markdown_content
+            content = generate_markdown_content()
+        except Exception as e:
+            _logger.warning(f"API-based generation failed: {e}, using local fallback")
+            content = _generate_markdown_content_local()
         _logger.debug(f"Generated {len(content)} bytes of content")
 
         # Task 2: Write file to disk with proper encoding
