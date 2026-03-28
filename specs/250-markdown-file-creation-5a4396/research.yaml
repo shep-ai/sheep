@@ -1,0 +1,291 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-5a4396"
+summary: >
+  Straightforward file creation and git integration using Python pathlib for I/O and subprocess for git commands.
+  No new dependencies required. Established pattern followed across 180+ existing test files with proven
+  implementation approach. Core decisions: use pathlib.Path.write_text() for file creation, subprocess
+  for git workflow, and post-creation validation for structure/encoding verification.
+
+# Relationships
+relatedFeatures:
+  - "feature-249: markdown-file-creation"
+  - "feature-248: markdown-file-creation"
+  - "feature-247: markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (runtime)"
+  - "pathlib (Python standard library)"
+  - "subprocess (Python standard library)"
+  - "Git (version control)"
+  - "Markdown (file format per CommonMark spec)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "CommonMark Markdown specification"
+    url: "https://spec.commonmark.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "File Writing Method"
+    chosen: "Use pathlib.Path.write_text() with explicit UTF-8 encoding"
+    rejected:
+      - "Built-in open() function — less elegant, requires explicit file handle management and encoding specification, while pathlib provides a simpler one-liner interface that's explicitly required by NFR-5"
+      - "os.path + file operations — verbose and outdated; pathlib is the modern Python standard for file I/O since Python 3.4, preferred across the codebase"
+      - "Third-party libraries (e.g., sh, fabric) — adds unnecessary dependencies; Python standard library provides sufficient functionality for this simple use case"
+    rationale: >
+      pathlib.Path.write_text() is explicitly required by NFR-5 and is the modern Python standard for file I/O operations.
+      It provides a clean one-liner interface that handles encoding automatically (UTF-8 by default in Python 3).
+      Usage: Path('test-b8svdl.md').write_text(content, encoding='utf-8').
+      This approach matches the established pattern across all 180+ existing test files in the repository.
+      No additional error handling needed for this simple file creation task.
+
+  - title: "Git Integration Method"
+    chosen: "Use subprocess.run() for git commands (git add, git commit, git push)"
+    rejected:
+      - "GitPython library (PyGit2) — adds external dependency not currently used in the project; subprocess is sufficient for straightforward git command execution"
+      - "Direct git command strings without subprocess — unsafe, vulnerable to shell injection and platform-specific path handling issues"
+      - "Programmatic git API (libgit2) — overkill for simple file staging and commit operations; introduces complexity and additional dependencies"
+    rationale: >
+      subprocess.run() is the standard Python approach for executing external commands safely.
+      It's already available in Python standard library (no new dependencies).
+      Usage: subprocess.run(['git', 'add', 'test-b8svdl.md']), subprocess.run(['git', 'commit', ...], check=True).
+      Using list-based command syntax (not shell=True) prevents command injection vulnerabilities.
+      This matches the established pattern used in similar automation across the codebase.
+      Error handling with check=True ensures failures are caught and reported clearly.
+
+  - title: "Content Generation Approach"
+    chosen: "Hardcoded prose content with meaningful, varied topic"
+    rejected:
+      - "Template-based system with variable substitution — adds complexity for a single-use file creation; hardcoded content is simpler and matches the established pattern of varied, unique content across 180+ test files"
+      - "Random/procedural content generation — unnecessary complexity; product decision #2 specifies free-form topic selection by implementer, implying manual content choice rather than automation"
+      - "Content template library or content service — over-engineered; introduces dependencies and complexity unnecessary for minimal test artifacts"
+    rationale: >
+      Hardcoded content provides clarity and predictability.
+      Each test file across the 180+ existing files contains unique, meaningful prose tailored to its topic.
+      Product decision #2 explicitly allows free-form topic selection, indicating implementer choice of topic.
+      No automation or templates are used in existing test files; all are manually crafted with appropriate topics.
+      This approach ensures the generated content is readable, grammatically correct (per FR-5), and meaningful.
+
+  - title: "File Validation Approach"
+    chosen: "Post-creation validation: check file existence, size, encoding, and markdown structure"
+    rejected:
+      - "Pre-creation validation — not applicable; validation must occur after file creation to verify the actual result"
+      - "No validation — insufficient; success criteria require measurable verification of file structure, encoding, and size"
+      - "External validation tools (linters, checkers) — unnecessary complexity; simple Python checks suffice for small test artifacts"
+    rationale: >
+      Post-creation validation confirms success of file creation and git operations.
+      Validation checks: file exists, size is in expected range (400-600 bytes), encoding is UTF-8 without BOM, markdown structure is valid (H1 heading present, followed by blank line and prose).
+      Implementation: simple Python checks using pathlib and string operations.
+      Validation provides confidence in meeting success criteria without requiring external tools or dependencies.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should implementation use check=True or check=False for subprocess.run() git commands?"
+    resolved: true
+    options:
+      - option: "Use check=True for all git commands"
+        description: "Raises CalledProcessError if git command fails, stopping execution immediately. Ensures failures are caught and reported clearly."
+        selected: true
+      - option: "Use check=False and inspect return codes manually"
+        description: "Allows execution to continue even if git fails, requires manual return code checking. More verbose, higher risk of undetected failures."
+        selected: false
+      - option: "Use try/except block around subprocess.run() calls"
+        description: "Allows custom error handling and recovery. More verbose than check=True, better for complex error scenarios."
+        selected: false
+    selectionRationale: >
+      check=True is the Pythonic approach for ensuring subprocess success.
+      For this straightforward use case (file creation, add, commit, push), check=True is sufficient and aligns with Python best practices.
+      If a git command fails (e.g., git add on a non-existent file, git push on a disconnected repo), immediate failure is appropriate.
+      Automatic exception raising is simpler and more reliable than manual return code inspection.
+
+  - question: "Should file size validation accept any size or enforce the 400-600 byte range?"
+    resolved: true
+    options:
+      - option: "Strictly enforce 400-600 byte range"
+        description: "Validate that resulting file is exactly within 400-600 bytes. Fails if content is too short or too long."
+        selected: false
+      - option: "Accept any size but log if outside range"
+        description: "Allows any size but reports if file is outside expected range. Provides visibility without blocking."
+        selected: false
+      - option: "Accept any size as natural outcome of content structure"
+        description: "No strict size validation; trust that proper structure (H1 + blank line + 2-3 sentences) naturally produces ~400-600 bytes. Per product decision #1."
+        selected: true
+    selectionRationale: >
+      Product decision #1 explicitly resolves this: file size is a natural outcome of content structure, not an independent constraint.
+      All 180+ existing test files follow this approach; size naturally falls within 400-600 bytes when content is properly structured.
+      Strict size enforcement is unnecessary complexity and contradicts the product decision.
+      Structure validation (H1 heading, blank line, 2-3 sentences) is sufficient; size validation would be artificial and overly rigid.
+
+  - question: "Should prose topic be selected procedurally or chosen by implementer?"
+    resolved: true
+    options:
+      - option: "Procedurally select topic from predefined domain list"
+        description: "Automatically choose topic from constrained list (e.g., technology, nature, science). Ensures consistency but limits variety."
+        selected: false
+      - option: "Randomly generate topic or content"
+        description: "Procedurally generate topic and content. Creates variety but may result in poor grammar or meaningless content."
+        selected: false
+      - option: "Implementer selects topic freely"
+        description: "Allow implementer to choose any topic freely. Aligns with product decision #2 (free-form topic) and user query (\"about anything\"). Matches pattern of 180+ existing files with varied, intentional topics."
+        selected: true
+    selectionRationale: >
+      Product decision #2 explicitly specifies free-form topic selection.
+      User query states \"create markdown file... with prose content about anything\".
+      All 180+ existing test files demonstrate diverse, intentionally-chosen topics (nature, technology, philosophy, etc.), not procedural selection.
+      Implementer manual selection ensures content quality, readability, and grammatical correctness (FR-5).
+      This approach aligns with the established pattern and provides meaningful test artifacts.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-28
+
+  ## Technology Decisions
+
+  ### 1. File Writing Method
+
+  **Chosen:** Use pathlib.Path.write_text() with explicit UTF-8 encoding
+
+  **Rejected:**
+  - Built-in open() function — less elegant, requires explicit file handle management
+  - os module approaches — outdated; pathlib is the modern standard since Python 3.4
+  - Third-party libraries — unnecessary; Python standard library is sufficient
+
+  **Rationale:** pathlib is explicitly required by NFR-5 and is the Python standard for file I/O. Provides clean interface: `Path('test-b8svdl.md').write_text(content, encoding='utf-8')`. Matches pattern across all 180+ existing test files.
+
+  ### 2. Git Integration Method
+
+  **Chosen:** Use subprocess.run() with list-based command syntax (safe, no shell injection)
+
+  **Rejected:**
+  - GitPython library — adds external dependency not needed for simple commands
+  - Shell command strings — vulnerable to injection; platform-specific path issues
+  - Programmatic git APIs — overkill; overly complex for straightforward operations
+
+  **Rationale:** subprocess.run() is Python standard library, supports safe list-based syntax, integrates well with error handling (check=True). Usage: `subprocess.run(['git', 'add', 'test-b8svdl.md'], check=True)`. No new dependencies introduced.
+
+  ### 3. Content Generation
+
+  **Chosen:** Hardcoded prose content with implementer-selected topic
+
+  **Rejected:**
+  - Template-based system — unnecessary complexity for single-file creation
+  - Random/procedural generation — adds complexity; contradicts product decision #2 (free-form topic)
+  - Content service/library — over-engineered for test artifacts
+
+  **Rationale:** Hardcoded content matches pattern of 180+ existing test files, each with unique, meaningful prose. Product decision #2 specifies free-form topic selection. Implementer manual selection ensures quality and readability (FR-5). No automation or templates used in existing files.
+
+  ### 4. File Validation
+
+  **Chosen:** Post-creation validation: check structure, encoding, and size
+
+  **Rejected:**
+  - Pre-creation validation — not applicable; must validate actual output
+  - No validation — insufficient; success criteria require measurable verification
+  - External tools — unnecessary; simple Python checks suffice
+
+  **Rationale:** Simple Python checks verify: file existence, markdown structure (H1 + blank line + prose), UTF-8 encoding, file size (~400-600 bytes natural outcome per product decision #1). No external tools or dependencies needed.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O operations | Use (required by NFR-5) | Standard library, modern Python standard since 3.4, explicitly required in spec |
+  | subprocess | Git command execution | Use (standard library) | Safe subprocess execution with list-based syntax, prevents shell injection, no external dependencies |
+  | GitPython | Git programmatic API | Reject | Adds external dependency; subprocess suffices for simple git add/commit/push operations |
+  | os module | File/path operations | Reject | pathlib is preferred modern standard; os module is legacy approach |
+  | No external dependencies | Content generation, validation | Use | Python standard library sufficient for file creation, validation, and git workflow |
+
+  ## Security Considerations
+
+  **File I/O Security:**
+  - Use pathlib.Path.write_text(encoding='utf-8') to ensure UTF-8 encoding without BOM
+  - File is created at repository root with no privilege escalation or permission issues
+  - File content is deterministic and controlled; no user input injection risk
+  - No sensitive data in file content; test artifact only
+
+  **Git Integration Security:**
+  - Use subprocess.run() with list-based command syntax (not shell=True) prevents shell injection
+  - Git commands are fixed strings, not derived from user input
+  - Commits use conventional message format; no variable interpolation
+  - Feature branch is pre-created; no branch manipulation attacks possible
+
+  **No Authentication/Authorization Issues:**
+  - Git operations use default local configuration (user.name, user.email)
+  - File creation has no access control implications
+  - No secrets or credentials in file or git operations
+
+  **Encoding Safety:**
+  - Explicit UTF-8 encoding specification prevents BOM or other encoding issues
+  - All 180+ existing test files use UTF-8 without BOM; approach is proven safe
+  - No multi-byte character handling risks; ASCII/UTF-8 is well-defined
+
+  ## Performance Implications
+
+  **Minimal Performance Impact:**
+  - Single file creation: negligible I/O overhead (~400-600 bytes)
+  - Subprocess calls are lightweight for simple git commands
+  - No loops, batch processing, or optimization needed
+  - Size estimate: 10-15 minutes (per spec) includes file creation, validation, and git workflow
+
+  **No Performance Optimizations Needed:**
+  - Single file creation is inherently fast
+  - Git operations are standard workflow, no optimization possible
+  - No caching, batching, or parallelization applicable
+  - File validation is post-hoc and lightweight (simple Python string checks)
+
+  **Scalability:**
+  - Approach scales across 180+ existing test files (proven pattern)
+  - No architectural limitations
+  - No performance degradation as repository grows
+
+  ## Architecture Notes
+
+  **Established Pattern (180+ Precedents):**
+  - Test markdown files at repository root are validation artifacts, not application code
+  - No dependencies on /src/sheep/ or application source code
+  - Isolated file creation with standard git workflow
+  - Each test file is independent; no cross-file interactions
+
+  **Integration Points:**
+  - Feature branch: pre-created as `feat/250-markdown-file-creation-5a4396`
+  - Repository root: location for test-b8svdl.md (per FR-2)
+  - Git workflow: standard add/commit/push (per FR-6 through FR-9)
+  - No application code modifications; no impact on /src/sheep/, /tests/, or configuration
+
+  **Codebase Patterns:**
+  - Python pathlib: standard in modern Python projects (3.4+)
+  - subprocess: standard for external command execution
+  - Git workflow: conventional commit messages (per existing pattern)
+  - No new conventions or patterns introduced
+
+  ## Implementation Summary
+
+  **Steps:**
+  1. Create markdown content: `# <Title>\n\n<2-3 sentences of prose>`
+  2. Write file using pathlib: `Path('test-b8svdl.md').write_text(content, encoding='utf-8')`
+  3. Validate: check file exists, size ~400-600 bytes, UTF-8 encoding, markdown structure
+  4. Stage file: `subprocess.run(['git', 'add', 'test-b8svdl.md'], check=True)`
+  5. Commit: `subprocess.run(['git', 'commit', '-m', 'feat(250): create markdown file test-b8svdl.md with prose content'], check=True)`
+  6. Push: `subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], check=True)`
+
+  **Resources Required:**
+  - Python 3.11+ (runtime)
+  - File system access (write to repository root)
+  - Git configuration (user.name, user.email for commits)
+  - Feature branch: `feat/250-markdown-file-creation-5a4396` (pre-created)
+
+  **Risks:**
+  - None identified. Well-established pattern across 180+ test files; proven approach.
+  - Minor: Git operations depend on repository connectivity; assumed to be available.
+
+  ---
+
+  _Research phase complete. All technical decisions documented with rationale. No new dependencies introduced. Implementation ready for next phase._
