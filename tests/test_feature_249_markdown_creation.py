@@ -135,7 +135,206 @@ def test_feature_249_commit_message_format():
                 result = create_feature_249_markdown_file(tmpdir)
 
                 # Verify conventional commit format
-                expected_message = f"feat({FEATURE_NUMBER}): Create markdown file {MARKDOWN_FILENAME} with prose content"
+                expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
                 assert result["commit_message"] == expected_message
+        finally:
+            os.chdir(original_cwd)
+
+
+# Phase 2: Content Generation & File I/O Tests
+
+
+def test_task_3_generate_markdown_content_called():
+    """Test that Task 3: generate_markdown_content is called during feature execution."""
+    import os
+    import tempfile
+    from unittest import mock
+
+    from sheep.features.feature_249_markdown_file_creation import (
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Test Title\n\nThis is the first sentence. This is the second sentence. This is the third sentence.\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            with mock.patch("sheep.features.feature_249_markdown_file_creation.generate_markdown_content") as mock_gen, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.write_markdown_file") as mock_write, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.validate_markdown_file") as mock_validate, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.commit_markdown_file") as mock_commit, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.push_markdown_file") as mock_push:
+
+                mock_gen.return_value = sample_markdown
+                mock_write.return_value = "test-ey0s31.md"
+                mock_validate.return_value = True
+                mock_commit.return_value = {"commit": "abc123"}
+                mock_push.return_value = {"pushed": True}
+
+                result = create_feature_249_markdown_file(tmpdir)
+
+                # Verify generate_markdown_content was called
+                mock_gen.assert_called_once()
+                assert result["content"] == sample_markdown
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_task_3_generated_content_has_h1_heading():
+    """Test that generated content starts with H1 heading."""
+    import os
+    import tempfile
+    from unittest import mock
+
+    from sheep.features.feature_249_markdown_file_creation import (
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Sample Topic\n\nFirst sentence here. Second sentence here. Third sentence here.\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            with mock.patch("sheep.features.feature_249_markdown_file_creation.generate_markdown_content") as mock_gen, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.write_markdown_file") as mock_write, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.validate_markdown_file") as mock_validate, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.commit_markdown_file") as mock_commit, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.push_markdown_file") as mock_push:
+
+                mock_gen.return_value = sample_markdown
+                mock_write.return_value = "test-ey0s31.md"
+                mock_validate.return_value = True
+                mock_commit.return_value = {"commit": "abc123"}
+                mock_push.return_value = {"pushed": True}
+
+                result = create_feature_249_markdown_file(tmpdir)
+
+                # Verify content has H1 heading on first line
+                assert result["content"].startswith("# ")
+                lines = result["content"].split("\n")
+                assert lines[0].startswith("# ")
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_task_4_write_markdown_file_to_disk():
+    """Test that Task 4: file is written to disk with proper function call."""
+    import os
+    import tempfile
+    from unittest import mock
+
+    from sheep.features.feature_249_markdown_file_creation import (
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Title\n\nSentence one. Sentence two. Sentence three.\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            with mock.patch("sheep.features.feature_249_markdown_file_creation.generate_markdown_content") as mock_gen, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.write_markdown_file") as mock_write, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.validate_markdown_file") as mock_validate, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.commit_markdown_file") as mock_commit, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.push_markdown_file") as mock_push:
+
+                mock_gen.return_value = sample_markdown
+                mock_write.return_value = "test-ey0s31.md"
+                mock_validate.return_value = True
+                mock_commit.return_value = {"commit": "abc123"}
+                mock_push.return_value = {"pushed": True}
+
+                result = create_feature_249_markdown_file(tmpdir)
+
+                # Verify write_markdown_file was called with correct arguments
+                mock_write.assert_called_once_with(sample_markdown, "test-ey0s31.md")
+                assert result["filepath"] == "test-ey0s31.md"
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_task_5_validate_markdown_file_called():
+    """Test that Task 5: validate_markdown_file is called during feature execution."""
+    import os
+    import tempfile
+    from unittest import mock
+
+    from sheep.features.feature_249_markdown_file_creation import (
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Test\n\nOne. Two. Three.\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            with mock.patch("sheep.features.feature_249_markdown_file_creation.generate_markdown_content") as mock_gen, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.write_markdown_file") as mock_write, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.validate_markdown_file") as mock_validate, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.commit_markdown_file") as mock_commit, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.push_markdown_file") as mock_push:
+
+                mock_gen.return_value = sample_markdown
+                mock_write.return_value = "test-ey0s31.md"
+                mock_validate.return_value = True
+                mock_commit.return_value = {"commit": "abc123"}
+                mock_push.return_value = {"pushed": True}
+
+                result = create_feature_249_markdown_file(tmpdir)
+
+                # Verify validate_markdown_file was called
+                mock_validate.assert_called_once_with("test-ey0s31.md")
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_task_5_validation_failure_prevents_commit():
+    """Test that if validation fails, git operations are not attempted."""
+    import os
+    import tempfile
+    from unittest import mock
+
+    from sheep.features.feature_249_markdown_file_creation import (
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Test\n\nOne. Two. Three.\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            with mock.patch("sheep.features.feature_249_markdown_file_creation.generate_markdown_content") as mock_gen, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.write_markdown_file") as mock_write, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.validate_markdown_file") as mock_validate, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.commit_markdown_file") as mock_commit, \
+                 mock.patch("sheep.features.feature_249_markdown_file_creation.push_markdown_file") as mock_push:
+
+                mock_gen.return_value = sample_markdown
+                mock_write.return_value = "test-ey0s31.md"
+                # Simulate validation failure
+                mock_validate.side_effect = ValueError("File has CRLF line endings")
+                mock_commit.return_value = {"commit": "abc123"}
+                mock_push.return_value = {"pushed": True}
+
+                # Expect exception when validation fails
+                try:
+                    result = create_feature_249_markdown_file(tmpdir)
+                    assert False, "Should have raised ValueError"
+                except ValueError as e:
+                    # Validation error should be propagated
+                    assert "CRLF line endings" in str(e)
+                    # commit and push should not be called
+                    mock_commit.assert_not_called()
+                    mock_push.assert_not_called()
         finally:
             os.chdir(original_cwd)
