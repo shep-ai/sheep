@@ -1,0 +1,485 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-10849a"
+summary: >
+  Feature 257 implements a standardized markdown file creation workflow using proven patterns from 256+ prior features.
+  Decision: reuse high-level wrapper functions from content_generators.py, follow established feature module structure,
+  and implement fail-fast error handling with structlog. All technical decisions are validated by successful precedent
+  and require zero new dependencies.
+
+relatedFeatures:
+  - number: 256
+    name: "markdown-file-creation-5a0573"
+    relationship: "Identical implementation pattern — feature module structure, wrapper function sequence, and git workflow are proven and directly reusable"
+  - number: 255
+    name: "markdown-file-creation-acee8f"
+    relationship: "Identical implementation pattern — provides code template for feature 257 feature module"
+
+technologies:
+  - "Python 3.11+ (pathlib, logging stdlib)"
+  - "pathlib.Path (file I/O with UTF-8 encoding)"
+  - "structlog (structured logging)"
+  - "CrewAI (LLM framework integration)"
+  - "Anthropic Claude API (content generation via get_reasoning_llm)"
+  - "Git (version control via subprocess via wrapper functions)"
+  - "GitPython (git abstraction layer)"
+
+relatedLinks:
+  - title: "Feature 256 markdown file creation (identical pattern)"
+    url: "file:///src/sheep/features/feature_256_markdown_file_creation.py"
+  - title: "Feature 255 markdown file creation (identical pattern)"
+    url: "file:///src/sheep/features/feature_255_markdown_file_creation.py"
+  - title: "High-level content generation wrappers"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "Low-level markdown utilities"
+    url: "file:///src/create_markdown.py"
+
+decisions:
+  - title: "Content Generation Approach"
+    chosen: "Use high-level wrapper generate_markdown_content() from content_generators.py"
+    rejected:
+      - "Call low-level utilities from create_markdown.py directly — violates FR-12; adds complexity; wrapper provides validation"
+      - "Implement custom Claude API integration — CrewAI already provides proven integration; duplicates code"
+    rationale: >
+      content_generators.generate_markdown_content() provides a clean abstraction that:
+      (1) Calls Claude API via CrewAI's get_reasoning_llm() with proven prompt
+      (2) Validates generated content (H1 structure, sentence count, length bounds)
+      (3) Includes error handling and logging
+      (4) Matches proven pattern from 256+ prior features
+      This satisfies FR-3 (Claude 3.5 Sonnet), FR-6 (content validation), NFR-3 (structlog).
+
+  - title: "File Writing Implementation"
+    chosen: "Use pathlib.Path.write_text(content, encoding='utf-8')"
+    rejected:
+      - "Manual binary write with explicit LF handling — adds complexity; pathlib handles platform-specific line endings correctly"
+      - "Use create_markdown_file() from create_markdown.py — violates FR-12; write_markdown_file() is the correct wrapper"
+    rationale: >
+      pathlib.Path.write_text(encoding='utf-8') is the standard approach that:
+      (1) Handles UTF-8 encoding without BOM by default (no explicit handling needed)
+      (2) Uses platform-native line endings correctly
+      (3) Is simpler and more maintainable than manual file handling
+      (4) Is wrapped by content_generators.write_markdown_file() which adds validation
+      This satisfies FR-4 (UTF-8 no BOM), FR-5 (Unix LF line endings).
+
+  - title: "Validation Strategy"
+    chosen: "Two-phase validation: content during generation, file after writing"
+    rejected:
+      - "Single validation step after write — cannot detect generation failures before persistence"
+      - "Skip validation entirely — violates FR-6, FR-7, NFR-7; validation functions already exist"
+    rationale: >
+      Two-phase approach separates concerns and catches failures early:
+      (1) Content validation in generate_markdown_content() verifies H1, sentence count (2-3), length bounds BEFORE persistence
+      (2) File validation in validate_markdown_file() verifies encoding, line endings, size (250-600 bytes), trailing newline AFTER persistence
+      (3) Both functions exist in content_generators.py and are proven across 256+ features
+      (4) Fail-fast approach: if generation fails, retry logic engages; if validation fails, error propagates immediately
+      This satisfies FR-6 (content structure), FR-7 (file properties), NFR-5 (fail-fast).
+
+  - title: "Git Workflow Implementation"
+    chosen: "Use high-level wrappers: commit_markdown_file() and push_markdown_file()"
+    rejected:
+      - "Implement custom subprocess.run() calls — adds complexity; error handling scattered; wrappers already provide standardized approach"
+      - "Use GitPython library directly — overkill for simple add/commit/push; wrappers already handle this"
+    rationale: >
+      content_generators.py provides proven wrapper functions:
+      (1) commit_markdown_file() uses GitCommitTool to stage and commit with conventional message
+      (2) push_markdown_file() uses GitPushTool with upstream tracking
+      (3) Both include error handling, logging, and result propagation
+      (4) Matches pattern from features 255-256 exactly
+      (5) Custom message parameter allows exact control over commit message (FR-9 requirement)
+      This satisfies FR-8 (git add), FR-9 (conventional commit), FR-10 (push to feature branch), NFR-5 (fail-fast).
+
+  - title: "Feature Module Structure and Naming"
+    chosen: "Create feature_257_markdown_file_creation.py in src/sheep/features/"
+    rejected:
+      - "Use object-oriented design — adds unnecessary complexity; procedural functions match 256+ precedents"
+      - "Use different naming convention — breaks consistency with established pattern"
+    rationale: >
+      Established pattern from features 255-256 uses:
+      (1) File location: src/sheep/features/feature_257_markdown_file_creation.py
+      (2) Main function: create_feature_257_markdown_file(repo_path=None)
+      (3) Feature metadata constants: FEATURE_NUMBER=257, FEATURE_NAME, MARKDOWN_FILENAME
+      (4) Sequential workflow: generate → write → validate → commit → push
+      (5) Include if __name__ == "__main__" block for direct execution
+      (6) ~35-40 lines of code when using high-level wrappers
+      This satisfies NFR-1 (established patterns), NFR-2 (code size 30-50 lines), FR-11.
+
+  - title: "Return Value Structure"
+    chosen: "Dictionary with keys: filepath, content, commit_message, push_result"
+    rejected:
+      - "Create custom Result dataclass — adds file dependencies; dict is simpler and matches precedent"
+      - "Return commit hash directly — wrapper functions return full messages; commit_message is sufficient"
+    rationale: >
+      Dictionary return value (as used in features 255-256):
+      (1) filepath: Full path to created file (str)
+      (2) content: Generated markdown content (str)
+      (3) commit_message: Exact git commit message used (str)
+      (4) push_result: Result message from GitPushTool (str)
+      This matches feature 255-256 exactly and satisfies FR-14 (structured result).
+
+  - title: "Logging Framework and Detail Level"
+    chosen: "Use structlog.get_logger(__name__) with INFO and DEBUG levels"
+    rejected:
+      - "Use Python stdlib logging directly — structlog already dependency; provides JSON-compatible output"
+      - "Use print() statements — violates observability requirements (NFR-3); not structured"
+    rationale: >
+      structlog integration (as required by NFR-3):
+      (1) Get logger: _logger = structlog.get_logger(__name__)
+      (2) Log milestones at INFO level: generate, write, validate, commit, push
+      (3) Log details at DEBUG level: intermediate results, content size, file paths
+      (4) Already integrated across sheep platform; matches features 255-256 exactly
+      (5) Provides structured context for debugging and monitoring
+      This satisfies NFR-3 (structured logging), NFR-6 (error messages).
+
+  - title: "Error Handling Strategy"
+    chosen: "Fail-fast with try-except at top level; allow exceptions to propagate with context"
+    rejected:
+      - "Implement custom exception hierarchy — standard exceptions sufficient; wrappers provide error messages"
+      - "Add graceful degradation with fallbacks — violates NFR-5 fail-fast requirement"
+    rationale: >
+      Fail-fast strategy (as required by NFR-5):
+      (1) Wrap entire workflow in try-except at feature function level
+      (2) Allow wrapper exceptions to propagate (ValueError from validation, IOError from file I/O, Exception from git)
+      (3) Log error with ERROR level and full context before re-raising
+      (4) Error messages from wrappers clearly identify failure point
+      (5) Matches pattern from features 255-256 exactly
+      This satisfies NFR-5 (fail-fast), NFR-6 (clear error messages).
+
+openQuestions:
+  - question: "Should feature module include additional retry logic beyond generate_markdown_content()?"
+    resolved: true
+    options:
+      - option: "No retry logic in feature module; rely on generate_markdown_content() retry"
+        description: "generate_markdown_content() already includes exponential backoff (3 retries, 1s delay). Feature module just calls wrapper. Simpler, matches precedent."
+        selected: true
+      - option: "Add feature-level retry for entire workflow"
+        description: "Would handle transient network issues during push. More complex; unclear how to handle partial failures."
+        selected: false
+      - option: "Add retry only for git operations"
+        description: "Would handle git connectivity issues. More complex; git operations already wrapped with error handling."
+        selected: false
+    selectionRationale: >
+      Selected option 1 (no additional retry logic) because:
+      (1) generate_markdown_content() implements exponential backoff for API failures (NFR-4)
+      (2) File I/O failures are not transient and should fail-fast
+      (3) Git operations are local or near-local; unlikely to be transient
+      (4) Additional retry complexity would violate NFR-6 and KISS principle
+      (5) Matches features 255-256 exactly
+      (6) If retry needed, handle at orchestration layer (CrewAI task retry)
+
+  - question: "What commit message format should be used for feature 257?"
+    resolved: true
+    options:
+      - option: "Exact format: feat(257): create markdown file test-nm5lr3.md with prose content"
+        description: "Matches FR-9 exactly and precedent from features 255-256. Simple, conventional format."
+        selected: true
+      - option: "Include topic from content: feat(257): create markdown file test-nm5lr3.md: [topic]"
+        description: "Would require parsing H1 title. Adds complexity; FR-9 specifies exact format."
+        selected: false
+      - option: "Simplified format: feat: create test-nm5lr3.md"
+        description: "Loses feature number context. Violates FR-9 exact format requirement."
+        selected: false
+    selectionRationale: >
+      Selected option 1 (exact format) because:
+      (1) Matches FR-9 requirement exactly
+      (2) Matches precedent from features 255-256 exactly
+      (3) Simple, deterministic — no parsing required
+      (4) Conventional Commits format with feature number provides traceability
+      (5) Used via custom_message parameter in commit_markdown_file()
+
+  - question: "Should generated content be written to temp file first or directly?"
+    resolved: true
+    options:
+      - option: "Write directly to target file (current approach)"
+        description: "Simple, atomic write. Matches content_generators.write_markdown_file(). Validation happens after."
+        selected: true
+      - option: "Write to temp file, validate, then rename"
+        description: "Safer if validation is expensive. Adds code complexity. Validation is O(n) for file size; negligible."
+        selected: false
+      - option: "Validate content before writing, skip file validation"
+        description: "Assumes pathlib cannot fail. Wrong assumption; disk full, permission denied can occur."
+        selected: false
+    selectionRationale: >
+      Selected option 1 (direct write, then validate) because:
+      (1) Matches content_generators.write_markdown_file() exactly
+      (2) Simplest approach; pathlib handles encoding correctly
+      (3) Validation catches both generation issues AND file system issues
+      (4) File already exists, write overwrites (idempotent)
+      (5) For small files (250-600 bytes), atomic write not a concern
+      (6) Matches features 255-256 exactly
+      (7) If temp file pattern needed, would be in wrapper, not feature module
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Content Generation Approach
+  **Chosen:** Use high-level wrapper function `generate_markdown_content()` from content_generators.py
+
+  **Rejected:**
+  - **Call low-level utilities from create_markdown.py directly** — Violates FR-12 requirement to use high-level wrappers; adds unnecessary complexity; wrapper provides validation and error handling that low-level utilities lack
+  - **Implement custom Claude API integration** — CrewAI framework already provides proven LLM integration via get_reasoning_llm(); duplicating code creates maintenance burden
+
+  **Rationale:** The wrapper function provides a clean, tested abstraction that:
+  - Calls Anthropic Claude API via CrewAI's get_reasoning_llm() with a proven MARKDOWN_GENERATION_PROMPT template
+  - Includes built-in content validation (H1 structure, sentence count 2-3, character bounds)
+  - Implements proper error handling and structlog integration
+  - Validated across 256+ prior markdown file creation features
+  - Requires zero new dependencies (uses existing CrewAI integration)
+  This approach satisfies FR-3, FR-6, and NFR-3.
+
+  ### 2. File Writing Implementation
+  **Chosen:** Use `pathlib.Path.write_text(content, encoding='utf-8')`
+
+  **Rejected:**
+  - **Manual binary file write with explicit LF control** — Adds unnecessary code complexity; pathlib handles platform-specific line endings correctly; UTF-8 without BOM is default
+  - **Use create_markdown_file() orchestrator** — Violates FR-12 requirement; content_generators.write_markdown_file() is the correct wrapper
+
+  **Rationale:** pathlib.Path.write_text(encoding='utf-8') is the correct Python approach because:
+  - UTF-8 encoding without BOM is the default in text mode
+  - Line endings handled automatically by Python's text mode
+  - Simpler, more maintainable than manual file operations
+  - Wrapped by content_generators.write_markdown_file() which adds validation
+  - Proven pattern from 256+ prior features
+  This satisfies FR-4 and FR-5.
+
+  ### 3. Validation Strategy
+  **Chosen:** Two-phase validation: content during generation, file after writing
+
+  **Rejected:**
+  - **Single validation step after file write** — Cannot detect generation failures before persistence
+  - **Skip validation entirely** — Violates FR-6, FR-7, NFR-7; validation functions exist and are mature
+
+  **Rationale:** Two-phase validation separates concerns and catches failures early:
+  - Content validation in generate_markdown_content() verifies H1 structure, sentence count (2-3), length bounds BEFORE persistence
+  - File validation in validate_markdown_file() verifies encoding, line endings, file size (250-600 bytes), trailing newline AFTER persistence
+  - Both functions exist in content_generators.py and are proven
+  - Fail-fast approach: generation failures trigger retry; file validation failures propagate immediately
+  This satisfies FR-6, FR-7, and NFR-5.
+
+  ### 4. Git Workflow Implementation
+  **Chosen:** Use high-level wrapper functions from content_generators.py
+
+  **Rejected:**
+  - **Implement custom subprocess.run() calls** — Adds code complexity; error handling scattered; wrappers provide standardized approach
+  - **Use GitPython library directly** — Unnecessary abstraction for simple workflow; wrappers already handle this
+
+  **Rationale:** content_generators.py provides proven wrapper functions:
+  - commit_markdown_file() uses GitCommitTool to stage and commit with conventional message
+  - push_markdown_file() uses GitPushTool with upstream tracking
+  - Both include error handling, logging, and result propagation
+  - Matches features 255-256 exactly
+  - Custom message parameter enables exact commit message format (FR-9)
+  This satisfies FR-8, FR-9, FR-10, and NFR-5.
+
+  ### 5. Feature Module Structure and Naming
+  **Chosen:** Create feature_257_markdown_file_creation.py in src/sheep/features/
+
+  **Rejected:**
+  - **Object-oriented design with classes** — Adds unnecessary complexity; procedural functions match 256+ precedents
+  - **Different naming convention** — Breaks consistency with established pattern; violates NFR-1
+
+  **Rationale:** Established pattern from features 255-256:
+  - File location: src/sheep/features/feature_257_markdown_file_creation.py
+  - Main function: create_feature_257_markdown_file(repo_path=None)
+  - Feature metadata constants: FEATURE_NUMBER, FEATURE_NAME, MARKDOWN_FILENAME
+  - Sequential workflow: generate → write → validate → commit → push
+  - if __name__ == "__main__" block for direct execution
+  - ~35-40 lines of code when using high-level wrappers
+  This satisfies NFR-1, NFR-2, and FR-11.
+
+  ### 6. Return Value Structure
+  **Chosen:** Dictionary with keys: filepath, content, commit_message, push_result
+
+  **Rejected:**
+  - **Create custom Result dataclass** — Adds unnecessary file dependencies; dict is simpler and matches precedent
+  - **Return commit hash directly** — Wrapper functions return full messages; commit_message is sufficient
+
+  **Rationale:** Dictionary return value (as in features 255-256):
+  - filepath: Full path to created file
+  - content: Generated markdown content (available for inspection)
+  - commit_message: Exact git commit message used (enables verification)
+  - push_result: Result message from GitPushTool (documents status)
+  This matches precedent exactly and satisfies FR-14.
+
+  ### 7. Logging Framework and Detail Level
+  **Chosen:** Use structlog.get_logger(__name__) with INFO and DEBUG levels
+
+  **Rejected:**
+  - **Use Python stdlib logging directly** — structlog already dependency; provides JSON-compatible output; better for CrewAI context
+  - **Use print() statements** — Violates observability requirements (NFR-3); not structured
+
+  **Rationale:** structlog integration (required by NFR-3):
+  - Get logger: _logger = structlog.get_logger(__name__)
+  - Log milestones at INFO level: generate, write, validate, commit, push
+  - Log details at DEBUG level: intermediate results, content size, file paths
+  - Already integrated across sheep platform; matches features 255-256 exactly
+  - Provides structured context for debugging and monitoring
+  This satisfies NFR-3 and NFR-6.
+
+  ### 8. Error Handling Strategy
+  **Chosen:** Fail-fast with try-except at top level; allow exceptions to propagate with context
+
+  **Rejected:**
+  - **Implement custom exception hierarchy** — Standard exceptions sufficient; wrappers provide error messages
+  - **Add graceful degradation with fallbacks** — Violates NFR-5 fail-fast requirement
+
+  **Rationale:** Fail-fast strategy (required by NFR-5):
+  - Wrap entire workflow in try-except at feature function level
+  - Allow wrapper exceptions to propagate (ValueError from validation, IOError from I/O, Exception from git)
+  - Log error with ERROR level and full context before re-raising
+  - Error messages from wrappers clearly identify failure point
+  - Matches features 255-256 exactly
+  This satisfies NFR-5 and NFR-6.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O and path manipulation | Use ✓ | Stdlib, cross-platform, handles UTF-8 correctly, wrapped by content_generators |
+  | structlog | Structured logging | Use ✓ | Already project dependency, JSON-compatible output, integrated across platform, required by NFR-3 |
+  | CrewAI | LLM framework and task orchestration | Use ✓ | Already integrated (≥0.86.0), provides get_reasoning_llm(), handles model management |
+  | Anthropic SDK | Claude API client | Use ✓ | Integrated via CrewAI reasoning LLM, ANTHROPIC_API_KEY environment variable provides auth |
+  | subprocess | System command execution | Use ✓ | Stdlib, used by GitCommitTool and GitPushTool wrappers, not called directly |
+  | GitPython | Git operations abstraction | Use ✓ | Project dependency (≥3.1.0), used internally by wrapper functions, not called directly |
+
+  **New dependencies required:** None. Feature 257 uses only existing dependencies already integrated.
+
+  ## Security Considerations
+
+  1. **File Path Traversal Prevention**
+     - Risk: Malicious filename could escape repository root
+     - Mitigation: write_markdown_file() validates filename, rejects "/" and "\\" characters
+     - Implementation: Wrapper function handles validation
+
+  2. **API Authentication**
+     - Risk: Anthropic API key exposure
+     - Mitigation: Uses ANTHROPIC_API_KEY environment variable; CrewAI manages securely
+     - Implementation: No changes to authentication mechanism
+
+  3. **Content Injection Prevention**
+     - Risk: Generated content could contain malicious markup
+     - Mitigation: Content validation checks markdown structure only; doesn't execute or interpret
+     - Implementation: Validation in generate_markdown_content() is sufficient
+
+  4. **Git Credential Handling**
+     - Risk: Git credentials exposed during push
+     - Mitigation: Uses system git configuration; credentials not passed via arguments
+     - Implementation: GitPushTool handles credential management via system config
+
+  5. **UTF-8 Encoding Validation**
+     - Risk: Invalid UTF-8 sequences could cause issues
+     - Mitigation: validate_markdown_file() explicitly decodes as UTF-8, raises on decode failure
+     - Implementation: Already in content_generators.py
+
+  6. **Line Ending Validation**
+     - Risk: CRLF line endings could be interpreted as special sequences
+     - Mitigation: validate_markdown_file() explicitly checks for CRLF, rejects it
+     - Implementation: Already in content_generators.py
+
+  7. **BOM Prevention**
+     - Risk: UTF-8 BOM could cause parsing issues
+     - Mitigation: pathlib.Path.write_text() doesn't add BOM; validate_markdown_file() checks for and rejects BOM
+     - Implementation: Already in content_generators.py
+
+  **Summary:** Feature 257 inherits security properties from content_generators.py wrappers (proven across 256+ features). No additional measures needed.
+
+  ## Performance Implications
+
+  1. **Content Generation Latency**
+     - API call to Claude: 1-10 seconds (depends on model load)
+     - Retry logic: Exponential backoff (max 3 retries, max ~7 seconds delay)
+     - Timeout: CrewAI 30-second default (satisfies NFR-4)
+     - Optimization: None needed; API-bound
+
+  2. **File I/O Performance**
+     - Write operation: ~1ms for 250-600 bytes
+     - Validation: O(n) where n is file size; ~0.1ms for 600 bytes
+     - Optimization: None needed
+
+  3. **Git Operations Performance**
+     - git add: ~10-50ms
+     - git commit: ~10-50ms
+     - git push: 1-30 seconds (network bound)
+     - Optimization: None needed
+
+  4. **Memory Usage**
+     - Content string: ~400 bytes
+     - Validation operations: O(1) space
+     - Optimization: None needed
+
+  5. **Overall Workflow Latency**
+     - Total: ~2-40 seconds (API and network bound, not compute-bound)
+     - Acceptable for feature creation use case
+
+  **Summary:** Performance is acceptable. Workflow is I/O-bound (API and git network), not compute-bound.
+
+  ## Architecture Notes
+
+  Feature 257 fits cleanly into existing Sheep architecture:
+
+  1. **Feature Module Pattern**
+     - Follows 256+ precedents for markdown file creation
+     - Imports only from sheep.content_generators (high-level wrappers)
+     - Avoids direct imports from sheep.tools
+     - Single responsibility: orchestrate wrapper functions
+
+  2. **Content Generation Integration**
+     - Uses get_reasoning_llm() via wrapper (not directly)
+     - Respects CrewAI framework's model selection
+     - Enables future model upgrades without feature code changes
+
+  3. **Logging Integration**
+     - Uses get_logger(__name__) via wrapper
+     - Structured logging provides observability
+     - Compatible with existing sheep monitoring
+
+  4. **Git Workflow**
+     - Uses GitCommitTool and GitPushTool via wrappers
+     - Assumes git is configured (user.name, user.email)
+     - Assumes feature branch pre-exists
+     - Compatible with existing CI/CD
+
+  5. **No Configuration Changes Required**
+     - Feature operates within existing CrewAI setup
+     - No new environment variables beyond ANTHROPIC_API_KEY
+     - No new dependencies; all existing integration
+
+  6. **Testing Strategy**
+     - Feature tested by running create_feature_257_markdown_file()
+     - Validation functions serve as automatic checks
+     - Integration test: verify file exists, structure correct, committed
+     - No test framework changes needed
+
+  ## Implementation Summary
+
+  **Feature Module:**
+  - Location: src/sheep/features/feature_257_markdown_file_creation.py
+  - Size: ~35-40 lines (within NFR-2 requirement)
+  - Dependencies: Only from content_generators
+  - Main function: create_feature_257_markdown_file(repo_path=None)
+  - Return value: Dictionary with filepath, content, commit_message, push_result
+  - Logging: structlog via get_logger(__name__)
+
+  **Workflow (call sequence):**
+  1. Generate markdown content
+  2. Write file to disk
+  3. Validate file
+  4. Stage and commit
+  5. Push to remote
+  6. Return result dictionary
+
+  **Error Handling:**
+  - Fail-fast: exceptions propagate immediately
+  - Top-level try-except catches and logs before re-raising
+  - Error messages clearly identify failure point
+
+  **No Code Changes Outside Feature Module:**
+  - content_generators.py: All needed functions exist
+  - create_markdown.py: Low-level utilities available if needed
+  - No configuration changes
+  - No test changes
+  - No dependency upgrades
+
+  ## Conclusion
+
+  Feature 257 is straightforward implementation following proven patterns from 256+ prior features. All technical decisions validated by precedent; zero new dependencies required. Feature module will be ~35-40 lines using high-level wrappers. Implementation risk is minimal; execution is mechanical (copy features 255-256 structure, update feature number and filename).
