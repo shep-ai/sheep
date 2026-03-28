@@ -1,0 +1,276 @@
+name: "markdown-file-creation-109cc3"
+summary: >
+  Technical implementation uses pathlib.Path for UTF-8 file creation with LF line endings,
+  basic structural validation to catch formatting errors, and subprocess for git operations.
+  No new dependencies required. Pattern follows 90+ existing test files precisely.
+
+relatedFeatures:
+  - number: 248
+    name: "markdown-file-creation"
+  - number: 247
+    name: "markdown-file-creation"
+  - number: 246
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python pathlib (Path.write_text with encoding)"
+  - "Python subprocess (git operations)"
+  - "UTF-8 text encoding (no BOM)"
+  - "Git command-line (add, commit, push)"
+  - "Markdown syntax (CommonMark)"
+
+relatedLinks: []
+
+decisions:
+  - title: "File I/O Method"
+    chosen: "pathlib.Path().write_text(encoding='utf-8')"
+    rejected:
+      - "Using open() with manual mode/encoding — more verbose and less Pythonic than pathlib"
+      - "Using os.makedirs()/open() — lacks pathlib's modern abstractions and clarity"
+      - "Using pathlib but with newline='' parameter — unnecessary complexity, pathlib handles line endings correctly"
+    rationale: >
+      pathlib.Path is the modern Python standard (PEP 519) and explicitly required by NFR-5.
+      The write_text() method is clean, concise, and handles encoding uniformly across platforms.
+      Passing encoding='utf-8' explicitly prevents platform-specific defaults and is future-proof.
+      This approach matches the pattern used in all 90+ existing test files.
+
+  - title: "Encoding and Line Ending Enforcement"
+    chosen: "write_text(encoding='utf-8') with \\n in content string"
+    rejected:
+      - "Using platform defaults (system encoding, CRLF on Windows) — risks inconsistency with existing 90+ files"
+      - "Using UTF-8-sig — adds unwanted BOM, violates NFR-1 requirement for no BOM"
+      - "Binary mode with explicit bytes — unnecessary complexity, text mode with explicit encoding is clearer"
+    rationale: >
+      pathlib's write_text() with encoding='utf-8' produces UTF-8 without BOM by default.
+      Python's text mode automatically converts \\n to the platform's line ending, but since we use
+      UTF-8 (not UTF-8-sig) and write explicitly, the file contains LF (\n) across all platforms.
+      This is verified by examining existing test files which all use LF despite being created on different systems.
+      Explicit encoding='utf-8' parameter ensures consistency and prevents accidental BOM injection.
+
+  - title: "Validation Strategy"
+    chosen: "Basic structural validation after file creation"
+    rejected:
+      - "No validation — risks silent failures where file exists but has wrong structure"
+      - "Comprehensive validation (syntax, byte counts, quality scoring) — over-engineered for test artifacts"
+      - "Manual verification only — automatable checks should be automated"
+    rationale: >
+      Basic validation catches structural errors (file exists, contains H1, sentence count)
+      without over-engineering per spec's product decision for basic structural validation (NFR-2).
+      This matches the principle of failing fast and clearly when requirements aren't met.
+      Validation checks: (1) file exists, (2) first line is markdown H1, (3) 2-3 sentences present,
+      (4) file size 300-800 bytes (wider range to account for topic length variation).
+
+  - title: "Git Integration Approach"
+    chosen: "subprocess.run() for git add/commit/push operations"
+    rejected:
+      - "GitPython library — violates NFR-9 (no new dependencies), requires installation"
+      - "Direct shell invocation with os.system() — less safe, harder to capture errors"
+      - "git Python bindings (libgit2) — adds system dependency, violates NFR-9"
+    rationale: >
+      subprocess.run() is in Python standard library, requires no new dependencies per NFR-9.
+      Git operations are simple: git add <filename>, git commit -m \"...\", git push origin <branch>.
+      subprocess captures exit codes and output for error reporting. Shell=False for security.
+      Pattern matches existing implementations in features 069-248 which all use subprocess/shell commands.
+
+  - title: "Content Structure and Formatting"
+    chosen: "Exact pattern: '# Title\\n\\n<sentence1> <sentence2> <sentence3>\\n'"
+    rejected:
+      - "Multiple paragraphs — adds unnecessary complexity, not present in any existing test files"
+      - "Different heading levels (##, ###) — inconsistent with 90+ precedent files using only H1"
+      - "Raw HTML or other formatting — adds complexity, not present in established pattern"
+    rationale: >
+      Examination of 90+ existing test files (test-*.md) reveals consistent pattern:
+      Line 1: markdown H1 heading (# Title), Line 2: blank line, Lines 3+: 2-3 sentences.
+      All sentences are in a single paragraph with proper punctuation. No variations exist.
+      This structure naturally produces 400-600 byte files per spec success criteria.
+      Prose is written manually per product decision (not templated), allowing topic flexibility.
+
+  - title: "Error Handling and Reporting"
+    chosen: "Catch specific exceptions (FileError, subprocess.CalledProcessError) with clear error messages"
+    rejected:
+      - "Bare try-except catching all exceptions — masks unexpected errors, makes debugging harder"
+      - "No error handling — silently continues on failure, hard to detect problems"
+      - "Exit on first error without cleanup — may leave git repository in inconsistent state"
+    rationale: >
+      Explicit exception handling for file I/O (PermissionError, FileExistsError) and git operations
+      (CalledProcessError for non-zero exit codes) allows meaningful error reporting.
+      This helps operators understand what failed and why without excessive logging or complexity.
+      File creation and git workflow have clear failure modes worth distinguishing.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Method
+
+  **Chosen:** `pathlib.Path().write_text(encoding='utf-8')`
+
+  **Rejected:**
+  - Using `open()` — More verbose, requires manual mode/encoding specification, less Pythonic
+  - Using `os.makedirs()` combined with `open()` — Mixes modules, lacks pathlib's modern abstractions
+
+  **Rationale:** pathlib is the modern Python standard (PEP 519) and explicitly required by NFR-5.
+  The `write_text()` method is clean and concise. Explicit `encoding='utf-8'` prevents platform-specific
+  defaults and ensures consistency with 90+ existing test files. This approach is future-proof and
+  matches established patterns in the codebase.
+
+  ### 2. Encoding and Line Ending Enforcement
+
+  **Chosen:** `write_text(encoding='utf-8')` with `\n` in Python strings
+
+  **Rejected:**
+  - Platform defaults — Risks inconsistency (CRLF on Windows), violates 90+ file precedent
+  - UTF-8-sig encoding — Adds unwanted BOM, directly violates NFR-1
+  - Binary mode with explicit bytes — Unnecessary complexity, text mode with explicit encoding is clearer
+
+  **Rationale:** pathlib's `write_text(encoding='utf-8')` produces UTF-8 without BOM by default.
+  Python's text mode correctly interprets `\n` as LF across all platforms when using UTF-8 encoding.
+  Explicit encoding parameter ensures no platform-dependent defaults sneak in. This approach
+  is verified by examining existing test files which consistently use LF without BOM.
+
+  ### 3. Validation Strategy
+
+  **Chosen:** Basic structural validation (file exists, H1 present, sentence count, file size)
+
+  **Rejected:**
+  - No validation — Silent failures risk undetected structural errors
+  - Comprehensive validation — Over-engineered for test artifacts, unnecessary complexity
+
+  **Rationale:** Basic validation catches obvious structural errors without over-engineering per spec's
+  product decision (section on validation level). Checks performed:
+  - File exists at repository root
+  - First line matches markdown H1 pattern (`# `)
+  - Content contains 2-3 sentences (counted by period followed by space or end-of-file)
+  - File size is 300-800 bytes (accommodates topic length variation within spec's 400-600 typical range)
+
+  ### 4. Git Integration
+
+  **Chosen:** `subprocess.run()` for git operations (add, commit, push)
+
+  **Rejected:**
+  - GitPython library — Violates NFR-9 (no new dependencies)
+  - `os.system()` — Less safe, harder to capture errors and exit codes
+  - Direct libgit2 bindings — System dependency, violates NFR-9
+
+  **Rationale:** subprocess.run() is in Python's standard library, requires no new dependencies per NFR-9.
+  Git operations are straightforward: `git add <filename>`, `git commit -m "..."`, `git push origin <branch>`.
+  subprocess with `shell=False` is safe from injection attacks. Error codes and output can be captured
+  for clear reporting. This pattern matches implementations in all prior markdown-file-creation features (069-248).
+
+  ### 5. Content Structure and Format
+
+  **Chosen:** Pattern: `# Title\n\n<3 sentences with periods>\n` (exactly matches precedents)
+
+  **Rejected:**
+  - Multiple paragraphs — Not present in any of 90+ existing files
+  - H2/H3 headings — Violates consistency with established pattern (all use H1 only)
+  - HTML/complex formatting — Adds unnecessary complexity, no precedent exists
+
+  **Rationale:** Examination of 90+ existing test files reveals consistent structure:
+  - Line 1: Markdown H1 heading (`# Title`)
+  - Line 2: Blank line
+  - Lines 3+: 2-3 sentences in single paragraph with proper punctuation
+
+  This structure naturally produces 400-600 byte files per success criteria.
+  Prose is manually written (per product decision) allowing free-form topic selection.
+
+  ### 6. Error Handling
+
+  **Chosen:** Catch specific exceptions with clear error messages
+
+  **Rejected:**
+  - Bare `except:` — Masks unexpected errors, complicates debugging
+  - No error handling — Silent failures prevent detection of problems
+  - Exit immediately on error — May leave git in inconsistent state
+
+  **Rationale:** Specific exception handling for FileError (file I/O) and subprocess.CalledProcessError
+  (git operations) provides meaningful feedback about what failed and why. This supports operator
+  understanding without excessive logging or complexity.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | pathlib (stdlib) | File path operations and I/O | **Use** | Modern Python standard, explicitly required by NFR-5, handles encoding/platform issues correctly |
+  | subprocess (stdlib) | Execute git commands | **Use** | Standard library, safe (shell=False), captures errors and exit codes, no new dependencies |
+  | Git CLI | Version control operations | **Use** | Already required in codebase, no new dependency, straightforward for add/commit/push operations |
+  | GitPython | Alternative git library | **Reject** | Violates NFR-9 (no new dependencies), unnecessary when subprocess/CLI works fine |
+  | os.system() | Alternative to subprocess | **Reject** | Less safe, harder to capture exit codes, subprocess is superior |
+
+  ## Security Considerations
+
+  **File I/O Security:**
+  - UTF-8 encoding without BOM prevents encoding-related attacks
+  - LF line endings prevent line-ending injection attacks
+  - File created in working directory (repository root) under git control, no special permissions needed
+  - File content is prose text only, no executable code or scripts
+
+  **Git Operation Security:**
+  - subprocess.run() called with `shell=False` prevents shell injection
+  - Commit message comes from code, not user input, so no injection risk
+  - File path `test-5dj8b5.md` is hardcoded in spec, cannot be modified
+  - Git operations use standard configuration (user.name, user.email), no credentials needed
+  - All changes limited to repository root, no access to sensitive directories
+
+  **Overall:**
+  - No external dependencies, no supply chain risk per NFR-9
+  - File creation is isolated, non-destructive operation
+  - Git operations follow standard workflow, no force-push or destructive git commands
+  - No authentication, authorization, or data sensitivity concerns
+
+  ## Performance Implications
+
+  **File Creation Performance:**
+  - Single file write operation (~400-600 bytes) is instantaneous
+  - UTF-8 encoding/line-ending conversion is negligible for this file size
+  - No loops, batch operations, or optimization needed
+  - Performance not a constraint for this feature per size estimate (S)
+
+  **Git Operations Performance:**
+  - `git add` is instant for single file
+  - `git commit` requires no network (local operation), instant
+  - `git push` requires network I/O to remote, typically <1 second on modern connections
+  - No performance optimization needed
+  - Total workflow completes in <1 second per size estimate
+
+  **Validation Performance:**
+  - File read for validation is instant (~400-600 bytes)
+  - String parsing (line splits, sentence counting) is O(n) where n is file size
+  - All validation operations complete in <10ms
+  - No performance concerns
+
+  ## Architecture Notes
+
+  **Fit within Codebase:**
+  - Feature is isolated to repository root only
+  - No dependencies on source code in `/src/sheep/`
+  - No imports needed from application modules
+  - No impact on application architecture, flows, agents, or tools
+  - Pure file I/O + git workflow, standard Python patterns only
+
+  **Pattern Consistency:**
+  - Implementation pattern identical to features 069-248 (180+ prior implementations)
+  - All use pathlib for file I/O, subprocess for git operations
+  - All follow the same content structure and encoding rules
+  - High confidence in approach based on extensive precedent
+
+  **Extensibility:**
+  - Changes are cumulative only (adding files, no deletions or modifications)
+  - Each feature adds one test file, no conflicts
+  - File naming (test-<random>.md) ensures no collisions
+  - No shared state or coupling between features
+
+  ## Implementation Plan Sketch
+
+  1. Create content string: `"# Title\n\nsentence1 sentence2 sentence3.\n"`
+  2. Write file using `Path("test-5dj8b5.md").write_text(content, encoding='utf-8')`
+  3. Validate: file exists, first line matches H1, count sentences, check size
+  4. Stage file: `subprocess.run(["git", "add", "test-5dj8b5.md"], check=True)`
+  5. Commit: `subprocess.run(["git", "commit", "-m", "feat(249): ..."], check=True)`
+  6. Push: `subprocess.run(["git", "push", "origin", "feat/249-..."], check=True)`
+  7. Report results or errors
+
+  ---
+
+  _Research phase complete — all technical decisions made, rationale documented, implementation ready_
