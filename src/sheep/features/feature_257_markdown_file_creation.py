@@ -18,7 +18,9 @@ Error Handling:
 - All exceptions are logged at ERROR level before re-raising
 """
 
+import json
 import subprocess
+import sys
 from pathlib import Path
 
 from sheep.content_generators import (
@@ -177,8 +179,11 @@ def create_feature_257_markdown_file(repo_path: str | None = None) -> dict[str, 
 
 if __name__ == "__main__":
     """Execute feature 257 when run as a script."""
-    result = create_feature_257_markdown_file()
-    print("Feature 257 created successfully:")
-    print(f"  File: {result['filepath']}")
-    print(f"  Size: {len(result['content'])} bytes")
-    print(f"  Message: {result['commit_message']}")
+    try:
+        result = create_feature_257_markdown_file()
+        print("Feature 257 created successfully:")
+        print(json.dumps(result, indent=2))
+        sys.exit(0)
+    except Exception as e:
+        print(f"Error: Failed to create feature 257: {e}", file=sys.stderr)
+        sys.exit(1)
