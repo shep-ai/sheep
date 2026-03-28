@@ -7,17 +7,18 @@ Tests cover:
 - Complete phase 1 orchestration (generate + validate)
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from sheep.features.feature_255_markdown_file_creation import (
-    FILENAME,
-    FEATURE_NUMBER,
     BRANCH_NAME,
     COMMIT_MESSAGE_TEMPLATE,
+    FEATURE_NUMBER,
+    FILENAME,
     generate_content,
-    validate_content,
     run,
+    validate_content,
 )
 
 
@@ -76,16 +77,16 @@ class TestGenerateContent:
     def test_generate_content_handles_api_failure(self):
         """Test that generate_content propagates API failures."""
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   side_effect=ValueError("API call failed")):
-            with pytest.raises(ValueError, match="API call failed"):
-                generate_content()
+                   side_effect=ValueError("API call failed")), \
+             pytest.raises(ValueError, match="API call failed"):
+            generate_content()
 
     def test_generate_content_handles_network_error(self):
         """Test that generate_content handles network errors."""
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   side_effect=Exception("Network timeout")):
-            with pytest.raises(Exception, match="Network timeout"):
-                generate_content()
+                   side_effect=Exception("Network timeout")), \
+             pytest.raises(Exception, match="Network timeout"):
+            generate_content()
 
 
 class TestValidateContent:
@@ -191,30 +192,30 @@ class TestOrchestration:
     def test_run_fails_on_generation_error(self):
         """Test that run() propagates generation errors."""
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   side_effect=ValueError("Generation failed")):
-            with pytest.raises(ValueError):
-                run()
+                   side_effect=ValueError("Generation failed")), \
+             pytest.raises(ValueError):
+            run()
 
     def test_run_fails_on_validation_error(self):
         """Test that run() propagates validation errors."""
         mock_content = "# Title\n\nOnly one sentence."
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   return_value=mock_content):
-            with pytest.raises(ValueError, match="2-3 sentences"):
-                run()
+                   return_value=mock_content), \
+             pytest.raises(ValueError, match="2-3 sentences"):
+            run()
 
     def test_run_fails_on_invalid_format(self):
         """Test that run() fails when generated content has invalid format."""
         mock_content = "No heading here. Just content. And more content."
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   return_value=mock_content):
-            with pytest.raises(ValueError, match="must start with H1"):
-                run()
+                   return_value=mock_content), \
+             pytest.raises(ValueError, match="must start with H1"):
+            run()
 
     def test_run_validates_blank_line_requirement(self):
         """Test that run() validates blank line separator."""
         mock_content = "# Title\nNo blank line here. Just prose. And more prose.\n"
         with patch("sheep.features.feature_255_markdown_file_creation.generate_markdown_content",
-                   return_value=mock_content):
-            with pytest.raises(ValueError, match="Second line must be blank"):
-                run()
+                   return_value=mock_content), \
+             pytest.raises(ValueError, match="Second line must be blank"):
+            run()
