@@ -15,7 +15,6 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Tuple
 
 
 class TestPhase2GitIntegration:
@@ -27,7 +26,7 @@ class TestPhase2GitIntegration:
     COMMIT_MESSAGE_PATTERN = re.compile(r"^feat\(251\): create markdown file test-xoqnko\.md with prose content$")
 
     @staticmethod
-    def run_git_command(cmd_list: list[str]) -> Tuple[int, str, str]:
+    def run_git_command(cmd_list: list[str]) -> tuple[int, str, str]:
         """
         Execute a git command safely.
 
