@@ -338,3 +338,391 @@ def test_task_5_validation_failure_prevents_commit():
                     mock_push.assert_not_called()
         finally:
             os.chdir(original_cwd)
+
+
+# Phase 3: Git Integration & End-to-End Tests
+
+
+def test_task_6_git_add_stages_file():
+    """Test that Task 6: 'git add test-ey0s31.md' stages the file."""
+    import os
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    from unittest import mock
+
+    from sheep.features.feature_249_markdown_file_creation import (
+        MARKDOWN_FILENAME,
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Test\n\nOne. Two. Three.\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Initialize git repo
+            subprocess.run(["git", "init"], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Mock content generation to avoid LLM calls
+            with mock.patch(
+                "sheep.features.feature_249_markdown_file_creation.generate_markdown_content"
+            ) as mock_gen:
+                mock_gen.return_value = sample_markdown
+
+                # Call feature function
+                result = create_feature_249_markdown_file(tmpdir)
+
+                # Verify file is in git index (using git ls-files which shows tracked files)
+                git_ls_output = subprocess.run(
+                    ["git", "ls-files"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout
+
+                # File should be in the git index after staging and commit
+                assert MARKDOWN_FILENAME in git_ls_output, f"{MARKDOWN_FILENAME} should be tracked in git"
+
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_task_6_git_commit_message_format():
+    """Test that Task 6: commit is created with exact message format."""
+    import os
+    import subprocess
+    import tempfile
+    from unittest import mock
+
+    from sheep.features.feature_249_markdown_file_creation import (
+        FEATURE_NUMBER,
+        MARKDOWN_FILENAME,
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Test\n\nOne. Two. Three.\n"
+    expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Initialize git repo
+            subprocess.run(["git", "init"], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Mock content generation
+            with mock.patch(
+                "sheep.features.feature_249_markdown_file_creation.generate_markdown_content"
+            ) as mock_gen:
+                mock_gen.return_value = sample_markdown
+
+                # Call feature function
+                result = create_feature_249_markdown_file(tmpdir)
+
+                # Verify commit message
+                git_log_output = subprocess.run(
+                    ["git", "log", "--oneline", "-1"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                ).stdout
+
+                # Log should contain the exact commit message
+                assert expected_message in git_log_output
+
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_task_7_git_push_upstream_tracking():
+    """Test that Task 7: 'git push -u origin' is executed with upstream tracking."""
+    import os
+    import subprocess
+    import tempfile
+    from unittest import mock
+
+    from sheep.features.feature_249_markdown_file_creation import (
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Test\n\nOne. Two. Three.\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Initialize local repo
+            subprocess.run(["git", "init"], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Create a bare repo to act as remote
+            with tempfile.TemporaryDirectory() as bare_repo_dir:
+                subprocess.run(
+                    ["git", "init", "--bare"],
+                    cwd=bare_repo_dir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Add remote to local repo
+                subprocess.run(
+                    ["git", "remote", "add", "origin", bare_repo_dir],
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Mock content generation
+                with mock.patch(
+                    "sheep.features.feature_249_markdown_file_creation.generate_markdown_content"
+                ) as mock_gen:
+                    mock_gen.return_value = sample_markdown
+
+                    # Call feature function
+                    result = create_feature_249_markdown_file(tmpdir)
+
+                    # Verify that current branch is tracked upstream
+                    git_branch_output = subprocess.run(
+                        ["git", "branch", "-vv"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    ).stdout
+
+                    # Current branch should show upstream tracking
+                    assert "origin/" in git_branch_output
+
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_task_8_end_to_end_file_creation_and_git_workflow():
+    """Test complete workflow: create file -> validate -> stage -> commit -> push."""
+    import os
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    from unittest import mock
+
+    from sheep.content_generators import validate_markdown_file
+    from sheep.features.feature_249_markdown_file_creation import (
+        FEATURE_NUMBER,
+        MARKDOWN_FILENAME,
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Comprehensive Test\n\nThis is the first sentence. This is the second sentence. This is the third sentence.\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Initialize local repo
+            subprocess.run(["git", "init"], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Create a bare repo to act as remote
+            with tempfile.TemporaryDirectory() as bare_repo_dir:
+                subprocess.run(
+                    ["git", "init", "--bare"],
+                    cwd=bare_repo_dir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Add remote to local repo
+                subprocess.run(
+                    ["git", "remote", "add", "origin", bare_repo_dir],
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Mock content generation
+                with mock.patch(
+                    "sheep.features.feature_249_markdown_file_creation.generate_markdown_content"
+                ) as mock_gen:
+                    mock_gen.return_value = sample_markdown
+
+                    # Execute feature
+                    result = create_feature_249_markdown_file(tmpdir)
+
+                    # SUCCESS CRITERIA 1: File exists at correct location
+                    filepath = Path(tmpdir) / MARKDOWN_FILENAME
+                    assert filepath.exists(), f"File {MARKDOWN_FILENAME} should exist"
+
+                    # SUCCESS CRITERIA 2: File is in git index (staged)
+                    git_ls_output = subprocess.run(
+                        ["git", "ls-files"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    ).stdout
+
+                    assert (
+                        MARKDOWN_FILENAME in git_ls_output
+                    ), f"{MARKDOWN_FILENAME} should be in git index"
+
+                    # SUCCESS CRITERIA 3: File has H1 heading and 2-3 sentences
+                    content = filepath.read_text(encoding="utf-8")
+                    assert content.startswith("# "), "Content should start with H1 heading"
+                    assert content.count(".") >= 2 and content.count(".") <= 3, "Content should have 2-3 sentences"
+
+                    # SUCCESS CRITERIA 4: File is UTF-8 without BOM
+                    binary_content = filepath.read_bytes()
+                    assert not binary_content.startswith(
+                        b"\xef\xbb\xbf"
+                    ), "File should not have UTF-8 BOM"
+
+                    # SUCCESS CRITERIA 5: File uses LF line endings
+                    assert b"\r\n" not in binary_content, "File should use LF, not CRLF"
+
+                    # SUCCESS CRITERIA 6: File passes comprehensive validation
+                    validate_markdown_file(str(filepath))
+
+                    # SUCCESS CRITERIA 7: Commit message is correct
+                    git_log_output = subprocess.run(
+                        ["git", "log", "--oneline", "-1"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    ).stdout
+
+                    expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
+                    assert expected_message in git_log_output, f"Commit message should be: {expected_message}"
+
+                    # SUCCESS CRITERIA 8: Current branch has upstream tracking
+                    git_branch_output = subprocess.run(
+                        ["git", "branch", "-vv"],
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    ).stdout
+
+                    assert (
+                        "origin/" in git_branch_output
+                    ), "Branch should have upstream tracking after push"
+
+                    # SUCCESS CRITERIA 9: Feature return value is complete
+                    assert isinstance(result, dict)
+                    assert "filepath" in result
+                    assert "content" in result
+                    assert "commit_message" in result
+                    assert "push_result" in result
+                    assert result["commit_message"] == expected_message
+
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_task_8_file_properties_encoding_and_line_endings():
+    """Test that created file has correct encoding (UTF-8 no BOM) and line endings (LF)."""
+    import os
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    from unittest import mock
+
+    from sheep.features.feature_249_markdown_file_creation import (
+        MARKDOWN_FILENAME,
+        create_feature_249_markdown_file,
+    )
+
+    sample_markdown = "# Title\n\nSentence one. Sentence two. Sentence three.\n"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmpdir)
+
+            # Initialize git repo (minimal)
+            subprocess.run(["git", "init"], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                check=True,
+                capture_output=True,
+            )
+
+            # Mock content generation
+            with mock.patch(
+                "sheep.features.feature_249_markdown_file_creation.generate_markdown_content"
+            ) as mock_gen:
+                mock_gen.return_value = sample_markdown
+
+                # Execute feature
+                result = create_feature_249_markdown_file(tmpdir)
+
+                # Get file and check encoding/line endings
+                filepath = Path(tmpdir) / MARKDOWN_FILENAME
+                binary_content = filepath.read_bytes()
+
+                # Check 1: No UTF-8 BOM
+                assert not binary_content.startswith(
+                    b"\xef\xbb\xbf"
+                ), "File must not have UTF-8 BOM"
+
+                # Check 2: No CRLF (must be LF)
+                assert b"\r\n" not in binary_content, "File must use LF, not CRLF"
+
+                # Check 3: Valid UTF-8
+                try:
+                    text_content = binary_content.decode("utf-8")
+                except UnicodeDecodeError:
+                    assert False, "File must be valid UTF-8"
+
+                # Check 4: Ends with newline
+                assert text_content.endswith("\n"), "File must end with trailing newline"
+
+                # Check 5: File size is reasonable (at least 30 bytes, at most 700 bytes)
+                file_size = len(binary_content)
+                assert 30 <= file_size <= 700, f"File size should be 30-700 bytes, got {file_size}"
+
+        finally:
+            os.chdir(original_cwd)
