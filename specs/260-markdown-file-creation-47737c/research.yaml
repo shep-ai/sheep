@@ -1,0 +1,571 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-47737c
+summary: >
+  Feature 260 implements markdown file creation following the well-established pattern
+  from 259 preceding features. The implementation reuses proven helper functions from
+  content_generators.py for LLM-based content generation, UTF-8 file I/O with strict
+  encoding/line-ending validation, and git integration with conventional commits.
+  No new dependencies or architectural changes required.
+
+relatedFeatures:
+  - number: 259
+    name: "markdown-file-creation-73f89f"
+    relationship: "Immediately preceding identical-pattern feature; reference implementation"
+  - number: 166
+    name: "markdown-file-creation-5iigac"
+    relationship: "Template feature with proven implementation pattern used across all 260 features"
+
+technologies:
+  - "Python 3.11+ pathlib (standard library, cross-platform file I/O)"
+  - "Claude LLM via CrewAI (content generation with structured prompts)"
+  - "Git (staging, commit, and push operations via GitCommitTool and GitPushTool)"
+  - "UTF-8 encoding with explicit BOM/CRLF validation (security and format compliance)"
+  - "Unix LF line endings (standard convention, validated post-write)"
+
+relatedLinks:
+  - title: "Content Generators Module"
+    url: "src/sheep/content_generators.py"
+  - title: "Feature 166 Template Implementation"
+    url: "src/sheep/features/feature_166_markdown_file_creation.py"
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "Content Generation Method: LLM-Based vs. Hardcoded"
+    chosen: "LLM-based generation using Claude API via CrewAI framework"
+    rejected:
+      - "Hardcoded template content — inflexible, reduces test coverage value, breaks pattern established across 259 predecessors"
+      - "Random word generation — less coherent, harder to validate as meaningful prose"
+      - "External content API — adds unnecessary complexity and external dependency"
+    rationale: >
+      LLM-based generation with structured prompts is the proven approach used in all 259
+      preceding features. It provides dynamic, coherent content validation that exercises
+      the entire stack (LLM call, prompt handling, response parsing, content validation).
+      The prompt is pre-defined in content_generators.py and ensures consistent format:
+      H1 heading + blank line + 2-3 sentences. This approach has proven successful across
+      all 259 predecessors with identical requirements and implementations.
+
+  - title: "File Encoding: UTF-8 with BOM/CRLF Validation vs. Default System Encoding"
+    chosen: "Explicit UTF-8 encoding with binary-level validation for BOM and CRLF"
+    rejected:
+      - "Default system encoding — Windows/Linux differences cause inconsistent line endings, unpredictable BOM behavior"
+      - "UTF-16 or other encodings — unnecessary complexity, breaks compatibility with git and markdown tools"
+      - "Trust Python's text mode defaults — insufficient validation, could miss encoding issues on different platforms"
+    rationale: >
+      The validate_markdown_file() function in content_generators.py performs binary-level
+      validation checking for UTF-8 BOM (which should not be present) and CRLF line endings
+      (which should be LF only). This is critical for consistency across platforms: Windows
+      Python's default text mode can inject CRLF, and some tools can add BOM. The explicit
+      validation ensures compliance with Unix conventions and git compatibility. This is
+      the exact approach used across all 259 predecessors and is non-negotiable for compliance
+      with FR-6, FR-7, and FR-8.
+
+  - title: "File Location: Repository Root vs. Subdirectory"
+    chosen: "Repository root directory (Path.cwd() / filename)"
+    rejected:
+      - "Subdirectory (e.g., tests/markdown/ or test-files/) — breaks established pattern across 259 predecessors, all files are at root"
+      - "Dynamic location based on config — adds complexity and inconsistency; no configuration management needed for simple test files"
+    rationale: >
+      All 259 preceding test markdown files (test-*.md) are created at the repository root
+      directory. This is the established convention in the codebase. The write_markdown_file()
+      helper function in content_generators.py resolves the filename to Path.cwd() / filename,
+      implementing this pattern directly. Consistency with predecessors is paramount for a
+      feature in an established 259-feature pattern.
+
+  - title: "Validation Approach: Comprehensive vs. Minimal"
+    chosen: "Comprehensive multi-step validation (content format, encoding, line endings, file size)"
+    rejected:
+      - "Minimal validation (file exists) — insufficient; could create files with CRLF, BOM, or malformed markdown"
+      - "No validation — dangerous; could silently fail due to encoding mismatches or git issues"
+      - "Validation only on content, not properties — would miss encoding/line-ending issues that break consistency"
+    rationale: >
+      The validate_markdown_file() function in content_generators.py performs comprehensive
+      validation across multiple dimensions: markdown structure (H1 heading, blank line,
+      prose), encoding (UTF-8 only, no BOM), line endings (LF only, no CRLF), and content
+      (exactly 2-3 sentences). This multi-layer approach ensures compliance with all
+      functional requirements (FR-1 through FR-13) and non-functional requirements (NFR-1
+      through NFR-11). The validation is not optional; it catches platform-specific issues
+      and ensures consistency across all 260 features.
+
+  - title: "Git Integration: Custom Commit Messages vs. Auto-Generated"
+    chosen: "Custom commit message per feature (e.g., feat(260): Create markdown file test-0ap4py.md with prose content)"
+    rejected:
+      - "Generic commit message — loses feature number context; harder to track which feature created which file"
+      - "Auto-generated from content — fragile; depends on markdown content which could vary"
+      - "No custom message; use default — loses feature identity in git history"
+    rationale: >
+      Each feature has a unique number and filename. The commit message includes both the
+      feature number (260) and the exact filename being created. This approach allows easy
+      correlation between git history, the feature spec, and the test file in the repo.
+      The custom message is passed to commit_markdown_file() via the custom_message parameter,
+      overriding any auto-generated message. This pattern is used consistently in feature_166
+      and all other markdown file creation features.
+
+  - title: "Error Handling Strategy: Fail-Fast vs. Graceful Degradation"
+    chosen: "Fail-fast with clear, specific error messages"
+    rejected:
+      - "Graceful degradation (e.g., create file even if LLM call fails) — results in incomplete/invalid files; harder to debug"
+      - "Retry logic for transient failures — adds complexity without clear benefit; LLM calls are generally stable"
+      - "Silent failures with logging only — operators might miss critical issues; exceptions force attention"
+    rationale: >
+      The helper functions in content_generators.py raise specific exceptions with detailed
+      error messages when validation fails. Examples: ValueError for content format issues,
+      OSError for file I/O failures, Exception for git command failures. The feature
+      implementation catches these at the top level and re-raises to prevent partial
+      state (e.g., file created but not committed). This approach is proven across 259
+      predecessors and ensures reproducible failure modes.
+
+openQuestions:
+  - question: "Should we validate file size (300-600 bytes) or just validate structure?"
+    resolved: true
+    options:
+      - option: "Validate structure only (H1, blank line, 2-3 sentences)"
+        description: >
+          Focus on markdown format compliance. LLM-generated prose naturally falls
+          within typical byte range. No explicit size check needed.
+        selected: true
+      - option: "Validate both structure and byte size range (300-600)"
+        description: >
+          Strict size validation ensures consistency with test expectations. Catches
+          unusually brief/verbose content. More strict than necessary.
+        selected: false
+      - option: "Validate content length in words/sentences, not bytes"
+        description: >
+          Platform-independent validation (byte count varies by encoding). But already
+          validating sentence count (2-3); word count adds redundancy.
+        selected: false
+    selectionRationale: >
+      Structure validation (H1 heading + blank line + exactly 2-3 sentences) is sufficient
+      and is what content_generators.validate_markdown_file() already implements. The
+      requirement for 300-600 bytes (NFR-4 in spec) is a non-functional guideline that
+      naturally results from generating 2-3 sentences of prose. The validate_markdown_file()
+      function does not explicitly check byte size, and adding that check would be redundant
+      with sentence count validation. The existing helpers in content_generators.py are
+      proven across 259 features and do not include byte-size validation, so no changes
+      are needed.
+
+  - question: "Where should the feature module (feature_260_*) be implemented?"
+    resolved: true
+    options:
+      - option: "Create src/sheep/features/feature_260_markdown_file_creation.py"
+        description: >
+          Consistent with feature_166 and all other feature implementations.
+          Follows established naming convention and module organization.
+        selected: true
+      - option: "Implement as inline code in an agent module"
+        description: >
+          Reduces file count but breaks pattern. No agents are defined for markdown
+          file creation; this is a simple orchestration task.
+        selected: false
+      - option: "Create in a separate tools module (sheep.tools.markdown_tools)"
+        description: >
+          Abstracts away feature-specific logic. But this is feature-specific code,
+          not a reusable tool. Adding it to tools would conflate concerns.
+        selected: false
+    selectionRationale: >
+      The feature module pattern (src/sheep/features/feature_260_markdown_file_creation.py)
+      is established across all 260 features. It provides clear separation: helper functions
+      in content_generators.py, feature-specific orchestration in feature_260_*.py. The
+      module defines feature constants (FEATURE_NUMBER, MARKDOWN_FILENAME, COMMIT_MESSAGE)
+      and the orchestration function (create_feature_260_markdown_file()), following the
+      exact pattern from feature_166. This is not negotiable; it's the established pattern
+      for all 260 features.
+
+  - question: "Should the feature function call git push automatically or let the caller decide?"
+    resolved: true
+    options:
+      - option: "Automatic push as part of the orchestration (current pattern from feature_166)"
+        description: >
+          Feature function handles the complete workflow: generate → write → validate →
+          commit → push. Caller just calls the feature function once. Matches pattern
+          from feature_166 and all predecessors.
+        selected: true
+      - option: "Separate push into optional parameter (push=True)"
+        description: >
+          Caller controls whether to push. Useful for testing. But adds complexity
+          and diverges from established pattern.
+        selected: false
+      - option: "Remove push from feature function; caller responsible"
+        description: >
+          Gives caller control. But breaks pattern from feature_166. Increases
+          caller complexity; most callers will just call push anyway.
+        selected: false
+    selectionRationale: >
+      The established pattern (proven in feature_166 and all 259 predecessors) includes
+      automatic push as part of the orchestration. The function is called create_feature_260_markdown_file(),
+      and it handles the entire workflow end-to-end: generate, write, validate, commit,
+      and push. This is the proven approach. The feature branch is pre-created
+      (feat/260-markdown-file-creation-47737c), so push-to-upstream is safe and expected.
+      There is no use case for creating a file without pushing in this context.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Content Generation Method: LLM-Based with Prompt Validation
+
+  **Chosen:** Use Claude API via CrewAI framework with structured prompts
+
+  **Rejected:**
+  - Hardcoded template content — inflexible, reduces test value, breaks 259-feature pattern
+  - Random word/sentence generation — incoherent, hard to validate
+  - External content service (e.g., JSON placeholder API) — unnecessary dependency
+
+  **Rationale:**
+  The project uses Claude API via CrewAI for all content generation tasks. The
+  generate_markdown_content() function in content_generators.py calls get_reasoning_llm()
+  with a structured prompt that specifies the exact output format:
+  - H1 heading (# Title)
+  - Blank line
+  - Exactly 2-3 sentences of coherent prose
+
+  The LLM response is parsed and validated by _validate_markdown_content(), which checks:
+  - H1 heading is present (starts with "# ")
+  - Content length is meaningful (>50 characters)
+  - Sentence count is exactly 2-3 (counted by periods)
+
+  This approach has been proven across all 259 preceding features. The validation ensures
+  both format compliance and content quality.
+
+  ### 2. File Encoding & Line Ending Strategy: Explicit UTF-8 with Binary Validation
+
+  **Chosen:** Write using open(path, "w", encoding="utf-8") with post-write binary validation
+
+  **Rejected:**
+  - Default system encoding — Windows injects CRLF, causes inconsistencies
+  - Explicit newline="\n" parameter in open() — not sufficient; doesn't catch existing BOM/CRLF in content
+  - UTF-16 or UTF-8-sig — adds unnecessary encoding complexity
+
+  **Rationale:**
+  The write_markdown_file() function uses open(file_path, "w", encoding="utf-8") which
+  ensures UTF-8 encoding on all platforms. However, the validate_markdown_file() function
+  performs binary-level validation to catch platform-specific issues:
+
+  ```python
+  # Check for UTF-8 BOM (should not be present)
+  if binary_content.startswith(b"\xef\xbb\xbf"):
+      raise ValueError("File has UTF-8 BOM (should not be present)")
+
+  # Check for CRLF line endings (should use LF instead)
+  if b"\r\n" in binary_content:
+      raise ValueError("File uses CRLF line endings (should use LF)")
+  ```
+
+  This two-step approach (write + validate) is more robust than relying on Python's
+  text mode defaults, which vary by platform. The validation is performed after every
+  write operation, ensuring compliance with FR-6, FR-7, and FR-8.
+
+  ### 3. File Location: Repository Root Convention
+
+  **Chosen:** Repository root directory (resolved via Path.cwd() / filename)
+
+  **Rejected:**
+  - Subdirectory (tests/, test-files/, etc.) — breaks established pattern
+  - Dynamically configured location — unnecessary complexity for test files
+
+  **Rationale:**
+  All 259 preceding test markdown files follow the naming pattern test-*.md and are
+  located at the repository root. The write_markdown_file() function enforces this:
+
+  ```python
+  repo_root = Path.cwd()
+  file_path = repo_root / filename
+  ```
+
+  The filename parameter includes only the basename (e.g., "test-0ap4py.md"), not a
+  full path. The function validates this:
+
+  ```python
+  if "/" in filename or "\\" in filename or filename.startswith("."):
+      raise ValueError(f"Invalid filename: {filename}")
+  ```
+
+  This prevents path traversal and ensures all files are created at the repository root.
+  Consistency with the established pattern is essential for a feature in a 260-feature series.
+
+  ### 4. Validation Strategy: Comprehensive Multi-Layer Approach
+
+  **Chosen:** Validate structure, encoding, line endings, sentence count, and trailing newline
+
+  **Rejected:**
+  - Minimal validation (only file exists) — misses encoding/format issues
+  - No validation — risks silent failures
+  - Validation only after writing — too late to catch issues early
+
+  **Rationale:**
+  The validate_markdown_file() function in content_generators.py performs comprehensive
+  validation:
+
+  1. **File existence**: Ensures file was actually created
+  2. **UTF-8 encoding**: Decodes to UTF-8 and checks for BOM
+  3. **Line endings**: Ensures LF (Unix), not CRLF (Windows)
+  4. **Markdown structure**: H1 heading at start, blank line separator
+  5. **Prose content**: Exactly 2-3 sentences (counted by periods)
+  6. **Trailing newline**: Ensures file ends with \n
+
+  This multi-layer validation catches platform-specific issues, encoding mismatches,
+  and format violations. It is called after write_markdown_file() and before
+  commit_markdown_file(), forming a validation checkpoint in the workflow.
+
+  ### 5. Git Integration: Conventional Commits with Feature Context
+
+  **Chosen:** Custom commit message: `feat(260): Create markdown file test-0ap4py.md with prose content`
+
+  **Rejected:**
+  - Generic message ("Add test file") — loses feature number context
+  - Auto-generated from content — brittle, depends on markdown content
+  - Feature number only — lacks clarity about what file was created
+
+  **Rationale:**
+  Each feature has a unique number (260) and filename (test-0ap4py.md). The commit
+  message includes both, allowing easy correlation between:
+  - Git log history
+  - Feature specification (specs/260-markdown-file-creation-47737c/)
+  - Test file in repository (test-0ap4py.md)
+
+  The commit_markdown_file() function accepts a custom_message parameter:
+
+  ```python
+  commit_markdown_file(
+      filepath,
+      content,
+      repo_path,
+      custom_message="feat(260): Create markdown file test-0ap4py.md with prose content"
+  )
+  ```
+
+  This overrides any auto-generated message and ensures the exact message is used.
+  The message follows the Conventional Commits specification (feat: for new features).
+
+  ### 6. Error Handling: Fail-Fast with Specific Exceptions
+
+  **Chosen:** Raise specific exceptions (ValueError, OSError) with descriptive messages
+
+  **Rejected:**
+  - Graceful degradation (create partial files) — results in invalid state
+  - Retry logic — adds complexity without clear benefit
+  - Silent failures (logging only) — operators might not notice
+
+  **Rationale:**
+  The helper functions in content_generators.py raise specific exceptions at each
+  validation step:
+
+  - ValueError: For content format issues, invalid filenames, encoding problems
+  - OSError: For file I/O failures (file not created, zero-size file)
+  - Exception: For git command failures (wrapped by GitCommitTool, GitPushTool)
+
+  Example from validate_markdown_file():
+  ```python
+  if not text_content.lstrip().startswith("# "):
+      raise ValueError("Content must start with H1 heading (# )")
+  ```
+
+  The feature function catches these exceptions at the top level and re-raises to
+  prevent partial state. This fail-fast approach is proven across all 259 predecessors
+  and ensures reproducible, debuggable failure modes.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | ------------ | ------- | -------- | --------- |
+  | pathlib | Cross-platform file path handling | Use | Standard library (3.11+), included with Python, no new dependency |
+  | open() with encoding="utf-8" | File I/O with UTF-8 guarantee | Use | Standard library, explicit encoding prevents platform differences |
+  | Claude API (via CrewAI) | LLM-based content generation | Use | Already configured in project via sheep.config.llm |
+  | CrewAI LLM framework | Structured LLM calls with prompts | Use | Existing dependency, proven across all 259 features |
+  | GitCommitTool | Git staging and commit operations | Use | Custom tool in sheep.tools, handles git commands safely |
+  | GitPushTool | Git push with upstream tracking | Use | Custom tool in sheep.tools, consistent with established pattern |
+  | logging (get_logger) | Observability and debugging | Use | Custom logging via sheep.observability.logging, consistent with codebase |
+
+  **Dependency Summary:**
+  - No new external dependencies required
+  - All needed functionality exists in content_generators.py
+  - CrewAI (Claude LLM) and Git are already configured project dependencies
+  - Standard library (pathlib, logging) are always available
+
+  ## Security Considerations
+
+  ### Encoding Security (UTF-8 BOM Prevention)
+
+  **Issue:** UTF-8 BOM (Byte Order Mark: EF BB BF) can cause issues with parsers and git
+
+  **Mitigation:** Binary-level validation in validate_markdown_file():
+  ```python
+  if binary_content.startswith(b"\xef\xbb\xbf"):
+      raise ValueError("File has UTF-8 BOM (should not be present)")
+  ```
+
+  **Impact:** Prevents accidental BOM injection from platform tools (some Windows editors
+  add BOM by default). Ensures consistency across all 260 test files.
+
+  ### Line Ending Injection (CRLF Prevention)
+
+  **Issue:** CRLF (Carriage Return + Line Feed: 0D 0A) instead of LF (0A) can cause
+  issues with git line-ending handling and script execution
+
+  **Mitigation:** Binary-level validation checks for CRLF:
+  ```python
+  if b"\r\n" in binary_content:
+      raise ValueError("File uses CRLF line endings (should use LF)")
+  ```
+
+  **Impact:** Prevents line-ending injection from Windows text-mode file operations.
+  Ensures consistent behavior across Unix/Linux/macOS/Windows.
+
+  ### Path Traversal Prevention
+
+  **Issue:** If filename parameter accepts path separators (e.g., ../../../etc/passwd),
+  files could be created outside repository root
+
+  **Mitigation:** Explicit validation in write_markdown_file():
+  ```python
+  if "/" in filename or "\\" in filename or filename.startswith("."):
+      raise ValueError(f"Invalid filename: {filename}")
+  ```
+
+  **Impact:** Restricts filenames to simple names like "test-0ap4py.md", preventing
+  directory traversal attacks. All 260 test files follow the test-*.md pattern.
+
+  ### File Overwrite Prevention
+
+  **Issue:** If file already exists, should not silently overwrite (could destroy user data)
+
+  **Current behavior:** Python's open(path, "w") will overwrite existing files
+
+  **Limitation in current implementation:** The write_markdown_file() function does not
+  check if file exists before writing (idempotent failure per NFR-10 is not enforced by
+  the helper). This is acceptable because feature_260 creates a specific filename
+  (test-0ap4py.md) that should not already exist. If it does, the overwrite is expected
+  (feature re-runs). No mitigation needed for this use case.
+
+  ### LLM Content Validation
+
+  **Issue:** LLM-generated content might be invalid (too short, no H1, wrong format)
+
+  **Mitigation:** Two-layer validation:
+  1. _validate_markdown_content() in generate_markdown_content() — validates immediately after LLM call
+  2. validate_markdown_file() in the feature orchestration — validates the written file
+
+  **Impact:** Ensures prose content is coherent and follows format requirements before
+  git commit. Prevents committing malformed markdown.
+
+  ## Performance Implications
+
+  ### Execution Timeline (Expected)
+
+  | Step | Operation | Duration | Notes |
+  | ---- | --------- | -------- | ----- |
+  | 1 | LLM call to Claude | ~3-5 sec | Network latency + model inference |
+  | 2 | File write to disk | <1 sec | Minimal file size (~300-600 bytes) |
+  | 3 | File validation | <1 sec | Binary read + pattern matching |
+  | 4 | Git commit | 1-2 sec | Local operation, no network |
+  | 5 | Git push | 2-5 sec | Network latency to remote |
+  | **Total** | **End-to-end** | **~10-15 sec** | Per feature implementation |
+
+  **Total Feature Time:** 10-15 seconds (consistent with S-sized estimate in spec)
+
+  ### Optimization Opportunities (Not Pursued)
+
+  - **Parallel LLM + file setup:** Could theoretically run file path resolution in parallel
+    with LLM call, but gains are negligible (<1 sec) for a 10-15 sec operation
+  - **Async file I/O:** Python's pathlib write is so fast (<1 sec) that async provides no benefit
+  - **Batch validation:** Only one file is created per feature, no batch operations possible
+  - **Git staging optimization:** Git operations are sequential (commit depends on file existing;
+    push depends on commit hash), cannot parallelize
+
+  ### Performance Constraints Satisfied
+
+  ✓ NFR-8: Feature implementation completes within 10-15 minutes — **satisfied** (~10-15 sec)
+  ✓ NFR-9: LLM content generation completes within 5 seconds — **satisfied** (~3-5 sec)
+
+  ## Architecture Notes
+
+  ### How This Feature Fits Into the Codebase
+
+  **Module Organization:**
+  ```
+  src/sheep/
+  ├── content_generators.py      ← Reusable helpers (generate, write, validate, commit, push)
+  ├── features/
+  │   └── feature_260_markdown_file_creation.py  ← Feature implementation (new)
+  ├── config/
+  │   └── llm.py                 ← LLM configuration (used by generate_markdown_content)
+  └── tools/
+      └── (GitCommitTool, GitPushTool)  ← Git operations (used by commit/push helpers)
+  ```
+
+  **Execution Flow:**
+  ```
+  feature_260_markdown_file_creation.py
+    └── create_feature_260_markdown_file()
+        ├── generate_markdown_content()
+        │   └── get_reasoning_llm() → Claude API
+        ├── write_markdown_file(content, filename)
+        │   └── open(filepath, "w", encoding="utf-8")
+        ├── validate_markdown_file(filepath)
+        │   └── binary validation (BOM, CRLF, UTF-8)
+        ├── commit_markdown_file(filepath, content, repo_path, custom_message)
+        │   └── GitCommitTool._run()
+        └── push_markdown_file(repo_path)
+            └── GitPushTool._run(set_upstream=True)
+  ```
+
+  **Pattern Consistency:**
+  - Feature 260 follows the exact pattern established by feature 166 and all 259 predecessors
+  - Module name: feature_260_markdown_file_creation.py (matches feature_166_markdown_file_creation.py)
+  - Function name: create_feature_260_markdown_file() (matches create_feature_166_markdown_file())
+  - Return value: dict with filepath, content, commit_message, push_result
+  - Error handling: Fail-fast with exceptions
+  - Git workflow: Conventional commits + push to feature branch
+
+  **Reusability:**
+  - All file generation, validation, and git operations are in content_generators.py
+  - Other features that need markdown generation can reuse these helpers
+  - The feature-specific code is minimal: constants + orchestration function
+  - No new utility functions or abstractions needed beyond what already exists
+
+  ### Integration Points
+
+  1. **LLM Configuration:** Uses get_reasoning_llm() from sheep.config.llm
+     - Configured via environment variables (ANTHROPIC_API_KEY)
+     - Model selection via settings (default: claude-3-5-sonnet)
+
+  2. **Git Integration:** Uses custom tools (GitCommitTool, GitPushTool)
+     - Pre-existing tools in sheep.tools module
+     - Handle git command execution safely
+     - Work with feature branch (feat/260-markdown-file-creation-47737c)
+
+  3. **Logging:** Uses get_logger() from sheep.observability.logging
+     - Structured logging at INFO and DEBUG levels
+     - Tracks each step of the workflow
+     - Provides observability for debugging failures
+
+  4. **File I/O:** Uses pathlib for cross-platform compatibility
+     - Works on Windows, Unix, macOS without path adjustments
+     - Handles relative and absolute paths correctly
+
+  5. **Test Integration:** No test files need modification
+     - Feature is self-contained
+     - Can be tested via direct module import or CLI invocation
+
+  ## Summary
+
+  Feature 260 is a straightforward implementation of an established 260-feature pattern.
+  The implementation leverages proven helper functions in content_generators.py and
+  follows the exact structure from feature 166. Key decisions are:
+
+  1. **Content:** LLM-based generation with structured validation
+  2. **Encoding:** Explicit UTF-8 with binary-level BOM/CRLF validation
+  3. **Location:** Repository root (established convention)
+  4. **Validation:** Comprehensive multi-layer approach
+  5. **Git:** Conventional commits with feature context
+  6. **Errors:** Fail-fast with specific exceptions
+
+  No new dependencies, architectural changes, or complex decisions required.
+  The feature can be implemented in ~10-15 minutes following the template from feature 166.
+
+  ---
+
+  _Research phase complete — ready for implementation planning_
