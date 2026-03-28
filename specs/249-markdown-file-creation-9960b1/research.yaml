@@ -1,0 +1,460 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-9960b1"
+summary: >
+  Technical research for markdown file creation (feature 249). Implementation uses pathlib.Path for
+  file I/O (required by spec), subprocess for git operations (no external dependencies allowed),
+  and structure validation for success criteria. Prose content is implementer-created per spec.
+  No external libraries needed; all operations use Python 3.11+ standard library.
+
+# Relationships
+relatedFeatures:
+  - number: 248
+    name: "markdown-file-creation"
+  - number: 247
+    name: "markdown-file-creation"
+  - number: 246
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python pathlib (standard library)"
+  - "Python subprocess (standard library)"
+  - "Git CLI (installed in environment)"
+  - "CommonMark specification (markdown validation)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "CommonMark specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Git documentation"
+    url: "https://git-scm.com/doc"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Implementation Method"
+    chosen: "pathlib.Path.write_text() for file creation"
+    rejected:
+      - "open() function with manual handle management — more verbose, requires explicit encoding/newline parameters, less Pythonic"
+      - "os.path + os.open() — legacy API, less type-safe, requires string path operations, poor newline handling"
+      - "io.open() — verbosity of open(), no advantage over pathlib in this use case"
+    rationale: >
+      Spec explicitly requires pathlib (NFR-5). pathlib.Path.write_text() provides clean API with
+      explicit encoding parameter (UTF-8), direct newline control (LF), and is standard modern Python.
+      Handles all encoding/line-ending requirements in single call: Path(...).write_text(content, encoding='utf-8', newline='\n').
+      Available in Python 3.11+ standard library (no dependencies). Matches established pattern across
+      90+ precedent test files.
+
+  - title: "Git Operations Implementation"
+    chosen: "subprocess.run() with git CLI commands"
+    rejected:
+      - "GitPython library — violates NFR-9 (no external dependencies), adds abstraction layer, increases complexity for simple operations"
+      - "dulwich (pure Python git) — same violation of NFR-9, significant complexity for three simple operations (add/commit/push)"
+      - "Manual .git directory manipulation — too low-level, error-prone, no advantage over git CLI"
+    rationale: >
+      Spec explicitly forbids external dependencies (NFR-9). subprocess is standard library in Python 3.11+.
+      Git CLI is available in environment (required by git workflow). Three operations are simple:
+      git add, git commit, git push. subprocess.run() is sufficient, idiomatic Python, and matches
+      established pattern across 90+ implementations. Shell=False prevents injection attacks.
+      Enables direct control over exact commit message format.
+
+  - title: "Structure Validation Approach"
+    chosen: "Validate markdown structure, encoding, and line endings; report success/failure"
+    rejected:
+      - "No validation — creates unnecessary risk; cannot verify success criteria met"
+      - "Extensive validation (grammar, spell-check, byte-range) — spec prescribes manual validation (FR-5, product decision #3); automation over-engineers test artifact"
+      - "Silent success with warnings — testing context requires explicit pass/fail signal"
+    rationale: >
+      Need to verify success criteria are met per spec. Validation checks: (1) File exists, (2) Contains exactly
+      one H1 heading, (3) Contains 2-3 sentences of prose, (4) UTF-8 encoding (verified on read), (5) LF line
+      endings (verified on read). These are mechanical, unambiguous checks. Grammar/spell-check violates
+      product decision #3 (implementer manual validation). Byte-range check not needed per product decision #1
+      (natural outcome, not strict constraint). Validation gives clear pass/fail for CI/testing.
+
+  - title: "Prose Content Generation Strategy"
+    chosen: "Implementer creates prose content once during file creation (hardcoded string)"
+    rejected:
+      - "AI-generated prose at runtime (Claude API) — violates NFR-9 (external dependency), adds latency, unnecessary for test artifact"
+      - "Random selection from predefined prose samples — inflexible, harder to maintain topic variety, violates product decision #2 (free-form)"
+      - "Template-based with variable substitution — adds complexity for single file, doesn't match established simple pattern"
+    rationale: >
+      Spec says FR-5 is validated by \"implementer during creation\" (product decision #3). This indicates
+      human authorship with manual review. Prose is hardcoded string chosen once at time of implementation.
+      User query says \"about anything\" (product decision #2), indicating flexibility. Implementer chooses
+      topic naturally (nature, technology, science, culture, etc.) matching 90+ diverse precedents. No runtime
+      generation needed for test artifact. Simple, maintainable, matches established pattern.
+
+  - title: "Line Ending Control Strategy"
+    chosen: "Use newline='\\n' parameter in Path.write_text() to force LF on all platforms"
+    rejected:
+      - "Default line ending behavior — uses system default (CRLF on Windows), violates NFR-2 (LF required)"
+      - "Manual post-processing of line endings — adds complexity, error-prone, newline parameter is direct control"
+      - "Git config core.safecrlf or .gitattributes — works but defers control to git layer; direct control in write is cleaner"
+    rationale: >
+      Spec requires LF line endings (NFR-2), not CRLF. Default Python behavior uses os.linesep (system-dependent).
+      newline='\\n' parameter in write_text() forces LF explicitly on all platforms (Windows, Mac, Linux).
+      This is the Pythonic, direct approach — control at write point, not post-processing or config.
+      Single line of code: Path(filename).write_text(content, encoding='utf-8', newline='\\n').
+      Reliable, clear intent, no git configuration needed.
+
+  - title: "Error Handling Strategy"
+    chosen: "Fail fast on any error; raise exception with clear error message, exit with non-zero status"
+    rejected:
+      - "Graceful degradation with retry logic — over-engineered for single-file operation, transient failures unlikely in this context"
+      - "Logging and silent failures — violates testing/CI context where explicit pass/fail is required"
+      - "Interactive prompts or recovery flows — not suitable for automated/non-interactive context"
+    rationale: >
+      Feature is designed for automated implementation (CI/testing context). Fail-fast is appropriate: if file
+      creation fails, git operation fails, or validation fails, the entire operation should fail visibly.
+      This enables immediate diagnosis and prevents silent data corruption. File I/O and git operations in
+      this controlled environment have minimal transient failure risk. Exceptions with clear messages
+      provide visibility for debugging. Matches established pattern across precedent implementations.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should the implementation include automated grammar/spell-checking for prose content?"
+    resolved: true
+    options:
+      - option: "No automated checking — manual validation only"
+        description: >
+          Implementer manually reviews prose during creation for readability/grammar. No automated tools.
+          Aligns with product decision #3 (FR-5 validated by implementer during creation).
+          Lighter implementation, no external dependencies.
+        selected: true
+      - option: "Use Python built-in spell-check"
+        description: >
+          Check prose with spell-checker library (e.g., aspell, enchant bindings). Automated validation
+          but adds external dependency, violates NFR-9.
+        selected: false
+      - option: "Grammar validation with AI service"
+        description: >
+          Use grammar checking service (e.g., LanguageTool API) or Claude API for prose validation.
+          Comprehensive but adds external dependency, increases latency, over-engineers test artifact.
+        selected: false
+    selectionRationale: >
+      Product decision #3 explicitly resolves this: implementer manual validation is sufficient for test
+      artifacts. This is standard practice across 90+ precedent implementations. Automated checking would
+      violate NFR-9 (no external dependencies) unless using only standard library, which Python lacks
+      for grammar. Manual review is lightweight, sufficient for test content quality, and intentional per spec.
+
+  - question: "Should the implementation generate prose algorithmically (e.g., markov chains, templates) or use hardcoded prose?"
+    resolved: true
+    options:
+      - option: "Hardcoded prose chosen by implementer at creation time"
+        description: >
+          Implementer creates prose string once when implementing feature. Content is fixed, readable,
+          natural language. Matches spec requirement for implementer authorship (FR-5, product decision #3).
+        selected: true
+      - option: "Template-based generation with variable substitution"
+        description: >
+          Use templates like \"This essay explores {topic}. {insight1}. {insight2}.\" with topic selection.
+          Adds flexibility but unnecessary complexity for single-file test artifact.
+        selected: false
+      - option: "Algorithmic generation (Markov chains, LLM prompt)"
+        description: >
+          Generate prose at runtime using algorithms or AI. Adds variability but also adds complexity,
+          latency, and potentially violates NFR-9 (dependencies) or introduces non-determinism.
+        selected: false
+    selectionRationale: >
+      Spec requirement FR-5 and product decision #3 indicate implementer creates prose manually during feature
+      development. Hardcoded prose aligns with this: implementer writes prose once, embedded in implementation.
+      This matches simple pattern across 90+ precedents. Templates add complexity without benefit for single file.
+      Algorithmic generation violates spec (manual creation) and adds dependencies. Hardcoded prose is deterministic,
+      maintainable, human-authored (satisfies FR-5), and matches established pattern.
+
+  - question: "What level of markdown syntax validation should be performed?"
+    resolved: true
+    options:
+      - option: "Basic structural validation (H1 present, 2-3 sentences, newlines correct)"
+        description: >
+          Check file contains exactly one H1 heading, 2-3 sentences of prose, proper structure.
+          Sufficient to verify success criteria. Does not parse full CommonMark spec.
+        selected: true
+      - option: "Full CommonMark parsing and validation"
+        description: >
+          Use markdown parser (mistune, markdown-it, etc.) to validate against CommonMark spec.
+          More thorough but requires external dependency (violates NFR-9) or complex parsing logic.
+        selected: false
+      - option: "No syntax validation — only file existence check"
+        description: >
+          Minimal validation: just verify file exists and is readable. Fast but doesn't verify content
+          correctness. Insufficient for testing/CI context.
+        selected: false
+    selectionRationale: >
+      Success criteria require specific structure: exactly one H1 heading + blank line + 2-3 sentences.
+      Basic structural validation is sufficient to verify these mechanical requirements. Full CommonMark
+      parsing would require external library (violates NFR-9) and is over-engineered for simple test file.
+      Implementation uses regex or string operations to check structure. No validation is insufficient for
+      automated testing. Basic validation is right balance between rigor and simplicity.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-28
+
+  ## Executive Summary
+
+  This feature implements markdown file creation following an established pattern across 90+ existing
+  test files. Implementation is straightforward: create file with pathlib, write prose content, validate
+  structure, and commit via git. All operations use Python 3.11+ standard library; no external dependencies.
+  Technical decisions are constrained by spec requirements (pathlib required, no external deps) and
+  aligned with established pattern across precedents.
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation — pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path.write_text()` with explicit UTF-8 encoding and LF line endings.
+
+  **Rejected:**
+  - `open()` function — more verbose, requires manual encoding/newline parameter handling, less Pythonic
+  - `os.path + os.open()` — legacy API, less type-safe, poor newline handling
+  - `io.open()` — same verbosity as `open()` without pathlib benefits
+
+  **Rationale:**
+  Spec explicitly requires pathlib (NFR-5). The `write_text()` method provides clean API with single call:
+  ```python
+  Path("test-65ou0n.md").write_text(content, encoding='utf-8', newline='\n')
+  ```
+  Handles all requirements: UTF-8 (no BOM), LF line endings, file creation. Standard library (no dependencies).
+  Pythonic and readable. Matches pattern across 90+ precedent test files.
+
+  ### 2. Git Operations — subprocess.run() with git CLI
+
+  **Chosen:** `subprocess.run()` for git add, commit, and push operations.
+
+  **Rejected:**
+  - GitPython — external dependency (violates NFR-9), unnecessary abstraction for three simple commands
+  - dulwich — pure Python git implementation, still external dependency (violates NFR-9)
+  - Manual .git directory manipulation — too low-level, error-prone, no advantage
+
+  **Rationale:**
+  Spec forbids external dependencies (NFR-9). subprocess is standard library. Git CLI is available in
+  environment (required by git workflow). Operations are simple:
+  - `git add test-65ou0n.md`
+  - `git commit -m "feat(249): create markdown file test-65ou0n.md with prose content"`
+  - `git push -u origin HEAD`
+
+  subprocess.run() with shell=False prevents injection attacks. Gives direct control over exact
+  commit message format per spec requirement (FR-7). Matches established pattern.
+
+  ### 3. Markdown Structure Validation
+
+  **Chosen:** Validate structure (H1 heading, 2-3 sentences), encoding (UTF-8), and line endings (LF).
+
+  **Rejected:**
+  - No validation — cannot verify success criteria
+  - Full CommonMark parsing — requires external library (violates NFR-9), over-engineered for test artifact
+  - Automated grammar/spell-checking — violates product decision #3 (manual validation only)
+
+  **Rationale:**
+  Testing context requires explicit validation to verify success criteria. Structural checks are mechanical
+  and unambiguous: file exists, contains exactly one H1 heading (regex: `^# `), contains 2-3 sentences
+  (count periods or use sentence tokenizer heuristic), proper newline structure. Grammar validation violates
+  spec (implementer manual validation per FR-5). Byte-range validation not needed per product decision #1
+  (natural outcome, not strict constraint).
+
+  Validation logic:
+  ```python
+  # Read back file, check structure
+  content = Path("test-65ou0n.md").read_text(encoding='utf-8')
+  # Verify H1 heading present: content.startswith('# ')
+  # Verify 2-3 sentences (count sentence terminators)
+  # Verify LF line endings: '\n' in content, '\r\n' not in content
+  ```
+
+  ### 4. Prose Content Strategy — Implementer-Created
+
+  **Chosen:** Hardcoded prose string chosen by implementer during feature implementation.
+
+  **Rejected:**
+  - AI-generated prose (Claude API) — external dependency (violates NFR-9), latency, unnecessary
+  - Template-based generation — adds complexity for single file, doesn't match simple pattern
+  - Markov chain / algorithmic generation — violates spec requirement for implementer authorship
+
+  **Rationale:**
+  Spec requires implementer authorship with manual validation (FR-5, product decision #3). Prose is
+  hardcoded as string literal chosen once. Implementer selects topic freely per product decision #2
+  (\"about anything\"). Examples across 90+ precedents show diverse topics (nature, technology, science,
+  culture, philosophy). Approach is simple, maintainable, no runtime generation needed.
+
+  Typical implementation:
+  ```python
+  content = """# Title About Topic
+
+  First sentence about topic. Second sentence with detail. Third sentence with conclusion."""
+
+  Path("test-65ou0n.md").write_text(content, encoding='utf-8', newline='\n')
+  ```
+
+  ### 5. Line Ending Control — newline Parameter
+
+  **Chosen:** Use `newline='\n'` parameter in `Path.write_text()` to force LF on all platforms.
+
+  **Rejected:**
+  - Default line ending behavior — uses system default (CRLF on Windows), violates NFR-2
+  - Post-processing with string replace — adds complexity, error-prone, less direct
+  - Git config (core.safecrlf, .gitattributes) — delegates control to git layer, less direct
+
+  **Rationale:**
+  Spec requires Unix LF line endings (NFR-2), not CRLF. Default Python uses os.linesep (system-dependent).
+  The `newline='\n'` parameter in write_text() forces LF explicitly on all platforms (Windows, Mac, Linux).
+  This is direct, Pythonic control at the write point. Single parameter, clear intent. No post-processing
+  or git configuration needed.
+
+  ### 6. Error Handling — Fail Fast
+
+  **Chosen:** Raise exception with clear error message on any failure (file creation, git operation, validation).
+
+  **Rejected:**
+  - Graceful degradation with retry logic — over-engineered, transient failures unlikely
+  - Logging and silent failures — unsuitable for automated/CI context
+  - Interactive recovery flows — not suitable for non-interactive automation
+
+  **Rationale:**
+  Feature operates in automated context (CI/testing). Fail-fast is appropriate: if any step fails,
+  operation should fail visibly with clear error message. This enables immediate diagnosis. File I/O
+  and git operations in controlled environment have minimal transient failure risk. Exceptions provide
+  visibility for debugging. Matches established pattern.
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | **pathlib** | File I/O (create, read, write) | **USE** | Required by spec (NFR-5), standard library, handles encoding/newlines directly, Pythonic API |
+  | **subprocess** | Git operations (add, commit, push) | **USE** | Standard library, no dependencies (NFR-9), git CLI is available, clean and direct |
+  | **Git CLI** | Version control commands | **USE** | Available in environment (required by workflow), controlled via subprocess |
+  | **GitPython** | Git library bindings | **REJECT** | External dependency (violates NFR-9), unnecessary abstraction for simple commands |
+  | **dulwich** | Pure Python git implementation | **REJECT** | External dependency (violates NFR-9), overkill for three simple operations |
+  | **mistune/markdown-it** | Markdown parsing | **REJECT** | External dependency (violates NFR-9), over-engineered for basic structure validation |
+  | **TextBlob/NLTK** | Grammar/spell-checking | **REJECT** | External dependency (violates NFR-9), violates product decision #3 (manual validation only) |
+  | **Claude API / LLM** | Prose generation | **REJECT** | External dependency (violates NFR-9), violates implementer authorship requirement (FR-5) |
+  | **re (regex)** | Markdown structure validation | **USE** | Standard library, lightweight pattern matching for H1 detection |
+  | **os** | System operations (if needed) | **USE** | Standard library for fallback operations |
+
+  ## Security Considerations
+
+  ### Subprocess Command Injection Prevention
+  - Use `shell=False` in subprocess.run() calls to prevent shell injection
+  - Pass git commands as list: `subprocess.run(['git', 'add', 'test-65ou0n.md'], shell=False)`
+  - Do NOT use f-strings or string interpolation in shell commands
+  - Safe implementation: filename is hardcoded in spec (test-65ou0n.md), no user input
+
+  ### File Path Security
+  - Use pathlib.Path directly (prevents directory traversal if file path is hardcoded)
+  - Do NOT construct paths with string concatenation
+  - Hardcoded filename (test-65ou0n.md) at repository root (no subdirectories per FR-2)
+  - No risk from file creation in this controlled context
+
+  ### Content Security
+  - Prose content is test artifact, no sensitive data or credentials
+  - No external input processed (implementer-created prose)
+  - File permissions inherit from repository (standard for test artifacts)
+  - No authentication or authorization required for test file creation
+
+  ### Git Commit Security
+  - Commit message is hardcoded per spec (FR-7): \"feat(249): create markdown file test-65ou0n.md with prose content\"
+  - No user input in commit message (spec requires exact message)
+  - Standard git operations (add, commit, push) — no force push or destructive operations
+  - Feature branch already exists; no branch creation or merge conflicts
+
+  ## Performance Considerations
+
+  ### I/O Operations
+  - File creation is I/O-bound, negligible latency (~1-5ms for small file)
+  - File size typically 400-600 bytes (small, fast to read/write)
+  - Single file operation; no batching or optimization needed
+
+  ### Git Operations
+  - Three git commands (add, commit, push) are executed sequentially
+  - Total time: ~100-500ms depending on network (push operation is slowest)
+  - Local operations (add, commit) are fast (~10-50ms)
+  - No caching, parallelization, or optimization needed for test artifact
+
+  ### Validation Overhead
+  - Structure validation uses simple string operations and regex (~1-2ms)
+  - Read file once to validate (no redundant I/O)
+  - Negligible impact on overall operation
+
+  ### Scalability
+  - Feature creates single file; no scalability concerns
+  - Pattern is repeated 180+ times across features 069-248, each independent
+  - Each feature implementation is isolated; no resource contention
+  - Standard deployment/CI environment provides sufficient resources
+
+  ### Resource Usage
+  - Memory: ~1-10 KB (small file content + git command output)
+  - Disk: ~500 bytes for markdown file + ~100-200 bytes for git metadata
+  - CPU: Negligible, mostly I/O bound
+
+  No optimization needed for this use case.
+
+  ## Architecture Notes
+
+  ### Integration with Existing Pattern
+  This feature follows the established pattern across 90+ existing test files (features 069-248):
+  - Create single markdown file at repository root
+  - Content: H1 heading + blank line + 2-3 sentences
+  - Git workflow: add, commit (conventional format), push
+  - No source code changes, no dependencies, no architectural impact
+  - Files are isolated test artifacts, not part of application logic
+
+  ### Repository Structure Impact
+  - **Affected:** Repository root directory (adds test-65ou0n.md)
+  - **Not affected:** src/, tests/, specs/, .github/, Dockerfile, pyproject.toml, etc.
+  - **Git impact:** Single commit on feature branch feat/249-markdown-file-creation-9960b1
+  - **No merge conflicts:** Feature branch is clean, single file addition
+
+  ### Implementation Pattern
+  Typical implementation structure (Python):
+  ```python
+  from pathlib import Path
+  import subprocess
+
+  def create_test_markdown():
+      # 1. Create content
+      content = """# Topic Title
+
+      First sentence. Second sentence. Third sentence."""
+
+      # 2. Write file
+      Path("test-65ou0n.md").write_text(content, encoding='utf-8', newline='\n')
+
+      # 3. Validate structure
+      validate_markdown_structure(Path("test-65ou0n.md"))
+
+      # 4. Git operations
+      subprocess.run(['git', 'add', 'test-65ou0n.md'], check=True)
+      subprocess.run(['git', 'commit', '-m', 'feat(249): create markdown file test-65ou0n.md with prose content'], check=True)
+      subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], check=True)
+
+  def validate_markdown_structure(filepath):
+      content = filepath.read_text(encoding='utf-8')
+      assert content.startswith('# '), \"Missing H1 heading\"
+      assert '\r\n' not in content, \"Found CRLF; LF required\"
+      # Additional validation as needed
+  ```
+
+  ### Dependencies and Constraints
+  - Python 3.11+ (from pyproject.toml)
+  - Git installed and configured (user.name, user.email)
+  - Feature branch already exists: feat/249-markdown-file-creation-9960b1
+  - Write access to repository root directory
+  - Remote origin repository available
+  - No external packages (all standard library)
+
+  ### Testing and Validation
+  - Structural validation (H1, sentence count, line endings) verified in implementation
+  - Success criteria checkable post-execution: file exists, git log shows commit, file content correct
+  - No additional test suite needed for test artifact
+  - Can be integrated into CI pipeline for verification
+
+  ---
+
+  _Research phase complete. All technical decisions documented with alternatives and rationale.
+  No external dependencies required. Implementation ready for development phase._
