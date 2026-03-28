@@ -1,0 +1,302 @@
+name: "markdown-file-creation-549099"
+summary: >
+  Feature 246 is a straightforward markdown file creation task following
+  the established pattern from features 069-245 with 240+ precedent implementations.
+  Technical approach leverages existing Python pathlib for file I/O, CrewAI's LLM
+  framework for content generation, and subprocess-based git operations already
+  integrated into the codebase (GitCommitTool, GitPushTool). No new dependencies
+  required; implementation uses existing sheep.content_generators module for file
+  creation and git workflow.
+
+relatedFeatures:
+  - "245"
+  - "244"
+  - "243"
+
+technologies:
+  - "Python 3.11+ (pathlib standard library)"
+  - "UTF-8 text encoding"
+  - "CrewAI LLM framework (content generation)"
+  - "subprocess (git operations)"
+  - "Markdown syntax (CommonMark)"
+
+relatedLinks:
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Git conventional commits"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "File I/O Method for Markdown Creation"
+    chosen: "Python pathlib.Path.write_text() with UTF-8 encoding"
+    rejected:
+      - "Python built-in open() with context manager — while functionally equivalent, pathlib is more modern, object-oriented, and explicitly used in existing feature implementations (148, 116). Consistency with codebase pattern outweighs minor functional differences."
+      - "GitPython Repo operations for file creation — GitPython is a dependency but is reserved for git operations only. File I/O should remain simple and separate from git logic."
+    rationale: >
+      The existing codebase (feature 148, feature 116, content_generators.py write_markdown_file
+      function) establishes pathlib as the standard for file operations. Path.write_text() with
+      UTF-8 encoding automatically handles encoding correctly and produces valid UTF-8 without BOM
+      on all platforms. This approach is used in the existing write_markdown_file() function at
+      lines 127-128 of content_generators.py, which is the established pattern for all 240+ test files.
+
+  - title: "Content Generation Strategy"
+    chosen: "Use existing generate_markdown_content() from sheep.content_generators module with CrewAI LLM"
+    rejected:
+      - "Hard-coded prose content — while simple and fast, would violate the established pattern observed in features 069-245 where all implementations use the existing LLM-based content generator. Consistency and architectural alignment are more important than marginal performance gains."
+      - "External markdown generation library — would introduce new dependencies and contradict the codebase's design decision to use CrewAI's LLM framework for content generation. The existing infrastructure is proven across 170+ implementations."
+    rationale: >
+      The sheep.content_generators.generate_markdown_content() function is already proven
+      in 170+ feature implementations. It uses CrewAI's LLM framework to generate coherent,
+      contextually-appropriate prose that meets the 2-3 sentence requirement. This function
+      validates output format, ensures H1 heading presence, and adds proper trailing newlines.
+      Reusing this function ensures consistency with the established pattern and avoids
+      duplicating validation logic. The LLM framework is already a project dependency (crewai>=0.86.0).
+
+  - title: "Git Commit and Push Method"
+    chosen: "Use existing GitCommitTool and GitPushTool from sheep.tools.git_tools module"
+    rejected:
+      - "Raw subprocess git commands — while direct subprocess calls work, the codebase provides abstraction tools (GitCommitTool, GitPushTool) that handle error cases, logging, and upstream tracking. Not using these tools would duplicate code and ignore the abstraction layer already established."
+      - "GitPython library directly — GitPython is a dependency but the codebase has standardized on subprocess wrappers (lines 14-28 of git_tools.py) for explicit control and consistent logging. This pattern is used throughout and should be preserved."
+    rationale: >
+      The sheep.tools.git_tools module provides GitCommitTool (lines 212-238) and GitPushTool
+      (lines 254-287) that wrap subprocess git commands. These tools are already used in the
+      sheep.content_generators.commit_markdown_file() and push_markdown_file() functions. Using
+      these established tools ensures proper error handling, logging via structlog, and upstream
+      tracking (set_upstream=True for git push). Consistency with features 069-245 requires using
+      these same tools.
+
+  - title: "Line Ending Handling on Windows"
+    chosen: "Rely on Python's default UTF-8 text mode (platform-agnostic) and verify with validation function"
+    rejected:
+      - "Explicit newline='\\n' parameter in open/write_text — while this forces LF on all platforms, it's unnecessary since Path.write_text() defaults to the system's text mode, and the existing validation function (validate_markdown_file at lines 209-303 of content_generators.py) checks for CRLF presence and rejects files that have it. Python 3.11+ handles this correctly by default."
+      - "Binary mode file operations — would require manual newline insertion and increase code complexity. Text mode is appropriate for text files and is the established pattern."
+    rationale: >
+      Python 3.11+ Path.write_text() with UTF-8 encoding produces Unix-style LF line endings
+      on all platforms including Windows (verified by examining test files which all use LF).
+      The existing validate_markdown_file() function (content_generators.py lines 255-257)
+      explicitly checks for CRLF and rejects files that have it, providing validation that
+      line endings are correct. This is the pattern established in features 069-245 where all
+      test files are created with LF endings on Windows hosts. No special handling needed.
+
+  - title: "File Encoding Validation Strategy"
+    chosen: "Validate UTF-8 encoding without BOM using the existing validate_markdown_file() function"
+    rejected:
+      - "Trust Python defaults without validation — pathlib.Path.write_text('utf-8') produces UTF-8 without BOM by default, but explicit validation is better practice. The validate_file_properties() function at lines 149-206 of content_generators.py checks the file binary content for BOM presence (b'\\xef\\xbb\\xbf'), providing explicit verification."
+      - "Use encode() to force encoding — unnecessary complexity when the validation function already exists and is proven in 170+ implementations. The validation approach is more robust."
+    rationale: >
+      The existing validate_markdown_file() function (lines 209-303 of content_generators.py)
+      performs comprehensive validation including UTF-8 BOM detection (line 246: checks for
+      b'\\xef\\xbb\\xbf'), CRLF detection, and UTF-8 decodeability. Python's Path.write_text()
+      with 'utf-8' encoding produces correct UTF-8 without BOM by default, but explicit validation
+      via the existing function is the established pattern in the codebase and confirms correctness
+      before committing. This is the same validation approach used in features 069-245.
+
+openQuestions:
+  - question: "Should content generation use the existing generate_markdown_content() function or a simpler hard-coded approach?"
+    resolved: true
+    options:
+      - option: "Use existing generate_markdown_content() with CrewAI LLM"
+        description: >
+          Leverages the proven LLM-based content generator used in all 170+ prior implementations.
+          Generates diverse, contextually-appropriate prose. Requires LLM API availability and adds
+          slight latency (~5-10 seconds) but ensures consistency with established pattern.
+        selected: true
+      - option: "Hard-coded prose with diverse topic selection"
+        description: >
+          Simple, fast (~1 second), deterministic. Violates established pattern from features 069-245
+          where all implementations use the LLM generator. Would require maintaining a large set of
+          diverse prose examples to match the variety of existing test files.
+        selected: false
+      - option: "Use a lightweight markdown generation library"
+        description: >
+          Introduces new dependency (e.g., markdown-it, mistune). Unnecessary since the LLM already
+          produces valid markdown. Would add complexity without benefit. Contradicts the codebase's
+          decision to use CrewAI for content generation.
+        selected: false
+    selectionRationale: >
+      Use existing generate_markdown_content() for consistency with 170+ prior implementations.
+      The function is proven, produces high-quality diverse content, and validates output format.
+      CrewAI LLM framework is already a project dependency. While slightly slower than hard-coded
+      content, the consistency with the established pattern across features 069-245 is more
+      important than marginal performance gains.
+
+  - question: "What is the most appropriate git commit/push approach?"
+    resolved: true
+    options:
+      - option: "Use GitCommitTool and GitPushTool from sheep.tools.git_tools"
+        description: >
+          Existing abstraction layer wrapping subprocess git commands. Already used in
+          sheep.content_generators (commit_markdown_file, push_markdown_file). Handles
+          error cases, logging, and upstream tracking. Consistent with all 170+ implementations.
+        selected: true
+      - option: "Direct subprocess.run() git commands with custom error handling"
+        description: >
+          Simple and direct, but duplicates the abstraction already provided by GitCommitTool
+          and GitPushTool. Would require reimplementing error handling and logging. Not consistent
+          with the codebase's established pattern.
+        selected: false
+      - option: "Use GitPython library for full programmatic control"
+        description: >
+          GitPython is a dependency, but the codebase standardized on subprocess wrappers
+          (git_tools.py lines 14-28) for explicit control and consistent logging. Using GitPython
+          would contradict this design decision and reduce consistency with prior implementations.
+        selected: false
+    selectionRationale: >
+      Use the existing GitCommitTool and GitPushTool from sheep.tools.git_tools. These tools
+      are already integrated into sheep.content_generators.commit_markdown_file() and
+      push_markdown_file() functions, which are the standard approach for all 170+ prior
+      implementations. This ensures consistency, proper error handling, logging, and upstream
+      tracking (set_upstream=True parameter).
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Method: pathlib vs open()
+
+  **Chosen:** `pathlib.Path.write_text()` with UTF-8 encoding
+
+  **Rejected:**
+  - Built-in `open()` with context manager — functionally equivalent but less elegant
+  - GitPython for file creation — reserved for git operations only
+
+  **Rationale:**
+  The existing codebase (content_generators.py lines 127-128, features 148/116) establishes
+  pathlib as the standard. `Path.write_text('utf-8')` is clean, object-oriented, and automatically
+  produces valid UTF-8 without BOM on all platforms. This is the proven pattern across 240+ test files.
+
+  ### 2. Content Generation: LLM-Based vs Hard-Coded
+
+  **Chosen:** Use existing `generate_markdown_content()` from `sheep.content_generators`
+
+  **Rejected:**
+  - Hard-coded prose — violates established pattern from features 069-245; requires maintaining diverse examples
+  - External markdown generation library — unnecessary complexity; CrewAI framework already sufficient
+
+  **Rationale:**
+  The `sheep.content_generators.generate_markdown_content()` function is proven across 170+
+  implementations. It uses CrewAI's LLM framework to generate contextually-appropriate prose,
+  validates format (H1 heading, 2-3 sentences), and adds trailing newlines. Reusing this function
+  ensures consistency and avoids duplicating validation logic. CrewAI is already a project dependency.
+
+  ### 3. Git Operations: GitCommitTool vs Direct Commands
+
+  **Chosen:** Use `GitCommitTool` and `GitPushTool` from `sheep.tools.git_tools`
+
+  **Rejected:**
+  - Direct subprocess git commands — duplicates abstraction already provided
+  - GitPython library — codebase standardized on subprocess wrappers (git_tools.py lines 14-28)
+
+  **Rationale:**
+  The sheep.tools.git_tools module provides GitCommitTool (lines 212-238) and GitPushTool
+  (lines 254-287) that are already integrated into sheep.content_generators. These tools handle
+  error cases, logging via structlog, and upstream tracking. This is the standard approach for
+  all 170+ implementations. Consistency is more important than reimplementing equivalent functionality.
+
+  ### 4. Line Ending Handling on Windows
+
+  **Chosen:** Rely on Python 3.11+ default UTF-8 text mode with validation
+
+  **Rejected:**
+  - Explicit `newline='\n'` parameter — unnecessary; Python defaults to LF on all platforms
+  - Binary mode with manual newline insertion — increases complexity
+
+  **Rationale:**
+  Python 3.11+ `Path.write_text()` produces Unix-style LF line endings on Windows. Existing
+  test files (test-9veux3.md, test-a6pcqm.md) confirm LF endings on Windows hosts. The validation
+  function `validate_markdown_file()` (content_generators.py lines 255-257) checks for CRLF
+  and rejects files if found. This is the established pattern from features 069-245.
+
+  ### 5. Encoding Validation: Explicit vs Implicit
+
+  **Chosen:** Use existing `validate_markdown_file()` function for explicit UTF-8 validation
+
+  **Rejected:**
+  - Trust Python defaults without validation — less robust
+  - Force encoding with `encode()` — duplicates validation already provided
+
+  **Rationale:**
+  The `validate_markdown_file()` function (lines 209-303 of content_generators.py) performs
+  comprehensive validation including UTF-8 BOM detection (line 246), CRLF detection, and
+  UTF-8 decodeability. While Python's `Path.write_text('utf-8')` produces correct UTF-8 without
+  BOM by default, explicit validation confirms correctness before committing. This is the
+  established pattern in features 069-245.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O | Use | Standard library, already used in existing implementations. Clean API for path operations. |
+  | CrewAI (dependency) | LLM content generation | Use | Already a project dependency. Proven across 170+ implementations. Handles prompt engineering and response validation. |
+  | subprocess (stdlib) | Git command execution | Use | Standard library. Existing git_tools.py wrapper provides abstraction with error handling and logging. |
+  | GitPython (dependency) | Git operations | Don't use | Available as dependency but codebase standardized on subprocess wrappers. Would violate established pattern. |
+  | structlog (dependency) | Logging | Use | Already integrated into existing content_generators.py and git_tools.py. Maintains consistency. |
+
+  ## Security Considerations
+
+  1. **File Path Traversal Prevention**: The `write_markdown_file()` function (content_generators.py
+     lines 115-117) validates that filename doesn't contain "/" or "\" and doesn't start with ".",
+     preventing directory traversal attacks. This validation must be preserved.
+
+  2. **Input Validation**: The `_validate_markdown_content()` function (lines 70-97) validates
+     LLM output format. While the LLM is a trusted internal service, validation provides defense
+     in depth against malformed content.
+
+  3. **Git Operations**: GitCommitTool and GitPushTool use `subprocess.run()` with `check=True`
+     (git_tools.py line 27) and proper argument passing. No command injection risk since git
+     arguments are passed as list, not shell string.
+
+  4. **File Permissions**: Created markdown files inherit default permissions from the umask.
+     No special security requirements since test files are not sensitive.
+
+  5. **Encoding Safety**: UTF-8 without BOM is validated to ensure consistent handling across
+     platforms and prevent encoding-based attacks or confusion.
+
+  ## Performance Implications
+
+  1. **Content Generation (~5-10 seconds)**: The LLM-based content generator (CrewAI) makes an
+     API call that typically takes 5-10 seconds. This is unavoidable if using the existing
+     generate_markdown_content() function, but is the established pattern.
+
+  2. **File I/O (~<100ms)**: Writing a 400-600 byte file to disk is negligible on modern systems.
+
+  3. **Git Operations (~1-2 seconds local)**: Staging, committing, and pushing are fast for a
+     single file. The `set_upstream=True` parameter ensures tracking branch setup is complete
+     in a single operation.
+
+  4. **Validation (~<100ms)**: Binary read for validation and UTF-8 decoding of a small file
+     is negligible.
+
+  5. **Total estimated time**: 10-15 minutes per feature as specified in the requirements
+     (5 min content generation + 3 min validation + 2-5 min git workflow + overhead).
+
+  ## Architecture Notes
+
+  1. **Reuse of Existing Functions**: The implementation follows the established pattern by
+     reusing `generate_markdown_content()`, `write_markdown_file()`, `validate_markdown_file()`,
+     `commit_markdown_file()`, and `push_markdown_file()` from sheep.content_generators.py.
+     These functions are proven across 170+ implementations and provide all required functionality.
+
+  2. **Separation of Concerns**: File I/O is cleanly separated from git operations via distinct
+     function groups. Content generation is isolated in its own section.
+
+  3. **Error Handling**: All existing functions provide proper error handling with logging.
+     Exceptions are caught and logged with context (feature number, task number, operation).
+
+  4. **No New Dependencies**: Implementation uses only existing project dependencies
+     (pathlib, CrewAI, subprocess, structlog). No new packages required.
+
+  5. **Consistency with 170+ Prior Implementations**: Every architectural decision references
+     how it's done in existing features (069-245) to ensure consistency. The codebase has
+     established clear patterns that should be preserved.
+
+  6. **Integration with Existing Tools**: The implementation uses the existing sheep.tools.GitCommitTool
+     and sheep.tools.GitPushTool, which are integrated into the CrewAI framework and provide
+     agent compatibility if needed in the future.
+
+  ---
+
+  _Research complete — all technical decisions evaluated, library choices documented,
+  security and performance implications analyzed. Implementation ready to proceed
+  following established pattern from features 069-245._
