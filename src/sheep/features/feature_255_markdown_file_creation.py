@@ -7,17 +7,23 @@ This module orchestrates the creation of a markdown file following the establish
 - Comprehensive validation at each phase
 - Standard git operations (add, commit, push)
 
-The module implements phase 1 of 4: Content Generation & Validation
-This phase focuses on:
-1. Generating markdown content using LLM
-2. Validating generated content meets format requirements
+The module implements phases 1-2 of 4:
+Phase 1: Content Generation & Validation
+  1. Generating markdown content using LLM
+  2. Validating generated content meets format requirements
+
+Phase 2: File Creation & Verification
+  1. Writing validated content to disk with pathlib.Path
+  2. Verifying file encoding, line endings, and structure
 
 Subsequent phases (not in scope for this module):
-3. File creation & disk validation
-4. Git workflow integration and testing
+  3. Git workflow integration (staging, committing, pushing)
+  4. Integration tests and verification
 """
 
-from sheep.content_generators import generate_markdown_content
+from pathlib import Path
+
+from sheep.content_generators import generate_markdown_content, validate_markdown_file
 from sheep.observability.logging import get_logger
 
 _logger = get_logger(__name__)
@@ -110,21 +116,138 @@ def validate_content(content: str) -> None:
     _logger.info("Content validation passed")
 
 
-def run() -> bool:
-    """Main orchestration function for feature 255 phase 1.
+def write_file(content: str) -> bool:
+    """Write validated markdown content to disk using pathlib.Path.
 
-    Coordinates content generation and validation:
-    1. Generate markdown content using LLM
-    2. Validate generated content meets all format requirements
+    Writes the content to a file named test-i3iccc.md in the repository root
+    with UTF-8 encoding. The file will use Unix LF line endings by default on
+    Unix-like systems (Linux, macOS).
+
+    Args:
+        content: The markdown content string to write to disk.
+
+    Returns:
+        True if file was successfully written.
+
+    Raises:
+        ValueError: If content is invalid or file path is unsafe.
+        FileNotFoundError: If parent directory doesn't exist.
+        IOError: If file write operation fails.
+    """
+    _logger.info(f"Writing markdown file to {FILENAME}")
+
+    # Validate content before writing
+    validate_content(content)
+
+    try:
+        # Resolve the repository root (current working directory)
+        repo_root = Path.cwd()
+        file_path = repo_root / FILENAME
+
+        _logger.debug(f"Writing to: {file_path}")
+
+        # Write file with UTF-8 encoding (handles LF line endings on Unix)
+        file_path.write_text(content, encoding="utf-8")
+
+        # Verify file was created
+        if not file_path.exists():
+            raise FileNotFoundError(f"File was not created: {file_path}")
+
+        # Verify file has content
+        file_size = file_path.stat().st_size
+        if file_size == 0:
+            raise IOError(f"File was created but is empty: {file_path}")
+
+        _logger.info(
+            f"Successfully wrote markdown file: {file_path} ({file_size} bytes)"
+        )
+        return True
+
+    except FileNotFoundError:
+        raise
+    except IOError:
+        raise
+    except Exception as e:
+        _logger.error(f"Failed to write markdown file: {e}")
+        raise IOError(f"Error writing file: {e}") from e
+
+
+def verify_file() -> bool:
+    """Verify that the markdown file meets all format and encoding requirements.
+
+    Verifies:
+    - File exists at FILENAME in repository root
+    - File is UTF-8 encoded without BOM (Byte Order Mark)
+    - File uses Unix LF line endings (not Windows CRLF)
+    - File has valid markdown structure (H1 heading, blank line, 2-3 sentences)
+    - File has trailing newline
+    - File size is within acceptable range (250-600 bytes)
+
+    Returns:
+        True if file passes all validation checks.
+
+    Raises:
+        ValueError: If file fails any validation check.
+        FileNotFoundError: If file does not exist.
+        IOError: If file cannot be read.
+    """
+    _logger.info(f"Verifying markdown file: {FILENAME}")
+
+    try:
+        repo_root = Path.cwd()
+        file_path = repo_root / FILENAME
+
+        # Check file exists
+        if not file_path.exists():
+            raise FileNotFoundError(f"File does not exist: {file_path}")
+
+        if not file_path.is_file():
+            raise ValueError(f"Path is not a file: {file_path}")
+
+        # Use content_generators module for comprehensive validation
+        validate_markdown_file(str(file_path))
+
+        # Check file size
+        file_size = file_path.stat().st_size
+        min_bytes, max_bytes = 350, 650
+        if not (min_bytes <= file_size <= max_bytes):
+            raise ValueError(
+                f"File size {file_size} bytes outside acceptable range {min_bytes}-{max_bytes} bytes"
+            )
+
+        _logger.info(f"File verification passed: {file_path} ({file_size} bytes)")
+        return True
+
+    except (FileNotFoundError, ValueError):
+        raise
+    except Exception as e:
+        _logger.error(f"File verification failed: {e}")
+        raise ValueError(f"Error verifying file: {e}") from e
+
+
+def run() -> bool:
+    """Main orchestration function for feature 255 phases 1-2.
+
+    Coordinates content generation, validation, file creation, and file verification:
+
+    Phase 1: Content Generation & Validation
+      1a. Generate markdown content using LLM
+      1b. Validate generated content meets all format requirements
+
+    Phase 2: File Creation & Verification
+      2a. Write validated content to disk using pathlib.Path
+      2b. Verify file encoding, line endings, and structure
 
     Returns:
         True on success.
 
     Raises:
         ValueError: If validation fails.
-        Exception: If content generation fails.
+        FileNotFoundError: If file operations fail.
+        IOError: If disk write fails.
+        Exception: If content generation or other operations fail.
     """
-    _logger.info("Starting feature 255 phase 1: Content Generation & Validation")
+    _logger.info("Starting feature 255 phases 1-2: Content Generation, Validation, File Creation & Verification")
 
     try:
         # Phase 1a: Generate content
@@ -135,14 +258,28 @@ def run() -> bool:
         _logger.info("Phase 1b: Validating generated content")
         validate_content(content)
 
-        _logger.info("✓ Feature 255 phase 1 completed successfully")
+        # Phase 2a: Write file
+        _logger.info("Phase 2a: Writing markdown file to disk")
+        write_file(content)
+
+        # Phase 2b: Verify file
+        _logger.info("Phase 2b: Verifying file encoding and structure")
+        verify_file()
+
+        _logger.info("✓ Feature 255 phases 1-2 completed successfully")
         return True
 
     except ValueError as e:
-        _logger.error(f"Content validation failed: {e}")
+        _logger.error(f"Validation failed: {e}")
+        raise
+    except FileNotFoundError as e:
+        _logger.error(f"File operation failed: {e}")
+        raise
+    except IOError as e:
+        _logger.error(f"Disk write failed: {e}")
         raise
     except Exception as e:
-        _logger.error(f"Feature 255 phase 1 failed: {e}")
+        _logger.error(f"Feature 255 phases 1-2 failed: {e}")
         raise
 
 
