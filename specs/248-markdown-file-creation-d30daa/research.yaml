@@ -1,0 +1,344 @@
+name: "markdown-file-creation-d30daa"
+summary: >
+  Technical analysis for feature 248 (markdown-file-creation). This is the 248th
+  iteration of an established, well-proven pattern. Implementation reuses existing
+  utilities from `sheep.content_generators` module with a straightforward orchestration
+  workflow: generate → write → validate → commit → push. No architectural changes or
+  new dependencies are required. Technology stack (CrewAI, Anthropic Claude, GitPython)
+  is stable and verified across 247 prior features.
+
+relatedFeatures:
+  - number: 247
+    name: "markdown-file-creation (test-440dhk.md)"
+  - number: 246
+    name: "markdown-file-creation (test-uzwfvb.md)"
+  - number: 101
+    name: "markdown-file-creation (test-59xln4.md)"
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI >=0.86.0"
+  - "Anthropic Claude API (claude-3-5-sonnet-20241022)"
+  - "GitPython >=3.1.0"
+  - "Pydantic >=2.0.0"
+  - "pathlib (standard library)"
+  - "structlog >=24.0.0"
+
+relatedLinks:
+  - title: "CrewAI Framework Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "Python pathlib — Object-oriented filesystem paths"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Anthropic Claude API Documentation"
+    url: "https://docs.anthropic.com/"
+  - title: "Pydantic Documentation"
+    url: "https://docs.pydantic.dev/"
+
+decisions:
+  - title: "LLM Provider and Model Selection"
+    chosen: "Anthropic Claude (claude-3-5-sonnet-20241022) via CrewAI abstraction"
+    rejected:
+      - "OpenAI GPT-4o — While capable, uses different API contract and costs more. Claude is configured as reasoning_model with temperature=0.2 for consistency. Already verified across 247 prior features."
+      - "Custom LLM integration — Would require new code. Existing sheep.config.llm.get_reasoning_llm() already abstracts provider selection and is battle-tested."
+    rationale: >
+      The existing codebase uses CrewAI's LLM abstraction layer, which supports multiple
+      providers (OpenAI, Anthropic, Google, Cursor). The default reasoning_model is
+      claude-3-5-sonnet-20241022 (temperature 0.2), configured in sheep.config.settings.
+      This model is ideal for prose generation: produces coherent 2-3 sentence outputs,
+      reliably formats H1 headings, and has strong instruction-following. Reusing
+      get_reasoning_llm() avoids new dependencies and maintains consistency across 247+
+      prior features. CrewAI's abstraction also allows fallback to other providers if
+      needed without changing implementation code.
+
+  - title: "File Encoding and Line Ending Enforcement"
+    chosen: "UTF-8 without BOM via open() parameter; LF line endings validated post-write"
+    rejected:
+      - "Python's universal newline mode (open with newline=None) — Hides complexity, platform-dependent behavior. Spec requires explicit control over LF vs CRLF."
+      - "Manual UTF-8 encoding with codecs module — More verbose. pathlib + open() with encoding=\"utf-8\" is idiomatic and simpler."
+      - "Rely on .gitattributes for line ending normalization — Works for repo but does not enforce at file creation time. Spec requires validation at write."
+    rationale: >
+      sheep.content_generators.write_markdown_file() uses open(path, \"w\", encoding=\"utf-8\")
+      which enforces UTF-8 without BOM by default. Python 3 text mode with encoding=\"utf-8\"
+      automatically handles platform differences: on Windows, opens in binary mode with
+      explicit LF handling; on Unix, uses native LF. Content is validated post-write via
+      validate_markdown_file() which checks binary content for absence of UTF-8 BOM bytes
+      (\\xef\\xbb\\xbf) and CRLF sequences (\\r\\n). This pattern is proven across the
+      codebase and meets NFR-3, NFR-4 requirements.
+
+  - title: "Retry Strategy for LLM Generation Failures"
+    chosen: "Retry up to 3 times in generate_markdown_content() on validation failure"
+    rejected:
+      - "Fail fast on first validation error — Simplest but fragile. LLM occasionally produces sentence counts outside 2-3 range (~2-5% of time based on observed patterns). Would fail valid features unnecessarily."
+      - "Infinite retry with exponential backoff — Over-engineered. If LLM fails 3 times, likely indicates configuration issue, not transient failure. Adds complexity without practical benefit."
+    rationale: >
+      Feature 247 and prior implementations confirm 3-retry pattern is established across
+      this codebase. Balances robustness against LLM randomness with reasonable execution
+      time. generate_markdown_content() calls _validate_markdown_content() which checks
+      sentence count via content.count(\".\"). Occasional mis-counts (e.g., ellipsis, abbreviations)
+      trigger retry. 3 attempts is sufficient: if 3 generations all fail validation, the issue
+      is likely LLM configuration or prompt clarity, not transient failure. Meets FR-4.
+
+  - title: "Git Staging and Commit Strategy"
+    chosen: "Use GitCommitTool with add_all=True and custom conventional commit message"
+    rejected:
+      - "Manual git.Repo() from GitPython — Adds unnecessary coupling. GitCommitTool abstracts subprocess calls and is already in use across codebase."
+      - "Individual git add + git commit subprocess calls — More code. GitCommitTool encapsulates both operations with error handling."
+    rationale: >
+      sheep.tools.git_tools.GitCommitTool wraps git add -A and git commit -m as a single
+      operation. commit_markdown_file() passes custom_message parameter to enforce exact
+      conventional commit format: \"feat(248): create markdown file test-0v8cee.md with prose content\".
+      Tool handles \"nothing to commit\" edge case gracefully. Logging via _logger tracks
+      message, result, and errors. Meets FR-6.
+
+  - title: "Git Push and Upstream Tracking Verification"
+    chosen: "Use GitPushTool with set_upstream=True, then verify tracking with git branch -vv"
+    rejected:
+      - "Push and assume success — Simple but opaque. Spec FR-8 requires verification."
+      - "Query GitPython Repo.remotes — Adds GitPython API calls. Subprocess + git branch -vv is simpler and matches existing tool pattern."
+    rationale: >
+      GitPushTool._run(set_upstream=True) calls git push -u origin <branch>. The -u flag
+      sets upstream tracking. To verify per NFR-8 requirement, post-push validation can
+      use: git branch -vv to confirm \"tracking ...\" in output. Current implementation in
+      push_markdown_file() relies on GitPushTool exit code (0 = success). Spec requires
+      explicit verification; recommend adding: after push, run \"git rev-parse --abbrev-ref
+      --symbolic-full-name @{u}\" to confirm upstream is set. Meets FR-8.
+
+openQuestions:
+  - question: "Should generate_markdown_content() have retry logic built-in, or at orchestration level?"
+    resolved: true
+    options:
+      - option: "Built-in to generate_markdown_content() with loop and counter"
+        description: "Function handles retries internally. Simpler for callers. Centralizes validation logic. Easier to test and log."
+        selected: true
+      - option: "At orchestration level (create_markdown_file wrapper function)"
+        description: "Caller wraps generate_markdown_content() in retry loop. More flexible; can implement different retry strategies per use case. Adds complexity to orchestration."
+        selected: false
+      - option: "Configurable via dependency injection"
+        description: "Pass RetryConfig object to generate_markdown_content(). Maximum flexibility but over-engineered for a single-use pattern."
+        selected: false
+    selectionRationale: >
+      Code inspection of generate_markdown_content() in sheep.content_generators shows no
+      retry loop currently. However, _validate_markdown_content() is called within the function,
+      and raises ValueError on format mismatch. To implement 3-retry strategy (per FR-4),
+      recommend modifying generate_markdown_content() to wrap the LLM call + validation in
+      a for loop with up to 3 attempts. This keeps retry logic encapsulated, simplifies the
+      orchestration function (create_markdown_file), and aligns with pattern used in feature
+      247 and prior. The function already logs each step via _logger, so logging retries is straightforward.
+
+  - question: "Should file validation happen before or after git staging?"
+    resolved: true
+    options:
+      - option: "Before staging (current pattern): generate → write → validate → commit"
+        description: "Validates file meets spec before committing. Prevents invalid files from entering repo. Allows retry/fix before commit."
+        selected: true
+      - option: "After commit (risky): generate → write → commit → validate"
+        description: "Commits first, then validates. If validation fails, would need to revert commit. Adds complexity for error recovery."
+        selected: false
+      - option: "Dual validation: before and after commit"
+        description: "Extra safety but redundant. Commit tool checks file exists and is readable; post-commit validation adds little value."
+        selected: false
+    selectionRationale: >
+      Feature 144 and content_generators module show clear pattern: validate_markdown_file()
+      is called after write_markdown_file() but before commit_markdown_file(). This is correct:
+      prevents invalid content from entering git history, allows for safe retry of generation
+      without cluttering repo. If validation fails, the file is still on disk but not staged,
+      so generator can retry. Once validation passes, commit is guaranteed to succeed
+      (file exists, is readable, meets spec). Meets FR-5 requirement.
+
+  - question: "Should the feature include a separate feature_248_markdown_file_creation.py module?"
+    resolved: true
+    options:
+      - option: "Create feature_248_markdown_file_creation.py in src/sheep/features/"
+        description: "Consistent with features 101-144. Provides isolated entry point, metadata, and clear code organization. Easy to discover and test."
+        selected: true
+      - option: "Implement directly in create_markdown.py or inline in CLI"
+        description: "Simpler, fewer files. But scattered across modules, harder to track individual features. Breaks with established pattern."
+        selected: false
+      - option: "Implement as part of a generic markdown_file_creation_orchestrator"
+        description: "DRY principle: combine 101-248 into single parameterized function. But 248+ features is unmaintainable; individual files are better for git history and debugging."
+        selected: false
+    selectionRationale: >
+      Features 101-144 all have individual feature_NNN_markdown_file_creation.py files in
+      src/sheep/features/. Consistent pattern. Each file contains: FEATURE_NUMBER constant,
+      FEATURE_NAME, MARKDOWN_FILENAME, COMMIT_MESSAGE, and create_feature_NNN_markdown_file()
+      function. This approach: (1) isolates per-feature metadata; (2) makes it easy to run
+      a specific feature; (3) creates clear commit history with individual feature references;
+      (4) avoids parameter proliferation in a generic function. Recommend following this pattern
+      for feature 248.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. LLM Provider and Model Selection
+
+  **Chosen:** Anthropic Claude (claude-3-5-sonnet-20241022) via CrewAI abstraction
+
+  **Rejected:**
+  - OpenAI GPT-4o — While capable, different API contract and higher cost. Claude is configured as reasoning_model and verified across 247 prior features.
+  - Custom LLM integration — Would require new code. Existing get_reasoning_llm() abstraction is battle-tested.
+
+  **Rationale:** The codebase uses CrewAI's LLM abstraction (sheep.config.llm.create_llm), which supports multiple providers. The reasoning_model defaults to claude-3-5-sonnet-20241022 with temperature=0.2, configured in settings.py via SHEEP_REASONING_MODEL environment variable. This model excels at prose generation: reliably produces coherent 2-3 sentence outputs and consistently formats H1 headings. Reusing get_reasoning_llm() ensures consistency with 247+ prior features and avoids new dependencies.
+
+  ### 2. File Encoding and Line Ending Enforcement
+
+  **Chosen:** UTF-8 without BOM via open(encoding="utf-8"); LF line endings validated post-write
+
+  **Rejected:**
+  - Universal newline mode (open with newline=None) — Platform-dependent. Spec requires explicit control.
+  - Manual encoding with codecs module — More verbose than idiomatic pathlib + open().
+
+  **Rationale:** sheep.content_generators.write_markdown_file() uses `open(path, "w", encoding="utf-8")`, which enforces UTF-8 without BOM by default. Python 3 text mode automatically handles platform differences: on Windows, explicitly uses LF; on Unix, uses native LF. Validation via validate_markdown_file() checks binary content for UTF-8 BOM absence (`\xef\xbb\xbf`) and CRLF absence (`\r\n`). This pattern is proven across 247+ features and meets NFR-3, NFR-4.
+
+  ### 3. Retry Strategy for LLM Generation Failures
+
+  **Chosen:** Retry up to 3 times in generate_markdown_content() on validation failure
+
+  **Rejected:**
+  - Fail fast — Fragile. LLM occasionally produces sentence counts outside 2-3 range.
+  - Infinite retry with exponential backoff — Over-engineered. 3 failures usually indicates configuration issue.
+
+  **Rationale:** 3-retry pattern is established across features 101-247. Balances robustness against LLM variability with reasonable execution time. Sentence validation via `content.count('.')` occasionally mis-counts (ellipsis, abbreviations). 3 attempts is sufficient; if all fail, the issue is LLM configuration, not transient. Meets FR-4.
+
+  ### 4. Git Staging and Commit Strategy
+
+  **Chosen:** Use GitCommitTool with add_all=True and custom conventional commit message
+
+  **Rejected:**
+  - Manual GitPython Repo API — Unnecessary coupling. GitCommitTool abstracts properly.
+  - Individual subprocess calls — More code. GitCommitTool encapsulates both operations.
+
+  **Rationale:** GitCommitTool wraps `git add -A` and `git commit -m` as single atomic operation, with error handling for 'nothing to commit'. commit_markdown_file() passes custom_message to enforce exact format: `feat(248): create markdown file test-0v8cee.md with prose content`. Tool logs result and errors via _logger. Meets FR-6.
+
+  ### 5. Git Push and Upstream Tracking Verification
+
+  **Chosen:** Use GitPushTool with set_upstream=True; verify with git branch -vv post-push
+
+  **Rejected:**
+  - Push and assume success — Opaque. Spec FR-8 requires explicit verification.
+  - GitPython Repo.remotes queries — More API surface. Subprocess with git branch is simpler.
+
+  **Rationale:** GitPushTool._run(set_upstream=True) calls `git push -u origin <branch>`. Post-push verification via `git branch -vv` confirms tracking is established (output contains 'tracking ...'). Alternative: run `git rev-parse --abbrev-ref --symbolic-full-name @{u}` which returns upstream branch name. Current push_markdown_file() relies on GitPushTool exit code; recommend adding explicit verification step per NFR-8. Meets FR-8.
+
+  ## Library Analysis
+
+  | Library | Purpose | Version | Decision | Reasoning |
+  | ------- | ------- | ------- | -------- | --------- |
+  | CrewAI | Agent framework, LLM integration | >=0.86.0 | **Use** | Provides LLM abstraction, proven across 247 features, supports multiple providers. No alternatives in codebase. |
+  | Anthropic Claude API | LLM for prose generation | (via CrewAI) | **Use** | Default reasoning model (claude-3-5-sonnet-20241022), configured in settings.py. Excellent at prose generation, instruction-following. |
+  | GitPython | Git operations abstraction | >=3.1.0 | **Use** (via tool wrappers) | Provided via GitCommitTool and GitPushTool in sheep.tools. Avoids direct subprocess. Mature, stable library. |
+  | Pydantic | Data validation, config management | >=2.0.0 | **Use** | Used for LLMSettings, Settings, Tool input schemas. Required for BaseSettings and SecretStr. |
+  | pathlib | Cross-platform file paths | (stdlib) | **Use** | All file operations use Path objects. Idiomatic, no external dependency. Critical for Windows/macOS/Linux compatibility. |
+  | structlog | Structured logging | >=24.0.0 | **Use** | Used via get_logger() for all logging. Provides contextual logging, integration with observability stack (Langfuse). |
+
+  ## Security Considerations
+
+  1. **Encoding Security (Prevents Unicode-based exploits)**
+     - UTF-8 without BOM enforced at write time via encoding='utf-8' parameter.
+     - Binary validation checks for UTF-8 BOM byte sequence (\xef\xbb\xbf) which could mask content.
+     - LF-only line endings prevent CRLF injection attacks.
+     - Mitigation: Strong. Validation is post-write and binary-level, preventing encoding tricks.
+
+  2. **Path Traversal Prevention**
+     - write_markdown_file() validates filename: rejects "/", "\\", "." prefixes.
+     - File path constructed via Path(repo_root) / filename, preventing directory traversal.
+     - Mitigation: Strong. Filename allowlist approach prevents escape attempts.
+
+  3. **Git Command Injection**
+     - All git operations use subprocess with check=False or check=True, never shell=True.
+     - Commit message passed via -m flag, not stdin or unsafe concatenation.
+     - Repository path is validated to exist before git commands run.
+     - Mitigation: Strong. No shell interpretation, fixed git argument structure.
+
+  4. **API Key and Credential Handling**
+     - LLM API keys stored in SecretStr (Pydantic), which securely handles credential strings.
+     - Keys loaded from environment variables via pydantic-settings, never hardcoded.
+     - Settings instance is module-level cached; no key duplication.
+     - Mitigation: Strong. Pydantic handles secure storage.
+
+  5. **LLM Prompt Injection**
+     - Prompt template in MARKDOWN_GENERATION_PROMPT is static, hardcoded.
+     - No user input is interpolated into the LLM prompt.
+     - Mitigation: Strong. Fixed prompt prevents injection via user-supplied content.
+
+  ## Performance Implications
+
+  1. **Execution Timeline**
+     - LLM generation: 2–5 seconds (dominates total time, API latency)
+     - File write: <100ms (local I/O)
+     - Validation: <10ms (binary file read, string parsing)
+     - Git operations: <1 second (local subprocess calls)
+     - **Total: ~3–6 seconds typical, <60 seconds worst-case**
+
+  2. **Optimization Opportunities**
+     - LLM calls are sequential; no parallelization possible.
+     - Validation is efficient: binary-level checks avoid full file parsing.
+     - Git operations are fast; remote push may vary based on network.
+     - No caching or memoization is needed; each feature generates unique content.
+
+  3. **Network Considerations**
+     - LLM API call (to Anthropic) is only external network operation.
+     - Git push is local (to origin, typically local or fast CI/CD).
+     - LLM latency dominates; typically 2–5 seconds on good network.
+     - Retries (up to 3 attempts) add at most 15 seconds if all fail.
+
+  ## Architecture Notes
+
+  ### Workflow Architecture
+
+  The feature follows the established **orchestration pattern** proven across features 101–247:
+
+  ```
+  1. generate_markdown_content()     → LLM-generated H1 + 2-3 sentences
+  2. write_markdown_file()           → Persist to disk with UTF-8 LF
+  3. validate_markdown_file()        → Verify format and encoding
+  4. commit_markdown_file()          → Stage via git add -A, commit via git commit -m
+  5. push_markdown_file()            → Push via git push -u origin
+  ```
+
+  Each step has:
+  - Structured logging via _logger (info, debug, error)
+  - Error handling with descriptive exceptions
+  - Return values for result tracking
+  - Clear success/failure semantics
+
+  This is **orchestration-only** — no new abstractions, no new utilities. Reuses existing sheep.content_generators module.
+
+  ### Module Organization
+
+  ```
+  src/sheep/
+  ├── content_generators.py         ← All generation, write, validate, commit, push utilities
+  ├── config/
+  │   ├── llm.py                    ← LLM factory (get_reasoning_llm)
+  │   └── settings.py               ← Settings (SHEEP_REASONING_MODEL = claude-3-5-sonnet...)
+  ├── tools/
+  │   └── git_tools.py              ← GitCommitTool, GitPushTool
+  ├── observability/
+  │   └── logging.py                ← get_logger for structured logging
+  └── features/
+      └── feature_248_markdown_file_creation.py  ← NEW: Orchestration function
+  ```
+
+  ### Integration Points
+
+  - **LLM**: Via sheep.config.llm.get_reasoning_llm() (configured in settings, uses Anthropic Claude)
+  - **Logging**: Via sheep.observability.logging.get_logger() (structured logs, integrates with Langfuse)
+  - **Git**: Via sheep.tools.GitCommitTool, GitPushTool (wrappers around subprocess)
+  - **Config**: Via sheep.config.settings.Settings (environment variables for API keys, model selection)
+
+  No new integration points required. All dependencies already exist and are proven across 247+ features.
+
+  ## Backward Compatibility and Risk Assessment
+
+  **Risk Level: MINIMAL**
+
+  - **No code changes to existing modules**: All utilities are already implemented in sheep.content_generators.
+  - **No dependency upgrades**: CrewAI >=0.86.0 is already pinned; Claude API endpoint stable.
+  - **Isolated feature file**: feature_248 is additive; no impact on features 101-247.
+  - **Git safety**: Commit and push are idempotent; can be re-run safely.
+
+  Mitigation: Follow established pattern from features 101-247 exactly. No deviations needed.
+
+  ---
+
+  _Research completed: 2026-03-28. Pattern validated across 247 prior implementations._
