@@ -72,7 +72,8 @@ def create_feature_263_markdown_file(repo_path: str | None = None) -> dict[str, 
         # Task 2: Write file to disk with proper encoding
         _logger.info("Task 2: Writing markdown file to disk")
         filepath = write_markdown_file(content, MARKDOWN_FILENAME)
-        _logger.debug(f"File written to: {filepath}")
+        file_size = len(content)
+        _logger.info(f"File created at {filepath} ({file_size} bytes)")
 
         # Task 3: Validate file meets all specification requirements
         _logger.info("Task 3: Validating markdown file")

@@ -209,3 +209,115 @@ class TestFeature263FileCreation:
             finally:
                 import os
                 os.chdir(original_cwd)
+
+
+class TestFeature263ValidationFailures:
+    """Tests for feature 263 validation error handling."""
+
+    def test_validation_fails_without_h1_heading(self):
+        """Test that validation fails if file doesn't start with H1 heading."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                # Write invalid file (no H1 heading) with explicit LF
+                Path(MARKDOWN_FILENAME).write_bytes(
+                    b"This is a title\n\nSome prose content. More content. And more.\n"
+                )
+                from sheep.content_generators import validate_markdown_file
+                with pytest.raises(ValueError, match="H1 heading"):
+                    validate_markdown_file(MARKDOWN_FILENAME)
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_validation_fails_without_blank_separator(self):
+        """Test that validation fails if there's no blank line after H1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                # Write invalid file (no blank separator) with explicit LF
+                Path(MARKDOWN_FILENAME).write_bytes(
+                    b"# Title\nSome prose content. More content. And more.\n"
+                )
+                from sheep.content_generators import validate_markdown_file
+                with pytest.raises(ValueError, match="blank"):
+                    validate_markdown_file(MARKDOWN_FILENAME)
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_validation_fails_with_too_few_sentences(self):
+        """Test that validation fails if prose has fewer than 2 sentences."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                # Write invalid file (only 1 sentence) with explicit LF
+                Path(MARKDOWN_FILENAME).write_bytes(
+                    b"# Title\n\nJust one sentence.\n"
+                )
+                from sheep.content_generators import validate_markdown_file
+                with pytest.raises(ValueError, match="2-3 sentences"):
+                    validate_markdown_file(MARKDOWN_FILENAME)
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_validation_fails_with_too_many_sentences(self):
+        """Test that validation fails if prose has more than 3 sentences."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                # Write invalid file (4 sentences) with explicit LF
+                Path(MARKDOWN_FILENAME).write_bytes(
+                    b"# Title\n\nFirst. Second. Third. Fourth.\n"
+                )
+                from sheep.content_generators import validate_markdown_file
+                with pytest.raises(ValueError, match="2-3 sentences"):
+                    validate_markdown_file(MARKDOWN_FILENAME)
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_validation_fails_with_crlf_line_endings(self):
+        """Test that validation fails if file has CRLF line endings."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                # Write invalid file with CRLF
+                Path(MARKDOWN_FILENAME).write_bytes(
+                    b"# Title\r\n\r\nSome prose. More. And more.\r\n"
+                )
+                from sheep.content_generators import validate_markdown_file
+                with pytest.raises(ValueError, match="CRLF"):
+                    validate_markdown_file(MARKDOWN_FILENAME)
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_validation_fails_without_trailing_newline(self):
+        """Test that validation fails if file doesn't end with newline."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                # Write invalid file (no trailing newline)
+                Path(MARKDOWN_FILENAME).write_bytes(
+                    b"# Title\n\nSome prose. More. And more."
+                )
+                from sheep.content_generators import validate_markdown_file
+                with pytest.raises(ValueError, match="trailing newline"):
+                    validate_markdown_file(MARKDOWN_FILENAME)
+            finally:
+                import os
+                os.chdir(original_cwd)
