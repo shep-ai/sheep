@@ -10,10 +10,9 @@ summary: >
   test markdown files in the Sheep automated implementation platform. The implementation requires basic
   file I/O using Python pathlib, standard markdown structure (heading + prose), and git operations (stage,
   commit, push to feature branch).
-phase: "Analysis"
+phase: "Requirements"
 sizeEstimate: "S"
 
-# Relationships
 relatedFeatures:
   - number: 269
     name: "markdown-file-creation"
@@ -39,10 +38,43 @@ relatedLinks:
   - title: "Markdown Format Reference"
     url: "https://www.markdownguide.org/"
 
-# Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: "Should content generation use Claude API for dynamic prose, or deterministic/seeded generation?"
+    resolved: true
+    options:
+      - option: "Deterministic seeded generation"
+        description: "Generate content deterministically using filename/feature number as seed (e.g., hashing feature number to select from predefined title/sentence templates). Benefits: fast execution, no API calls, reproducible, zero cost. Trade-offs: less variety, requires maintaining template pool."
+        selected: true
+      - option: "Claude API dynamic generation"
+        description: "Use Claude API to generate unique prose for each run. Benefits: high variety, natural language quality. Trade-offs: slower (API latency), API cost per feature, requires authentication, non-deterministic, external dependency."
+        selected: false
+    selectionRationale: "Deterministic seeded generation is recommended because this pattern runs 270+ times across test features—using Claude API for each would incur significant cost, latency, and external dependencies. Seeded generation provides sufficient variety while maintaining fast execution and reproducibility suitable for automated test workflows."
+    answer: "Deterministic seeded generation"
 
-# Markdown content (the actual spec)
+  - question: "Should implementation use a dedicated feature script or generic utilities from src/create_markdown.py?"
+    resolved: true
+    options:
+      - option: "Generic utilities only"
+        description: "Call existing utilities from src/create_markdown.py (or equivalent) without creating a feature-specific script. Implementation lives in the utility library or inline in a thin wrapper. Benefits: minimal code duplication, highly maintainable, clear separation of concerns. Trade-offs: less flexibility for feature-specific logic, but not needed here."
+        selected: true
+      - option: "Dedicated feature script"
+        description: "Create a feature-specific implementation script (e.g., feature_270_markdown_file_creation.py) following the pattern of feature_101. Benefits: feature isolation, explicit control flow. Trade-offs: more code to maintain, potential duplication across 270+ similar features."
+        selected: false
+    selectionRationale: "Generic utilities are recommended because this feature follows an identical pattern to 269+ prior features. Creating 270 nearly-identical feature scripts would create maintenance burden and duplication. Reusable utilities in src/create_markdown.py (or similar) centralize the logic and simplify the codebase."
+    answer: "Generic utilities only"
+
+  - question: "What level of error handling and validation is required?"
+    resolved: true
+    options:
+      - option: "Strict validation with retry"
+        description: "Validate file structure (heading presence, sentence count, byte range) with retry logic on failure (1-2 retries with exponential backoff). Benefits: aligns with established pattern from features 267-269, improves reliability, graceful degradation. Trade-offs: slightly more complex code."
+        selected: true
+      - option: "Basic validation, fail immediately"
+        description: "Perform basic checks (file exists, has content, correct encoding) but fail immediately on validation errors without retry. Benefits: simpler, faster failure feedback. Trade-offs: less robust, may fail transient issues."
+        selected: false
+    selectionRationale: "Strict validation with retry is recommended because the established pattern (features 267-269) includes retry logic and validation, providing proven reliability. For an automated system processing 270+ features, graceful retry improves overall system robustness with minimal added complexity."
+    answer: "Strict validation with retry"
+
 content: |
   ## Problem Statement
 
@@ -52,6 +84,55 @@ content: |
   heading and 2-3 sentences of prose content. With 217+ existing test markdown files in the repository
   and 270 prior feature implementations, this task serves as a lightweight validation of the system's
   ability to execute basic file operations and git integration.
+
+  ## Success Criteria
+
+  - [ ] File `test-1z6fhe.md` is created at the repository root
+  - [ ] File contains a valid markdown H1 heading (single `#` followed by title text, minimum 3 characters)
+  - [ ] File contains exactly 2-3 sentences of prose content (each sentence ends with period, exclamation, or question mark)
+  - [ ] File is encoded as UTF-8 with Unix LF line endings (`\n`, not CRLF)
+  - [ ] File has a trailing newline (POSIX convention)
+  - [ ] File size is within the expected 400-600 byte range
+  - [ ] File is staged using `git add test-1z6fhe.md`
+  - [ ] Commit is created with conventional format: `feat(270): create markdown file test-1z6fhe.md with title and prose content`
+  - [ ] Commit is pushed to feature branch with upstream tracking (`git push -u origin HEAD`)
+  - [ ] No existing files in the repository are modified or deleted
+  - [ ] No git history is rewritten or amended
+  - [ ] Implementation follows established markdown file creation pattern from features #269, #268, #267
+
+  ## Functional Requirements
+
+  - **FR-1**: Generate markdown content with H1 heading and 2-3 sentences — Heading must be single `#` followed by title text (minimum 3 characters). Sentences must be prose (no code, no bullet points) separated by spaces, each ending with sentence-ending punctuation.
+  - **FR-2**: Create file at repository root with specified filename — File path must be `./test-1z6fhe.md` relative to repository root; no subdirectories.
+  - **FR-3**: Encode file as UTF-8 without BOM — Verify UTF-8 encoding; do not include byte-order mark. Support cross-platform compatibility via pathlib.
+  - **FR-4**: Use Unix LF line endings — All newlines must be `\n` (0x0A), not CRLF (0x0D0x0A). On Windows, enforce LF conversion.
+  - **FR-5**: Add trailing newline at end of file — File must end with `\n` to comply with POSIX standards and match 217+ existing test files.
+  - **FR-6**: Validate generated content structure — Check that heading exists, sentence count is 2-3, file size is 400-600 bytes, and all sentences end with proper punctuation.
+  - **FR-7**: Stage file with git add — Execute `git add test-1z6fhe.md` to add file to staging area. Fail if file is not staged.
+  - **FR-8**: Commit with conventional message format — Create commit with message `feat(270): create markdown file test-1z6fhe.md with title and prose content`. Commit must succeed without errors.
+  - **FR-9**: Push to feature branch with upstream tracking — Execute `git push -u origin HEAD` to push commit to feature branch. Establish upstream tracking for future operations.
+  - **FR-10**: Log execution steps — Record key operations (file creation, validation, staging, commit, push) with timestamps and status. Allow debugging without exposing sensitive data.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Execution speed — Feature implementation must complete in under 5 seconds (excluding network latency for git push). No blocking operations; use standard library calls.
+  - **NFR-2**: Determinism and reproducibility — Given the same feature number (270) and filename (test-1z6fhe.md), content generation must produce identical output across multiple runs (when using seeded/deterministic approach).
+  - **NFR-3**: Cross-platform compatibility — Implementation must work on Linux, macOS, and Windows. Use pathlib for file paths (not os.path), platform-agnostic line-ending handling.
+  - **NFR-4**: No external API dependencies — Implementation must not require Claude API, Anthropic SDK, CrewAI, or Langfuse. Only use Python standard library + Git CLI.
+  - **NFR-5**: Zero configuration required — Implementation must not require environment variables, config files, or credentials. Work out-of-the-box in any environment with Python 3.11+ and Git.
+  - **NFR-6**: Idempotent content generation — Content generation (title and sentences) must be reproducible; seeded from feature number or filename to enable test reproducibility.
+  - **NFR-7**: Fail-fast on critical errors — If file creation, git staging, or commit fails, stop immediately and report error. Do not attempt push if commit failed.
+  - **NFR-8**: Robust validation with retry — Implement 1-2 retries with exponential backoff (100ms initial, 200ms second attempt) for transient validation failures (e.g., content not meeting size range on first generation).
+  - **NFR-9**: Minimal output verbosity — Log operations at INFO level (creation, validation, git operations) without debug spam. Errors must be logged at ERROR level with actionable messages.
+  - **NFR-10**: Code maintainability — Use reusable utilities from src/create_markdown.py or equivalent; avoid feature-specific scripts. Follow established patterns from features #267-#269.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Content generation: Claude API vs. deterministic seeding? | Deterministic seeded generation | 270+ test features would incur significant API cost and latency; seeded generation is faster, cheaper, and reproducible |
+  | 2 | Implementation: dedicated feature script vs. generic utilities? | Generic utilities from src/create_markdown.py | Eliminates 270+ duplicate feature scripts; centralizes logic; matches "established pattern" from prior features |
+  | 3 | Error handling: strict validation with retry vs. fail-fast? | Strict validation with 1-2 retries | Aligns with proven pattern from features #267-#269; improves reliability with minimal complexity overhead |
 
   ## Codebase Analysis
 
@@ -141,19 +222,6 @@ content: |
   - Optional: Claude API via sheep.config.llm.get_reasoning_llm() (if generating prose dynamically)
   - Optional: src/sheep/observability/logging.py (for structured logging)
 
-  ## Success Criteria
-
-  - [ ] File `test-1z6fhe.md` is created at the repository root
-  - [ ] File contains a valid markdown H1 heading (single `#` followed by title text)
-  - [ ] File contains exactly 2-3 sentences of prose content
-  - [ ] File is encoded as UTF-8 with Unix LF line endings (`\n`, not CRLF)
-  - [ ] File size is within the expected 400-600 byte range
-  - [ ] File is staged using `git add test-1z6fhe.md`
-  - [ ] Commit is created with conventional format: `feat(270): create markdown file test-1z6fhe.md with title and prose content`
-  - [ ] Commit is pushed to feature branch with upstream tracking (`git push -u origin HEAD`)
-  - [ ] No existing files in the repository are modified
-  - [ ] Implementation follows established markdown file creation pattern from features #269, #268, #267
-
   ## Size Estimate
 
   **S** — A few hours of work at most. This is a straightforward feature because:
@@ -161,12 +229,9 @@ content: |
   - File structure is completely standardized and well-tested across 270 prior iterations
   - Content validation and error handling are already implemented and proven
   - Git workflow is established and consistent across all 270 features
-  - The only variation is the filename (test-1z6fhe.md) and randomly generated content
+  - The only variation is the filename (test-1z6fhe.md) and deterministically seeded content
   - Implementation can be accomplished by:
-    1. Optionally creating a feature implementation script (similar to feature_101_markdown_file_creation.py)
-    2. Calling existing utilities or manually executing the workflow with pathlib and subprocess
-    3. Staging the file with git
-    4. Committing with conventional format
-    5. Pushing to the feature branch
-  - Actual runtime should be <2 minutes (content generation dominates if using Claude API)
-
+    1. Calling reusable utilities from src/create_markdown.py with filename and feature number
+    2. Utilities handle content generation (deterministic seeding), file creation, validation, staging, commit, and push
+    3. Minimal wrapper code needed
+  - Actual runtime should be <2 seconds (no external API calls with deterministic approach)
