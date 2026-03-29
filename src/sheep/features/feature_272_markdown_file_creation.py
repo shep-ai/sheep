@@ -17,6 +17,7 @@ from sheep.content_generators import (
     commit_markdown_file,
     generate_markdown_content,
     push_markdown_file,
+    validate_file_properties,
     validate_markdown_file,
     write_markdown_file,
 )
@@ -64,30 +65,40 @@ def create_feature_272_markdown_file(repo_path: str | None = None) -> dict[str, 
     )
 
     try:
-        # Task 1: Generate valid markdown content
-        _logger.info("Task 1: Generating markdown content")
+        # Phase 2 Task-3: Generate valid markdown content via Claude API
+        _logger.info("Phase 2 Task-3: Generating markdown content")
         content = generate_markdown_content()
         _logger.debug(f"Generated {len(content)} bytes of content")
+        _logger.info(f"Content preview (first 100 chars): {content[:100]}")
 
-        # Task 2: Write file to disk with proper encoding
-        _logger.info("Task 2: Writing markdown file to disk")
+        # Phase 2 Task-4: Write file to disk with proper encoding
+        _logger.info("Phase 2 Task-4: Writing markdown file to disk")
         filepath = write_markdown_file(content, MARKDOWN_FILENAME)
         _logger.debug(f"File written to: {filepath}")
 
-        # Task 3: Validate file meets all specification requirements
-        _logger.info("Task 3: Validating markdown file")
-        validate_markdown_file(filepath)
-        _logger.info("File validation passed")
+        # Log file size after successful write
+        file_size = Path(filepath).stat().st_size
+        _logger.info(f"File size: {file_size} bytes")
 
-        # Task 4: Stage and commit file with exact conventional message
-        _logger.info("Task 4: Staging and committing file")
+        # Validate file meets all specification requirements
+        _logger.info("Validating markdown file structure")
+        validate_markdown_file(filepath)
+        _logger.info("Markdown format validation passed")
+
+        # Phase 2 Task-5: Explicit validation of file encoding and line endings
+        _logger.info("Phase 2 Task-5: Validating file encoding and line endings")
+        validate_file_properties(filepath)
+        _logger.info("File encoding (UTF-8 no BOM) and line endings (LF) validated")
+
+        # Phase 3: Stage and commit file with exact conventional message
+        _logger.info("Phase 3: Staging and committing file")
         commit_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with title and prose content"
         _logger.debug(f"Using commit message: {commit_message}")
         commit_result = commit_markdown_file(filepath, content, repo_path, custom_message=commit_message)
         _logger.debug(f"Commit result: {commit_result}")
 
-        # Task 5: Push to remote repository
-        _logger.info("Task 5: Pushing to remote repository")
+        # Phase 3: Push to remote repository
+        _logger.info("Phase 3: Pushing to remote repository")
         push_result = push_markdown_file(repo_path)
         _logger.debug(f"Push result: {push_result}")
 
