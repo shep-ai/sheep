@@ -211,6 +211,130 @@ class TestFeature263FileCreation:
                 os.chdir(original_cwd)
 
 
+class TestFeature263GitOperations:
+    """Tests for feature 263 git commit and push operations (tasks 5 & 6)."""
+
+    def _setup_mocks(self):
+        """Setup common mocks for testing."""
+        # Mock the LLM to return our sample markdown
+        mock_llm = Mock()
+        mock_llm.call.return_value = {"content": SAMPLE_MARKDOWN}
+        return mock_llm
+
+    def _create_with_mocks(self):
+        """Helper to create feature with all necessary mocks."""
+        mock_llm = self._setup_mocks()
+        with patch('sheep.content_generators.get_reasoning_llm', return_value=mock_llm):
+            with patch('subprocess.run') as mock_run:
+                # Configure the mock to return proper values for different git commands
+                def run_side_effect(args, *pargs, **kwargs):
+                    result = MagicMock()
+                    result.returncode = 0
+                    result.stdout = ""
+                    result.stderr = ""
+                    # For rev-parse, return the current branch
+                    if 'rev-parse' in args:
+                        result.stdout = "main\n"
+                    return result
+
+                mock_run.side_effect = run_side_effect
+                return create_feature_263_markdown_file(), mock_run
+
+    def test_task5_commit_message_format(self):
+        """Task 5: Test that commit message follows conventional format: feat(263): Create markdown file test-i3yjp8.md..."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                result, _ = self._create_with_mocks()
+                expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
+                assert result['commit_message'] == expected_message, \
+                    f"Commit message must be conventional format. Expected: {expected_message}, Got: {result['commit_message']}"
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_task5_commit_message_in_result(self):
+        """Task 5: Test that commit message is captured in return value."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                result, _ = self._create_with_mocks()
+                assert 'commit_message' in result, "Result must contain commit_message key"
+                assert isinstance(result['commit_message'], str), "Commit message must be a string"
+                assert len(result['commit_message']) > 0, "Commit message must not be empty"
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_task5_uses_conventional_commit_scope(self):
+        """Task 5: Test that commit message uses feature number as scope in conventional format."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                result, _ = self._create_with_mocks()
+                message = result['commit_message']
+                assert message.startswith(f"feat({FEATURE_NUMBER}):"), \
+                    f"Commit message must start with feat({FEATURE_NUMBER}): but got {message}"
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_task5_includes_filename_in_message(self):
+        """Task 5: Test that commit message includes the markdown filename."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                result, _ = self._create_with_mocks()
+                message = result['commit_message']
+                assert MARKDOWN_FILENAME in message, \
+                    f"Commit message must include filename {MARKDOWN_FILENAME}, got: {message}"
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_task6_push_result_in_return_value(self):
+        """Task 6: Test that push result is captured in return value."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                result, _ = self._create_with_mocks()
+                assert 'push_result' in result, "Result must contain push_result key"
+                assert result['push_result'] is not None, "Push result must not be None"
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_task6_git_operations_called(self):
+        """Task 6: Test that git operations (commit and push) are executed via subprocess."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+                result, mock_subprocess = self._create_with_mocks()
+
+                # Verify subprocess.run was called (for git operations)
+                assert mock_subprocess.called, "subprocess.run should be called for git operations"
+
+                # Verify that git commands were issued
+                calls = [str(call) for call in mock_subprocess.call_args_list]
+                git_calls = [call for call in calls if 'git' in call.lower()]
+                assert len(git_calls) > 0, "Git commands should be executed via subprocess"
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+
 class TestFeature263ValidationFailures:
     """Tests for feature 263 validation error handling."""
 
