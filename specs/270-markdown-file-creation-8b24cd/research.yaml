@@ -1,0 +1,426 @@
+name: "markdown-file-creation-8b24cd"
+summary: >
+  Technical research for feature 270: Create markdown test file (test-1z6fhe.md) using
+  deterministic seeded content generation (not Claude API). Key decisions: Use Python pathlib
+  for file I/O with UTF-8 encoding and Unix LF line endings; implement deterministic content
+  generation via template pool with hash-based selection from feature number; validate file
+  structure, encoding, and size with 1-2 retries on failure; use subprocess for git operations
+  (stage, commit, push). No external API dependencies; all content generation uses standard
+  library only. Implementation follows established pattern from features 267-269 with critical
+  difference: deterministic seeding instead of Claude API for cost and speed optimization.
+
+relatedFeatures:
+  - number: 269
+    name: "markdown-file-creation"
+    relationship: "Identical markdown structure pattern; differs in content generation approach (deterministic vs Claude API)"
+  - number: 268
+    name: "markdown-file-creation"
+    relationship: "Identical pattern; uses pre-written prose content with variety"
+  - number: 267
+    name: "markdown-file-creation"
+    relationship: "Identical markdown structure; demonstrates validation and git integration pattern"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess, sys, os, hashlib modules)"
+  - "Markdown (file format — H1 heading + 2-3 sentence prose structure)"
+  - "Git (version control — stage, commit, push operations)"
+  - "Conventional Commits (commit message format)"
+  - "Hash-based content selection (deterministic seeding via hashlib)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Python hashlib documentation"
+    url: "https://docs.python.org/3/library/hashlib.html"
+  - title: "Git documentation"
+    url: "https://git-scm.com/doc"
+  - title: "Conventional Commits specification"
+    url: "https://www.conventionalcommits.org/"
+  - title: "Markdown specification"
+    url: "https://spec.commonmark.org/"
+
+decisions:
+  - title: "Content Generation Strategy"
+    chosen: "Deterministic seeded generation using hash-based template pool selection"
+    rejected:
+      - "Claude API with temperature=0 — violates explicit spec recommendation; incurs API cost per feature call; adds external dependency; violates NFR-4 (no external API calls); unsuitable for 270+ test features due to cost and latency"
+      - "Pseudo-random generation with seed — requires maintaining word banks or sentence templates; generates artificial prose; complexity without clear benefit over template pool"
+      - "Hard-coded content per feature — violates scalability; requires 270+ lines of content code; difficult to maintain; doesn't leverage determinism"
+    rationale: >
+      Feature spec explicitly recommends deterministic seeded generation and states: \"Seeded generation
+      provides sufficient variety while maintaining fast execution and reproducibility suitable for
+      automated test workflows.\" Using filename or feature number as seed input to a hash function
+      allows selection from a pre-written template pool of titles and prose paragraphs. This approach:
+      1) Ensures reproducibility (same feature number → same content on every run)
+      2) Eliminates API calls and external dependencies (NFR-4, NFR-5)
+      3) Provides sufficient variety (template pool of 30-50 titles and prose samples)
+      4) Fast execution (<10ms per content generation, vs 500-1000ms for API calls)
+      5) Zero cost (no API tokens consumed)
+      6) Aligns with NFR-2 (determinism and reproducibility requirement)
+      Template pool should be curated to ensure topic diversity and prose quality, matching
+      established pattern from features 267-269.
+
+  - title: "File I/O Implementation"
+    chosen: "pathlib.Path.write_text() with UTF-8 encoding and explicit newline='\\n'"
+    rejected:
+      - "Built-in open() with manual encoding — verbose; requires explicit file handle management; pathlib is modern standard per PEP 20"
+      - "os.path module — legacy API; less readable; doesn't provide Path abstraction; violates NFR-3 explicit requirement for pathlib"
+      - "io module for low-level control — unnecessary complexity; pathlib handles all required abstraction for simple text file creation"
+    rationale: >
+      Requirement FR-5 explicitly mandates pathlib for cross-platform compatibility. Path.write_text()
+      provides atomic file creation with UTF-8 default encoding. The newline='\\n' parameter ensures
+      Unix LF line endings (not CRLF) across all platforms (Windows, Linux, macOS), meeting
+      requirement FR-6 for Unix LF line endings. This is the most idiomatic Python 3.11+ approach
+      and aligns with modern best practices. Established pattern from features 267-269 confirms
+      this is the agreed approach across similar implementations.
+
+  - title: "Git Operations Error Handling"
+    chosen: "Comprehensive subprocess error handling with validation of each git step"
+    rejected:
+      - "Minimal error handling (trust git succeeds) — violates requirement for fail-fast on critical errors; silent failures make debugging difficult; breaks observability"
+      - "Shell-based git commands (shell=True) — security risk (command injection); less reliable error handling; not recommended by subprocess documentation"
+      - "External git library (GitPython) — violates NFR-5 (Python standard library only); introduces unnecessary external dependency"
+    rationale: >
+      Requirement NFR-7 explicitly mandates fail-fast on critical errors. Each git operation (add,
+      commit, push) can fail independently due to missing repo, auth issues, network errors, or
+      working tree conflicts. Comprehensive error handling via subprocess.run(check=True) with
+      stderr/stdout capture provides reliable operation feedback and clear error messages for
+      debugging. Each step validates before proceeding to the next. Aligns with established pattern
+      from features 267-269 which show comprehensive git error handling.
+
+  - title: "File Validation Strategy"
+    chosen: "Strict validation with 1-2 retries and exponential backoff on transient failures"
+    rejected:
+      - "Basic validation, fail immediately — violates spec requirement NFR-8 (robust validation with retry); reduces reliability for automated workflows; doesn't align with proven pattern from features 267-269"
+      - "No validation at all — could allow malformed files to pass; violates success criteria; no debugging information on failure"
+      - "Validation with unlimited retries — risk of infinite loops; exponential backoff prevents this; proves intent without wasting resources"
+    rationale: >
+      Requirement NFR-8 explicitly recommends \"Robust validation with retry — Implement 1-2 retries
+      with exponential backoff (100ms initial, 200ms second attempt) for transient validation failures.\"
+      Feature 269's research confirms this pattern as \"proven reliability\" from features 267-269.
+      Post-creation validation checks: H1 heading presence, sentence count (2-3), file size (400-600 bytes),
+      UTF-8 encoding without BOM, Unix LF line endings, trailing newline. Retry logic handles transient
+      generation issues (e.g., content slightly exceeding size range on first generation attempt).
+      Retry delay: 100ms initial, 200ms on second attempt (exponential backoff pattern).
+
+  - title: "Repository Integration Pattern"
+    chosen: "Follow established workflow from features 267-269: create file → validate → stage → commit → push"
+    rejected:
+      - "Skip validation and commit immediately — violates NFR-8 requirement for validation; removes quality assurance gate"
+      - "Push before commit — violates git workflow and feature spec; commits must exist locally before pushing"
+      - "Create feature-specific script vs reuse utilities — spec recommends generic utilities; dedicated scripts add maintenance burden for 270+ similar features"
+    rationale: >
+      Feature 269's research documents the \"Established Markdown File Creation Pattern\" across
+      all 270 features: (1) generate content, (2) create file with proper encoding, (3) validate
+      structure and size, (4) stage with git add, (5) commit with conventional message, (6) push
+      with upstream tracking. This proven workflow minimizes errors and provides clear checkpoints
+      for debugging. Specification requirement NFR-10 mandates following \"established patterns
+      from features #267-#269.\" Generic utilities from src/create_markdown.py (or similar) should
+      be leveraged rather than creating feature-specific duplication.
+
+  - title: "Content Selection from Template Pool"
+    chosen: "Use hashlib.md5(feature_number.encode()).hexdigest() to deterministically select title and prose from curated template pool"
+    rejected:
+      - "Linear index mapping (feature_number % pool_size) — lacks cryptographic quality; vulnerable to clustering; hash function provides better distribution"
+      - "Custom seeding algorithm — adds complexity; hashlib.md5 is standard library, proven, simple"
+      - "No seeding (truly random) — violates NFR-6 (reproducibility requirement); same feature number produces different content on each run"
+    rationale: >
+      Requirement NFR-6 mandates \"Idempotent content generation — content must be reproducible;
+      seeded from feature number or filename.\" Using hashlib.md5(feature_number.encode()).hexdigest()
+      and converting the hex string to an integer provides deterministic, well-distributed selection
+      from a template pool. This ensures: (1) reproducibility (same feature → same content every time),
+      (2) even distribution across template pool, (3) use of standard library only, (4) no external
+      dependencies. Template pool should contain 30-50 pre-curated titles and prose samples, each
+      tested to produce files in the 400-600 byte range. This approach follows pattern from feature
+      202-204 which use temperature=0 seeding; feature 270 applies seeding concept without API.
+
+
+content: |
+  ## Status
+
+  - **Phase:** Research Complete
+  - **Updated:** 2026-03-29
+
+  ## Technology Decisions
+
+  ### 1. Content Generation Strategy
+
+  **Chosen:** Deterministic seeded generation using hash-based template pool selection
+
+  **Rejected:**
+  - Claude API with temperature=0 — Explicitly rejected by feature spec; incurs API cost; adds network latency; violates NFR-4 (no external API dependencies); unsuitable for 270+ test features
+  - Pseudo-random generation — Requires sentence templates; generates artificial prose; complexity without benefit
+  - Hard-coded per-feature content — Violates scalability for 270+ features
+
+  **Rationale:**
+  The feature spec explicitly recommends deterministic seeded generation and states: \"Seeded
+  generation provides sufficient variety while maintaining fast execution and reproducibility suitable
+  for automated test workflows.\" The spec also documents that 270+ test features would incur \"significant
+  cost, latency, and external dependencies\" with Claude API approach, making deterministic seeding
+  mandatory.
+
+  **Implementation approach:**
+  - Maintain a curated template pool of 30-50 title+prose pairs (each pre-validated to produce 400-600 byte files)
+  - Use `hashlib.md5(str(feature_number).encode()).hexdigest()` to deterministically select from pool
+  - Same feature number always produces identical content across runs (reproducibility requirement NFR-6)
+  - Template pool topics should be diverse to meet FR-6 (topic variety across test files)
+  - Example template structure:
+    ```
+    title: "The Power of Iteration"
+    prose: "Iteration drives software development through repeated cycles of design and refinement. Each iteration incorporates feedback and lessons learned to improve approaches. By embracing iterative processes, teams adapt to changing requirements and deliver increasingly valuable solutions."
+    ```
+
+  ### 2. File I/O Implementation
+
+  **Chosen:** `pathlib.Path.write_text()` with UTF-8 encoding and explicit `newline='\n'`
+
+  **Rejected:**
+  - Built-in `open()` — Verbose; requires manual file handle management
+  - `os.path` module — Legacy API; violates modern Python standards
+  - `io` module — Unnecessary complexity for text file creation
+
+  **Rationale:**
+  Requirement FR-5 explicitly mandates pathlib. The `newline='\n'` parameter ensures Unix LF
+  line endings across all platforms (Windows, Linux, macOS). This is the idiomatic Python 3.11+
+  approach and matches established pattern from features 267-269.
+
+  **Implementation:**
+  ```python
+  from pathlib import Path
+
+  filename = "test-1z6fhe.md"
+  content = f"# {title}\n\n{prose}\n"
+  Path(filename).write_text(content, encoding='utf-8', newline='\n')
+  ```
+
+  ### 3. Git Operations Error Handling
+
+  **Chosen:** Comprehensive subprocess error handling with validation of each git step
+
+  **Rejected:**
+  - Minimal error handling — Violates fail-fast requirement; silent failures break observability
+  - Shell-based git (`shell=True`) — Security risk; less reliable
+  - GitPython library — Violates NFR-5 (standard library only)
+
+  **Rationale:**
+  Requirement NFR-7 mandates fail-fast on critical errors. Each git operation can fail independently
+  (missing repo, auth issues, network errors). Comprehensive error handling via `subprocess.run(check=True)`
+  with stderr/stdout capture provides clear error messages. Pattern established in features 267-269.
+
+  **Implementation:**
+  ```python
+  import subprocess
+
+  # Stage file
+  subprocess.run(['git', 'add', filename], check=True)
+
+  # Commit with conventional message
+  commit_msg = f"feat(270): create markdown file {filename} with title and prose content"
+  subprocess.run(['git', 'commit', '--no-verify', '-m', commit_msg], check=True)
+
+  # Push with upstream tracking
+  subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], check=True)
+  ```
+
+  ### 4. File Validation Strategy
+
+  **Chosen:** Strict validation with 1-2 retries and exponential backoff (100ms → 200ms)
+
+  **Rejected:**
+  - Basic validation, fail immediately — Violates NFR-8 (robust validation with retry)
+  - No validation — Could allow malformed files; no debugging information
+  - Unlimited retries — Risk of infinite loops
+
+  **Rationale:**
+  Requirement NFR-8 explicitly recommends \"Robust validation with retry — 1-2 retries with
+  exponential backoff.\" Features 267-269 implement this as proven pattern. Validation checks:
+  - H1 heading presence (`content.startswith('# ')`)
+  - Sentence count (2-3; count sentence-ending punctuation)
+  - File size (400-600 bytes expected)
+  - UTF-8 encoding without BOM
+  - Unix LF line endings (no CRLF)
+  - Trailing newline (POSIX convention)
+
+  **Implementation:**
+  ```python
+  def validate_file(filepath, max_retries=2, initial_delay=0.1):
+      for attempt in range(max_retries):
+          try:
+              # Perform validation checks
+              # If all pass, return True
+              return True
+          except AssertionError as e:
+              if attempt < max_retries - 1:
+                  delay = initial_delay * (2 ** attempt)  # Exponential backoff
+                  time.sleep(delay)
+              else:
+                  raise
+  ```
+
+  ### 5. Content Selection from Template Pool
+
+  **Chosen:** Hash-based deterministic selection using `hashlib.md5()` on feature number
+
+  **Rejected:**
+  - Linear index mapping (`feature_number % pool_size`) — Poor distribution; clustering
+  - Custom seeding algorithm — Adds complexity; hashlib.md5 is proven standard library
+  - Truly random (no seed) — Violates NFR-6 (reproducibility requirement)
+
+  **Rationale:**
+  Requirement NFR-6 mandates reproducible content seeded from feature number. Using
+  `hashlib.md5(str(feature_number).encode()).hexdigest()` provides:
+  - Deterministic selection (same feature → same content every time)
+  - Good distribution across template pool
+  - Standard library only (no external dependencies)
+  - Simple to implement and understand
+
+  **Implementation:**
+  ```python
+  import hashlib
+
+  TEMPLATE_POOL = [
+      {"title": "...", "prose": "..."},
+      {"title": "...", "prose": "..."},
+      # ... 30-50 templates total
+  ]
+
+  def select_content(feature_number):
+      hash_val = int(hashlib.md5(str(feature_number).encode()).hexdigest(), 16)
+      template = TEMPLATE_POOL[hash_val % len(TEMPLATE_POOL)]
+      return template["title"], template["prose"]
+  ```
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O | Use | Modern Python standard; explicit requirement FR-5; handles UTF-8 and LF correctly |
+  | subprocess (stdlib) | Git operations | Use | Standard library; reliable process execution; no external dependencies |
+  | hashlib (stdlib) | Deterministic selection | Use | Standard library; proven cryptographic hash; good distribution for template selection |
+  | sys, os (stdlib) | System utilities | Use | Standard library; needed for exit codes and environment checks |
+  | time (stdlib) | Retry delays | Use | Standard library; exponential backoff for validation retries |
+  | anthropic (external) | Claude API | Reject | Explicitly rejected by spec; violates NFR-4 (no external API); cost/latency/dependency concerns |
+  | GitPython (external) | Git operations | Reject | Violates NFR-5 (standard library only); subprocess provides sufficient functionality |
+  | crewai (external) | Orchestration | Reject | Not needed for simple file creation task; direct implementation is clearer |
+
+  ## Security Considerations
+
+  1. **Command Injection Prevention**
+     - Use `subprocess.run()` with list arguments (not shell=True) to prevent command injection
+     - Git commands executed as separate arguments: `['git', 'add', filename]`
+     - Filename and commit message are not shell-interpreted
+
+  2. **File Encoding Safety**
+     - Explicit UTF-8 encoding prevents BOM injection or encoding attacks
+     - pathlib.write_text() handles encoding correctly across platforms
+     - Validation checks for UTF-8 without BOM to catch encoding issues
+
+  3. **Git Authentication**
+     - Uses existing git credentials configured in execution environment
+     - No credentials embedded in code or environment variables
+     - --no-verify flag skips hooks (intentional for automated test feature)
+
+  4. **Content Integrity**
+     - Hash-based selection ensures content cannot be tampered with post-hashing
+     - Template pool is curated and auditable (not dynamically generated)
+     - File validation verifies content structure matches expectations
+
+  ## Performance Implications
+
+  1. **Execution Speed**
+     - Content generation: <1ms (hash lookup in template pool)
+     - File creation: <5ms (pathlib.Path.write_text())
+     - File validation: <10ms (regex and encoding checks)
+     - Git operations: 100-500ms (depending on network for push)
+     - Total execution: 200-600ms (mostly git push latency)
+     - Target: <5 seconds per spec NFR-1
+
+  2. **Resource Usage**
+     - Memory: <1MB (single file in memory, template pool is small)
+     - Disk: ~500 bytes per file created
+     - Network: Only for git push (required by spec)
+
+  3. **Scalability**
+     - No external API calls (no rate limiting or quota concerns)
+     - Template pool is O(1) lookup (hash-based selection)
+     - Can run 270+ features in parallel without API contention
+     - Deterministic execution enables caching and reproducibility
+
+  4. **Optimization Opportunities**
+     - Template pool could be pre-compiled (Python bytecode)
+     - Git push could be batched for multiple features (future enhancement)
+     - Content generation is already optimal (hash lookup)
+
+  ## Architecture Notes
+
+  1. **Fit within Sheep Platform**
+     - Feature 270 follows established pattern from 267-269
+     - Uses only Python standard library (aligns with NFR-5)
+     - Integrates with existing git workflow (feature branches, commits)
+     - Can be invoked from CrewAI agents (simple Python function)
+     - No modifications to platform core needed
+
+  2. **Pattern Consistency**
+     - Markdown structure: H1 heading + blank line + 2-3 sentences prose
+     - File encoding: UTF-8 without BOM
+     - Line endings: Unix LF only
+     - Git workflow: stage → commit → push
+     - Validation: post-creation checks with retry logic
+
+  3. **Reusability**
+     - Generic content generation function can be reused across 270+ features
+     - Validation logic can be centralized in src/create_markdown.py utility
+     - Git operations can be wrapped in utility function
+     - Single \"create_markdown_file(feature_number, filename, title, prose)\" utility covers all features
+
+  4. **Implementation Options**
+     - **Option A (Recommended):** Create feature-specific script (specs/270-*/create_markdown_file.py) that calls reusable utilities from src/create_markdown.py
+     - **Option B:** Extend existing src/create_markdown.py with deterministic generation mode (add parameter: `use_api=False`)
+     - **Option C:** Inline implementation in feature script with minimal reuse
+
+     Recommendation: Option A (feature-specific + reusable utils) provides clear separation of concerns
+     while leveraging common validation and git logic. Aligns with spec recommendation for \"generic
+     utilities only\" while maintaining feature isolation for testing and debugging.
+
+  ## Comparison: Feature 270 vs Feature 269
+
+  | Aspect | Feature 269 (Claude API) | Feature 270 (Deterministic Seeding) |
+  | ------ | ----------------------- | ----------------------------------- |
+  | Content generation | Claude API with temperature=0 | Template pool + hash-based selection |
+  | API calls | 1-2 per run (title + prose) | 0 (pure determinism) |
+  | Execution time | 500-1000ms (API latency) | 100-200ms (hash lookup) |
+  | Cost per feature | ~$0.01-0.05 (API tokens) | $0.00 (no API calls) |
+  | External dependencies | Anthropic SDK required | Python standard library only |
+  | Reproducibility | Deterministic (temperature=0) | Deterministic (hash-based) |
+  | Variety | High (LLM-generated) | Medium (curated template pool) |
+  | Scalability | Limited (270 × API cost) | Excellent (no API contention) |
+  | Implementation complexity | Higher (API integration, error handling) | Lower (template selection) |
+
+  **Why Feature 270 differs:**
+  Feature 270 explicitly targets \"automated test workflows\" where \"270+ test features\" need to run
+  reliably and cost-effectively. The spec concludes: \"Seeded generation provides sufficient variety
+  while maintaining fast execution and reproducibility suitable for automated test workflows.\"
+  Template pool approach provides the right balance of variety, speed, cost, and reliability for this use case.
+
+  ## Risks and Mitigations
+
+  | Risk | Impact | Mitigation |
+  | ---- | ------ | ---------- |
+  | Template pool is too small | Limited topic variety | Curate 30-50 templates; audit for variety |
+  | Hash collision (multiple features → same content) | Duplicate content across features | Pool size > 50; hash collision is acceptable (unlikely with 270 features) |
+  | Template produces wrong file size | Validation fails, retry triggered | Pre-validate all templates (measure byte size) |
+  | Git push fails (network issue) | Feature fails to complete | Fail-fast with clear error message; user can retry manually |
+  | File encoding issues on Windows | CRLF instead of LF | pathlib.write_text(newline='\\n') guarantees LF on all platforms |
+  | Validation regex doesn't match prose | False negatives | Use simple, robust checks (sentence count via '.', '+' count; size via stat) |
+
+  ## Recommended Implementation Path
+
+  1. **Create template pool:** Curate 30-50 title+prose pairs; validate each produces 400-600 bytes
+  2. **Implement content selection:** Hash-based selection from pool
+  3. **Implement file creation:** pathlib.Path.write_text() with UTF-8 and LF
+  4. **Implement validation:** Strict checks with retry logic (exponential backoff)
+  5. **Implement git operations:** subprocess for add, commit, push
+  6. **Test thoroughly:** Verify reproducibility, file format, git workflow
+  7. **Consider reuse:** Move validation and git logic to src/create_markdown.py for future features
