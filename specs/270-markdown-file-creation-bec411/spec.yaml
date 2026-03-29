@@ -7,9 +7,9 @@ userQuery: |
 summary: >
   Create a single markdown file named test-6jsp8a.md at the repository root with a markdown H1 heading
   as the title and 2-3 sentences of prose content. This continues an established pattern with 260+ similar
-  test files in the Sheep project. Implementation requires only basic file I/O to write the markdown file
-  with proper UTF-8 encoding, validate the content structure, and commit/push via git.
-phase: "Analysis"
+  test files in the Sheep project. Implementation requires file I/O to write the markdown file with proper
+  UTF-8 encoding, validation of content structure, and commit/push via git using existing infrastructure.
+phase: "Requirements"
 sizeEstimate: "S"
 
 # Relationships
@@ -42,18 +42,81 @@ relatedLinks:
     url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-bec411/src/sheep/features/feature_267_markdown_file_creation.py"
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  - question: "Should API retry strategy follow the established exponential backoff pattern (3 retries) used by prior features?"
+    resolved: true
+    options:
+      - option: "Yes, use established pattern"
+        description: "Follow the proven 3-retry exponential backoff strategy from features 267-269. Ensures consistency, leverages battle-tested error handling, maintains predictable API behavior across all markdown features."
+        selected: true
+      - option: "No, implement custom retry logic"
+        description: "Create feature-specific retry configuration. Requires additional testing and potentially introduces inconsistency with prior features. Only beneficial if feature-specific API behavior differs from others."
+        selected: false
+    selectionRationale: "The established exponential backoff pattern with 3 retries is proven across 269 prior features and provides optimal balance of reliability and latency. Deviating would introduce unnecessary complexity and inconsistency."
+    answer: "Yes, use established pattern"
+  - question: "Should validation failures (malformed H1, incorrect sentence count, encoding errors) immediately block feature execution or allow warnings?"
+    resolved: true
+    options:
+      - option: "Strict validation — fail on any violations"
+        description: "Reject file if H1 missing, sentence count incorrect, encoding invalid, or line endings wrong. Ensures consistent high-quality deliverables. Used by all prior features. Zero tolerance for structural defects."
+        selected: true
+      - option: "Lenient validation — log warnings but proceed"
+        description: "Warn on violations but create file anyway. Faster but risks inconsistent output quality. Would break pattern established by 269 prior features and reduce reliability."
+        selected: false
+    selectionRationale: "All prior markdown features use strict validation to guarantee consistent, structurally correct deliverables. Leniency would introduce quality variance and violate the established architectural pattern. Fail-fast is the correct approach for test automation."
+    answer: "Strict validation — fail on any violations"
 
 content: |
   ## Problem Statement
 
-  The Sheep automated implementation platform has established a pattern of creating simple test markdown files
-  for validating the core implementation workflow. This feature creates a single markdown file (`test-6jsp8a.md`)
-  at the repository root with a markdown heading as title and 2-3 sentences of prose content.
+  The Sheep automated implementation platform validates its core implementation workflow by creating simple test markdown files. Feature 270 creates a single markdown file (`test-6jsp8a.md`) at the repository root with a markdown H1 heading and 2-3 sentences of prose content. This continues an established pattern demonstrated by 260+ identical test files (features 001-269), providing a proven reference implementation and confirming the maturity of the infrastructure.
 
-  This is a straightforward, well-precedented file creation task. The repository contains 260+ test files
-  following this identical pattern (test-*.md files), providing clear reference implementations and
-  demonstrating the routine nature of this operation.
+  ## Success Criteria
+
+  - [ ] File `test-6jsp8a.md` exists at repository root (`./test-6jsp8a.md`)
+  - [ ] File contains exactly one H1 markdown heading (`# Title`) on the first line
+  - [ ] File contains 2-3 complete sentences of prose content following the heading
+  - [ ] Content is generated via Claude API (not hardcoded or templated)
+  - [ ] File is encoded in UTF-8 with no encoding errors
+  - [ ] File uses Unix LF line endings (not CRLF or CR)
+  - [ ] File terminates with exactly one final newline character
+  - [ ] File passes validation via `validate_markdown_file()` from sheep.content_generators
+  - [ ] File is staged and committed with conventional commit message: `feat(270): create markdown file test-6jsp8a.md with title and prose content`
+  - [ ] Commit is successfully pushed to remote branch `origin/feat/270-markdown-file-creation-bec411`
+  - [ ] All execution steps are logged via structlog for observability
+
+  ## Functional Requirements
+
+  - **FR-1**: Create a markdown file with filename exactly `test-6jsp8a.md` at the current working directory (repository root)
+  - **FR-2**: First line of file MUST be a valid H1 markdown heading in format `# Title` where `Title` is meaningful prose (minimum 3 characters)
+  - **FR-3**: File content MUST include 2-3 complete sentences of prose following the H1 heading (separated by blank line recommended but not required)
+  - **FR-4**: Content generation MUST use Claude API via `sheep.config.llm.get_reasoning_llm()` to ensure dynamic, non-static content
+  - **FR-5**: File content MUST be validated against structure requirements before being written to disk using `validate_markdown_file()` from sheep.content_generators
+  - **FR-6**: File MUST be written to disk with UTF-8 encoding using `write_markdown_file()` from sheep.content_generators module
+  - **FR-7**: File MUST be staged via `git add test-6jsp8a.md`
+  - **FR-8**: File MUST be committed with conventional commit message format: `feat(270): create markdown file test-6jsp8a.md with title and prose content` using `commit_markdown_file()` from sheep.content_generators
+  - **FR-9**: Commit MUST be pushed to remote origin on the current feature branch using `push_markdown_file()` from sheep.content_generators
+  - **FR-10**: Implementation MUST follow the feature module pattern established in features 267-269: module at `src/sheep/features/feature_270_markdown_file_creation.py` with orchestration function `create_feature_270_markdown_file()`
+  - **FR-11**: Feature implementation MUST reuse stable, tested functions from sheep.content_generators rather than reimplementing core functionality
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: File encoding MUST be UTF-8; if encoding error occurs during write, raise exception and halt
+  - **NFR-2**: File line endings MUST be Unix LF (ASCII 0x0A), never CRLF (Windows) or CR (Mac Classic)
+  - **NFR-3**: File MUST terminate with exactly one final newline character (not zero, not multiple)
+  - **NFR-4**: Claude API calls MUST implement retry logic: maximum 3 attempts with exponential backoff (1s, 2s, 4s delays between attempts); fail with descriptive error message after 3rd failure
+  - **NFR-5**: All significant operations (generation, validation, write, commit, push) MUST be logged via structlog with appropriate log levels (info for success, warning for retries, error for failures)
+  - **NFR-6**: Feature implementation MUST follow the code style, structure, and patterns of features 267-269 for consistency and maintainability
+  - **NFR-7**: Execution time target: < 30 seconds end-to-end (includes API latency, I/O, and git operations); typical observed runtime 8-12 seconds
+  - **NFR-8**: Feature module MUST include docstrings for all public functions explaining purpose, parameters, return values, and exceptions
+  - **NFR-9**: Implementation MUST not modify any existing source files; only create new feature module file
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should API retry strategy follow the established exponential backoff pattern (3 retries) used by prior features? | Yes, use established pattern | The proven 3-retry exponential backoff is locked in by 269 prior features. Consistency is critical; any deviation introduces risk and breaks expected behavior. |
+  | 2 | Should validation failures (malformed H1, incorrect sentence count, encoding errors) immediately block feature execution or allow warnings? | Strict validation — fail on any violations | All 269 prior features use strict validation to guarantee consistent, high-quality deliverables. Leniency would violate the architectural pattern and reduce reliability. Fail-fast is the correct approach. |
 
   ## Codebase Analysis
 
@@ -164,10 +227,8 @@ content: |
     - Simple orchestration function (20-40 lines of code following established pattern)
     - No modifications to existing source code; only a new feature module creation
 
-  **Recommendation**: This is a routine task suitable for validating implementation
-  workflow automation. The established pattern, mature infrastructure, and 269 reference
-  implementations make this low-risk and fast to complete.
+  **Recommendation**: This is a routine task suitable for validating implementation workflow automation. The established pattern, mature infrastructure, and 269 reference implementations make this low-risk and fast to complete.
 
   ---
 
-  _Analysis phase complete — specification ready for implementation_
+  _Requirements phase complete — specification ready for implementation_
