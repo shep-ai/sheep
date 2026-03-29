@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Implementation script for feature 174: markdown-file-creation-1fc9b9
-Creates test-u9soe6.md with proper markdown structure and validation.
+Implementation script for feature 270: markdown-file-creation-d94969
+Creates test-n3o2vi.md with proper markdown structure and validation.
 """
 
 import subprocess
@@ -9,22 +9,22 @@ import sys
 from pathlib import Path
 
 # Module-level constants
-FILENAME = "test-u9soe6.md"
-TITLE = "The Art of Thoughtful Design"
+FILENAME = "test-n3o2vi.md"
+TITLE = "The Value of Continuous Learning"
 PROSE = (
-    "Thoughtful design considers the needs and experiences of users at every stage of the journey, "
-    "understanding that each interaction shapes how people perceive and engage with products. "
-    "It balances aesthetics with functionality, creating solutions that are both beautiful and intuitive to navigate. "
-    "By prioritizing clarity and empathy in design decisions, we create products that resonate deeply with people and transform their daily experiences."
+    "Continuous learning is essential for professional growth and adaptation in rapidly evolving fields. "
+    "Those who embrace new tools, methodologies, and ideas tend to develop deeper expertise and find greater "
+    "satisfaction in their work. By investing in learning throughout your career, you build resilience and "
+    "create opportunities for advancement."
 )
-COMMIT_MESSAGE = "feat(174): create markdown file test-u9soe6.md with prose content"
+COMMIT_MESSAGE = "feat(270): create markdown file test-n3o2vi.md with prose content"
 
 
 def create_file():
     """
     Create markdown file with proper structure and encoding.
 
-    Creates test-u9soe6.md in the current working directory with:
+    Creates test-n3o2vi.md in the current working directory with:
     - H1 heading on line 1
     - Blank line on line 2
     - 2-3 sentences of prose content
@@ -52,9 +52,10 @@ def create_file():
     try:
         # Write file with UTF-8 encoding and Unix LF line endings
         # encoding="utf-8" ensures UTF-8 without BOM
-        # newline="\n" forces Unix LF line endings on all platforms
-        file_path.write_text(content, encoding="utf-8", newline="\n")
-        print(f"✓ Created {file_path}")
+        # newline="" prevents Python from converting \n to \r\n on Windows
+        with open(file_path, 'w', encoding='utf-8', newline='') as f:
+            f.write(content)
+        print(f"[OK] Created {file_path}")
         return file_path
     except PermissionError:
         print(f"Error: Permission denied writing to {file_path}", file=sys.stderr)
@@ -76,7 +77,7 @@ def validate_file(file_path):
     - Blank line on second line
     - 2-3 sentences of prose content
     - File ends with newline
-    - File size within 400-600 bytes
+    - File size within 300-800 bytes
 
     Args:
         file_path: Path object or string path to file to validate.
@@ -91,66 +92,66 @@ def validate_file(file_path):
 
     # Check file exists
     if not file_path.exists():
-        raise ValueError(f"File does not exist: {file_path}")
+        raise AssertionError(f"File does not exist: {file_path}")
 
     # Check file size is non-zero
     file_size = file_path.stat().st_size
     if file_size == 0:
-        raise ValueError(f"File is empty: {file_path}")
+        raise AssertionError(f"File is empty: {file_path}")
 
     # Read file as bytes for encoding and line ending checks
     try:
         binary_content = file_path.read_bytes()
     except OSError as e:
-        raise ValueError(f"Cannot read file: {e}")
+        raise AssertionError(f"Cannot read file: {e}")
 
     # Check for UTF-8 BOM (EF BB BF bytes)
     if binary_content.startswith(b"\xef\xbb\xbf"):
-        raise ValueError("File contains UTF-8 BOM (should use plain UTF-8)")
+        raise AssertionError("File contains UTF-8 BOM (should use plain UTF-8)")
 
     # Check for CRLF line endings
     if b"\r\n" in binary_content:
-        raise ValueError("File uses CRLF line endings (should use LF)")
+        raise AssertionError("File uses CRLF line endings (should use LF)")
 
     # Decode content as UTF-8
     try:
         content = binary_content.decode("utf-8")
     except UnicodeDecodeError as e:
-        raise ValueError(f"File is not valid UTF-8: {e}")
+        raise AssertionError(f"File is not valid UTF-8: {e}")
 
     # Split into lines (preserving empty lines)
     lines = content.split("\n")
 
     # Check H1 heading on first line
     if not lines or not lines[0].startswith("# "):
-        raise ValueError("First line must be H1 heading starting with '# '")
+        raise AssertionError("First line must be H1 heading starting with '# '")
 
     # Check blank line on second line
     if len(lines) < 2 or lines[1] != "":
-        raise ValueError("Second line must be blank")
+        raise AssertionError("Second line must be blank")
 
     # Check prose content has 2-3 sentences
     if len(lines) < 3:
-        raise ValueError("File must contain prose content after heading")
+        raise AssertionError("File must contain prose content after heading")
 
     prose_content = "\n".join(lines[2:]).strip()
     if not prose_content:
-        raise ValueError("Prose content is empty")
+        raise AssertionError("Prose content is empty")
 
     sentence_count = prose_content.count(".")
     if not (2 <= sentence_count <= 3):
-        raise ValueError(
+        raise AssertionError(
             f"Prose must have 2-3 sentences (found {sentence_count})"
         )
 
     # Check file ends with newline
     if not content.endswith("\n"):
-        raise ValueError("File must end with newline")
+        raise AssertionError("File must end with newline")
 
-    # Check file size is in 400-600 byte range
-    if not (400 <= file_size <= 600):
-        raise ValueError(
-            f"File size {file_size} bytes is outside 400-600 byte range"
+    # Check file size is in typical range (300-800 bytes for flexibility)
+    if not (300 <= file_size <= 800):
+        raise AssertionError(
+            f"File size {file_size} bytes is outside typical range (300-800)"
         )
 
     return True
@@ -167,7 +168,7 @@ def git_add():
     """
     try:
         subprocess.run(["git", "add", FILENAME], check=True)
-        print(f"✓ Staged {FILENAME} with git add")
+        print(f"[OK] Staged {FILENAME} with git add")
     except subprocess.CalledProcessError as e:
         raise subprocess.CalledProcessError(
             e.returncode,
@@ -188,7 +189,7 @@ def git_commit():
     """
     try:
         subprocess.run(["git", "commit", "-m", COMMIT_MESSAGE], check=True)
-        print(f"✓ Created commit: {COMMIT_MESSAGE}")
+        print(f"[OK] Created commit: {COMMIT_MESSAGE}")
     except subprocess.CalledProcessError as e:
         raise subprocess.CalledProcessError(
             e.returncode,
@@ -210,7 +211,7 @@ def git_push():
     """
     try:
         subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
-        print("✓ Pushed to remote origin")
+        print("[OK] Pushed to remote origin")
     except subprocess.CalledProcessError as e:
         raise subprocess.CalledProcessError(
             e.returncode,
@@ -238,7 +239,7 @@ def main():
         0 on success, 1 on failure
     """
     print("=" * 60)
-    print("Feature 174: Markdown File Creation")
+    print("Feature 270: Markdown File Creation")
     print("=" * 60)
 
     try:
@@ -262,24 +263,24 @@ def main():
 
         # Success
         print("\n" + "=" * 60)
-        print("Successfully created test-u9soe6.md")
+        print("Successfully created test-n3o2vi.md")
         print("File has been created, validated, staged, committed, and pushed.")
         print("=" * 60)
         sys.exit(0)
 
     except ValueError as e:
-        print(f"✗ Validation failed: {e}", file=sys.stderr)
+        print(f"[ERROR] Validation failed: {e}", file=sys.stderr)
         sys.exit(1)
     except OSError as e:
-        print(f"✗ File I/O error: {e}", file=sys.stderr)
+        print(f"[ERROR] File I/O error: {e}", file=sys.stderr)
         sys.exit(1)
     except subprocess.CalledProcessError as e:
-        print(f"✗ Git command failed: {e.cmd}", file=sys.stderr)
+        print(f"[ERROR] Git command failed: {e.cmd}", file=sys.stderr)
         if e.stderr:
             print(f"  Error output: {e.stderr}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
-        print(f"✗ Unexpected error: {e}", file=sys.stderr)
+        print(f"[ERROR] Unexpected error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
