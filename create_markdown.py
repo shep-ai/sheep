@@ -1,116 +1,118 @@
 #!/usr/bin/env python3
-"""
-Create markdown file test-n49t8o.md following the established pattern.
+"""Create and validate markdown file for feature 262."""
 
-This script:
-1. Creates test-n49t8o.md with hardcoded prose content (H1 heading + 2-3 sentences)
-2. Uses pathlib.Path for file I/O (per NFR-5)
-3. Validates file format (UTF-8, LF line endings, structure)
-4. Stages file with git add
-5. Commits with conventional message
-6. Pushes to remote origin
-"""
-
-import subprocess
-import sys
 from pathlib import Path
 
-# Hardcoded prose content: H1 heading + exactly 2-3 sentences
-# Topic: The Moon and its influence on Earth
-PROSE_CONTENT = """# The Moon and Its Impact on Earth
 
-The Moon is Earth's only natural satellite and plays a crucial role in maintaining the conditions necessary for life. Its gravitational influence stabilizes Earth's axial tilt, preventing chaotic climate changes that would make complex life difficult to sustain. The Moon also regulates ocean tides, which have shaped marine ecosystems and human civilizations for millennia.
-"""
+def create_markdown_file(filename="test-mylh5m.md"):
+    """Create markdown file with H1 heading and 2-3 sentences of prose.
 
-# Filename to create
-FILENAME = "test-n49t8o.md"
+    Returns:
+        Path: Path object pointing to the created file
+    """
+    # Compose H1 heading and prose content
+    heading = "# The Elegance of Mountain Ecosystems"
+    prose = (
+        "Mountain ecosystems represent some of the most biodiverse and resilient "
+        "environments on Earth, supporting countless species adapted to harsh alpine conditions. "
+        "These landscapes have shaped human culture for millennia, providing inspiration for art, "
+        "literature, and spiritual practices across civilizations."
+    )
 
+    # Construct complete content with proper structure
+    content = f"{heading}\n\n{prose}\n"
 
-def create_markdown_file():
-    """Create the markdown file using pathlib.Path.write_text()."""
-    path = Path(FILENAME)
+    # Write file with explicit UTF-8 encoding (no BOM) and LF line endings
+    filepath = Path(filename)
+    filepath.write_text(content, encoding='utf-8', newline='\n')
 
-    # Write file with explicit UTF-8 encoding
-    # write_text() handles file creation, closing, and encoding automatically
-    path.write_text(PROSE_CONTENT, encoding='utf-8')
-
-    print(f"✓ Created file: {FILENAME}")
-    return path
-
-
-def validate_file(path):
-    """Validate file format, encoding, and line endings."""
-    # Read file to check encoding and line endings
-    binary_content = path.read_bytes()
-    text_content = path.read_text(encoding='utf-8')
-
-    # Verify UTF-8 encoding (no BOM)
-    assert not binary_content.startswith(b'\xef\xbb\xbf'), "File should not have BOM"
-    print("✓ File is UTF-8 encoded without BOM")
-
-    # Verify Unix-style LF line endings (not Windows CRLF)
-    assert b'\r\n' not in binary_content, "File should use LF, not CRLF"
-    print("✓ File uses Unix-style LF line endings")
-
-    # Verify file size is in expected range (400-600 bytes typical)
-    file_size = len(binary_content)
-    assert 350 < file_size < 650, f"File size {file_size} is outside expected range"
-    print(f"✓ File size is {file_size} bytes (expected ~400-600)")
-
-    # Verify content structure
-    lines = text_content.strip().split('\n')
-    assert lines[0].startswith('# '), "First line should be H1 heading"
-    assert lines[1] == '', "Second line should be blank"
-
-    # Count sentences (simple check: count periods)
-    prose_section = '\n'.join(lines[2:])
-    sentence_count = prose_section.count('.')
-    assert 2 <= sentence_count <= 3, f"Expected 2-3 sentences, found {sentence_count}"
-    print(f"✓ Content has correct structure: H1 heading + {sentence_count} sentences")
-
-    return True
+    return filepath
 
 
-def stage_and_commit():
-    """Stage file and commit with conventional message using subprocess."""
-    # Git add
-    subprocess.run(['git', 'add', FILENAME], check=True)
-    print(f"✓ Staged file with: git add {FILENAME}")
+def validate_markdown_file(filename="test-mylh5m.md"):
+    """Validate markdown file meets all structural and encoding requirements.
 
-    # Git commit with conventional message
-    commit_message = "feat(069): create markdown file test-n49t8o.md with prose content"
-    subprocess.run(['git', 'commit', '--no-verify', '-m', commit_message], check=True)
-    print(f"✓ Committed with message: {commit_message}")
+    Returns:
+        dict: Validation results with keys for each check (all should be True)
+    """
+    filepath = Path(filename)
 
+    results = {
+        "file_exists": False,
+        "h1_heading_present": False,
+        "blank_line_after_heading": False,
+        "prose_sentence_count": 0,
+        "prose_sentences_valid": False,
+        "utf8_no_bom": False,
+        "lf_line_endings": False,
+        "file_size_valid": False,
+        "prose_coherent": False,
+    }
 
-def push_to_remote():
-    """Push changes to remote origin."""
-    subprocess.run(['git', 'push', '-u', 'origin', 'HEAD'], check=True)
-    print("✓ Pushed to remote origin")
+    # Check file exists
+    if not filepath.exists():
+        return results
+    results["file_exists"] = True
 
+    # Read file as bytes to check for BOM
+    file_bytes = filepath.read_bytes()
 
-def main():
-    """Main entry point: create file, validate, commit, and push."""
-    try:
-        # Task 1-2: Create file
-        path = create_markdown_file()
+    # Check for UTF-8 BOM (EF BB BF)
+    has_bom = file_bytes.startswith(b'\xef\xbb\xbf')
+    results["utf8_no_bom"] = not has_bom
 
-        # Task 3: Validate
-        validate_file(path)
+    # Read file content as text
+    content = filepath.read_text(encoding='utf-8')
+    lines = content.split('\n')
 
-        # Task 4: Git add and commit
-        stage_and_commit()
+    # Check H1 heading on line 1
+    if lines and lines[0].startswith('# '):
+        results["h1_heading_present"] = True
 
-        # Task 5: Git push
-        push_to_remote()
+    # Check blank line after heading
+    if len(lines) > 1 and lines[1] == '':
+        results["blank_line_after_heading"] = True
 
-        print("\n✓ Feature 069 complete: markdown file created, committed, and pushed")
-        return 0
+    # Check prose content (lines 2+)
+    prose_lines = lines[2:]
+    prose_text = '\n'.join(prose_lines).strip()
 
-    except Exception as e:
-        print(f"✗ Error: {e}", file=sys.stderr)
-        return 1
+    # Count sentences (split on '. ' and '.\n')
+    sentences = [s.strip() for s in prose_text.replace('.\n', '. ').split('. ') if s.strip()]
+    sentence_count = len(sentences)
+    results["prose_sentence_count"] = sentence_count
+    results["prose_sentences_valid"] = 2 <= sentence_count <= 3
+
+    # Check for prose coherence (basic: non-empty, no obvious gibberish)
+    results["prose_coherent"] = bool(prose_text) and len(prose_text) > 50
+
+    # Check line endings (no CRLF)
+    results["lf_line_endings"] = '\r\n' not in content
+
+    # Check file size (300-600 bytes)
+    file_size = len(file_bytes)
+    results["file_size_valid"] = 300 <= file_size <= 600
+
+    return results
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Create the markdown file
+    filepath = create_markdown_file()
+    print(f"[OK] Created {filepath}")
+
+    # Validate the file
+    validation = validate_markdown_file()
+    print("\nValidation Results:")
+    all_passed = True
+    for check, result in validation.items():
+        status = "PASS" if result else "FAIL"
+        print(f"  [{status}] {check}: {result}")
+        if check != "prose_sentence_count" and not result:
+            all_passed = False
+
+    if all_passed:
+        print("\n[OK] All validations passed!")
+    else:
+        print("\n[FAIL] Some validations failed!")
+        exit(1)
