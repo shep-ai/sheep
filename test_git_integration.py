@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Test script for Git Integration phase of feature 257.
+"""Test script for Git Integration phase of feature 262.
 
 Tests that verify:
-- task-2: File is staged in git (git add)
-- task-3: File is committed with correct message (git commit)
+- task-3: File is staged in git (git add)
+- task-4: File is committed with correct message (git commit)
 - task-4: File is pushed to remote (git push)
 """
 
@@ -19,38 +19,38 @@ def run_git_command(cmd):
 
 
 def test_file_exists_in_git():
-    """Test that test-z5u8bz.md is tracked by git."""
-    stdout, returncode = run_git_command(["git", "ls-files", "test-z5u8bz.md"])
+    """Test that test-mylh5m.md is tracked by git."""
+    stdout, returncode = run_git_command(["git", "ls-files", "test-mylh5m.md"])
     assert returncode == 0, "git ls-files command failed"
-    assert "test-z5u8bz.md" in stdout, "File is not tracked by git"
-    print("✓ File is tracked by git")
+    assert "test-mylh5m.md" in stdout, "File is not tracked by git"
+    print("[OK] File is tracked by git")
 
 
 def test_file_is_staged():
-    """Test that test-z5u8bz.md is tracked and committed by git.
+    """Test that test-mylh5m.md is tracked and committed by git.
 
     Verifies the file is either staged or already committed in the repository.
     """
     # Check if file is currently staged or uncommitted
     stdout, _ = run_git_command(["git", "status", "--porcelain"])
 
-    if "test-z5u8bz.md" in stdout:
+    if "test-mylh5m.md" in stdout:
         # File shows in status, should be staged (A) or modified (M)
-        assert "A  test-z5u8bz.md" in stdout or "M  test-z5u8bz.md" in stdout, \
+        assert "A  test-mylh5m.md" in stdout or "M  test-mylh5m.md" in stdout, \
             "File shows in status but not as staged or modified"
-        print("✓ File is staged in git")
+        print("[OK] File is staged in git")
     else:
         # File is not in status output, meaning it's already committed
         # Verify it's in the git history
         stdout, returncode = run_git_command(["git", "log", "--name-status", "--all", "-20"])
-        assert returncode == 0 and "test-z5u8bz.md" in stdout, \
+        assert returncode == 0 and "test-mylh5m.md" in stdout, \
             "File is not in git history"
-        print("✓ File is committed in git")
+        print("[OK] File is committed in git")
 
 
 def test_commit_exists_with_correct_message():
     """Test that commit exists with exact message:
-    'feat(257): create markdown file test-z5u8bz.md with prose content'
+    'feat(262): Create markdown file test-mylh5m.md with prose content'
     """
     # Search for the specific commit message in recent history
     stdout, returncode = run_git_command(
@@ -58,14 +58,14 @@ def test_commit_exists_with_correct_message():
     )
     assert returncode == 0, "git log command failed"
 
-    expected_message = "feat(257): create markdown file test-z5u8bz.md with prose content"
+    expected_message = "feat(262): Create markdown file test-mylh5m.md with prose content"
     assert expected_message in stdout, \
         f"Commit message not found. Expected: '{expected_message}', Recent commits:\n{stdout}"
-    print("✓ Commit exists with correct message")
+    print("[OK] Commit exists with correct message")
 
 
 def test_file_in_latest_commit():
-    """Test that test-z5u8bz.md is included in a recent commit.
+    """Test that test-mylh5m.md is included in a recent commit.
 
     The file should be committed in the branch history.
     """
@@ -73,8 +73,8 @@ def test_file_in_latest_commit():
         ["git", "log", "--name-status", "--all", "-20"]
     )
     assert returncode == 0, "git log command failed"
-    assert "test-z5u8bz.md" in stdout, "File is not found in recent commits"
-    print("✓ File is included in commit history")
+    assert "test-mylh5m.md" in stdout, "File is not found in recent commits"
+    print("[OK] File is included in commit history")
 
 
 def test_branch_name():
@@ -82,10 +82,10 @@ def test_branch_name():
     stdout, returncode = run_git_command(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     assert returncode == 0, "git rev-parse command failed"
 
-    expected_branch = "feat/markdown-file-creation-2101f0"
+    expected_branch = "feat/markdown-file-creation-03c688"
     assert expected_branch in stdout, \
         f"Wrong branch. Expected: '{expected_branch}', Got: '{stdout}'"
-    print(f"✓ On correct branch: {stdout}")
+    print(f"[OK] On correct branch: {stdout}")
 
 
 def test_local_tracking_remote():
@@ -95,15 +95,15 @@ def test_local_tracking_remote():
     # This might fail if no upstream is set, which is acceptable if local == remote
     if returncode == 0:
         assert "origin" in stdout, "Local branch is not tracking remote"
-        print(f"✓ Local branch is tracking: {stdout}")
+        print(f"[OK] Local branch is tracking: {stdout}")
     else:
         # Check if remote branch exists and commit is on it
         stdout, returncode = run_git_command(
-            ["git", "ls-remote", "origin", "feat/markdown-file-creation-2101f0"]
+            ["git", "ls-remote", "origin", "feat/markdown-file-creation-03c688"]
         )
         assert returncode == 0, "Could not check remote branch"
         assert len(stdout) > 0, "Remote branch does not exist"
-        print("✓ Remote branch exists")
+        print("[OK] Remote branch exists")
 
 
 def test_commit_is_on_remote():
@@ -114,13 +114,13 @@ def test_commit_is_on_remote():
 
     # Get remote commit hash
     remote_hash, returncode = run_git_command(
-        ["git", "rev-parse", "origin/feat/markdown-file-creation-2101f0"]
+        ["git", "rev-parse", "origin/feat/markdown-file-creation-03c688"]
     )
     assert returncode == 0, "Could not get remote commit hash"
 
     assert local_hash == remote_hash, \
         f"Local commit ({local_hash}) does not match remote ({remote_hash})"
-    print(f"✓ Commit is pushed to remote: {local_hash[:8]}")
+    print(f"[OK] Commit is pushed to remote: {local_hash[:8]}")
 
 
 def test_branch_up_to_date():
@@ -131,7 +131,7 @@ def test_branch_up_to_date():
     # Status should show "ahead/behind 0" or be identical
     assert "ahead" not in stdout or "0" in stdout, "Local branch is ahead of remote"
     assert "behind" not in stdout or "0" in stdout, "Local branch is behind remote"
-    print("✓ Local branch is up to date with remote")
+    print("[OK] Local branch is up to date with remote")
 
 
 if __name__ == "__main__":
@@ -151,12 +151,12 @@ if __name__ == "__main__":
         try:
             test()
         except AssertionError as e:
-            print(f"✗ {test.__name__}: {e}")
+            print(f"[FAIL] {test.__name__}: {e}")
             failed.append(test.__name__)
 
     if failed:
         print(f"\n{len(failed)} test(s) failed")
         sys.exit(1)
     else:
-        print(f"\nAll {len(tests)} git integration tests passed ✓")
+        print(f"\nAll {len(tests)} git integration tests passed [OK]")
         sys.exit(0)
