@@ -1,0 +1,221 @@
+name: "markdown-file-creation-a09312"
+summary: |
+  Implement feature 270 by creating a new feature module that generates markdown content
+  via Claude API, writes it to disk with UTF-8/LF encoding validation, validates the output,
+  and commits it to git. The implementation reuses all existing infrastructure
+  (sheep.content_generators utility functions, CrewAI LLM framework, structlog logging,
+  Langfuse observability) and follows the exact structure of feature_267 to ensure consistency
+  and minimize implementation risk. This is an S-size (small) feature with 4-6 hours estimated effort.
+
+relatedFeatures:
+  - "feature_267_markdown_file_creation"
+  - "feature_269_markdown_file_creation"
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI (>=0.86.0)"
+  - "Anthropic Claude API"
+  - "GitPython (>=3.1.0)"
+  - "structlog (>=24.0.0)"
+  - "Langfuse (>=2.0.0)"
+  - "Pydantic (>=2.0.0)"
+  - "pathlib (Python standard library)"
+
+relatedLinks:
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "Anthropic Claude API Models"
+    url: "https://docs.anthropic.com/en/docs/about-claude/models/latest"
+  - title: "GitPython Documentation"
+    url: "https://gitpython.readthedocs.io/"
+  - title: "Langfuse Documentation"
+    url: "https://docs.langfuse.com/"
+  - title: "structlog Documentation"
+    url: "https://www.structlog.org/"
+
+phases:
+  - id: "phase-1"
+    name: "Foundation & Module Setup"
+    description: |
+      Create the feature_270_markdown_file_creation.py module file with correct imports,
+      metadata constants, and basic structure. Verify all dependencies are available and
+      the module can be imported without errors. This phase establishes the codebase
+      foundation that all subsequent work builds upon.
+    parallel: false
+
+  - id: "phase-2"
+    name: "Workflow Implementation"
+    description: |
+      Implement the main orchestration function create_feature_270_markdown_file() that
+      coordinates all 5 workflow steps: content generation, file creation, validation,
+      git staging/commit, and remote push. Integrate structured logging at each step
+      and add comprehensive error handling. This phase implements the core logic.
+    parallel: false
+
+  - id: "phase-3"
+    name: "Testing & Verification"
+    description: |
+      Test the complete workflow end-to-end, verify file format (UTF-8/LF encoding),
+      validate git integration (commit, push), and confirm observability infrastructure
+      (structured logging, optional Langfuse tracing). This phase ensures quality and
+      integration correctness.
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_270_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The feature_270 module implements a thin orchestration layer that coordinates existing
+  infrastructure to generate, validate, and publish a markdown file. The architecture
+  follows the established pattern from feature_267 and preceding features:
+
+  ```
+  feature_270_markdown_file_creation.py (orchestration + logging)
+    ├─→ sheep.content_generators.generate_markdown_content() [LLM call via CrewAI]
+    ├─→ sheep.content_generators.write_markdown_file() [file creation, UTF-8/LF validation]
+    ├─→ sheep.content_generators.validate_markdown_file() [format validation]
+    ├─→ sheep.content_generators.commit_markdown_file() [git staging + conventional commit]
+    └─→ sheep.content_generators.push_markdown_file() [remote push with upstream tracking]
+          ↓ (internal calls)
+        sheep.config.llm.get_reasoning_llm() [LLM factory with temperature=0.2]
+          ↓
+        CrewAI LLM class [orchestration framework]
+          ↓
+        Anthropic Claude API [actual content generation]
+  ```
+
+  **Key architectural characteristics:**
+
+  - **Minimal feature module** (40-50 lines of code): Pure orchestration and logging
+  - **Heavy lifting delegated** to tested utility functions: No custom implementation of core logic
+  - **Structured logging** at 5 major milestones: Generate, Write, Validate, Commit, Push
+  - **Error handling with reraise**: Log context but let caller decide recovery strategy
+  - **Automatic observability**: Langfuse tracing via CrewAI instrumentation (if credentials available)
+  - **No shared state modification**: Feature module only reads from utilities, doesn't change them
+
+  ## Key Design Decisions
+
+  ### 1. Utility Function Reuse vs Custom Implementation
+  **Chosen:** Reuse all sheep.content_generators utility functions
+
+  **Rationale:** Codebase analysis shows these functions are battle-tested across 269 iterations.
+  They handle prompt construction, LLM calls via CrewAI, response parsing, H1 heading + sentence
+  count validation, UTF-8/LF encoding enforcement, git staging, conventional commit formatting,
+  and remote push with upstream tracking. Reusing these ensures consistency, reduces implementation
+  risk, and follows DRY principle. Research explicitly recommends this approach.
+
+  ### 2. CrewAI LLM Framework Integration
+  **Chosen:** Use sheep.config.llm.get_reasoning_llm() for LLM access
+
+  **Rationale:** Project standardizes on CrewAI (>=0.86.0) for LLM orchestration. The
+  get_reasoning_llm() factory with temperature=0.2 returns a preconfigured LLM instance that
+  abstracts model selection, injects API keys from environment, provides automatic Langfuse
+  instrumentation, and enables request caching.
+
+  ### 3. File Overwrite Handling Strategy
+  **Chosen:** Fail with clear error message if file already exists
+
+  **Rationale:** Codebase pattern is fail-safe (prevents data loss). Clear error message forces
+  explicit cleanup and retry, avoiding silent failures and accidental overwrite. Matches
+  established risk mitigation strategy from research.
+
+  ### 4. API Failure Retry Strategy
+  **Chosen:** Exponential backoff (1s, 2s, 4s, 8s) with maximum 4 retry attempts
+
+  **Rationale:** Industry standard for transient failures. Respects API rate limits, handles
+  temporary slowness effectively, caps worst-case delay (~15 seconds total). Codebase analysis
+  explicitly documents this pattern.
+
+  ### 5. Content Validation Strictness
+  **Chosen:** Enforce exactly 2-3 sentences (count sentence-ending periods)
+
+  **Rationale:** Feature specification requires 2-3 sentences; strict validation ensures
+  consistency across 270 iterations. Prevents LLM temperature variations from creating outliers.
+
+  ### 6. File Encoding and Line Ending Enforcement
+  **Chosen:** UTF-8 encoding (no BOM) + Unix LF-only line endings
+
+  **Rationale:** Ensures portable files, clean git diffs, cross-platform consistency (Windows/Unix/Mac),
+  and CI/CD reproducibility. Markdown standard convention is UTF-8 + LF.
+
+  ### 7. Module Structure Pattern
+  **Chosen:** Replicate feature_267_markdown_file_creation.py structure exactly
+
+  **Rationale:** Size estimate states \"essentially a copy-paste of feature_267 with updated metadata\".
+  Replicating exact pattern ensures consistency, minimizes cognitive load, reduces implementation
+  risk, and enables copy-paste for future iterations.
+
+  ### 8. Logging Detail Level
+  **Chosen:** Standard detail (log each major step)
+
+  **Rationale:** Matches codebase \"step-by-step progress tracking\" pattern. Provides sufficient
+  observability to debug failures while avoiding log clutter.
+
+  ### 9. Langfuse Observability Integration
+  **Chosen:** Include Langfuse integration (automatic via infrastructure)
+
+  **Rationale:** Langfuse is explicit project dependency. Automatic instrumentation via CrewAI
+  provides cloud-based observability without custom code. Enables performance monitoring, error
+  tracking, and distributed tracing.
+
+  ## Implementation Strategy
+
+  **Phase 1: Foundation & Module Setup** (15-30 minutes)
+  - Create feature_270_markdown_file_creation.py with imports and metadata constants
+  - Copy structure directly from feature_267 (proven, tested pattern)
+  - Verify module loads and all imports work correctly
+
+  **Phase 2: Workflow Implementation** (2-3 hours)
+  - Implement main function orchestration loop
+  - Add 5 workflow steps as sequential function calls
+  - Integrate structured logging at each step (5 major milestones)
+  - Add try-except error handling with logging and reraise
+  - Return structured dict with results
+
+  **Phase 3: Testing & Verification** (1.5-2 hours)
+  - End-to-end integration testing against test repository
+  - Verify file created with correct format (H1 + 2-3 sentences)
+  - Verify encoding (UTF-8 no BOM) and line endings (LF only)
+  - Verify git integration (commit, push)
+  - Verify structured logging and optional Langfuse tracing
+
+  **Why this ordering:**
+  Phase 1 is foundational; all other work depends on the module existing. Phase 2 implements
+  before Phase 3 tests. Within Phase 2: content generation first (no dependencies), then file
+  operations (depends on content), then git (depends on file), then error handling (spans entire function).
+
+  ## Risk Mitigation
+
+  | Risk | Likelihood | Impact | Mitigation |
+  | ---- | ---------- | ------ | ---------- |
+  | API rate limiting or timeout | Medium | 30s+ delay or failure | Exponential backoff retry logic; max 4 attempts |
+  | File already exists | Low | Overwrite risk | Fail-safe: check before write, raise clear error |
+  | Invalid content from LLM | Low | Validation failure | Strict 2-3 sentence validation; abort on deviation |
+  | UTF-8/Line-ending issues | Low | Cross-platform inconsistency | Explicit validation for BOM and CRLF |
+  | Git branch not created | Very Low | Push fails | GitPushTool handles --set-upstream origin HEAD |
+  | Network failure during push | Low | Partial completion | Retry logic; clear error message |
+  | Logging noise | Low | Log volume increase | Standard detail level (INFO for major steps) |
+  | Langfuse credentials missing | Low | Tracing unavailable | Graceful degradation; optional env var |
+  | Module imports fail | Low | Feature cannot load | Import verification in Phase 1 |
+
+  ## Success Criteria
+
+  - [ ] feature_270_markdown_file_creation.py module created with correct structure
+  - [ ] All imports verified working
+  - [ ] Main function orchestrates all 5 workflow steps
+  - [ ] Structured logging at each step
+  - [ ] Error handling with logging and reraise
+  - [ ] File test-f2zwii.md created in repository root
+  - [ ] File contains H1 heading + 2-3 sentences (validated)
+  - [ ] File encoded as UTF-8 without BOM, line endings LF only
+  - [ ] File size within expected range (250-600 bytes)
+  - [ ] Git commit created with correct message
+  - [ ] Commit pushed to remote on feature branch
+  - [ ] Structured logging output is JSON-compatible
+  - [ ] Optional Langfuse tracing works if credentials available
