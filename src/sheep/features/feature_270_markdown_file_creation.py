@@ -14,6 +14,7 @@ Unlike feature 269, feature 270 uses deterministic hardcoded generic prose conte
 instead of LLM-based auto-generation, reducing complexity and improving performance.
 """
 
+import subprocess
 from pathlib import Path
 
 from sheep.content_generators import (
@@ -34,6 +35,122 @@ MARKDOWN_FILENAME = "test-2sqwpg.md"
 # Hardcoded content constants (deterministic, no external dependencies)
 TITLE = "Software Engineering Practices"
 PROSE = "Software development is a continuous journey that requires dedication to learning and continuous improvement. Modern approaches emphasize automated testing, continuous integration, and collaborative code reviews to ensure quality and maintainability across projects. The intersection of technical excellence and clear communication enables teams to deliver reliable software that solves real problems and creates lasting value."
+
+
+def git_add_file(filepath: str | Path) -> dict[str, str]:
+    """
+    Stage a file using git add command.
+
+    Args:
+        filepath: Path to the file to stage (str or Path).
+
+    Returns:
+        Dictionary containing:
+        - status: "success" or "error"
+        - output: Command output or error message
+
+    Raises:
+        subprocess.CalledProcessError: If git add command fails.
+    """
+    filepath_str = str(filepath)
+    _logger.info(f"Staging file with git add: {filepath_str}")
+
+    try:
+        result = subprocess.run(
+            ["git", "add", filepath_str],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        _logger.info(f"File staged successfully: {filepath_str}")
+        return {
+            "status": "success",
+            "output": result.stdout or "File added successfully",
+        }
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git add failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise
+
+
+def git_commit_file(filepath: str | Path, message: str) -> dict[str, str]:
+    """
+    Commit a staged file using git commit command.
+
+    Args:
+        filepath: Path to the file being committed (for logging).
+        message: Commit message (should follow conventional commits format).
+
+    Returns:
+        Dictionary containing:
+        - status: "success" or "error"
+        - output: Command output or error message
+
+    Raises:
+        subprocess.CalledProcessError: If git commit command fails.
+    """
+    filepath_str = str(filepath)
+    _logger.info(f"Committing file with message: {message}")
+
+    try:
+        result = subprocess.run(
+            ["git", "commit", "-m", message],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        _logger.info(f"File committed successfully: {filepath_str}")
+        _logger.debug(f"Commit output: {result.stdout}")
+        return {
+            "status": "success",
+            "output": result.stdout or "File committed successfully",
+        }
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git commit failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise
+
+
+def git_push_branch(remote: str = "origin") -> dict[str, str]:
+    """
+    Push the current branch to remote with upstream tracking.
+
+    Args:
+        remote: Remote name to push to (default: "origin").
+
+    Returns:
+        Dictionary containing:
+        - status: "success" or "error"
+        - output: Command output or error message
+
+    Raises:
+        subprocess.CalledProcessError: If git push command fails.
+    """
+    _logger.info(f"Pushing branch to {remote} with upstream tracking")
+
+    try:
+        result = subprocess.run(
+            ["git", "push", "-u", remote, "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        _logger.info(f"Branch pushed successfully to {remote}")
+        _logger.debug(f"Push output: {result.stdout}")
+        return {
+            "status": "success",
+            "output": result.stdout or "Branch pushed successfully",
+        }
+
+    except subprocess.CalledProcessError as e:
+        error_msg = f"git push failed: {e.stderr or e.stdout}"
+        _logger.error(error_msg)
+        raise
 
 
 def create_markdown_file(repo_path: str = ".") -> Path:

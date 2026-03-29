@@ -24,6 +24,9 @@ from sheep.features.feature_270_markdown_file_creation import (
     PROSE,
     TITLE,
     create_feature_270_markdown_file,
+    git_add_file,
+    git_commit_file,
+    git_push_branch,
 )
 
 
@@ -349,6 +352,248 @@ class TestFeature270UnitTests:
 
         with pytest.raises(Exception, match="Git push failed"):
             create_feature_270_markdown_file("/repo")
+
+
+class TestGitOperations:
+    """Tests for git operations functions using subprocess."""
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_add_file_correct_command(self, mock_run):
+        """Test that git_add_file calls git with correct filepath."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        result = git_add_file("test-2sqwpg.md")
+
+        # Verify subprocess.run was called with correct command
+        mock_run.assert_called_once_with(
+            ["git", "add", "test-2sqwpg.md"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        # Verify result structure
+        assert isinstance(result, dict)
+        assert result["status"] == "success"
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_add_file_returns_dict_with_status(self, mock_run):
+        """Test that git_add_file returns dict with status key."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        result = git_add_file("test.md")
+
+        assert isinstance(result, dict)
+        assert "status" in result
+        assert "output" in result
+        assert result["status"] == "success"
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_add_file_with_path_object(self, mock_run):
+        """Test that git_add_file handles Path objects."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        result = git_add_file(Path("test-2sqwpg.md"))
+
+        # Verify Path was converted to string
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args[0][0]
+        assert call_args == ["git", "add", "test-2sqwpg.md"]
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_add_file_error_handling(self, mock_run):
+        """Test that git_add_file raises CalledProcessError on failure."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1,
+            cmd="git add test.md",
+            output="",
+            stderr="fatal: not a git repository"
+        )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_add_file("test.md")
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_commit_file_correct_command(self, mock_run):
+        """Test that git_commit_file calls git with correct message."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="[main abc123] feat(270): create markdown file\n", stderr=""
+        )
+
+        result = git_commit_file("test-2sqwpg.md", "feat(270): create markdown file test-2sqwpg.md")
+
+        # Verify subprocess.run was called with correct command
+        mock_run.assert_called_once_with(
+            ["git", "commit", "-m", "feat(270): create markdown file test-2sqwpg.md"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_commit_file_conventional_format(self, mock_run):
+        """Test that git_commit_file accepts conventional commits format."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        message = "feat(270): create markdown file test-2sqwpg.md"
+        result = git_commit_file("test-2sqwpg.md", message)
+
+        # Verify the message format is preserved
+        call_args = mock_run.call_args[0][0]
+        assert call_args[3] == message  # The message argument after -m
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_commit_file_returns_dict_with_status(self, mock_run):
+        """Test that git_commit_file returns dict with status key."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="[main abc123] feat(270): ...\n", stderr=""
+        )
+
+        result = git_commit_file("test.md", "feat(270): commit message")
+
+        assert isinstance(result, dict)
+        assert "status" in result
+        assert "output" in result
+        assert result["status"] == "success"
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_commit_file_error_handling(self, mock_run):
+        """Test that git_commit_file raises CalledProcessError on failure."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1,
+            cmd="git commit -m",
+            output="",
+            stderr="fatal: not a git repository"
+        )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_commit_file("test.md", "feat(270): commit message")
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_push_branch_correct_command(self, mock_run):
+        """Test that git_push_branch calls git push with upstream tracking."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="Branch main set up to track origin/main\n", stderr=""
+        )
+
+        result = git_push_branch()
+
+        # Verify subprocess.run was called with correct command
+        mock_run.assert_called_once_with(
+            ["git", "push", "-u", "origin", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_push_branch_with_custom_remote(self, mock_run):
+        """Test that git_push_branch accepts custom remote."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        result = git_push_branch(remote="upstream")
+
+        # Verify correct remote is used
+        call_args = mock_run.call_args[0][0]
+        assert "upstream" in call_args
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_push_branch_returns_dict_with_status(self, mock_run):
+        """Test that git_push_branch returns dict with status key."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        result = git_push_branch()
+
+        assert isinstance(result, dict)
+        assert "status" in result
+        assert "output" in result
+        assert result["status"] == "success"
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_push_branch_error_handling_no_upstream(self, mock_run):
+        """Test that git_push_branch raises CalledProcessError on failure."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1,
+            cmd="git push -u origin HEAD",
+            output="",
+            stderr="fatal: 'origin' does not appear to be a git repository"
+        )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_push_branch()
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_push_branch_error_handling_auth_failure(self, mock_run):
+        """Test error handling when authentication fails."""
+        mock_run.side_effect = subprocess.CalledProcessError(
+            returncode=1,
+            cmd="git push -u origin HEAD",
+            output="",
+            stderr="fatal: Authentication failed"
+        )
+
+        with pytest.raises(subprocess.CalledProcessError):
+            git_push_branch()
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_operations_use_subprocess_run_with_check_true(self, mock_run):
+        """Test that all git operations use subprocess.run with check=True."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        # Test git_add_file
+        git_add_file("test.md")
+        assert mock_run.call_args[1]["check"] is True
+
+        # Reset mock
+        mock_run.reset_mock()
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        # Test git_commit_file
+        git_commit_file("test.md", "feat: message")
+        assert mock_run.call_args[1]["check"] is True
+
+        # Reset mock
+        mock_run.reset_mock()
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        # Test git_push_branch
+        git_push_branch()
+        assert mock_run.call_args[1]["check"] is True
+
+    @patch("sheep.features.feature_270_markdown_file_creation.subprocess.run")
+    def test_git_operations_capture_output(self, mock_run):
+        """Test that all git operations capture stderr and stdout."""
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="output", stderr=""
+        )
+
+        # Test all operations
+        git_add_file("test.md")
+        git_commit_file("test.md", "feat: message")
+        git_push_branch()
+
+        # Verify all calls used capture_output=True and text=True
+        for call in mock_run.call_args_list:
+            assert call[1]["capture_output"] is True
+            assert call[1]["text"] is True
 
 
 class TestFeature270IntegrationTests:
