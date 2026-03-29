@@ -15,17 +15,16 @@ Tests verify:
 - Integration failures and error propagation
 """
 
-from unittest.mock import Mock, patch, MagicMock
-from pathlib import Path
+import contextlib
+from unittest.mock import Mock, patch
 
 import pytest
 
 from sheep.features.feature_270_markdown_file_creation import (
-    create_feature_270_markdown_file,
-    MARKDOWN_FILENAME,
     FEATURE_NUMBER,
+    MARKDOWN_FILENAME,
+    create_feature_270_markdown_file,
 )
-
 
 # Sample valid markdown content for testing
 SAMPLE_MARKDOWN = """# Renewable Energy Solutions
@@ -294,9 +293,9 @@ class TestPhase4ErrorHandling:
 
     def test_exception_at_write_is_caught_and_re_raised(self, tmp_path, monkeypatch):
         """Test that exception during file write is caught and re-raised."""
-        write_error = "IOError: disk full"
+        write_error = "OSError: disk full"
         mock_generate = Mock(return_value=SAMPLE_MARKDOWN)
-        mock_write = Mock(side_effect=IOError(write_error))
+        mock_write = Mock(side_effect=OSError(write_error))
 
         with patch(
             "sheep.features.feature_270_markdown_file_creation.generate_markdown_content",
@@ -307,7 +306,7 @@ class TestPhase4ErrorHandling:
         ):
             monkeypatch.chdir(tmp_path)
 
-            with pytest.raises(IOError, match=write_error):
+            with pytest.raises(OSError, match=write_error):
                 create_feature_270_markdown_file(str(tmp_path))
 
     def test_exception_at_validate_is_caught_and_re_raised(self, tmp_path, monkeypatch):
@@ -399,10 +398,8 @@ class TestPhase4ErrorHandling:
         ):
             monkeypatch.chdir(tmp_path)
 
-            try:
+            with contextlib.suppress(Exception):
                 create_feature_270_markdown_file(str(tmp_path))
-            except Exception:
-                pass
 
             captured = capsys.readouterr()
             assert "270" in captured.out or "270" in captured.err
@@ -509,7 +506,7 @@ class TestPhase4Integration:
             mock_push,
         ):
             monkeypatch.chdir(tmp_path)
-            result = create_feature_270_markdown_file(custom_repo_path)
+            create_feature_270_markdown_file(custom_repo_path)
 
             # Verify commit received repo_path
             commit_call = mock_commit.call_args
