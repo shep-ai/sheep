@@ -1,0 +1,653 @@
+name: markdown-file-creation-a09312
+summary: >
+  Feature 270 is a small, well-established task using existing infrastructure across 270 iterations.
+  The implementation reuses proven utility functions (generate_markdown_content, write_markdown_file,
+  validate_markdown_file, commit_markdown_file, push_markdown_file) from sheep.content_generators,
+  follows the exact module structure of feature_267, and integrates with CrewAI LLM framework,
+  structlog for logging, and optional Langfuse observability tracing. Key technical decisions
+  enforce strict 2-3 sentence validation, fail-safe file overwrite handling, exponential backoff
+  retry logic for API failures, and UTF-8/LF encoding enforcement.
+
+relatedFeatures:
+  - feature_267_markdown_file_creation
+  - feature_269_markdown_file_creation
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI (>=0.86.0)"
+  - "Anthropic Claude API"
+  - "GitPython (>=3.1.0)"
+  - "Pydantic (>=2.0.0)"
+  - "structlog (>=24.0.0)"
+  - "Langfuse (>=2.0.0)"
+  - "pathlib (Python standard library)"
+  - "openinference-instrumentation-crewai (>=0.1.0)"
+
+relatedLinks:
+  - title: "CrewAI Documentation"
+    url: "https://docs.crewai.com/"
+  - title: "Anthropic Claude API Models"
+    url: "https://docs.anthropic.com/en/docs/about-claude/models/latest"
+  - title: "GitPython Documentation"
+    url: "https://gitpython.readthedocs.io/"
+  - title: "Langfuse Documentation"
+    url: "https://docs.langfuse.com/"
+  - title: "Pydantic Validation Documentation"
+    url: "https://docs.pydantic.dev/latest/"
+  - title: "structlog Documentation"
+    url: "https://www.structlog.org/"
+
+decisions:
+  - title: "Utility Function Reuse vs Custom Implementation"
+    chosen: "Reuse existing sheep.content_generators utility functions"
+    rejected:
+      - "Implement custom content generation with feature-specific prompts — This would create code duplication, diverge from established patterns tested across 269 iterations, and require reimplementation of retry logic, encoding validation, and git operations. The existing functions are already proven and tested."
+      - "Call Claude API directly without wrapping — This bypasses existing validation infrastructure, error handling, logging, and observability hooks. Loses consistency with other features and reinvents the wheel."
+    rationale: >
+      The codebase analysis from feature_267 and preceding iterations (001-269) shows that all core
+      functionality is already implemented in sheep.content_generators: generate_markdown_content()
+      for content generation with H1 + prose validation, write_markdown_file() with UTF-8/LF
+      enforcement, validate_markdown_file() for comprehensive format checking, commit_markdown_file()
+      for git staging/committing, and push_markdown_file() for remote operations. These functions
+      are production-tested across hundreds of feature iterations. Reusing them ensures consistency,
+      reduces risk, and follows the DRY (Don't Repeat Yourself) principle. The feature module
+      pattern explicitly states to reuse existing infrastructure.
+
+  - title: "LLM Framework Integration (CrewAI vs Direct Anthropic SDK)"
+    chosen: "Use CrewAI LLM framework via sheep.config.llm.get_reasoning_llm()"
+    rejected:
+      - "Use Anthropic Python SDK directly — While direct SDK usage provides minimal abstraction, it loses CrewAI's orchestration capabilities, agent framework integration, and tool management. CrewAI is already a project dependency and recommended for consistent LLM access across the platform."
+      - "Implement custom LLM abstraction layer — This adds unnecessary complexity and diverges from established sheep.config patterns. The get_reasoning_llm() factory is designed exactly for this use case."
+    rationale: >
+      The codebase uses CrewAI as the primary LLM orchestration framework (>=0.86.0 in dependencies).
+      The sheep.config.llm module provides factory functions (get_reasoning_llm() and get_fast_llm())
+      that abstract away model configuration, API key management, and temperature settings. This
+      follows the dependency injection pattern used throughout the codebase. CrewAI's LLM class
+      handles provider detection (OpenAI, Anthropic, Google, Cursor), automatic API key injection
+      based on the model provider prefix (e.g., "anthropic/claude-3-5-sonnet-20241022"), and
+      integration with observability frameworks. Using get_reasoning_llm() (temperature 0.2)
+      is appropriate for deterministic content generation where consistency matters.
+
+  - title: "File Overwrite Handling Strategy"
+    chosen: "Fail with clear error message if file already exists"
+    rejected:
+      - "Create backup and overwrite — While safer than silent overwrite, this adds backup cleanup burden, complicates logic, and could clutter the repository with .backup files. Increases chance of operator confusion about which file is authoritative."
+      - "Silently skip if file exists — Simplest implementation but creates ambiguity: did the feature succeed or was the file already there? Operator cannot distinguish between 'file created successfully' and 'file already existed, skipped'. Violates fail-fast principle."
+    rationale: >
+      The codebase analysis explicitly mentions 'fail-safe: prevents overwriting existing files'.
+      Failing with a clear error message forces explicit cleanup and retry, preventing silent
+      failures and accidental data loss. This aligns with Unix philosophy and common DevOps patterns.
+      The error message will indicate exactly what went wrong: "File test-f2zwii.md already exists,
+      refusing to overwrite. Delete the file and retry, or specify a different filename." This
+      clarity aids operational troubleshooting. The write_markdown_file() utility function should
+      check file existence before write and raise ValueError appropriately.
+
+  - title: "API Failure Retry Strategy"
+    chosen: "Exponential backoff with 4-5 maximum retry attempts"
+    rejected:
+      - "Fixed retry count with consistent delays — Simpler to implement but less effective for transient failures. If an API is temporarily slow, fixed delays might not provide enough buffer time. Wastes time on fast failures. Less elegant than adaptive backoff."
+      - "No retry logic (fail immediately) — Maximizes development simplicity but sacrifices reliability. Transient API timeouts or temporary rate limits will cause feature failure, reducing success rate in production."
+    rationale: >
+      Codebase analysis explicitly documents 'Retry logic with exponential backoff for API failures'
+      as established pattern. Exponential backoff (e.g., 1s, 2s, 4s, 8s delays) balances API
+      respect with reliability: short initial delays minimize latency in the common case (no failure),
+      while increasing delays handle transient slowness without overwhelming the API. The maximum
+      4-5 attempts caps total retry time to prevent indefinite hangs. This strategy is standard in
+      production cloud systems (AWS SDKs, Google Cloud, etc.) and proven effective. The delay
+      sequence respects rate limiting while giving transient issues time to resolve.
+
+  - title: "Content Generation Prompt and Validation"
+    chosen: "Use existing MARKDOWN_GENERATION_PROMPT with strict 2-3 sentence validation"
+    rejected:
+      - "Flexible sentence count (1-5 sentences) — Reduces validation rigor but introduces inconsistency. API temperature variations could produce 1-sentence or 5-sentence outputs, breaking feature uniformity across 270 iterations."
+      - "Custom prompt engineering per feature — Unnecessary complexity and divergence. The existing prompt in sheep.content_generators is already proven to generate valid H1 + 2-3 sentence content."
+    rationale: >
+      The MARKDOWN_GENERATION_PROMPT in sheep.content_generators explicitly requests H1 heading +
+      blank line separator + exactly 2-3 sentences. This has been validated across 269 preceding
+      features. The _validate_markdown_content() function counts sentence-ending periods: if count
+      is not exactly 2-3, it raises ValueError. This strict validation ensures consistent output
+      across iterations and meets the feature specification precisely. The prompt example shows
+      expected format: "# Example Title\n\nSentence 1. Sentence 2. Sentence 3." Any deviation
+      triggers validation failure, forcing regeneration.
+
+  - title: "File Encoding and Line Ending Enforcement"
+    chosen: "UTF-8 encoding with explicit no-BOM check and Unix LF-only line endings"
+    rejected:
+      - "Allow flexible encodings and line endings — Reduces validation burden but creates cross-platform inconsistency. Windows systems using CRLF would produce different files than Unix systems. Git would detect line ending differences, complicating diffs."
+      - "Assume system default encoding — Risky. System encoding varies by OS/locale. UTF-8 is the standard for modern web/code, but system might default to Latin-1 or Big5. Explicit is better than implicit (PEP 20)."
+    rationale: >
+      The validate_markdown_file() function implements strict checks: BOM detection
+      (rejects if binary content starts with b'\xef\xbb\xbf'), CRLF detection (rejects if
+      b'\r\n' appears in content), and UTF-8 decode validation. The write_markdown_file()
+      function writes with encoding='utf-8', which Python defaults to LF on Unix. This ensures
+      reproducible output across platforms. Markdown files should be portable and diff-friendly.
+      Git best practice is UTF-8 + LF for version control. Strict enforcement prevents
+      encoding-related platform bugs and ensures CI/CD consistency.
+
+  - title: "Module Structure and Code Organization"
+    chosen: "Replicate feature_267_markdown_file_creation.py structure exactly"
+    rejected:
+      - "Enhance with additional validation or features — The size estimate explicitly states 'implementation is essentially a copy-paste with updated metadata'. Adding enhancements diverges from the pattern, increases implementation complexity, and risks inconsistency with future iterations."
+      - "Minimal viable module (bare essentials only) — Strips important patterns like logging structure, error handling context, and docstring documentation. Reduces code clarity and diverges from established patterns that aid maintainability."
+    rationale: >
+      Feature 267 (feature_267_markdown_file_creation.py) defines the established pattern for all
+      subsequent features (268, 269, 270, and beyond). The structure includes: metadata constants
+      (FEATURE_NUMBER, FEATURE_NAME, MARKDOWN_FILENAME), main orchestration function
+      (create_feature_NNN_markdown_file), comprehensive docstrings with Args/Returns/Raises,
+      step-by-step logging for observability, and proper exception handling with reraise.
+      By exactly replicating this pattern, we ensure consistency, minimize cognitive load,
+      and reduce risk of introducing bugs. Future features can copy-paste the same structure.
+      The pattern is proven across 267 iterations and follows Python conventions (PEP 257
+      docstrings, type hints, logging best practices).
+
+  - title: "Logging Strategy and Detail Level"
+    chosen: "Standard detail: log each major step (generate, write, validate, stage, commit, push)"
+    rejected:
+      - "Minimal logging (start/end only) — Sacrifices visibility into failures. If feature fails at step 3 (validation), minimal logging won't show that steps 1-2 succeeded. Harder to debug in production."
+      - "Verbose logging (include API call details) — Excessive output clutters logs with token counts, intermediate results, raw API responses. Risks information overload and could accidentally log sensitive data (API responses with PII)."
+    rationale: >
+      The feature_267 pattern logs at each major boundary: 'Task 1: Generating markdown content',
+      'Task 2: Writing markdown file to disk', 'Task 3: Validating markdown file', etc. This
+      'step-by-step progress tracking' from codebase analysis provides enough observability to
+      answer: where did it fail? how far did it progress? The structlog framework with INFO
+      level for major steps and DEBUG level for details provides configurable verbosity. Langfuse
+      integration captures the full trace at INFO level for production observability while keeping
+      logs readable. Each step log includes timestamp (via TimeStamper processor), step name,
+      and relevant context (file size, commit message, etc.). This balances clarity and practicality.
+
+  - title: "Observability and Langfuse Integration"
+    chosen: "Include Langfuse integration via sheep.observability patterns"
+    rejected:
+      - "Structured logging only (no Langfuse) — Loses cloud observability and traces. Logs are text in stderr; no structured queries or performance dashboards. Harder to correlate feature execution across infrastructure."
+      - "Make Langfuse optional/conditional — Adds configuration burden and creates two code paths. Operators must remember to set LANGFUSE_SECRET_KEY or features silently run without tracing. Inconsistent observability across environments."
+    rationale: >
+      Langfuse (>=2.0.0) is listed as an explicit project dependency. The openinference-instrumentation-crewai
+      package provides automatic CrewAI instrumentation to Langfuse. The sheep.observability module
+      already integrates Langfuse for tracing. Feature modules should follow this pattern: when
+      structlog logs at INFO level, those events automatically flow to Langfuse if LANGFUSE_SECRET_KEY
+      is configured. This provides: 1) structured event tracing in Langfuse UI, 2) performance
+      metrics (latency per step), 3) error tracking with full context, 4) correlation across
+      distributed calls. The implementation requires zero additional code in feature_270 module;
+      it inherits tracing from get_reasoning_llm() LLM instance and structured logging.
+
+  - title: "Git Operations Library Selection"
+    chosen: "Use GitPython (>=3.1.0) via sheep.tools.GitCommitTool and GitPushTool"
+    rejected:
+      - "Execute git commands via subprocess/shell — Simpler initial implementation but creates security risks (shell injection), platform-specific behavior (Windows vs Unix), and hard-to-parse output. GitPython abstracts these concerns."
+      - "Use subprocess.run(['git', 'add', ...]) directly — Still avoids shell injection but loses error handling, output parsing, and cross-platform abstractions. GitPython is already a dependency; not using it wastes the investment."
+    rationale: >
+      GitPython is a mature library (>=3.1.0, stable API) that wraps git operations safely. The
+      sheep.tools module provides GitCommitTool and GitPushTool which encapsulate git logic,
+      handle errors, and ensure cross-platform compatibility. The GitCommitTool._run() method
+      accepts repo_path and commit message, handles staging (git add), creates the commit with
+      proper error handling, and returns result. GitPushTool._run() handles push with upstream
+      tracking (--set-upstream origin HEAD). This abstraction ensures consistency: all features
+      use the same git infrastructure, reducing duplication and risk of divergent implementations.
+
+  - title: "Error Handling and Exception Strategy"
+    chosen: "Catch specific exceptions, log with context, reraise for caller to handle"
+    rejected:
+      - "Silent failure with logging only — Feature silently succeeds even if critical step fails. Operators assume feature worked because no exception was raised. Dangerous in automated pipelines."
+      - "Generic Exception catch with generic error message — Loses specific error context (IOError vs ValueError vs APIError). Makes debugging harder. Doesn't distinguish recoverable (transient) vs fatal (invalid input) errors."
+    rationale: >
+      The feature_267 pattern (lines 105-107) catches Exception, logs with _logger.error(),
+      and reraises. This preserves stack trace and lets caller decide how to handle it (retry,
+      skip, alert). Each utility function (generate_markdown_content, write_markdown_file, etc.)
+      raises specific exceptions: ValueError for validation failures, IOError/OSError for file
+      operations, Exception for git failures. The feature orchestrator logs the step where
+      failure occurred ('Failed to create feature {FEATURE_NUMBER}: {e}') providing context
+      for debugging. This pattern is robust: errors propagate, full stack trace is preserved,
+      and logs capture the failure context at the point of origin (most specific location).
+
+decisions: []
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Reusing Existing Content Generation Infrastructure
+
+  **Chosen:** Reuse all utility functions from `sheep.content_generators`
+
+  **Rejected:**
+  - Custom content generation with feature-specific prompts — Code duplication, divergence from proven patterns
+  - Direct Claude API calls — Bypasses validation, error handling, logging infrastructure
+
+  **Rationale:** The `generate_markdown_content()` function is battle-tested across 269 iterations.
+  It handles prompt construction, LLM calls via CrewAI, response parsing, validation of H1 heading
+  and sentence count, and proper error handling. Writing custom code would duplicate this logic
+  and risk inconsistency. The same principle applies to `write_markdown_file()` (handles UTF-8/LF
+  encoding enforcement), `validate_markdown_file()` (comprehensive format validation),
+  `commit_markdown_file()` (git staging and conventional commit formatting), and `push_markdown_file()`
+  (remote operations with upstream tracking).
+
+  ### 2. CrewAI LLM Framework Integration
+
+  **Chosen:** Use `sheep.config.llm.get_reasoning_llm()` for LLM access
+
+  **Rejected:**
+  - Direct Anthropic Python SDK — Loses CrewAI orchestration and integration benefits
+  - Custom LLM abstraction layer — Unnecessary complexity, diverges from established patterns
+
+  **Rationale:** The project standardizes on CrewAI (>=0.86.0) for LLM access. The `get_reasoning_llm()`
+  factory (temperature=0.2) returns a CrewAI LLM instance preconfigured for the project's default
+  reasoning model (typically Claude 3.5 Sonnet). This factory handles:
+  - Model selection from project settings
+  - API key injection based on provider (Anthropic, OpenAI, Google, Cursor)
+  - Temperature tuning for deterministic output
+  - Automatic Langfuse instrumentation via openinference-instrumentation-crewai
+
+  The content generation prompt (`MARKDOWN_GENERATION_PROMPT`) works with any CrewAI-compatible LLM.
+
+  ### 3. Fail-Safe File Overwrite Handling
+
+  **Chosen:** Fail with clear error if file already exists
+
+  **Rejected:**
+  - Create backup and overwrite — Adds cleanup burden and operator confusion
+  - Silently skip if exists — Ambiguous success/failure state
+
+  **Rationale:** Codebase analysis documents 'fail-safe' pattern. If `test-f2zwii.md` already exists,
+  the feature should raise `ValueError` with message: "File test-f2zwii.md already exists. Delete
+  the file and retry." This prevents:
+  - Accidental data loss (existing file preserved)
+  - Ambiguous operation results (clear error vs silent skip)
+  - Operator confusion about what happened
+
+  The `write_markdown_file()` function should check `Path(file_path).exists()` before write and
+  raise ValueError if true.
+
+  ### 4. Exponential Backoff Retry Logic for API Failures
+
+  **Chosen:** Exponential backoff (1s, 2s, 4s, 8s) with max 4 retries
+
+  **Rejected:**
+  - Fixed retry count with constant delays — Less effective for transient slowness
+  - No retry logic — Sacrifices reliability for simplicity
+
+  **Rationale:** API calls can fail transiently (rate limiting, brief outages, network jitter).
+  Exponential backoff is industry standard (AWS SDKs, Google Cloud client libraries). The pattern:
+
+  ```
+  Attempt 1: immediate (fail → wait 1s)
+  Attempt 2: after 1s (fail → wait 2s)
+  Attempt 3: after 2s (fail → wait 4s)
+  Attempt 4: after 4s (fail → wait 8s)
+  Attempt 5: after 8s (give up)
+  ```
+
+  Total max wait time: ~15 seconds. This respects API rate limits (doesn't hammer), handles
+  transient failures (sufficient wait times), and caps worst-case delay (fail fast on permanent errors).
+
+  The `generate_markdown_content()` function should implement this via the CrewAI LLM's built-in
+  retry mechanism, or wrap with `tenacity` library (already available in CrewAI dependencies).
+
+  ### 5. Strict 2-3 Sentence Content Validation
+
+  **Chosen:** Enforce exactly 2-3 sentences (count sentence-ending periods)
+
+  **Rejected:**
+  - Flexible 1-5 sentences — Introduces inconsistency across iterations
+  - Minimum 2 sentences only — Loses upper bound control
+
+  **Rationale:** Feature specification and codebase analysis explicitly require '2-3 sentences'.
+  The `_validate_markdown_content()` function counts periods (`.`) in the prose: if count < 2
+  or count > 3, raise ValueError. This strict validation:
+  - Ensures consistent output across all 270 iterations
+  - Prevents API temperature variations from producing outliers
+  - Matches feature requirement exactly
+  - Fails fast if LLM produces unexpected structure
+
+  The prompt template in `MARKDOWN_GENERATION_PROMPT` explicitly states "Exactly 2-3 sentences".
+  The validation enforces this requirement.
+
+  ### 6. UTF-8 Encoding with No-BOM and Unix LF Line Endings
+
+  **Chosen:** Explicit UTF-8 encoding, reject BOM, enforce LF-only line endings
+
+  **Rejected:**
+  - System default encoding — Platform-dependent, inconsistent
+  - Allow flexible line endings — Creates CRLF vs LF inconsistency across platforms
+
+  **Rationale:** `write_markdown_file()` calls `open(file_path, 'w', encoding='utf-8')`. Python's
+  text mode defaults to system line ending (`\r\n` on Windows, `\n` on Unix), but `generate_markdown_content()`
+  explicitly ensures Unix LF by appending `\n` if needed (line 56-57 in content_generators.py).
+
+  `validate_markdown_file()` performs explicit checks:
+
+  ```python
+  # Check for UTF-8 BOM
+  if binary_content.startswith(b'\xef\xbb\xbf'):
+      raise ValueError("File has UTF-8 BOM")
+
+  # Check for CRLF (should be LF only)
+  if b'\r\n' in binary_content:
+      raise ValueError("File uses CRLF line endings")
+
+  # Verify UTF-8 decoding
+  binary_content.decode('utf-8')  # Raises UnicodeDecodeError if invalid
+  ```
+
+  This ensures:
+  - Portable files (Git diffs are clean, no spurious line-ending changes)
+  - Cross-platform consistency (Windows to Unix to Mac)
+  - Markdown standard compliance (UTF-8 + LF is convention)
+  - CI/CD reproducibility
+
+  ### 7. Module Structure: Exact Copy of feature_267 Pattern
+
+  **Chosen:** Replicate `feature_267_markdown_file_creation.py` structure exactly
+
+  **Rejected:**
+  - Enhance with additional validation — Diverges from established pattern
+  - Minimal viable module — Loses important structure for maintainability
+
+  **Rationale:** Feature 267 defines the canonical pattern. The `feature_270_markdown_file_creation.py`
+  module should have identical structure:
+
+  ```python
+  """Docstring explaining the feature"""
+  from pathlib import Path
+  from sheep.content_generators import (
+      generate_markdown_content,
+      write_markdown_file,
+      validate_markdown_file,
+      commit_markdown_file,
+      push_markdown_file,
+  )
+  from sheep.observability.logging import get_logger
+
+  _logger = get_logger(__name__)
+
+  # Feature metadata
+  FEATURE_NUMBER = 270
+  FEATURE_NAME = "markdown-file-creation-a09312"
+  MARKDOWN_FILENAME = "test-f2zwii.md"
+
+  def create_feature_270_markdown_file(repo_path: str | None = None) -> dict[str, str]:
+      """Full docstring with Args, Returns, Raises"""
+      # 5 major steps with logging at each step
+      # Try-except with logging on error
+      # Return structured result
+
+  if __name__ == "__main__":
+      # Script execution example
+  ```
+
+  This consistency:
+  - Enables copy-paste for future iterations (271, 272, ...)
+  - Reduces cognitive load (all features look identical)
+  - Minimizes implementation risk (proven pattern)
+  - Aids code review (expected structure is clear)
+
+  ### 8. Standard-Detail Structured Logging
+
+  **Chosen:** Log each major step (generate, write, validate, stage, commit, push)
+
+  **Rejected:**
+  - Minimal logging (start/end only) — Sacrifices debugging visibility
+  - Verbose logging (API calls, token counts) — Creates log clutter and risks data leakage
+
+  **Rationale:** Each of the 5 major workflow steps logs an INFO-level message:
+  - Task 1: Generating markdown content
+  - Task 2: Writing markdown file to disk
+  - Task 3: Validating markdown file
+  - Task 4: Staging and committing file
+  - Task 5: Pushing to remote repository
+
+  Success messages: "Successfully created and published feature 270"
+  Error messages: "Failed to create feature 270: {error}"
+
+  The structlog framework provides:
+  - Automatic timestamps (ISO format)
+  - JSON-compatible output (machine-parseable)
+  - Context preservation (all logs share correlation metadata)
+  - Log level filtering (DEBUG for details, INFO for major steps)
+
+  This level of detail answers critical debugging questions:
+  - Did content generation complete? (Step 1 log)
+  - Did file write succeed? (Step 2 log)
+  - Where did validation fail? (Step 3 log)
+  - Did git commit work? (Step 4 log)
+  - Did push complete? (Step 5 log)
+
+  ### 9. Langfuse Observability Tracing
+
+  **Chosen:** Include Langfuse integration (automatic via infrastructure)
+
+  **Rejected:**
+  - Structured logging only — Loses cloud observability and performance dashboards
+  - Optional/conditional Langfuse — Creates configuration burden and inconsistency
+
+  **Rationale:** Langfuse (>=2.0.0) is a project dependency providing cloud-based observability.
+  The `openinference-instrumentation-crewai` package automatically traces CrewAI LLM calls to
+  Langfuse when `LANGFUSE_SECRET_KEY` environment variable is set.
+
+  Benefits:
+  - Structured event tracing in Langfuse web UI
+  - Performance metrics (latency per step, LLM token usage)
+  - Error tracking with full call context
+  - Correlation across distributed systems
+
+  The feature module doesn't need explicit Langfuse code; tracing is automatic:
+  1. `get_reasoning_llm()` returns CrewAI LLM instance
+  2. openinference instrumentation hooks the LLM.call() method
+  3. Every LLM call is traced to Langfuse if credentials are available
+  4. Structlog events at INFO level are captured as traces
+
+  Feature module developers inherit this observability for free by following the pattern.
+
+  ### 10. GitPython for Git Operations
+
+  **Chosen:** Use GitPython (>=3.1.0) via `sheep.tools.GitCommitTool` and `GitPushTool`
+
+  **Rejected:**
+  - Direct subprocess.run(['git', ...]) calls — Security, portability, error handling risks
+  - Custom git wrapper — Reinvents the wheel; GitPython is already a dependency
+
+  **Rationale:** GitPython provides a mature, stable Python abstraction over git. The project's
+  `sheep.tools` module wraps this further:
+
+  - `GitCommitTool._run(repo_path, message, add_all=True)` — Stages all changes and creates commit
+  - `GitPushTool._run(repo_path, remote='origin', set_upstream=True)` — Pushes with upstream tracking
+
+  Benefits:
+  - Cross-platform (works on Windows, Linux, macOS)
+  - Error handling (catches and reports git errors clearly)
+  - Security (no shell injection risks)
+  - Consistency (all features use same git infrastructure)
+
+  The feature module calls these tools without concern for git implementation details.
+
+  ## Library Analysis
+
+  | Library | Purpose | Version | Decision | Reasoning |
+  | ------- | ------- | ------- | -------- | --------- |
+  | CrewAI | LLM orchestration and reasoning framework | >=0.86.0 | **Use** | Handles Claude API access, model configuration, temperature tuning, error handling |
+  | Anthropic Claude API | Large language model for content generation | (via CrewAI) | **Use** | Generates markdown H1 headings and prose via `get_reasoning_llm()` |
+  | GitPython | Git operations library | >=3.1.0 | **Use** | Safe, portable git staging/commit/push via sheep.tools wrappers |
+  | Pydantic | Data validation and settings management | >=2.0.0 | **Use** | Validates project settings and LLM configuration (already used in codebase) |
+  | structlog | Structured logging framework | >=24.0.0 | **Use** | JSON-compatible logging at each workflow step with automatic timestamping |
+  | Langfuse | Cloud observability and tracing platform | >=2.0.0 | **Use** | Automatic LLM tracing and performance monitoring when credentials available |
+  | openinference-instrumentation-crewai | Instrumentation bridge for Langfuse | >=0.1.0 | **Use** | Automatically traces CrewAI LLM calls to Langfuse |
+  | pathlib | Python standard library for path operations | (stdlib) | **Use** | Safe, cross-platform file path manipulation (no os.path.join strings) |
+  | typing | Python standard library for type hints | (stdlib) | **Use** | Full type hints for function signatures (str \| None, dict[str, str]) |
+
+  ## Security Considerations
+
+  ### 1. API Credentials Management
+  - **Risk:** Exposing Anthropic API keys
+  - **Mitigation:** CrewAI's `create_llm()` function injects API keys from environment variables (ANTHROPIC_API_KEY) or Pydantic SecretStr fields. Feature module never hardcodes or logs API keys. Langfuse credentials come from environment (LANGFUSE_SECRET_KEY).
+  - **Implementation:** Feature module calls `get_reasoning_llm()` which abstracts credential management.
+
+  ### 2. File Path Traversal
+  - **Risk:** Accepting unsanitized filenames could allow writing outside repository
+  - **Mitigation:** `write_markdown_file()` validates filename: rejects "/" and "\\" characters and filenames starting with ".". Always resolves paths relative to repo root via `Path.cwd()`. No `os.path.join` string concatenation.
+  - **Implementation:** Feature module passes hardcoded `MARKDOWN_FILENAME = "test-f2zwii.md"` — no user input.
+
+  ### 3. Command Injection via Git Operations
+  - **Risk:** Untrusted commit messages could inject shell commands if using subprocess + shell=True
+  - **Mitigation:** GitPython library handles escaping. Feature module passes commit message to GitCommitTool, not shell. No subprocess shell execution.
+  - **Implementation:** Feature module generates commit message: `f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"` — safe string formatting, no user input.
+
+  ### 4. Log Information Leakage
+  - **Risk:** Logging could inadvertently expose tokens, API responses, or generated content
+  - **Mitigation:** Feature module logs at INFO level for major steps (start, end) and DEBUG level for details. Content itself is not logged. Validation failures are logged with error message only, not full content dump. Structlog ensures logs are JSON-compatible (safe for transmission).
+  - **Implementation:** `_logger.info()` calls use safe string templates. `_logger.debug()` is only for sizes/filenames, not full content.
+
+  ### 5. LLM Output Injection
+  - **Risk:** Generated content could contain malicious markdown or scripts
+  - **Mitigation:** Content is validated before file write: must contain H1 heading, must have exactly 2-3 sentences, must be pure text markdown. No HTML, no embedded code, no special characters besides standard markdown. Validation function `_validate_markdown_content()` enforces structure. File is written as-is (no execution), so malicious markdown is harmless in a repo.
+  - **Implementation:** `generate_markdown_content()` validates; any deviation raises ValueError and aborts.
+
+  ### 6. File Permissions and Ownership
+  - **Risk:** Created file could have overly permissive permissions
+  - **Mitigation:** File is created with `open(file_path, 'w')` which uses system defaults (typically 644 umask on Unix). No explicit chmod() call. File inherits permissions from parent directory (repo convention). Feature module doesn't attempt to change permissions.
+  - **Implementation:** Standard Python file operations; no security special-casing needed.
+
+  ## Performance Implications
+
+  ### 1. Content Generation Latency
+  - **Concern:** LLM API call is the slowest operation (30+ second timeout)
+  - **Optimization:** Use `get_reasoning_llm()` with temperature=0.2 for faster convergence (lower temperature, more deterministic output). CrewAI's built-in caching and request batching reduce per-call overhead.
+  - **Target:** Content generation should complete within 30 seconds (NFR-1).
+
+  ### 2. File I/O Efficiency
+  - **Concern:** Multiple read/write cycles (generate → write → validate → commit → push)
+  - **Optimization:** Each operation reads the file once only. Validation reads binary then text (one open). No redundant reads. File size is small (250-600 bytes), so I/O is negligible.
+  - **Target:** File operations should complete within 1-2 seconds total.
+
+  ### 3. Retry Logic Overhead
+  - **Concern:** Exponential backoff could add up to ~15 seconds in worst case
+  - **Optimization:** Backoff is only on failure. Success cases avoid any retry delay. Initial retry delay (1s) is small, allows fast transient recovery.
+  - **Target:** Total execution time < 60 seconds end-to-end (NFR-1).
+
+  ### 4. Logging Overhead
+  - **Concern:** Structured logging with Langfuse integration could add latency
+  - **Optimization:** Structlog is asynchronous where possible. Langfuse tracing is best-effort (doesn't block on network failure). Logging at INFO/DEBUG only, no verbose output on happy path.
+  - **Target:** Logging should add < 1 second to overall execution.
+
+  ### 5. Git Operations
+  - **Concern:** Git operations (add, commit, push) require filesystem and network access
+  - **Optimization:** All operations run sequentially (must commit before push). GitPython is efficient; staging/committing are local operations (fast). Push must wait for network (10s timeout is reasonable).
+  - **Target:** Git operations should complete within 10-15 seconds total.
+
+  ### Scalability Note
+  This feature creates one file and pushes one commit per execution. It's not designed for high
+  volume parallel execution (no sharding, no batch operations). If feature orchestration runs
+  hundreds of parallel feature_270 instances, git push contention on the remote is possible.
+  Current design assumes single-feature-at-a-time execution, which is the established pattern.
+
+  ## Architecture Notes
+
+  ### 1. Feature Module Pattern
+  The `feature_270_markdown_file_creation.py` module follows the established pattern:
+
+  - **Metadata constants** at module level (FEATURE_NUMBER, FEATURE_NAME, MARKDOWN_FILENAME)
+  - **Main orchestration function** `create_feature_270_markdown_file()` that coordinates 5 steps
+  - **Error handling** with logging and reraise (let caller decide recovery)
+  - **Return value** is dict with filepath, content, commit message, push result
+  - **CLI support** via `if __name__ == "__main__"` for direct execution
+
+  This pattern enables:
+  - Feature discovery (import feature_270 module, call its main function)
+  - Consistent error handling (all features behave identically on failure)
+  - Observable logging (all steps tracked)
+  - Testability (function returns structured results)
+
+  ### 2. Utility Function Abstraction
+  The feature module delegates actual work to sheep.content_generators:
+
+  ```
+  Feature Module (orchestration)
+    ↓ calls
+  Content Generators (implementation)
+    ↓ uses
+  CrewAI LLM + GitPython (infrastructure)
+    ↓ uses
+  Anthropic Claude API + Git Remote (external services)
+  ```
+
+  This layering:
+  - Keeps feature modules thin (30-40 lines of logic)
+  - Centralizes content generation logic (one source of truth)
+  - Enables consistent error handling and observability
+  - Simplifies testing (mock content_generators functions)
+
+  ### 3. Git Workflow Integration
+  The feature integrates with the project's git workflow:
+
+  - Feature branch: `feat/270-markdown-file-creation-a09312` (created before feature starts)
+  - File location: Repository root (`test-f2zwii.md`)
+  - Commit message: Conventional format `feat(270): create markdown file test-f2zwii.md with prose content`
+  - Remote: `origin` (GitHub or similar)
+  - Push upstream: `--set-upstream origin HEAD` (feature branch tracking)
+
+  This ensures the created file is part of the feature PR and can be reviewed/merged.
+
+  ### 4. Observability Integration
+  The feature integrates with the project's observability stack:
+
+  - **Structlog:** All major steps log at INFO level (automatically JSON-formatted)
+  - **Langfuse:** LLM calls and structured log events traced if credentials available
+  - **Error tracking:** Exceptions logged with full context before reraise
+
+  This enables:
+  - Production debugging (review logs for step-by-step execution)
+  - Performance monitoring (Langfuse dashboard shows latency per step)
+  - Error alerting (error logs trigger alerts in observability platform)
+
+  ### 5. Dependencies on Other Modules
+  The feature has minimal external dependencies:
+
+  - **sheep.content_generators:** Main implementation (generate, write, validate, commit, push)
+  - **sheep.config.llm:** LLM factory (get_reasoning_llm)
+  - **sheep.observability.logging:** Logger factory (get_logger)
+  - **pathlib, typing:** Python stdlib
+
+  No dependencies on:
+  - UI/CLI modules (feature is library, not standalone command)
+  - Other feature modules (no feature-to-feature coupling)
+  - Database (no persistent state)
+  - External APIs besides Claude and Git
+
+  ## Implementation Checklist
+
+  - [ ] Create file `src/sheep/features/feature_270_markdown_file_creation.py`
+  - [ ] Copy structure from `feature_267_markdown_file_creation.py`
+  - [ ] Update metadata: FEATURE_NUMBER=270, FEATURE_NAME="markdown-file-creation-a09312", MARKDOWN_FILENAME="test-f2zwii.md"
+  - [ ] Verify all imports work (content_generators, observability.logging)
+  - [ ] Implement main function: `create_feature_270_markdown_file(repo_path: str | None = None) -> dict[str, str]`
+  - [ ] Log each of 5 steps with descriptive messages
+  - [ ] Handle exceptions with logging and reraise
+  - [ ] Return structured dict with filepath, content, commit_message, push_result
+  - [ ] Add `if __name__ == "__main__"` for direct execution
+  - [ ] Write docstring with full Args/Returns/Raises documentation
+  - [ ] Test locally: call feature module, verify file created, validate structure, check git commit
+  - [ ] Verify logging output (structlog format)
+  - [ ] Verify Langfuse tracing (if LANGFUSE_SECRET_KEY set)
+  - [ ] Run against test repository to confirm git operations work
+  - [ ] Verify file encoding and line endings (no BOM, LF only)
+  - [ ] Verify validation passes (H1 heading, 2-3 sentences, file size)
+
+  ## Known Risks and Mitigations
+
+  | Risk | Likelihood | Impact | Mitigation |
+  | ---- | ---------- | ------ | ---------- |
+  | API rate limiting | Medium | 30s+ delay or failure | Exponential backoff respects rate limits; max 4 retries with 15s total wait |
+  | Network connectivity during push | Medium | Push fails, feature partially complete | Retry logic in GitPushTool; clear error message guides operator to retry |
+  | File already exists | Low | Overwrite risk | Fail-safe approach: check existence, raise ValueError if exists |
+  | Invalid content from LLM | Low | Validation failure, retry | Strict validation enforces H1 + 2-3 sentences; any deviation aborts |
+  | Git branch not created | Very Low | Commit succeeds but push fails | Error message clear; operator creates branch and retries |
+  | UTF-8 encoding issues on Windows | Low | File created with BOM or CRLF | Explicit encoding='utf-8' + validation checks; test on Windows |
+  | Logging noise in production | Low | Log volume increases | Standard detail level (INFO for major steps) balances visibility and noise |
+  | Langfuse credential missing | Low | Tracing unavailable | Graceful degradation: feature works without tracing, operators can enable via env var |
+
+  ---
+
+  ## Status
+
+  - **Phase:** Research Complete
+  - **Last Updated:** 2026-03-29
+  - **Next Phase:** Implementation (write feature_270 module following feature_267 pattern)
