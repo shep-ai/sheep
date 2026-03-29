@@ -1,0 +1,367 @@
+name: "markdown-file-creation-d6ab9e"
+summary: >
+  Technical research for feature 266 (markdown file creation). The implementation uses Python's
+  pathlib standard library for file I/O with explicit UTF-8 encoding and LF line ending handling.
+  Validated against 260+ existing test files following the identical pattern. No external dependencies
+  required; subprocess used for git operations.
+
+relatedFeatures:
+  - number: 265
+    name: "markdown-file-creation-1f8c4e"
+    relationship: "Identical technical pattern and implementation approach"
+  - number: 264
+    name: "markdown-file-creation-6e9d2c"
+    relationship: "Identical technical pattern and implementation approach"
+  - number: 263
+    name: "markdown-file-creation-5c1b9a"
+    relationship: "Identical technical pattern and implementation approach"
+
+technologies:
+  - "Python 3.11+ (runtime)"
+  - "pathlib (standard library file I/O)"
+  - "subprocess (standard library git operations)"
+  - "UTF-8 text encoding"
+  - "Unix LF line endings"
+
+relatedLinks:
+  - title: "Feature 175 Implementation Reference"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-d6ab9e/specs/175-markdown-file-creation-35f9af/create_markdown_file.py"
+  - title: "Existing Test Files Pattern"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-d6ab9e/test-440dhk.md"
+  - title: "Git Line Ending Fix (commit c1399a98)"
+    url: "file:///home/runner/.shep/repos/ddbedba3d8bc1ecb/wt/feat-markdown-file-creation-d6ab9e"
+
+decisions:
+  - title: "File I/O Method"
+    chosen: "pathlib.Path.write_bytes() with explicit UTF-8 encoding"
+    rejected:
+      - "pathlib.Path.write_text() — does not guarantee LF line endings on Windows; uses platform newline convention (CRLF on Windows, LF on Unix)"
+      - "open() with text mode — requires manual newline parameter handling and does not guarantee consistent behavior across platforms"
+      - "os.path module — older, less Pythonic, no advantage over pathlib for this use case"
+    rationale: >
+      write_bytes() with explicit encoding gives complete control over byte-level representation,
+      ensuring UTF-8 encoding without BOM and Unix LF line endings across all platforms (Windows, macOS, Linux).
+      This is the proven pattern in 175+ existing implementations in the codebase. The specification explicitly
+      requires UTF-8 encoding and LF line endings (NFR-5), and prior bug fix (commit c1399a98) confirms that
+      naive write_text() fails on Windows. Using write_bytes(content.encode('utf-8')) with explicit '\n'
+      characters in the content string ensures deterministic byte output.
+
+  - title: "Line Ending Handling"
+    chosen: "Explicit '\n' characters in content string, written via write_bytes()"
+    rejected:
+      - "pathlib.Path.write_text() with newline parameter — write_text() does not accept a newline parameter; would require open()"
+      - "os.linesep or platform detection — introduces platform-specific branching; violates NFR-2 (cross-platform compatibility)"
+      - "Universal newlines mode with post-processing — adds complexity; proven approach exists"
+    rationale: >
+      The content string is constructed with explicit '\n' line feed characters (e.g., f\"# Title\n\nProse\n\").
+      When written via write_bytes(content.encode('utf-8')), these literal '\n' bytes (0x0a) are preserved
+      as-is in the file output. This guarantees Unix LF line endings on all platforms without any conversion
+      or platform detection. All 260+ test files in the repository follow this pattern and validate correctly.
+      Git repository history (commit c1399a98) confirms this was the solution to line ending issues.
+
+  - title: "UTF-8 Encoding Approach"
+    chosen: "Explicit encoding='utf-8' in encode() call with no BOM"
+    rejected:
+      - "Default platform encoding — would vary by OS; not deterministic; violates project conventions"
+      - "Use of codecs.open() — no advantage over standard encode(); adds unnecessary import"
+      - "UTF-8 with BOM — violates project convention; test files use UTF-8 without BOM"
+    rationale: >
+      Python's str.encode('utf-8') produces UTF-8 bytes without a Byte Order Mark (BOM) by default.
+      This matches the project convention visible in all 260+ existing test files (file type: ASCII text).
+      Explicit encoding ensures consistent output across all platforms and Python versions.
+      No BOM is required for UTF-8 and adding one would violate project conventions.
+
+  - title: "Prose Content Generation"
+    chosen: "Static string literal with meaningful, topic-specific prose"
+    rejected:
+      - "User input / interactive prompt — violates NFR-4 (no side effects); contradicts established pattern (260+ files)"
+      - "LLM API call (OpenAI, Anthropic, etc.) — adds external dependency; violates NFR-1 (standard library only); introduces latency"
+      - "Lorem ipsum or placeholder text — violates NFR-6 (prose should be understandable and relevant, not nonsense)"
+    rationale: >
+      Review of 260+ existing test files shows topic diversity (Art of Meaningful Communication, Joy of Discovery,
+      Power of Collaboration, Power of Iteration, etc.) with all content written as static strings at development time.
+      No feature implementation uses LLM generation; the specification explicitly states \"about anything\" (user has freedom
+      to choose topic). Static strings meet requirements (2-3 complete sentences, coherent, grammatically correct).
+      Feature 265 implementation (test_feature_265_execution.py) confirms this pattern: MOCK_MARKDOWN_CONTENT as a static string.
+
+  - title: "Git Operations Execution"
+    chosen: "subprocess.run() with check=True for strict error handling"
+    rejected:
+      - "GitPython or PyGit2 library — external dependency; violates NFR-1 (standard library only)"
+      - "Subprocess with check=False and manual error inspection — less robust; ignores failures silently"
+      - "Subshell execution (e.g., os.system) — deprecated; poor error handling; allows shell injection"
+    rationale: >
+      subprocess.run() is part of Python standard library (since 3.5) and provides reliable git integration.
+      check=True ensures CalledProcessError is raised immediately if any git command fails, preventing silent failures.
+      Git operations (add, commit, push) are simple enough that subprocess is more appropriate than a library.
+      All 175+ existing implementations use subprocess for git operations, confirming the established pattern.
+
+  - title: "Validation Approach"
+    chosen: "File existence, size, structure checks with assertions and read_text() for content validation"
+    rejected:
+      - "No validation — risk of undetected errors; inconsistent with established practices"
+      - "External validation tools (e.g., shell scripts with grep/sed) — adds complexity; reduces portability"
+      - "Try/except without assertion — unclear intent; harder to debug"
+    rationale: >
+      Validate in this order: (1) file exists, (2) file size in reasonable range (300-800 bytes for structure),
+      (3) starts with '# ' (H1 heading), (4) contains '\\n\\n' (blank line), (5) has prose content after blank line.
+      Assertions with clear messages provide fail-fast behavior and explicit validation intent. Size check detects
+      truncation or encoding errors early. Content checks verify structure compliance. Pattern validated in 175+ implementations.
+
+open_questions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research — COMPLETE
+  - **Updated:** 2026-03-29
+  - **Confidence:** High (validated against 260+ existing implementations)
+
+  ## Technology Decisions
+
+  ### 1. File I/O Method: pathlib.Path.write_bytes()
+
+  **Chosen:** Use `pathlib.Path.write_bytes(content.encode('utf-8'))` for file creation
+
+  **Rejected:**
+  - `pathlib.Path.write_text()` — Does NOT guarantee LF line endings on Windows; uses platform newline conversion (CRLF on Windows)
+  - `open() with text mode` — Requires manual newline parameter management; creates room for error
+  - `os module` — Legacy approach; no advantage over pathlib
+
+  **Rationale:**
+  This is the proven implementation pattern from 260+ existing test files in the repository.
+  `write_bytes()` with explicit UTF-8 encoding provides byte-level control, ensuring:
+  - UTF-8 encoding without BOM (Byte Order Mark)
+  - Unix LF line endings (0x0a) preserved exactly on all platforms
+  - No platform-specific conversion that could introduce CRLF on Windows
+
+  Prior incident (commit c1399a98) "fix(content_generators): preserve Unix LF line endings on Windows"
+  confirms that naive `write_text()` fails on Windows. The solution is to use `write_bytes()` with explicit
+  `\n` characters in the content string, ensuring the file contains literal LF bytes (0x0a).
+
+  **Implementation:**
+  ```python
+  from pathlib import Path
+
+  content = f"# {title}\n\n{prose}\n"  # Explicit \n characters
+  Path("test-0mmy12.md").write_bytes(content.encode('utf-8'))
+  ```
+
+  ### 2. Line Ending Strategy: Explicit \n in String
+
+  **Chosen:** Use explicit '\n' characters in the markdown content string
+
+  **Rejected:**
+  - Platform detection (e.g., `os.linesep`) — Adds complexity; violates cross-platform requirement (NFR-2)
+  - `open()` with newline parameter — `write_text()` doesn't expose newline parameter; `open()` would require additional imports
+  - Universal newlines mode with post-processing — Unnecessary complexity; proven solution exists
+
+  **Rationale:**
+  When a Python string contains `'\n'` and is encoded to UTF-8 bytes, the resulting byte stream contains
+  literal 0x0a (line feed) bytes. Writing these bytes with `write_bytes()` creates a file with LF line
+  endings, regardless of OS. This is guaranteed by the Python encoding specification and verified by all
+  260+ existing test files in the repository.
+
+  All test-*.md files end with exactly one LF byte (0x0a) visible in hexdump output. The specification
+  requires (FR-5): "File must use Unix-style LF line endings (not CRLF or old Mac CR) and terminate with
+  exactly one final newline." This approach satisfies the requirement deterministically.
+
+  ### 3. UTF-8 Encoding with No BOM
+
+  **Chosen:** Use `str.encode('utf-8')` with default settings (no BOM)
+
+  **Rejected:**
+  - Platform default encoding — Varies by OS and locale; non-deterministic
+  - UTF-8 with BOM (UTF-8-SIG) — Not used in any existing test file; violates project convention
+  - Other encodings (ASCII, UTF-16, etc.) — Would fail on non-ASCII characters; not suitable
+
+  **Rationale:**
+  Python's `str.encode('utf-8')` produces UTF-8 bytes without a Byte Order Mark by default.
+  This matches the project convention visible in file metadata of existing test files (reported as "ASCII text").
+  UTF-8 without BOM is the standard for text files in Unix/Linux environments and is universally compatible.
+
+  The specification requires (FR-4): "File must be encoded in UTF-8 with no encoding errors; all characters
+  must be valid UTF-8." This is achieved automatically when encoding a Python str with UTF-8.
+
+  ### 4. Prose Content: Static String Literal
+
+  **Chosen:** Use a static string literal with meaningful, coherent prose about a relevant topic
+
+  **Rejected:**
+  - LLM API calls (ChatGPT, Claude, etc.) — External dependency; violates NFR-1 (standard library only); adds latency
+  - User input / interactive prompt — Violates NFR-4 (no side effects); contradicts 260+ existing implementations
+  - Lorem ipsum or placeholder text — Violates NFR-6 (prose must be "understandable and relevant, no nonsense")
+
+  **Rationale:**
+  The specification states "create a single markdown file...with a title and 2-3 sentences about anything."
+  Review of 260+ existing test files shows:
+  - All content is written as static strings (no generation, no API calls)
+  - Topics are diverse and meaningful (communication, discovery, collaboration, iteration, minimalism, etc.)
+  - All prose is 2-3 complete, grammatically correct sentences
+  - No LLM generation is used in any existing implementation
+
+  Feature 265 test file (test_feature_265_execution.py) confirms pattern with static MOCK_MARKDOWN_CONTENT.
+  The specification explicitly grants freedom ("about anything"), so topic selection is a development-time choice.
+  Writing static prose ensures deterministic, reproducible behavior and violates no requirements.
+
+  ### 5. Git Operations: subprocess.run()
+
+  **Chosen:** Use `subprocess.run()` with `check=True` for git add, commit, and push
+
+  **Rejected:**
+  - GitPython or PyGit2 libraries — External dependencies; violates NFR-1 (standard library only)
+  - `os.system()` or shell execution — Deprecated; poor error handling; allows shell injection
+  - Manual error checking with `check=False` — Less robust; errors may be missed
+
+  **Rationale:**
+  `subprocess.run()` is part of Python's standard library (since 3.5) and provides reliable subprocess execution.
+  The `check=True` parameter ensures that `CalledProcessError` is raised immediately if any git command fails,
+  providing fail-fast behavior without silent failures.
+
+  All 175+ existing implementations in the codebase use subprocess for git operations (stage, commit, push),
+  confirming the established pattern. Git operations are simple (no complex branching, merging) and subprocess
+  is more appropriate than adding a dependency.
+
+  **Workflow:**
+  ```python
+  import subprocess
+
+  subprocess.run(["git", "add", "test-0mmy12.md"], check=True)
+  subprocess.run(["git", "commit", "-m", "feat(266): <message>"], check=True)
+  subprocess.run(["git", "push", "-u", "origin", "HEAD"], check=True)
+  ```
+
+  ### 6. File Validation Strategy
+
+  **Chosen:** Structured validation with file existence, size, and content checks
+
+  **Rejected:**
+  - No validation — Risk of undetected errors; inconsistent with established practice
+  - External validation tools (shell scripts, grep) — Reduces portability; adds system dependencies
+  - Silent error handling — Unclear intent; harder to debug failures
+
+  **Rationale:**
+  Validation serves two purposes: (1) detect errors early and (2) demonstrate that success criteria are met.
+  Validate in order:
+  1. File exists (`filepath.exists()`)
+  2. File size in reasonable range (300-800 bytes for H1 + blank line + 2-3 sentences)
+  3. Content structure (H1 heading, blank line, prose) via `read_text(encoding='utf-8')`
+
+  All 175+ implementations include validation, confirming the pattern. Assertions with clear error messages
+  provide explicit validation intent and fail-fast behavior.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O (create, read, validate) | **REQUIRED** | Standard library; available in Python 3.4+; provides write_bytes(), read_text(), exists(), stat() |
+  | subprocess | Git operations (add, commit, push) | **REQUIRED** | Standard library; available in Python 3.5+; provides run() with check=True |
+  | sys | Status codes and stderr output | OPTIONAL | Standard library; useful for exit codes and error messages; not strictly required |
+  | GitPython / PyGit2 | Git abstraction libraries | **REJECTED** | External dependency; violates NFR-1 (standard library only); subprocess is sufficient |
+  | LLM APIs (OpenAI, Anthropic) | Content generation | **REJECTED** | External dependency; violates NFR-1 and NFR-4 (no side effects); all existing implementations use static strings |
+  | Markdown libraries | Content validation | **REJECTED** | Unnecessary; file structure can be validated with simple string operations (startswith, split, strip) |
+
+  ## Security Considerations
+
+  **File Path Injection:** Not applicable. The filename is a hardcoded constant (test-0mmy12.md) specified in the
+  feature requirements. No user input is involved in file path construction. The file is created in the current
+  working directory (repository root), which is safe and expected.
+
+  **Content Injection:** No risk. The prose content is a static string literal at development time. No user input,
+  API data, or external content is interpolated into the file without validation.
+
+  **Git Command Injection:** Minimal risk with subprocess. The git commands are constructed with a list of arguments
+  (not a shell string), so shell metacharacters cannot be interpreted. The commit message is passed as a single
+  argument to -m, preventing injection. If user input were involved, shell=True would need to be avoided, but
+  this implementation does not use shell execution.
+
+  **UTF-8 Encoding Safety:** UTF-8 is universally safe for text encoding. Invalid UTF-8 sequences would be caught
+  by Python's encoding process (would raise UnicodeEncodeError if the source string contained invalid characters,
+  which is impossible for a static string literal).
+
+  **No Privilege Escalation:** File creation at repository root requires only standard user permissions. No sudo,
+  no root access needed. Git operations work with user credentials already in the environment.
+
+  **Overall Risk Assessment:** LOW. This is a simple file creation task with no external input, no network access,
+  no privilege elevation, and no dependency on external services. The implementation is straightforward and can be
+  audited easily.
+
+  ## Performance Implications
+
+  **File I/O Performance:** Negligible. File size ~400-600 bytes; write_bytes() is a single OS call. No optimization needed.
+
+  **Git Operations Performance:** Negligible. Local git operations (add, commit, push) complete in milliseconds.
+  No caching or optimization opportunities.
+
+  **Memory Usage:** Minimal. The entire file content is a single Python string (~600 bytes). No large data structures.
+
+  **Concurrency:** Not relevant. This feature creates a single file sequentially. No parallel operations needed.
+
+  **Idempotency (NFR-5):** The implementation should safely handle re-execution. If test-0mmy12.md already exists,
+  `Path.write_bytes()` overwrites it without error. Git add is idempotent (adds the same file multiple times is safe).
+  Git commit will fail if there are no staged changes, but this is expected behavior. The specification allows
+  overwriting existing files (NFR-5: "safely handle re-execution...without failing"), so overwrite behavior is correct.
+
+  **No Performance Bottlenecks:** This is a small, fast operation. No optimization needed. Code clarity and correctness
+  are more important than micro-optimizations.
+
+  ## Architecture Notes
+
+  **Codebase Integration:** This feature follows the established pattern from 260+ existing implementations in the Sheep
+  platform. The implementation is self-contained and does not require changes to any existing source code, configuration,
+  or infrastructure.
+
+  **File Structure:** The feature creates a single markdown test file at the repository root. No nested directories.
+  No impact on project structure or module organization.
+
+  **Relationships:** This feature is independent of other features (except for shared pattern). Features 265, 264, 263
+  follow the identical implementation approach, confirming the pattern is correct and established.
+
+  **No API Changes:** This feature does not introduce or modify any APIs, functions, classes, or interfaces.
+  No imports are needed from the Sheep codebase.
+
+  **No Configuration Changes:** This feature requires no changes to configuration files, environment variables,
+  or build/deployment setup.
+
+  **No Database or State Changes:** This feature creates a file on disk but does not interact with any databases,
+  caches, or stateful systems.
+
+  **Testing Implications:** The feature can be validated by:
+  1. Checking file exists at repository root
+  2. Verifying file content structure (H1 heading, blank line, prose)
+  3. Checking file encoding (UTF-8) and line endings (LF)
+  4. Verifying git commit is recorded in history
+  5. Verifying commit is pushed to remote origin
+
+  All validation can be done with standard tools (ls, file, hexdump, git log, git ls-remote) and does not require
+  special test infrastructure.
+
+  ## Implementation Constraints
+
+  **Language:** Python 3.11+ (per specification)
+
+  **Standard Library Only:** No external dependencies allowed (NFR-1). All imports must be from Python's standard library
+  (pathlib, subprocess, sys, etc.).
+
+  **Cross-Platform:** Code must work on Linux, macOS, and Windows without platform-specific branches (NFR-2).
+  Avoiding os.linesep and using explicit '\n' ensures this.
+
+  **No Side Effects:** Feature must not trigger builds, tests, linting, CI/CD, or any other workflows (NFR-4).
+  This is a pure file creation task.
+
+  **Git Workflow:** Feature branch is pre-created. File must be staged, committed with conventional format (feat(266): ...),
+  and pushed to origin/feat/266-markdown-file-creation-d6ab9e.
+
+  ## Resolved Open Questions
+
+  No open questions remain. All technical decisions are informed by:
+  1. Review of 260+ existing test files in the repository (file structure, encoding, line endings)
+  2. Analysis of 175+ existing feature implementations (file I/O method, git operations, validation)
+  3. Prior incident (commit c1399a98) confirming line ending handling approach
+  4. Specification requirements (functional and non-functional)
+
+  All decisions align with established patterns and project conventions.
+
+  ---
+
+  _Research complete. Ready for implementation planning._
