@@ -165,6 +165,9 @@ def main():
     Executes the full feature 270 workflow:
     1. Phase 1: Create markdown file with proper encoding and line endings
     2. Phase 1: Validate file exists and is readable
+    3. Phase 2: Stage file with git add
+    4. Phase 2: Create commit with conventional message
+    5. Phase 2: Push to remote origin
 
     Catches specific exceptions and logs errors to stderr before exiting:
     - ValueError: Validation failures (user-facing, actionable)
@@ -191,10 +194,22 @@ def main():
         validate_file(file_path)
         print("[OK] File validation passed")
 
+        # Phase 2: Git Integration
+        print("\nPhase 2: Git Integration & Validation")
+
+        print("Phase 2: Staging file with git add...")
+        git_add()
+
+        print("Phase 2: Creating commit with conventional message...")
+        git_commit()
+
+        print("Phase 2: Pushing to remote origin...")
+        git_push()
+
         # Success
         print("\n" + "=" * 60)
         print("Successfully created test-a0c634.md")
-        print("File has been created and validated.")
+        print("File has been created, validated, and pushed to remote.")
         print("=" * 60)
         sys.exit(0)
 
