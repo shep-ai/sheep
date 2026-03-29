@@ -110,8 +110,37 @@ def create_feature_263_markdown_file(repo_path: str | None = None) -> dict[str, 
 
 if __name__ == "__main__":
     """Execute feature 263 when run as a script."""
-    result = create_feature_263_markdown_file()
-    print("Feature 263 created successfully:")
-    print(f"  File: {result['filepath']}")
-    print(f"  Size: {len(result['content'])} bytes")
-    print(f"  Message: {result['commit_message']}")
+    import sys
+
+    # Parse optional --repo-path argument
+    repo_path = None
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--help" or sys.argv[1] == "-h":
+            print("Usage: python -m sheep.features.feature_263_markdown_file_creation [--repo-path PATH]")
+            print("")
+            print("Create markdown file test-i3yjp8.md in the repository root.")
+            print("")
+            print("Options:")
+            print("  --repo-path PATH  Path to git repository (default: current directory)")
+            print("  -h, --help        Show this help message")
+            sys.exit(0)
+        elif sys.argv[1] == "--repo-path" and len(sys.argv) > 2:
+            repo_path = sys.argv[2]
+        else:
+            print(f"Error: Unknown argument {sys.argv[1]}")
+            print("Use --help for usage information")
+            sys.exit(1)
+
+    try:
+        result = create_feature_263_markdown_file(repo_path=repo_path)
+        print("✓ Feature 263 created successfully")
+        print(f"  File:    {result['filepath']}")
+        print(f"  Size:    {len(result['content'])} bytes")
+        print(f"  Message: {result['commit_message']}")
+        print(f"  Push:    {result['push_result']}")
+        sys.exit(0)
+    except Exception as e:
+        print(f"✗ Failed to create feature 263: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

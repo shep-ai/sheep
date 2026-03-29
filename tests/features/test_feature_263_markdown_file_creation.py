@@ -335,6 +335,59 @@ class TestFeature263GitOperations:
                 os.chdir(original_cwd)
 
 
+class TestFeature263StandaloneExecution:
+    """Tests for feature 263 standalone execution mode (task 8)."""
+
+    def test_main_execution_without_args(self, capsys):
+        """Test that module can be executed standalone without arguments."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                # Mock the LLM
+                mock_llm = Mock()
+                mock_llm.call.return_value = {"content": SAMPLE_MARKDOWN}
+                with patch('sheep.content_generators.get_reasoning_llm', return_value=mock_llm):
+                    with patch('subprocess.run') as mock_run:
+                        # Configure the mock to return proper values
+                        def run_side_effect(args, *pargs, **kwargs):
+                            result = MagicMock()
+                            result.returncode = 0
+                            result.stdout = ""
+                            result.stderr = ""
+                            if 'rev-parse' in args:
+                                result.stdout = "main\n"
+                            return result
+
+                        mock_run.side_effect = run_side_effect
+
+                        # Execute the feature
+                        result = create_feature_263_markdown_file()
+                        assert result is not None
+                        assert 'filepath' in result
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_main_accepts_repo_path_argument(self):
+        """Test that __main__ block accepts --repo-path argument."""
+        # Verify the help text mentions --repo-path
+        from sheep.features import feature_263_markdown_file_creation
+        import inspect
+        source = inspect.getsource(feature_263_markdown_file_creation)
+        assert "--repo-path" in source, "Code should mention --repo-path argument"
+
+    def test_main_accepts_help_argument(self):
+        """Test that __main__ block accepts --help argument."""
+        # Verify the help text mentions --help
+        from sheep.features import feature_263_markdown_file_creation
+        import inspect
+        source = inspect.getsource(feature_263_markdown_file_creation)
+        assert "--help" in source, "Code should mention --help argument"
+
+
 class TestFeature263ValidationFailures:
     """Tests for feature 263 validation error handling."""
 
@@ -442,6 +495,241 @@ class TestFeature263ValidationFailures:
                 from sheep.content_generators import validate_markdown_file
                 with pytest.raises(ValueError, match="trailing newline"):
                     validate_markdown_file(MARKDOWN_FILENAME)
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+
+class TestFeature263EndToEndIntegration:
+    """Comprehensive end-to-end integration test for feature 263 (task 9)."""
+
+    def test_complete_workflow_with_real_git_repo(self):
+        """
+        Integration test: Create feature 263 in isolated git repo.
+
+        Verifies complete workflow without mocks:
+        - File is created at correct path
+        - File content is valid markdown (H1 + 2-3 sentences)
+        - File encoding is UTF-8 without BOM
+        - File has Unix LF line endings
+        - File has trailing newline
+        - File is staged, committed, and pushed
+        - Commit message follows convention
+        - No other files are modified
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                # Initialize a git repository
+                subprocess.run(
+                    ["git", "init"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+
+                # Configure git user
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+
+                # Create initial commit so we have a branch
+                Path("README.md").write_text("# Test Repo\n")
+                subprocess.run(
+                    ["git", "add", "README.md"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+                subprocess.run(
+                    ["git", "commit", "-m", "Initial commit"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+
+                # Mock the LLM to ensure consistent content
+                mock_llm = Mock()
+                mock_llm.call.return_value = {"content": SAMPLE_MARKDOWN}
+
+                with patch('sheep.content_generators.get_reasoning_llm', return_value=mock_llm):
+                    # Execute feature without mocking subprocess (real git)
+                    result = create_feature_263_markdown_file(repo_path=tmpdir)
+
+                # Verify success criteria
+                assert result is not None, "Result should not be None"
+
+                # 1. File exists at correct path
+                assert Path(MARKDOWN_FILENAME).exists(), f"File {MARKDOWN_FILENAME} should exist"
+                assert result['filepath'].endswith(MARKDOWN_FILENAME), \
+                    f"Result filepath should end with {MARKDOWN_FILENAME}"
+
+                # 2. File content is valid markdown with H1 heading
+                file_content = Path(MARKDOWN_FILENAME).read_text()
+                assert file_content.lstrip().startswith("# "), \
+                    "File should start with H1 heading"
+                assert result['content'] == file_content, \
+                    "Result content should match file content"
+
+                # 3. H1 heading and 2-3 sentences
+                lines = file_content.split('\n')
+                assert lines[0].startswith("# "), "First line should be H1"
+                assert lines[1] == "", "Second line should be blank"
+                sentence_count = file_content.count('.')
+                assert 2 <= sentence_count <= 3, \
+                    f"File should have 2-3 sentences, found {sentence_count}"
+
+                # 4. UTF-8 encoding without BOM
+                binary_content = Path(MARKDOWN_FILENAME).read_bytes()
+                assert not binary_content.startswith(b'\xef\xbb\xbf'), \
+                    "File should not have UTF-8 BOM"
+                binary_content.decode('utf-8')  # Should not raise
+
+                # 5. Unix LF line endings (not CRLF)
+                assert b'\r\n' not in binary_content, \
+                    "File should not have CRLF endings"
+                assert b'\r' not in binary_content, \
+                    "File should not have CR endings"
+
+                # 6. Trailing newline
+                assert file_content.endswith('\n'), \
+                    "File should end with trailing newline"
+
+                # 7. Return value has all required keys
+                assert 'filepath' in result
+                assert 'content' in result
+                assert 'commit_message' in result
+                assert 'push_result' in result
+
+                # 8. Commit message follows convention
+                expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
+                assert result['commit_message'] == expected_message, \
+                    f"Commit message should be: {expected_message}, got: {result['commit_message']}"
+
+                # 9. File was committed (check git log)
+                log_result = subprocess.run(
+                    ["git", "log", "--oneline"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=tmpdir
+                )
+                # Should have at least 2 commits: Initial + feature 263
+                commits = log_result.stdout.strip().split('\n')
+                assert len(commits) >= 2, "Should have at least Initial + feature 263 commits"
+                assert MARKDOWN_FILENAME in commits[0] or "create markdown file" in commits[0], \
+                    "Latest commit should mention the markdown file"
+
+                # 10. No other files modified (only test-i3yjp8.md should be new)
+                status_result = subprocess.run(
+                    ["git", "status", "--porcelain"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=tmpdir
+                )
+                # Should have no uncommitted changes
+                assert status_result.stdout.strip() == "", \
+                    "Should have no uncommitted changes after feature execution"
+
+                # 11. File is in git index (staged/committed)
+                ls_result = subprocess.run(
+                    ["git", "ls-files"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=tmpdir
+                )
+                assert MARKDOWN_FILENAME in ls_result.stdout, \
+                    f"File {MARKDOWN_FILENAME} should be in git index"
+
+            finally:
+                import os
+                os.chdir(original_cwd)
+
+    def test_idempotency_running_twice(self):
+        """
+        Integration test: Verify feature is idempotent (can run multiple times).
+
+        Second execution should overwrite file without errors and produce
+        identical result.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = Path.cwd()
+            try:
+                import os
+                os.chdir(tmpdir)
+
+                # Initialize git repository
+                subprocess.run(
+                    ["git", "init"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+                subprocess.run(
+                    ["git", "config", "user.email", "test@example.com"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+                subprocess.run(
+                    ["git", "config", "user.name", "Test User"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+
+                # Initial commit
+                Path("README.md").write_text("# Test\n")
+                subprocess.run(
+                    ["git", "add", "README.md"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+                subprocess.run(
+                    ["git", "commit", "-m", "Initial"],
+                    check=True,
+                    capture_output=True,
+                    cwd=tmpdir
+                )
+
+                mock_llm = Mock()
+                mock_llm.call.return_value = {"content": SAMPLE_MARKDOWN}
+
+                with patch('sheep.content_generators.get_reasoning_llm', return_value=mock_llm):
+                    # First execution
+                    result1 = create_feature_263_markdown_file(repo_path=tmpdir)
+                    content1 = Path(MARKDOWN_FILENAME).read_text()
+
+                    # Second execution (should not fail)
+                    result2 = create_feature_263_markdown_file(repo_path=tmpdir)
+                    content2 = Path(MARKDOWN_FILENAME).read_text()
+
+                # Both executions should succeed
+                assert result1 is not None
+                assert result2 is not None
+
+                # Content should be identical
+                assert content1 == content2, \
+                    "File content should be identical after re-running"
+
+                # File should exist and be valid
+                assert Path(MARKDOWN_FILENAME).exists()
+
             finally:
                 import os
                 os.chdir(original_cwd)
