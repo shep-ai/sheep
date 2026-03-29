@@ -8,7 +8,7 @@ summary: |
   Create a single markdown file named test-4533e5.md in the repository root containing an H1 heading
   as a title and 2-3 sentences of prose content. This follows the established pattern of 263 preceding
   markdown file creation features in this repository, using existing content generation and git tooling.
-phase: "Analysis"
+phase: "Requirements"
 sizeEstimate: "S"
 
 relatedFeatures:
@@ -33,44 +33,53 @@ relatedLinks:
     url: "file:///src/sheep/content_generators.py"
 
 openQuestions:
-  - question: "Should content generation use LLM or static templates?"
+  - question: "How strictly should sentence count be validated: exactly 2 or exactly 3 sentences, or a flexible range?"
     resolved: true
     options:
-      - option: "LLM-based generation"
-        description: "Use Claude API via CrewAI to generate unique, coherent prose for each file. Maintains consistency with 263+ preceding features, ensures content uniqueness and naturalness, leverages existing infrastructure (get_reasoning_llm()). Latency: ~2-5 seconds per generation."
+      - option: "Exact count (2 or 3)"
+        description: "Enforce exactly 2 sentences OR exactly 3 sentences, no other counts. Ensures strict compliance with specification. May require multiple LLM attempts if generation produces 1 or 4 sentences. Matches typical interpretation of specification language."
         selected: true
-      - option: "Static templates"
-        description: "Use predefined prose templates without LLM. Faster execution, simpler implementation, but produces identical content across files and lacks naturalness. Breaks with established pattern across 263 preceding features."
+      - option: "Flexible range (1-4)"
+        description: "Accept 1 to 4 sentences as meeting the '2-3' requirement. More forgiving for natural prose generation. Reduces need for LLM retries. May be interpreted as over-flexible relative to specification intent."
         selected: false
-    selectionRationale: "LLM-based generation is recommended because it maintains consistency with 263+ preceding identical features, ensures unique and coherent prose, leverages existing mature infrastructure, and aligns with the project's proven pattern of automated content generation using Claude API."
-    answer: "LLM-based generation"
+    selectionRationale: "Exact count is recommended because it matches the specification intent ('2-3 sentences' is most naturally read as exactly 2 or exactly 3), aligns with the established pattern from 263 preceding features, and provides clear validation criteria with no ambiguity. LLM generation is reliable enough that exact compliance is achievable."
+    answer: "Exact count (2 or 3)"
 
-  - question: "Should validation be strict or lenient with markdown formatting?"
+  - question: "Should markdown files have unique prose content, or is any coherent prose acceptable?"
     resolved: true
     options:
-      - option: "Strict validation"
-        description: "Enforce exact compliance: H1 heading required, exactly 2-3 sentences, no trailing whitespace, Unix LF line endings, UTF-8 without BOM. Prevents edge cases and formatting inconsistencies. Aligns with existing validate_markdown_file() utility behavior."
+      - option: "Any coherent prose"
+        description: "Accept any coherent, grammatically correct prose regardless of content. No validation against previous files. Simpler implementation. Allows prose similarity across features if LLM generates similar content. Aligns with current implementation from 263 preceding features."
         selected: true
-      - option: "Lenient validation"
-        description: "Accept variations: H1 or H2 headings, 2-4 sentences, flexible whitespace handling. Faster validation but risks inconsistency with previous 263 features and may allow malformed markdown."
+      - option: "Unique prose required"
+        description: "Validate that generated prose is meaningfully different from previous files. Adds complexity: requires tracking/comparing previous content. Ensures prose diversity across 264 files. May require multiple LLM attempts if content is flagged as too similar."
         selected: false
-    selectionRationale: "Strict validation is recommended because it maintains quality and format consistency with 263+ preceding features, prevents formatting edge cases, ensures all files meet identical standards, and aligns with existing validate_markdown_file() utility design."
-    answer: "Strict validation"
+    selectionRationale: "Any coherent prose is recommended because it matches the established pattern from 263 preceding features (no uniqueness validation exists), reduces implementation complexity, and focuses on prose quality rather than diversity. The primary goal is validating content generation capability, not ensuring novelty."
+    answer: "Any coherent prose"
 
-  - question: "If the markdown file already exists, should the implementation overwrite, skip, or error?"
+  - question: "How should LLM content generation failures be handled?"
     resolved: true
     options:
-      - option: "Overwrite existing file"
-        description: "Replace any existing test-4533e5.md with newly generated content. Ensures idempotent behavior (running twice produces identical result), enables deterministic deployment, consistent with previous 263+ feature implementations."
+      - option: "Single attempt with clear error reporting"
+        description: "Generate content once; if LLM fails, report error immediately. Simple, deterministic behavior. Operational transparency—operators see failures clearly. No hidden retries mask underlying issues. Matches typical CI/CD pattern."
         selected: true
-      - option: "Skip if exists"
-        description: "Check if file exists, skip generation and exit cleanly. Faster when file already created, but non-idempotent and breaks if file is corrupt or outdated."
+      - option: "Retry up to 3 times with exponential backoff"
+        description: "Automatically retry generation on failure with 2s, 4s, 8s delays. More resilient—temporary LLM outages won't fail the feature. Adds complexity to error handling. May mask transient API issues by succeeding eventually."
         selected: false
-      - option: "Error if exists"
-        description: "Raise error if file already exists, requiring manual cleanup. Safest against accidental overwrites but brittle and problematic when re-running features."
+    selectionRationale: "Single attempt with error reporting is recommended because it maintains operational simplicity and transparency, aligns with the established pattern from 263 preceding features, and allows operators to see and respond to actual LLM issues. The 5-minute performance budget (NFR-1) supports this: failures are fast, not hidden by retries."
+    answer: "Single attempt with clear error reporting"
+
+  - question: "What level of prose quality validation should be performed before accepting generated content?"
+    resolved: true
+    options:
+      - option: "Minimal validation (sentence count and heading only)"
+        description: "Validate only that H1 heading exists and sentence count is correct (2-3). Trust LLM output for quality. Faster execution. Assumes Claude API output is always coherent. Risk: grammatically incorrect or nonsensical prose could be committed."
         selected: false
-    selectionRationale: "Overwrite is recommended because it ensures idempotent and deterministic behavior (re-running yields identical result), enables safe re-deployment, maintains consistency with 263+ preceding features that all overwrite, and is the expected pattern for automated content generation platforms."
-    answer: "Overwrite existing file"
+      - option: "Comprehensive validation (coherence, grammar, spelling)"
+        description: "Validate sentence count + heading + grammar check + basic coherence (no obvious errors). Ensures prose quality across all 264 files. Adds slight overhead. Catches LLM hallucinations or malformed output. Recommended for consistent quality at scale."
+        selected: true
+    selectionRationale: "Comprehensive validation is recommended because at scale (264 identical features), quality validation ensures consistency and catches edge cases where LLM output might be malformed or incoherent. The small performance overhead is justified by FR-2 (prose must be coherent and grammatically correct) and ensures user-facing content quality. This validates both the platform's reliability and content generation capability."
+    answer: "Comprehensive validation (coherence, grammar, spelling)"
 
 content: |
   ## Problem Statement
@@ -89,8 +98,10 @@ content: |
 
   - [ ] File named test-4533e5.md created in repository root
   - [ ] File contains valid markdown with H1 heading as title
-  - [ ] File contains exactly 2-3 sentences of coherent prose content
+  - [ ] File contains exactly 2 or exactly 3 sentences of coherent prose content
   - [ ] Markdown structure validation passes (heading present, sentence count accurate)
+  - [ ] Generated prose is grammatically correct with no obvious syntax errors
+  - [ ] Generated prose is coherent and contextually sensible (not hallucinated or incoherent)
   - [ ] File uses UTF-8 encoding without BOM (Byte Order Mark)
   - [ ] File uses Unix LF line endings (\\n) throughout, no CRLF or CR
   - [ ] File ends with trailing newline (POSIX convention compliance)
@@ -98,33 +109,41 @@ content: |
   - [ ] Commit message exactly matches format: \"feat(264): Create markdown file test-4533e5.md with prose content\"
   - [ ] No existing files are read, modified, or deleted during execution
   - [ ] Implementation follows established pattern from feature_263 and preceding features
-  - [ ] Generated prose is grammatically correct and coherent
-  - [ ] File size is reasonable (200-400 bytes target range)
 
   ## Functional Requirements
 
-  - **FR-1: Content Generation** — Generate markdown content via CrewAI/Claude API with H1 heading as title and 2-3 sentences of prose, following established content generation patterns from preceding features
-  - **FR-2: Prose Quality** — Ensure generated prose is coherent, grammatically correct, and contextually sensible (not random or nonsensical)
+  - **FR-1: Content Generation** — Generate markdown content via CrewAI/Claude API with H1 heading as title and exactly 2 or 3 sentences of prose, following established content generation patterns from preceding features
+  - **FR-2: Prose Quality** — Ensure generated prose is coherent, grammatically correct, and contextually sensible; validate for obvious grammatical errors, spelling, and logical consistency before accepting
   - **FR-3: File Creation** — Create single markdown file at repository root with exact filename test-4533e5.md
   - **FR-4: Encoding** — Use UTF-8 encoding without BOM (Byte Order Mark) for all file write operations
   - **FR-5: Line Endings** — Use Unix LF (\\n) line endings throughout file; no CRLF or CR line endings
   - **FR-6: POSIX Compliance** — Include trailing newline character at end of file to conform to POSIX conventions
-  - **FR-7: Markdown Validation** — Validate markdown structure before committing: verify H1 heading present, sentence count is exactly 2-3, formatting is valid
+  - **FR-7: Markdown Validation** — Validate markdown structure before committing: verify H1 heading present, sentence count is exactly 2 or 3, grammar and coherence are acceptable
   - **FR-8: Git Staging** — Stage file to git index using git add operation
   - **FR-9: Git Commit** — Commit file with conventional commit message format: \"feat(264): Create markdown file test-4533e5.md with prose content\"
   - **FR-10: Git Push** — Push committed file to remote branch using git push
   - **FR-11: Isolation** — Do not read, modify, delete, or otherwise interact with any existing files in the repository except the target test-4533e5.md file
   - **FR-12: Idempotency** — If test-4533e5.md already exists, overwrite with newly generated content to ensure deterministic behavior
+  - **FR-13: Single LLM Attempt** — Attempt LLM-based content generation once; on failure, report clear error immediately without automatic retries
 
   ## Non-Functional Requirements
 
   - **NFR-1: Performance** — Complete entire workflow (content generation, file writing, validation, git operations) within 5 minutes
-  - **NFR-2: Reliability** — LLM content generation must succeed on first attempt with >95% success rate
+  - **NFR-2: Reliability** — LLM content generation must succeed on first attempt with >95% success rate for acceptable prose quality
   - **NFR-3: Consistency** — Implementation must follow established patterns from feature_263 and all preceding markdown creation features (no deviations or custom logic)
   - **NFR-4: Maintainability** — Reuse existing utilities from content_generators.py for all file operations (generate_markdown_content, write_markdown_file, validate_markdown_file, commit_markdown_file, push_markdown_file); no code duplication
-  - **NFR-5: Observability** — Log all key operations (generation start, validation results, git operations) using project logging infrastructure for tracing and debugging
+  - **NFR-5: Observability** — Log all key operations (generation start, validation results, prose quality checks, git operations) using project logging infrastructure for tracing and debugging
   - **NFR-6: Code Quality** — Follow project conventions, existing code style, and patterns already established in src/sheep/features/; maintain consistency with feature_263 implementation
-  - **NFR-7: Error Handling** — Gracefully handle and report errors from LLM generation, file I/O, or git operations with clear error messages
+  - **NFR-7: Error Handling** — Gracefully handle and report errors from LLM generation, file I/O, or git operations with clear error messages; no silent failures
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Sentence count strictness | Exact count (2 or 3) | Matches specification intent, established pattern from 263 prior features, clear validation criteria |
+  | 2 | Prose content uniqueness | Any coherent prose | Aligns with existing implementation, simpler approach, focuses on quality over diversity |
+  | 3 | LLM failure handling | Single attempt with error reporting | Maintains simplicity and operational transparency, allows operators to see actual issues |
+  | 4 | Prose quality validation | Comprehensive (grammar, coherence, spelling) | Ensures consistency at scale, validates platform reliability, catches LLM edge cases |
 
   ## Codebase Analysis
 
@@ -204,7 +223,7 @@ content: |
   - **src/sheep/content_generators.py**: Provides reusable utilities:
     - `generate_markdown_content()` - LLM-based content generation via Claude API
     - `write_markdown_file()` - File writing with UTF-8 encoding and Unix LF line endings
-    - `validate_markdown_file()` - Markdown structure validation (H1 heading, sentence count, formatting)
+    - `validate_markdown_file()` - Markdown structure validation (H1 heading, sentence count, formatting, grammar, coherence)
     - `commit_markdown_file()` - Git commit operations with conventional message format
     - `push_markdown_file()` - Git push operations to remote branch
 
@@ -219,25 +238,27 @@ content: |
   ## Implementation Notes
 
   1. **Workflow Pattern**: Follow the proven five-step workflow from feature_263:
-     1. Generate markdown content with H1 heading + 2-3 sentences via CrewAI/Claude
+     1. Generate markdown content with H1 heading + exactly 2 or 3 sentences via CrewAI/Claude
      2. Write file to repository root with UTF-8 encoding, no BOM, Unix LF line endings
-     3. Validate markdown structure (heading present, sentence count, formatting valid)
+     3. Validate markdown structure + prose quality (heading present, sentence count, grammar, coherence)
      4. Stage and commit file with conventional commit message format
      5. Push to remote branch
 
   2. **Code Location**: Create src/sheep/features/feature_264_markdown_file_creation.py with thin wrapper that orchestrates content_generators utilities
 
-  3. **Error Scenarios**: Handle gracefully:
-     - LLM generation timeout or failure: retry or report clear error
-     - File write permission error: report error with path
-     - Git operations failure: report error with git output
+  3. **Error Scenarios**: Handle gracefully with clear reporting:
+     - LLM generation failure: Log error and exit immediately (no retries)
+     - File write permission error: Report error with path
+     - Git operations failure: Report error with git output
+     - Prose quality validation failure: Log details and exit immediately
 
   4. **Testing Strategy**: Verify:
      - File exists at repository root with correct name
-     - File content contains valid H1 heading and 2-3 sentences
+     - File content contains valid H1 heading and exactly 2 or 3 sentences
      - File encoding is UTF-8 without BOM
      - File line endings are Unix LF
      - File has trailing newline
+     - Generated prose is grammatically correct and coherent
      - Git commit and push succeed
 
   ## Size Estimate
