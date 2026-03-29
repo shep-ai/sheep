@@ -205,7 +205,7 @@ class TestFeature272FileCreation:
                 os.chdir(original_cwd)
 
     def test_content_in_result_matches_file(self):
-        """Test that content in result dict matches file content."""
+        """Test that content in result dict is first 200 chars of file content."""
         with tempfile.TemporaryDirectory() as tmpdir:
             original_cwd = Path.cwd()
             try:
@@ -213,7 +213,8 @@ class TestFeature272FileCreation:
                 os.chdir(tmpdir)
                 result, _ = self._create_with_mocks()
                 file_content = Path(MARKDOWN_FILENAME).read_text()
-                assert result['content'] == file_content
+                # Content in result should be truncated to first 200 chars
+                assert result['content'] == file_content[:200]
             finally:
                 import os
                 os.chdir(original_cwd)

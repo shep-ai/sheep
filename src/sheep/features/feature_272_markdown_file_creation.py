@@ -108,7 +108,7 @@ def create_feature_272_markdown_file(repo_path: str | None = None) -> dict[str, 
 
         return {
             "filepath": filepath,
-            "content": content,
+            "content": content[:200],  # Truncate to first 200 chars for readability
             "commit_message": commit_message,
             "push_result": push_result,
         }
