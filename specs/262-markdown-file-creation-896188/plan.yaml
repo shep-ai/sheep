@@ -1,0 +1,170 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-896188"
+summary: "Create test-qvlm4j.md using the established pattern from features 259-261. Orchestrate existing src/create_markdown.py module functions to generate markdown content via Claude API, create the file with UTF-8/LF encoding validation, and execute full git workflow (stage, commit, push). No new source code required; implementation reuses proven module functions."
+
+# Relationships
+relatedFeatures:
+  - number: 261
+    name: "markdown-file-creation"
+  - number: 260
+    name: "markdown-file-creation"
+  - number: 259
+    name: "markdown-file-creation"
+
+technologies:
+  - "Claude API (Anthropic reasoning LLM)"
+  - "Python 3.11+ (runtime)"
+  - "pathlib (file I/O)"
+  - "subprocess (git integration)"
+  - "regex (sentence boundary detection)"
+  - "Git (version control)"
+  - "Markdown (CommonMark format)"
+
+relatedLinks:
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3.11/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3.11/library/subprocess.html"
+
+# Structured implementation phases
+phases:
+  - id: "phase-1"
+    name: "Content Generation & File Creation"
+    description: "Generate markdown content via Claude API with validation, then create the file at repository root with UTF-8/LF encoding and comprehensive encoding validation."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Git Integration & Push"
+    description: "Stage file, commit with conventional commit message format, and push to feature branch."
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  Feature 262 creates a single markdown test file (test-qvlm4j.md) by orchestrating
+  existing functions from src/create_markdown.py, which provides complete end-to-end
+  functionality already proven in features 259-261:
+
+  - **Content Generation:** Claude API with retry logic and exponential backoff
+  - **Multi-Stage Validation:** Structure (H1, blank line, 2-3 sentences), prose length (100-300 chars),
+    vocabulary diversity (10+ unique words)
+  - **File I/O:** pathlib.Path.write_text() with explicit encoding=\"utf-8\" and newline=\"\\n\"
+  - **Encoding Validation:** UTF-8 without BOM, Unix LF line endings
+  - **Git Workflow:** subprocess-based add, commit, and push operations
+
+  Implementation reuses this proven module rather than building from scratch, eliminating
+  reimplementation risk and ensuring consistency with established precedents. The module
+  functions are fully tested and production-ready.
+
+  ## Key Design Decisions
+
+  ### 1. Leverage Existing Module (src/create_markdown.py)
+
+  **Chosen:** Reuse existing functions from src/create_markdown.py
+
+  **Rationale:** Already tested in features 259-261 with identical requirements; eliminates
+  reimplementation risk; ensures consistency across all markdown-file-creation features;
+  reduces development time by 50% (10-15 min down to ~5 min); module provides all required
+  functionality (content generation, validation, file I/O, git integration).
+
+  **Functions Used:**
+  - `generate_markdown_content(max_retries=3)` — Claude API with exponential backoff
+  - `validate_content(content)` — Structure and prose validation
+  - `create_markdown_file(content, filename, filepath)` — pathlib-based file I/O
+  - `validate_file_encoding(filepath)` — UTF-8/LF encoding compliance
+  - `stage_and_commit_file(filename, commit_message)` — Git add and commit
+  - `push_to_feature_branch(branch_name)` — Git push to origin
+
+  ### 2. Content Generation via Claude API
+
+  **Chosen:** Claude reasoning LLM via generate_markdown_content() with exponential backoff retry logic
+
+  **Why:** Produces genuinely varied, thematically-coherent prose across 100+ test files;
+  sentence structure and grammar validated by LLM; already integrated into Sheep platform
+  (sheep.config.llm.get_reasoning_llm()); handles API transience robustly with 3 retry attempts
+  (1s, 2s, 4s backoff).
+
+  **Trade-offs:** API dependency (mitigated by retry logic); requires valid Claude API credentials
+  (standard Sheep platform setup).
+
+  ### 3. File I/O via pathlib
+
+  **Chosen:** pathlib.Path.write_text(content, encoding=\"utf-8\", newline=\"\\n\")
+
+  **Why:** Meets NFR-5 requirement explicitly; ensures UTF-8 without BOM and Unix LF line endings
+  across all platforms (Windows/Mac/Linux); more modern than open() builtin; atomic write operation.
+
+  **Trade-offs:** None significant; pathlib is standard Python 3.11+ and well-tested.
+
+  ### 4. Git Integration via subprocess
+
+  **Chosen:** subprocess.run() with arguments as list, shell=False
+
+  **Why:** No new external dependencies (satisfies NFR-9; GitPython would add unnecessary dependency);
+  prevents command injection (OWASP best practice); clear error handling per command;
+  already proven in features 259-261.
+
+  **Safety Pattern:** Arguments passed as list, not concatenated strings; filenames and commit
+  message cannot contain metacharacters that execute code; prevents shell interpretation.
+
+  ### 5. Multi-Stage Validation Strategy
+
+  **Chosen:** Validate at two points: during generation (validate_content) and after file write
+  (validate_file_encoding + validate_markdown_file)
+
+  **Why:** Catches issues early (pre-write validation); ensures only valid files reach git;
+  multi-layer approach (structure, encoding, markdown compliance) reduces risk of silent corruption;
+  complements manual review by implementer (product decision #3).
+
+  **Validation Layers:**
+  - Layer 1 (Generation): H1 heading, blank line separator, 2-3 sentences, prose length (100-300 chars), vocabulary (10+ unique words)
+  - Layer 2 (File Encoding): UTF-8 without BOM (checks for EF BB BF bytes), Unix LF only (no CRLF)
+  - Layer 3 (Markdown Structure): Repeat layer 1 checks on written file
+
+  ## Implementation Strategy
+
+  ### Phase 1: Content Generation & File Creation
+
+  1. Call `generate_markdown_content(max_retries=3)` to create prose via Claude API
+  2. Retry with exponential backoff (1s, 2s, 4s) if validation fails
+  3. Assert content passes `validate_content()` checks
+  4. Call `create_markdown_file(content, \"test-qvlm4j.md\", \".\")` to write file at repo root
+  5. Call `validate_file_encoding()` to verify UTF-8/LF compliance post-write
+  6. Raise FileExistsError if file already exists (fail-safe)
+
+  ### Phase 2: Git Integration & Push
+
+  1. Call `stage_and_commit_file()` to execute git add and git commit atomically
+  2. Verify commit message matches spec exactly: \"feat(262): create markdown file test-qvlm4j.md with prose content\"
+  3. Call `push_to_feature_branch()` to push to origin/feat/262-markdown-file-creation-896188
+  4. Verify no other files are accidentally staged or committed
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Claude API unavailable | Retry logic with exponential backoff (3 attempts, 1s/2s/4s delays); ValueError raised if all retries fail |
+  | Content fails validation | Multi-stage validation (generation + file write) rejects invalid content before persistence; logging at INFO/WARNING levels |
+  | Encoding corruption on write | Explicit encoding=\"utf-8\" and newline=\"\\n\" in pathlib.write_text(); post-write validation checks raw bytes for BOM/CRLF |
+  | Git operations fail | subprocess error handling with CalledProcessError; each command (add, commit, push) fails fast with clear error message |
+  | File already exists | pathlib raises FileExistsError immediately; no silent overwrite; fail-safe design |
+  | Platform-specific line-ending issues | pathlib newline=\"\\n\" forces Unix LF regardless of OS; post-write validation confirms no CRLF corruption |
+  | Commit message mismatch | Commit message hardcoded in spec; no runtime formatting; git log verification confirms exact match |
+  | Command injection via git arguments | Arguments passed as list to subprocess (shell=False); filename and message cannot contain metacharacters; no shell interpretation |
+
+  ---
+
+  _Planning phase complete — architecture, design decisions, phases, and risk mitigation documented. Ready for task breakdown._
