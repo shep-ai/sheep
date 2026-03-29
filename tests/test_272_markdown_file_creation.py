@@ -1,5 +1,6 @@
 """Tests for feature 272: Creating markdown file test-4mg4tn.md with title and prose content."""
 
+import os
 import pytest
 
 
@@ -76,7 +77,7 @@ class TestContentGenerationIntegration:
     """Integration tests for content generation (requires API key)."""
 
     @pytest.mark.skipif(
-        not True,  # Can be replaced with os.getenv('ANTHROPIC_API_KEY')
+        not os.getenv('ANTHROPIC_API_KEY'),
         reason="ANTHROPIC_API_KEY not set - skipping API integration test"
     )
     def test_generated_content_is_not_empty(self):
