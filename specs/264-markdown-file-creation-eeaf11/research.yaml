@@ -1,0 +1,330 @@
+name: "markdown-file-creation-eeaf11"
+summary: "Feature 264 implements markdown file creation following the established pattern from 263 preceding features. Technical research confirms that all required infrastructure exists (content generation, file operations, git tools), validating selection of existing utilities over custom implementations. A thin orchestration wrapper in src/sheep/features/ is the optimal approach."
+
+relatedFeatures:
+  - number: 263
+    name: "markdown-file-creation-e8c7cc"
+    relationship: "Immediately preceding feature with identical pattern and implementation structure"
+  - number: 262
+    name: "markdown-file-creation-f634bd"
+    relationship: "Establishes the proven workflow pattern used by all 263 preceding features"
+
+technologies:
+  - "Python 3.11+"
+  - "CrewAI 0.86+"
+  - "Anthropic Claude API"
+  - "GitPython 3.1+"
+  - "Pydantic 2.0+"
+  - "structlog 24.0+"
+
+relatedLinks:
+  - title: "Content Generators Module"
+    url: "file:///src/sheep/content_generators.py"
+  - title: "Feature 263 Implementation"
+    url: "file:///src/sheep/features/feature_263_markdown_file_creation.py"
+  - title: "LLM Configuration Factory"
+    url: "file:///src/sheep/config/llm.py"
+  - title: "Git Tools"
+    url: "file:///src/sheep/tools/git_tools.py"
+  - title: "Repository README"
+    url: "file:///README.md"
+
+decisions:
+  - title: "Content Generation Approach"
+    chosen: "Use existing generate_markdown_content() from content_generators.py"
+    rejected:
+      - "Direct Anthropic SDK integration — Would duplicate functionality already abstracted through CrewAI, increasing maintenance burden. Project standardizes on CrewAI's LLM factory for multi-provider support."
+      - "Custom LLM prompt framework — Unnecessary complexity when project provides MARKDOWN_GENERATION_PROMPT template and validated LLM invocation pattern through get_reasoning_llm()."
+    rationale: "The content_generators.generate_markdown_content() function already encapsulates the complete LLM invocation pattern: prompt template, response extraction, format validation, and error handling. It uses get_reasoning_llm() from the project's LLM factory, which supports multiple providers (Claude, OpenAI, Google) via CrewAI abstraction. This approach ensures consistency with 263 preceding features and leverages existing validation logic (_validate_markdown_content) that enforces the 2-3 sentence requirement through sentence counting."
+
+  - title: "File Writing and Encoding Strategy"
+    chosen: "Use existing write_markdown_file() from content_generators.py"
+    rejected:
+      - "Direct pathlib.Path.write_text() — Does not enforce UTF-8 without BOM or validate Unix LF line endings. Requires duplicate validation logic that already exists in content_generators."
+      - "Manual file I/O with explicit encoding parameters — Adds implementation complexity and error handling boilerplate. Existing function already handles encoding, BOM avoidance, and file validation."
+    rationale: "The write_markdown_file() function provides complete encoding guarantee (UTF-8 via encoding='utf-8'), automatic trailing newline (Unix convention compliance), and file existence/size verification. It validates the repository root path safely (prevents path traversal) and integrates with project logging infrastructure. The function has been proven across 263 preceding features with consistent success."
+
+  - title: "Markdown Validation Strategy"
+    chosen: "Use comprehensive validate_markdown_file() with H1 heading, sentence count, encoding, and line ending checks"
+    rejected:
+      - "Minimal validation (heading and sentence count only) — Would miss encoding/line ending violations that are NFRs and may not be caught until repository audits. Reduces quality assurance coverage."
+      - "Skip validation entirely — No way to detect LLM generation failures, file corruption, or encoding issues before committing. Violates FR-7 (Markdown Validation) and NFR-2 (>95% success rate requirement)."
+    rationale: "The validate_markdown_file() function performs comprehensive checks: H1 heading presence, exact 2-3 sentence count (via period detection), UTF-8 validity (no BOM), Unix LF line endings (no CRLF), and trailing newline compliance. This aligns with FR-7 requirement for markdown structure validation and NFR-2 requirement for quality assurance. At scale (264 identical features), comprehensive validation catches LLM edge cases and ensures consistent quality across all generated files."
+
+  - title: "Git Operations Pattern"
+    chosen: "Use existing commit_markdown_file() and push_markdown_file() from content_generators.py"
+    rejected:
+      - "Direct GitPython invocations — Lower-level API requires manual repo initialization, staging logic, and error handling. Duplicates functionality already wrapped in content_generators utilities."
+      - "git command subprocess calls — Less reliable error handling, harder to test, no structured logging. Project standardizes on tool-level abstractions (GitCommitTool, GitPushTool)."
+    rationale: "The content_generators utilities wrap GitCommitTool and GitPushTool, which provide consistent error handling, structured logging integration (via _logger), and reliable subprocess execution. commit_markdown_file() ensures conventional commit format (feat(N): message), handles custom messages, and validates content before committing. push_markdown_file() manages upstream tracking (-u flag) and remote specification. This approach aligns with FR-8, FR-9, FR-10 requirements and maintains consistency with 263 preceding features."
+
+  - title: "Error Handling Strategy"
+    chosen: "Single LLM attempt with clear error reporting; no automatic retries"
+    rejected:
+      - "Exponential backoff retry logic (up to 3 attempts) — Hides transient API issues by succeeding eventually. Operational transparency decreases; operators cannot distinguish between API flakiness and real failures. Violates NFR-1 (5-minute budget); retries add variable latency."
+      - "Silent fallback to default content — Produces potentially nonsensical results committed to repository. Violates data integrity and traceability requirements. Feedback from specification explicitly rejected this approach."
+    rationale: "Single-attempt error reporting maintains operational transparency (failures are visible, not masked by retries) and deterministic behavior (consistent performance within NFR-1 5-minute budget). When LLM generation fails, error is logged immediately via _logger.error() and re-raised, allowing operators to see actual failures and diagnose API issues. This approach matches the established pattern from feature_263 and aligns with the specification's explicit recommendation for single attempt with error reporting."
+
+  - title: "Feature Implementation Structure"
+    chosen: "Create thin orchestration wrapper in src/sheep/features/feature_264_markdown_file_creation.py"
+    rejected:
+      - "Inline content_generators.create_markdown_file() call — Lacks feature-specific metadata, logging context, and testability. Makes it harder to track which feature executed and why."
+      - "Custom agent-based orchestration — Unnecessary complexity for a straightforward sequential workflow. Agents add overhead without benefit for deterministic, single-LLM-call operations."
+    rationale: "A thin wrapper (50-100 lines) following the feature_263 pattern provides feature-specific metadata (FEATURE_NUMBER, FEATURE_NAME, MARKDOWN_FILENAME), clear task logging (5 sequential steps logged separately), and clean return structure. This approach enables feature tracking in observability systems (Langfuse), maintains consistency with 263 preceding features, and provides a clear, testable entry point. The wrapper orchestrates existing utilities without duplicating logic, following the layered architecture principle (features layer coordinates utils layer)."
+
+openQuestions:
+  - question: "Should sentence counting use period detection, or more sophisticated NLP-based sentence segmentation?"
+    resolved: true
+    options:
+      - option: "Period detection (current implementation)"
+        description: "Count periods to determine sentence count. Simple, deterministic, fast. Matches existing implementation in content_generators. May be fooled by edge cases (abbreviations, decimal numbers in prose, ellipsis). Works well for typical prose."
+        selected: true
+      - option: "NLP sentence tokenization (spaCy, NLTK)"
+        description: "Use linguistic library for proper sentence boundary detection. More accurate for edge cases. Adds dependency and slight latency. Overkill for simple prose validation at this scale."
+        selected: false
+      - option: "LLM-based validation"
+        description: "Ask Claude API to validate sentence count as part of generation. Adds extra API call, increases latency and cost. Redundant given that prompt already specifies sentence count."
+        selected: false
+    selectionRationale: "Period detection is appropriate because: (1) prose generated by Claude API with explicit '2-3 sentences' prompt naturally uses periods as sentence terminators, (2) implementation is simple and fast (no extra dependencies), (3) existing content_generators._validate_markdown_content() already uses period counting successfully across 263 prior features, (4) edge cases (abbreviations, ellipsis, etc.) are extremely rare in Claude-generated prose about random topics, (5) period counting provides deterministic behavior suitable for automated validation."
+
+  - question: "Should the feature module be executable as a script (with if __name__ == '__main__' block)?"
+    resolved: true
+    options:
+      - option: "Include executable entry point"
+        description: "Add if __name__ == '__main__' block like feature_263, allowing direct execution with python feature_264_markdown_file_creation.py. Enables manual testing and ad-hoc execution."
+        selected: true
+      - option: "Function-only (no executable entry point)"
+        description: "Expose only the function; require import and explicit call. Slightly cleaner separation (module is not executable). Slightly less convenient for manual testing."
+        selected: false
+      - option: "Use click CLI decorator"
+        description: "Add click command decorator for standardized CLI interface. More sophisticated but adds extra dependency and complexity for a single function."
+        selected: false
+    selectionRationale: "Executable entry point is selected to match feature_263 exactly and enable convenient manual testing. The pattern is simple (3-4 lines), provides clear output, and aligns with existing conventions. No additional dependencies required."
+
+  - question: "Should validation failures report detailed debugging information or minimal error messages?"
+    resolved: true
+    options:
+      - option: "Minimal error messages (current implementation)"
+        description: "Report concise error messages. Example: 'Content must have 2-3 sentences, found 4'. Clean logs, easier to parse programmatically. Less debugging context."
+        selected: true
+      - option: "Detailed debugging information"
+        description: "Include file content excerpts, hex dumps of problematic regions, full validation context. Helpful for debugging. Clutters logs with noise; may expose sensitive content."
+        selected: false
+      - option: "Structured JSON error objects"
+        description: "Return error as JSON with validation_field, expected_value, actual_value. Programmatically easier to parse. Overkill for logging that's primarily human-read."
+        selected: false
+    selectionRationale: "Minimal error messages match existing pattern from content_generators and align with project logging practices. Validation failures are rare (LLM generation is reliable), so detailed debugging is typically unnecessary. When failures do occur, _logger.debug() calls in content_generators already capture raw responses for troubleshooting. Minimal messages keep logs clean and facilitate automated error handling."
+
+content: |
+  ## Status
+
+  - **Phase:** Research Complete
+  - **Updated:** 2026-03-29
+  - **Assessment:** Ready for implementation — all technical decisions documented, no blockers identified
+
+  ## Architecture Fit
+
+  Feature 264 fits naturally into Sheep's layered architecture:
+
+  1. **Utility Layer** (content_generators.py): Provides 6 proven functions
+     - `generate_markdown_content()` — LLM invocation with validation
+     - `write_markdown_file()` — File I/O with encoding guarantees
+     - `validate_markdown_file()` — Structure and format validation
+     - `commit_markdown_file()` — Git commit with conventional format
+     - `push_markdown_file()` — Remote push with upstream tracking
+     - Helper: `extract_topic_from_content()` — H1 heading extraction
+
+  2. **Feature Layer** (src/sheep/features/feature_264_markdown_file_creation.py): Thin orchestrator
+     - Combines utilities in 5-step workflow
+     - Feature-specific metadata (number 264, filename, branch)
+     - Integration with observability (structured logging)
+     - Clear error handling with immediate failure reporting
+
+  3. **Configuration Layer** (src/sheep/config/llm.py): LLM factory
+     - `get_reasoning_llm()` — CrewAI abstraction supporting Claude, OpenAI, Google
+     - Temperature 0.2 for consistent, focused output
+     - API key management via Pydantic settings
+
+  4. **Observability Layer** (src/sheep/observability/logging.py): Structured logging
+     - All operations logged with context (feature number, step, status)
+     - Integration with Langfuse for execution tracing
+     - Enables root cause analysis of failures
+
+  ## Technology Stack Analysis
+
+  | Technology | Purpose | Selection | Reasoning |
+  | ---------- | ------- | --------- | --------- |
+  | **Python 3.11+** | Runtime | Required | Project specifies in pyproject.toml; features 1-263 validated |
+  | **CrewAI 0.86+** | LLM Framework | Use existing | Provides multi-provider LLM abstraction, simplifies switching between Claude/OpenAI/Google. Project dependency. |
+  | **Anthropic Claude API** | Content Generation | Use via CrewAI | More capable than smaller models for coherent prose generation. Temperature 0.2 (reasoning model) ensures focus. Wrapped through get_reasoning_llm(). |
+  | **GitPython 3.1+** | Git Operations | Use via wrappers | Underlying lib for GitCommitTool/GitPushTool. Accessed only through content_generators utilities, never directly. |
+  | **Pydantic 2.0+** | Config/Validation | Use via framework | Project standardizes on Pydantic for settings. Used by content_generators for input validation. |
+  | **structlog 24.0+** | Structured Logging | Use via project infrastructure | Provides _logger from project logging module. Enables Langfuse integration. |
+  | **pathlib** | File Operations | Use (standard lib) | Built-in, safe (prevents path traversal), no extra dependency. Used by write_markdown_file(). |
+
+  ## Library Evaluation Summary
+
+  - **No new libraries required** — All functionality exists in project dependencies
+  - **CrewAI LLM abstraction** — Optimal choice vs raw Anthropic SDK (multi-provider, consistent, project-standard)
+  - **content_generators utilities** — Comprehensive, proven, eliminate code duplication
+  - **Existing git tools** — GitCommitTool/GitPushTool provide reliable abstractions
+  - **Project logging** — structlog + Langfuse provide observability
+
+  ## Security Considerations
+
+  ### Input Validation
+
+  - **Filename validation:** write_markdown_file() prevents path traversal (checks for "/" and "\" in filename, disallows leading ".")
+  - **Content validation:** Content is generated by Claude API (controlled source), not user input. validate_markdown_file() validates structure only, not content (no injection risks)
+  - **Git operations:** GitCommitTool/GitPushTool use subprocess safely (explicit argument list, no shell=True)
+  - **File encoding:** UTF-8 decoding validates proper encoding; binary checks prevent BOM injection
+
+  ### Data Integrity
+
+  - **File encoding guaranteed:** write_markdown_file() specifies encoding="utf-8" explicitly
+  - **Line ending enforcement:** validate_markdown_file() rejects files with CRLF
+  - **Trailing newline compliance:** Ensures POSIX convention (files end with \n)
+  - **No file overwrite without validation:** Generated file is validated before commit
+
+  ### Audit Trail
+
+  - All operations logged (generation, writing, validation, commit, push)
+  - Structured logging captures feature number, step, status, error details
+  - Langfuse tracing provides execution graphs and error context
+  - Git history provides immutable record of changes
+
+  ### Absence of Risks
+
+  - No shell injection (subprocess uses explicit args)
+  - No SQL injection (no database operations)
+  - No XSS risk (file content never rendered in browser)
+  - No secret leakage (API keys managed by Pydantic settings, never logged)
+  - No dependency supply chain risk (all deps in project's pyproject.toml)
+
+  ## Performance Implications
+
+  ### Latency Analysis
+
+  Expected execution time breakdown (based on feature_263 observations):
+
+  | Operation | Typical Duration | Notes |
+  | --------- | --------------- | ----- |
+  | LLM generation (Claude reasoning) | 2-4 seconds | Temperature 0.2 (focused); single attempt; no retries |
+  | File write + validation | 0.1-0.2 seconds | Local filesystem I/O; small file (~250-400 bytes) |
+  | Git staging (git add -A) | 0.05 seconds | Minimal changes (single new file) |
+  | Git commit | 0.2-0.3 seconds | Local operation; small diff |
+  | Git push | 0.5-2 seconds | Network round trip; varies by network latency |
+  | **Total expected** | **3.5-7 seconds** | Well within NFR-1 (5-minute budget); typical ~5s |
+
+  ### Performance Optimization Notes
+
+  - **No caching:** Caching across 264 features not beneficial (each feature creates unique file)
+  - **No parallelization:** Workflow is strictly sequential (git push requires prior commit)
+  - **No batching:** Single file per feature; batching not applicable
+  - **Deterministic performance:** Single LLM attempt (no retries adding variable latency)
+
+  ### NFR-1 Compliance (5-minute budget)
+
+  Expected completion well within budget:
+  - Typical execution: 5 seconds
+  - Conservative estimate (slow network): 15 seconds
+  - 95th percentile (network delays): 30 seconds
+  - **Even at 95th percentile: < 1 minute remaining from 5-minute budget**
+
+  ### Resource Usage
+
+  - **Memory:** Minimal (~10-20 MB for Python runtime + dependencies)
+  - **CPU:** Single-threaded; brief usage during LLM call and git operations
+  - **Disk I/O:** Single file write (~400 bytes); no temp files
+  - **Network:** Single LLM API call; single git push
+
+  ## Implementation Notes
+
+  ### Code Structure (Feature Wrapper)
+
+  The feature module will follow feature_263 pattern exactly:
+
+  ```python
+  \"\"\"Implementation for feature 264: Create markdown file test-4533e5.md\"\"\"
+
+  from pathlib import Path
+  from sheep.content_generators import (
+      generate_markdown_content,
+      write_markdown_file,
+      validate_markdown_file,
+      commit_markdown_file,
+      push_markdown_file,
+  )
+  from sheep.observability.logging import get_logger
+
+  FEATURE_NUMBER = 264
+  FEATURE_NAME = \"markdown-file-creation-eeaf11\"
+  MARKDOWN_FILENAME = \"test-4533e5.md\"
+
+  def create_feature_264_markdown_file(repo_path: str | None = None) -> dict[str, str]:
+      \"\"\"Create markdown file for feature 264...\"\"\"
+      # 5 sequential tasks with logging
+      # Return dict with filepath, content, commit_message, push_result
+
+  if __name__ == \"__main__\":
+      result = create_feature_264_markdown_file()
+      print(f\"Successfully created: {result['filepath']}\")
+  ```
+
+  - **~100 lines total:** Feature metadata (3) + function signature (8) + docstring (12) + try/except (75) + main block (5)
+  - **Zero code duplication:** All logic in content_generators utilities
+  - **Clear error propagation:** Exceptions from utilities are re-raised with logging
+
+  ### Validation Checklist
+
+  At implementation completion, verify:
+
+  - [ ] File created at repository root as test-4533e5.md
+  - [ ] File contains valid H1 heading (first line starts with "# ")
+  - [ ] File contains exactly 2 or 3 sentences (period-based counting)
+  - [ ] File is valid UTF-8 (no BOM detected)
+  - [ ] File uses Unix LF line endings (no CRLF)
+  - [ ] File ends with trailing newline
+  - [ ] File size is reasonable (~250-400 bytes)
+  - [ ] Git staging succeeds (git add -A)
+  - [ ] Git commit succeeds with message format "feat(264): Create markdown file test-4533e5.md with prose content"
+  - [ ] Git push succeeds to origin branch
+  - [ ] All operations logged via _logger (info/debug/error)
+
+  ### Testing Strategy
+
+  Verification approach:
+  1. **Unit validation:** Each content_generators function already tested by 263 preceding features
+  2. **Integration test:** Run feature_264_markdown_file_creation() and verify return dict
+  3. **File validation:** Read created file and verify structure with validate_markdown_file()
+  4. **Git verification:** Check git log for commit, verify remote has pushed changes
+
+  ### Expected Outcomes
+
+  Success (typical case):
+  - Generated prose: "# [Title]\n\n[Sentence 1]. [Sentence 2]. [Sentence 3].\n"
+  - Example: "# The Importance of Coffee\n\nCoffee has been a staple beverage for centuries. It provides energy and mental clarity. Many people start their day with a warm cup.\n"
+  - Commit message: "feat(264): Create markdown file test-4533e5.md with prose content"
+  - Push result: "Pushed to origin/feat/264-markdown-file-creation-eeaf11"
+
+  Failure scenarios (rare):
+  - LLM API timeout → Caught, logged as error, re-raised
+  - File write permission denied → Caught, logged, re-raised
+  - Git push remote rejection → Caught, logged, re-raised
+  - All failures halt immediately (no retries), allowing operator to diagnose
+
+  ## Decision Summary Table
+
+  | Decision | Chosen Approach | Why Not Alternatives | Confidence |
+  | -------- | --------------- | -------------------- | ---------- |
+  | Content Generation | Use generate_markdown_content() | Avoids SDK duplication, leverages CrewAI abstraction | Very High |
+  | File Writing | Use write_markdown_file() | Eliminates encoding/BOM/LF concerns, proven pattern | Very High |
+  | Validation | Use validate_markdown_file() | Comprehensive checks match NFRs, catches edge cases | Very High |
+  | Git Operations | Use commit/push_markdown_file() | Handles conventional format and error handling | Very High |
+  | Error Handling | Single attempt, clear reporting | Maintains transparency, matches specification guidance | High |
+  | Implementation Pattern | Thin wrapper module | Matches 263 prior features, enables observability | Very High |
+  | Dependencies | Zero new libraries | All functionality exists in project deps | Very High |
+
+  ## Conclusion
+
+  Feature 264 implementation is straightforward orchestration of existing, proven utilities. No new code patterns, libraries, or infrastructure required. The single technical challenge is ensuring prose quality and proper validation, which is already solved by content_generators functions validated across 263 preceding features. Implementation should be completed in <1 hour by following the feature_263 pattern exactly.
