@@ -1,0 +1,262 @@
+name: "markdown-file-creation-8b24cd"
+summary: >
+  Feature 270 creates a markdown file (test-1z6fhe.md) with deterministic seeded
+  content generation using a template pool and hash-based selection. Implementation
+  leverages Python standard library only (no external APIs) and follows the established
+  pattern from features 267-269. Key phases: (1) establish reusable utilities for
+  content generation, file creation, validation, and git integration; (2) implement
+  feature script orchestrating the complete workflow; (3) comprehensive testing and
+  verification of reproducibility, encoding, and git operations.
+
+relatedFeatures:
+  - number: 269
+    name: "markdown-file-creation"
+    relationship: "Identical markdown structure; uses Claude API vs deterministic seeding"
+  - number: 268
+    name: "markdown-file-creation"
+    relationship: "Identical markdown structure and validation pattern"
+  - number: 267
+    name: "markdown-file-creation"
+    relationship: "Establishes validation and git integration workflow"
+
+technologies:
+  - "Python 3.11+ (pathlib, subprocess, hashlib, time)"
+  - "Markdown (H1 heading + 2-3 sentence prose structure)"
+  - "Git (version control operations and conventional commits)"
+  - "Hash-based deterministic content selection (hashlib.md5)"
+
+relatedLinks:
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Python hashlib Documentation"
+    url: "https://docs.python.org/3/library/hashlib.html"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+
+phases:
+  - id: phase-1
+    name: "Foundation: Template Pool & Reusable Utilities"
+    description: >
+      Establish template pool of 30-50 curated title+prose pairs, each validated
+      to produce 400-600 byte markdown files. Implement reusable utilities for:
+      (1) deterministic content selection from template pool via hash-based lookup,
+      (2) file creation with UTF-8 encoding and Unix LF line endings,
+      (3) post-creation validation with retry logic and exponential backoff,
+      (4) git operations (stage, commit, push) with comprehensive error handling.
+      These utilities enable all 270+ similar features without code duplication.
+    parallel: false
+
+  - id: phase-2
+    name: "Core: Feature Implementation & Orchestration"
+    description: >
+      Create feature-specific script that orchestrates the complete workflow:
+      select content from template pool → create markdown file → validate structure →
+      stage with git add → commit with conventional format → push to origin.
+      Wire together utilities from Phase 1 with error handling and progress reporting.
+      Follow established pattern from features 267-269 for consistency.
+    parallel: false
+
+  - id: phase-3
+    name: "Quality: Testing, Verification & Execution"
+    description: >
+      Write comprehensive test suite covering reproducibility, file format validation,
+      encoding and line-ending correctness, retry logic, git workflow, and end-to-end
+      execution. Execute feature script and manually verify all success criteria
+      (file existence, content structure, git history). Confirm cross-platform
+      compatibility and deterministic output.
+    parallel: false
+
+filesToCreate:
+  - "specs/270-markdown-file-creation-8b24cd/templates.py"
+  - "specs/270-markdown-file-creation-8b24cd/create_markdown_file.py"
+  - "specs/270-markdown-file-creation-8b24cd/test_templates.py"
+  - "specs/270-markdown-file-creation-8b24cd/test_file_operations.py"
+  - "specs/270-markdown-file-creation-8b24cd/test_git_operations.py"
+  - "specs/270-markdown-file-creation-8b24cd/test_feature_270.py"
+
+filesToModify:
+  - "src/create_markdown.py"
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 270 implements the established markdown file creation pattern (features 267-269)
+  with a critical optimization: **deterministic seeded content generation** instead of
+  Claude API calls. This approach is mandatory for scaling to 270+ test features
+  while minimizing cost, latency, and external dependencies.
+
+  ### Core Architecture Principles
+
+  1. **Deterministic Template Pool Approach**
+     - Maintain 30-50 pre-curated title+prose pairs
+     - Use hashlib.md5(feature_number.encode()).hexdigest() for deterministic selection
+     - Same feature number always produces identical output (reproducibility requirement NFR-6)
+     - Each template pre-validated to produce 400-600 byte markdown files
+     - Zero API calls, zero cost, <10ms generation time
+
+  2. **Reusable Utilities (src/create_markdown.py)**
+     - **Content Selection:** select_content(feature_number) → {title, prose}
+     - **File Creation:** create_markdown_file(filepath, title, prose) → writes UTF-8+LF
+     - **Validation:** validate_markdown_file(filepath, max_retries=2) → checks structure, encoding, retries
+     - **Git Operations:** git_stage(filename), git_commit(filename, feature_number), git_push()
+     - Utilities are generic and callable by all 270+ similar features
+     - Centralizes logic and eliminates 270+ duplicate feature scripts
+
+  3. **Feature-Specific Script (specs/270-*/create_markdown_file.py)**
+     - Minimal orchestration layer calling utilities
+     - Workflow: select → create → validate → stage → commit → push
+     - Error handling for each step with clear messages
+     - Suitable pattern for feature isolation while leveraging shared utilities
+
+  4. **Python Standard Library Only**
+     - pathlib for file I/O (modern, cross-platform)
+     - subprocess for git operations (reliable, no external deps)
+     - hashlib for deterministic selection (proven, standard)
+     - Meets NFR-4 (no external API dependencies) and NFR-5 (zero configuration)
+
+  ### Why This Architecture?
+
+  - **Scalability:** 270+ features can run in parallel without API rate limiting
+  - **Cost:** Zero API tokens vs $0.01-0.05 per feature with Claude API
+  - **Speed:** <200ms total execution (no 500-1000ms API latency)
+  - **Reproducibility:** Same feature number always produces identical output
+  - **Maintainability:** Reusable utilities reduce code duplication by 99%
+  - **Reliability:** Validation with retry logic (1-2 attempts) handles transient failures
+
+  ## Key Design Decisions
+
+  ### Decision 1: Deterministic Seeded Content Generation (vs Claude API)
+  **Chosen:** Template pool + hash-based selection from feature number
+
+  **Rationale:**
+  - Feature spec explicitly recommends this approach (not Claude API)
+  - 270+ test features would incur significant cost/latency with API calls (~$7-15 total for 270 calls)
+  - Deterministic seeding ensures reproducibility (same feature → same content every time)
+  - Hash-based selection from pool provides good distribution across template pool
+  - Execution speed: <10ms vs 500-1000ms for API calls
+  - Aligns with requirements: NFR-2 (reproducibility), NFR-4 (no external APIs), NFR-5 (zero config)
+
+  **Implementation:** hashlib.md5(str(feature_number).encode()).hexdigest() → int → index into TEMPLATE_POOL
+
+  ### Decision 2: Reusable Utilities vs Dedicated Feature Scripts
+  **Chosen:** Generic utilities in src/create_markdown.py, feature-specific orchestration
+
+  **Rationale:**
+  - Feature spec recommends generic utilities to avoid "270+ nearly-identical feature scripts"
+  - Centralizes validation, encoding, and git logic
+  - Simplifies maintenance and enables consistent error handling
+  - Small feature script (specs/270-*/create_markdown_file.py) provides feature isolation
+  - Matches established pattern from features 267-269
+
+  **Implementation:** Utilities handle all heavy lifting; feature script is minimal orchestrator
+
+  ### Decision 3: File I/O with UTF-8 + Unix LF
+  **Chosen:** pathlib.Path.write_text(encoding='utf-8', newline='\n')
+
+  **Rationale:**
+  - Requirement FR-5 explicitly mandates pathlib
+  - newline='\n' parameter enforces Unix LF on all platforms (Windows, Linux, macOS)
+  - No BOM (byte-order mark) via explicit UTF-8 encoding
+  - Idiomatic Python 3.11+ approach
+  - Matches established pattern from features 267-269
+
+  **Implementation:** Path(filename).write_text(f"# {title}\n\n{prose}\n", encoding='utf-8', newline='\n')
+
+  ### Decision 4: Validation with Retry Logic
+  **Chosen:** Strict validation (1-2 retries, exponential backoff 100ms → 200ms)
+
+  **Rationale:**
+  - Requirement NFR-8 explicitly recommends robust validation with retry
+  - Proven pattern from features 267-269
+  - Handles transient failures gracefully (rare content sizing edge cases)
+  - Validation checks: H1 heading, sentence count (2-3), file size (400-600 bytes), encoding, line endings, trailing newline
+  - Retry delay: 100ms first attempt, 200ms second (exponential backoff pattern)
+
+  **Implementation:** Loop with try/except, time.sleep() for backoff, clear error messages
+
+  ### Decision 5: Git Operations Error Handling
+  **Chosen:** Comprehensive subprocess error handling with validation of each step
+
+  **Rationale:**
+  - Requirement NFR-7 mandates fail-fast on critical errors
+  - Each git operation can fail independently (missing repo, auth, network)
+  - subprocess.run(check=True) raises exception on non-zero exit
+  - Comprehensive error capture enables debugging
+  - No external git library needed (subprocess sufficient)
+
+  **Implementation:** subprocess.run() with check=True, stderr/stdout capture, descriptive error messages
+
+  ## Implementation Strategy
+
+  **Phase Ordering Rationale:**
+
+  1. **Phase 1 (Foundation) comes first** because utilities are the foundation
+     - Template pool: Provides content for feature
+     - Utilities: All other phases depend on these
+     - Duration: ~2.5 hours for 5 focused tasks
+
+  2. **Phase 2 (Core) depends on Phase 1** because feature script calls utilities
+     - Orchestration layer: Minimal (~45min)
+     - Wires together Phase 1 utilities into complete workflow
+     - Can be designed in parallel with Phase 1 but implemented after
+
+  3. **Phase 3 (Testing) depends on Phases 1 & 2** because tests validate utilities and feature
+     - Unit tests for Phase 1 components (templates, content selection, file ops, git ops)
+     - Integration tests for Phase 2 orchestration
+     - End-to-end test and manual verification
+     - Duration: ~2 hours for 5 test tasks + execution
+
+  **Total Implementation Time:** ~6 hours
+
+  **Task Breakdown Summary:**
+  - Phase 1: 5 tasks (templates, content selection, file creation, validation, git ops)
+  - Phase 2: 1 task (feature orchestration script)
+  - Phase 3: 5 tasks (unit tests, integration tests, end-to-end tests, manual verification)
+  - Total: 11 tasks
+
+  ## Risk Mitigation
+
+  | Risk | Impact | Mitigation Strategy |
+  | ---- | ------ | ------------------- |
+  | Template pool is too small (limited variety) | Low | Curate 30-50 templates covering diverse topics; audit for quality before finalizing |
+  | Hash collision (multiple features → same template) | Low | Pool size 30-50 > feature count 270; collision unlikely and acceptable for test features |
+  | Template produces wrong file size | Medium | Pre-validate all templates by measuring byte size; mark expected size in code comments |
+  | Git push fails (network/auth issues) | Medium | Fail-fast with clear error message; user can manually retry; comprehensive error logging |
+  | File encoding issues on Windows (CRLF vs LF) | Medium | pathlib.write_text(newline='\n') guarantees LF on all platforms; validation checks line endings |
+  | Validation regex doesn't match prose | Low | Use simple, robust checks: count sentence-ending punctuation, file size via stat(), startswith('# ') for heading |
+  | Cross-platform compatibility issues | Low | Use pathlib (not os.path), explicit UTF-8 encoding, Unix LF enforcement; test on different platforms |
+  | Retry logic gets stuck in loop | Low | Max 2 retries only; exponential backoff prevents tight loops; timeout after 200ms delay |
+
+  ## Dependencies & Integration Points
+
+  **External Dependencies:** None (Python standard library only)
+
+  **Internal Dependencies:**
+  - src/create_markdown.py: New or existing utility module (will be created in Phase 1)
+  - specs/270-*/templates.py: Template pool (created in Phase 1, Task 1)
+  - specs/270-*/create_markdown_file.py: Feature script (created in Phase 2)
+
+  **Integration with Sheep Platform:**
+  - Feature follows established pattern from 267-269
+  - Uses Python standard library (aligns with NFR-5)
+  - Integrates with existing git workflow (feature branches, conventional commits)
+  - Can be invoked from CrewAI agents as simple Python function call
+  - No modifications to platform core needed
+
+  ## Success Criteria
+
+  Implementation is complete when:
+  1. ✅ File test-1z6fhe.md exists at repository root
+  2. ✅ File contains H1 title and 2-3 sentences of prose
+  3. ✅ File uses UTF-8 encoding without BOM and Unix LF line endings
+  4. ✅ File size is 400-600 bytes with trailing newline
+  5. ✅ File is staged, committed with conventional message, and pushed to origin
+  6. ✅ Content is deterministically seeded (same output on multiple runs)
+  7. ✅ All validation checks pass (heading, sentence count, file size, encoding)
+  8. ✅ Retry logic handles transient failures gracefully
+  9. ✅ Comprehensive test suite validates all components
+  10. ✅ Git history is clean (no rewrites, commit message is correct)
