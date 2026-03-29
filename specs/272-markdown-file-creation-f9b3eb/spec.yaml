@@ -9,7 +9,7 @@ summary: >
   as the title and 2-3 sentences of prose content. This continues an established pattern with 270+ similar
   test files in the Sheep project. Implementation requires only basic file I/O to write the markdown file
   with proper UTF-8 encoding, validate the content structure, and commit/push via git.
-phase: "Analysis"
+phase: "Requirements"
 sizeEstimate: "S"
 
 relatedFeatures:
@@ -39,7 +39,60 @@ relatedLinks:
   - title: "Feature 267 Implementation (Reference)"
     url: "file:///C:/Users/runneradmin/.shep/repos/efe181249166f369/wt/feat-markdown-file-creation-f9b3eb/specs/267-markdown-file-creation-e4197f/spec.yaml"
 
-openQuestions: []
+openQuestions:
+  - question: "Should content be generated using Claude API or use template/hardcoded content?"
+    resolved: true
+    options:
+      - option: "Claude API"
+        description: "Use Claude API via sheep.config.llm.get_reasoning_llm() to generate unique, context-aware prose content for each file. Aligns with existing infrastructure, provides variety across test files, and demonstrates platform capability."
+        selected: true
+      - option: "Template/Hardcoded"
+        description: "Use pre-written or template content that is consistent and fast. Reduces API calls and dependency on external service availability."
+        selected: false
+    selectionRationale: "Claude API is recommended because it maintains consistency with the established pattern used in features 101-271, ensures meaningful variation in test file content, and leverages the existing sheep.config.llm infrastructure without requiring manual authoring. Features 270 and 271 confirm this approach is already validated."
+    answer: "Claude API"
+
+  - question: "How should the system handle the case where test-k8774z.md already exists?"
+    resolved: true
+    options:
+      - option: "Overwrite silently"
+        description: "Replace the existing file without warning. Enables idempotent re-execution per NFR-5 requirement, aligns with automation-first design."
+        selected: true
+      - option: "Fail with error"
+        description: "Raise an exception if the file exists. Prevents accidental overwrites, safer for manual operations but incompatible with idempotency."
+        selected: false
+      - option: "Prompt user"
+        description: "Ask the user whether to overwrite. Interactive and safe but incompatible with the automated, headless execution model."
+        selected: false
+    selectionRationale: "Overwrite silently is recommended because NFR-5 explicitly requires idempotency and the feature is designed for automation without user interaction. The established pattern across features 101-271 confirms silent overwrite is the expected behavior. This allows safe re-execution without manual intervention."
+    answer: "Overwrite silently"
+
+  - question: "When should file validation occur relative to git operations?"
+    resolved: true
+    options:
+      - option: "Before committing"
+        description: "Validate the written file immediately after writing, before staging and committing. Fails fast and prevents invalid files from entering version control history."
+        selected: true
+      - option: "After committing"
+        description: "Commit first, then validate in a separate post-commit check. Allows commits even if validation fails, creating technical debt."
+        selected: false
+    selectionRationale: "Validate before committing is recommended because it prevents invalid files from entering git history, aligns with fail-fast principles, and matches the orchestration order in content_generators.py where validate_markdown_file() is called before commit_markdown_file(). This ensures quality gates are enforced before version control locks the artifact."
+    answer: "Before committing"
+
+  - question: "What level of logging detail should the feature implementation include?"
+    resolved: true
+    options:
+      - option: "Standard (key steps only)"
+        description: "Log only major steps: content generation started, validation passed/failed, file written, commit created, push completed. Minimal noise, clear success/failure signals."
+        selected: true
+      - option: "Verbose (all operations)"
+        description: "Log every operation including file I/O details, encoding validation results, git command output. Aids debugging but produces large logs."
+        selected: false
+      - option: "Silent (errors only)"
+        description: "Only log on failure. Minimal output, but obscures successful execution for observability."
+        selected: false
+    selectionRationale: "Standard logging is recommended because it balances observability with clarity. The sheep.observability.logging module and structlog>=24.0.0 dependency indicate structured logging is a project convention. Standard-level logs will track the happy path (generation → validation → write → commit → push) while remaining readable."
+    answer: "Standard (key steps only)"
 
 content: |
   ## Problem Statement
@@ -84,6 +137,15 @@ content: |
   - **NFR-5**: Idempotency — Implementation must safely handle re-execution (overwriting existing file if it already exists, without failing)
   - **NFR-6**: Documentation — Prose content should be understandable and relevant (no nonsense or placeholder text)
   - **NFR-7**: Reuse Existing Infrastructure — Leverage content_generators.py functions (generate_markdown_content, validate_markdown_file, write_markdown_file, commit_markdown_file, push_markdown_file) to maintain consistency with features 101-271
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Content generation approach | Claude API | Maintains pattern from features 101-271, provides meaningful variation, leverages existing infrastructure |
+  | 2 | Handling existing files | Overwrite silently | Required for NFR-5 (idempotency), enables safe re-execution in automation context |
+  | 3 | Validation timing | Before committing | Prevents invalid files entering version control, aligns with fail-fast principles and content_generators.py orchestration order |
+  | 4 | Logging detail level | Standard (key steps only) | Balances observability with clarity per project's structlog>=24.0.0 convention |
 
   ## Codebase Analysis
 
@@ -195,4 +257,4 @@ content: |
 
   ---
 
-  _Analysis phase complete — specification ready for implementation_
+  _Requirements phase complete — all product decisions documented and recommendations provided_
