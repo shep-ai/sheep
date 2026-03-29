@@ -91,7 +91,7 @@ class TestContentGenerationIntegration:
         assert content.strip() != ""
 
     @pytest.mark.skipif(
-        not True,
+        not os.getenv('ANTHROPIC_API_KEY'),
         reason="ANTHROPIC_API_KEY not set - skipping API integration test"
     )
     def test_generated_content_starts_with_h1_heading(self):
@@ -105,7 +105,7 @@ class TestContentGenerationIntegration:
         assert len(lines[0]) > 2  # Has content after "# "
 
     @pytest.mark.skipif(
-        not True,
+        not os.getenv('ANTHROPIC_API_KEY'),
         reason="ANTHROPIC_API_KEY not set - skipping API integration test"
     )
     def test_generated_content_has_blank_line_separator(self):
@@ -119,7 +119,7 @@ class TestContentGenerationIntegration:
         assert lines[1] == ""  # Second line should be blank
 
     @pytest.mark.skipif(
-        not True,
+        not os.getenv('ANTHROPIC_API_KEY'),
         reason="ANTHROPIC_API_KEY not set - skipping API integration test"
     )
     def test_generated_content_has_prose_sentences(self):
@@ -138,7 +138,7 @@ class TestContentGenerationIntegration:
         assert 2 <= sentence_count <= 3, f"Expected 2-3 sentences, found {sentence_count}"
 
     @pytest.mark.skipif(
-        not True,
+        not os.getenv('ANTHROPIC_API_KEY'),
         reason="ANTHROPIC_API_KEY not set - skipping API integration test"
     )
     def test_generated_content_structure_matches_pattern(self):
@@ -166,7 +166,7 @@ class TestContentGenerationIntegration:
         assert "." in prose_text
 
     @pytest.mark.skipif(
-        not True,
+        not os.getenv('ANTHROPIC_API_KEY'),
         reason="ANTHROPIC_API_KEY not set - skipping API integration test"
     )
     def test_generated_content_ends_with_newline(self):
@@ -177,7 +177,7 @@ class TestContentGenerationIntegration:
         assert content.endswith("\n")
 
     @pytest.mark.skipif(
-        not True,
+        not os.getenv('ANTHROPIC_API_KEY'),
         reason="ANTHROPIC_API_KEY not set - skipping API integration test"
     )
     def test_generated_content_is_valid_utf8(self):
@@ -193,7 +193,7 @@ class TestContentGenerationIntegration:
         assert decoded == content
 
     @pytest.mark.skipif(
-        not True,
+        not os.getenv('ANTHROPIC_API_KEY'),
         reason="ANTHROPIC_API_KEY not set - skipping API integration test"
     )
     def test_generated_content_reasonable_length(self):
