@@ -1,0 +1,202 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-d0cacb"
+summary: >
+  This feature implements markdown file creation using the established pattern proven across 264 prior features.
+  The implementation leverages existing helper functions from sheep.content_generators for LLM-based content
+  generation, file I/O with encoding/line-ending normalization, validation before commit, and git operations.
+  No architectural decisions, no new dependencies, no source code modifications—pure reuse of validated infrastructure.
+
+relatedFeatures:
+  - number: 264
+    name: "markdown-file-creation"
+    relationship: "Identical pattern with proven success"
+  - number: 262
+    name: "markdown-file-creation"
+    relationship: "Same workflow pattern executed previously"
+
+technologies:
+  - "Python 3.11+ (runtime environment)"
+  - "pathlib (standard library for file operations)"
+  - "CrewAI (LLM integration, temperature 0.2 for consistency)"
+  - "Claude API (via CrewAI, accessed through get_reasoning_llm)"
+  - "Git (version control via subprocess-based git tools)"
+  - "Markdown (CommonMark specification)"
+  - "sheep.content_generators (existing helper module with orchestration functions)"
+  - "sheep.tools.git_tools (CrewAI-integrated git tools)"
+
+relatedLinks:
+  - title: "Feature 264 Implementation"
+    url: "https://github.com/anthropics/sheep/pull/337"
+  - title: "Content Generators Module"
+    url: "https://github.com/anthropics/sheep/blob/main/src/sheep/content_generators.py"
+  - title: "Feature 110 Specification (comprehensive example)"
+    url: "https://github.com/anthropics/sheep/blob/main/specs/110-markdown-file-creation-40e7b7/spec.yaml"
+
+phases:
+  - id: "phase-1"
+    name: "Content Generation"
+    description: "Generate markdown content via Claude API with H1 heading and 2-3 sentences of prose. Uses get_reasoning_llm() with temperature 0.2 for deterministic output and validates format before proceeding."
+    parallel: false
+
+  - id: "phase-2"
+    name: "File Creation and Encoding"
+    description: "Write generated content to disk at repository root as test-o09hnk.md with explicit UTF-8 encoding (no BOM) and Unix LF line endings. Verify file exists and is non-empty."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Pre-commit Validation"
+    description: "Validate file meets all structural and encoding requirements before committing. Checks UTF-8 encoding, LF line endings, H1 heading, 2-3 sentences, and trailing newline. Prevents commit of invalid files."
+    parallel: false
+
+  - id: "phase-4"
+    name: "Git Workflow (Commit and Push)"
+    description: "Stage file, commit with conventional message feat(265): create markdown file test-o09hnk.md with prose content, and push to remote branch with upstream tracking."
+    parallel: false
+
+filesToCreate:
+  - "test-o09hnk.md"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature integrates seamlessly into the established sheep architecture by reusing existing, proven patterns:
+
+  ### Existing Infrastructure Reuse
+  1. **Content Generation**: Uses `generate_markdown_content()` from sheep.content_generators, which wraps Claude API calls via CrewAI's `get_reasoning_llm()` with temperature 0.2 for consistent, deterministic output.
+  2. **File I/O**: Uses `write_markdown_file(content, filename)` which provides UTF-8 encoding, LF normalization, path safety validation, and post-write verification.
+  3. **Validation**: Uses `validate_markdown_file(filepath)` which comprehensively checks encoding, line endings, structure (H1 heading, 2-3 sentences), and trailing newline.
+  4. **Git Operations**: Uses CrewAI-integrated tools (GitCommitTool, GitPushTool) which wrap subprocess.run with shell=False for security and provide structured error handling.
+
+  ### Integration Points
+  - **LLM Configuration**: Inherits ANTHROPIC_API_KEY from environment (.env), handled by pydantic-settings in config module
+  - **Logging**: Uses structured logging via get_logger(__name__), integrated with Langfuse tracing for observability
+  - **Git Configuration**: Assumes git user.name and user.email are pre-configured (standard Git requirement)
+  - **Feature Branch**: Uses pre-created feature branch feat/265-markdown-file-creation-d0cacb for all changes
+
+  ### Pattern Consistency
+  This feature follows the identical workflow proven across 264+ prior implementations (features 001-264):
+  - Same file format: H1 heading + blank line + 2-3 sentences
+  - Same helper function calls in same order
+  - Same git workflow with conventional commit format
+  - Same encoding/line ending standards
+  - Diverse prose topics with no constraint (free-form selection per product decision)
+
+  ## Key Design Decisions
+
+  ### 1. Use Existing Helper Functions (Rather Than Custom Implementation)
+  **Decision**: Call `generate_markdown_content()`, `write_markdown_file()`, `validate_markdown_file()` from sheep.content_generators module.
+
+  **Rationale**:
+  - Functions are purpose-built for this exact pattern
+  - Already tested across 264+ prior features (zero issues reported)
+  - Eliminates need to implement LLM API calls, file I/O, encoding handling, or validation logic
+  - Ensures consistency with existing patterns and prevents code duplication
+  - Reduces implementation time from potential hours to minutes
+
+  **Alternatives Rejected**:
+  - Custom implementation: Requires reimplementing security validations, encoding handling, error handling—unnecessary complexity and testing overhead
+  - Hybrid approach: Selective reimplementation loses consistency benefits and increases maintenance burden
+
+  ### 2. Content Generation via Claude API with Temperature 0.2
+  **Decision**: Use `get_reasoning_llm()` configured with temperature 0.2 (low temperature for consistency).
+
+  **Rationale**:
+  - Temperature 0.2 produces deterministic, consistent output suitable for test files
+  - Fixed prompt template prevents prompt injection and ensures valid format
+  - CrewAI's LLM wrapper integrates with existing configuration and logging
+  - No need to manage API keys directly (handled by pydantic-settings)
+
+  **Alternatives Rejected**:
+  - Temperature 1.0: Produces high variability, not suitable for test artifacts
+  - Custom prompt templates: Risks format validation failures and increases complexity
+
+  ### 3. UTF-8 Encoding Without BOM, LF Line Endings
+  **Decision**: Use Python's text mode on Unix systems for automatic LF handling, explicit UTF-8 encoding in write_markdown_file().
+
+  **Rationale**:
+  - Python text mode on Unix automatically converts newlines to LF (no explicit conversion needed)
+  - Explicit UTF-8 encoding ensures no platform-dependent encoding confusion
+  - Validation checks for UTF-8 BOM prefix and rejects if present, preventing encoding attacks
+  - Prevents line-ending confusion that could cause validation failures across platforms
+
+  **Alternatives Rejected**:
+  - Manual line-ending conversion: Unnecessary, Python handles it, adds complexity
+  - System-dependent line endings: Violates NFR-2 (Unix LF requirement) on Windows systems
+
+  ### 4. Pre-commit Validation (Before Staging and Committing)
+  **Decision**: Call `validate_markdown_file()` after writing file, before staging/committing.
+
+  **Rationale**:
+  - Catches encoding, format, and content errors immediately (fast feedback)
+  - Prevents commits of invalid files (satisfies NFR-10)
+  - validate_markdown_file() checks all structural requirements in one call
+  - Matches implementation pattern from features 260-264 (recent precedents)
+
+  **Alternatives Rejected**:
+  - No validation: Risks silent failures and bad commits reaching remote
+  - Post-commit validation: Slower feedback, requires remediation, violates requirements
+
+  ### 5. Conventional Commit Message Format with Feature Number
+  **Decision**: Use commit message format: `feat(265): create markdown file test-o09hnk.md with prose content`
+
+  **Rationale**:
+  - Conventional commits enable automatic changelog generation and CI/CD parsing
+  - Feature number (265) provides traceability to specification and issue tracking
+  - Format matches all 264+ prior implementations (consistency)
+  - Simple to parse and understand (human and machine-readable)
+
+  **Alternatives Rejected**:
+  - Minimal format: Loses feature traceability and CI/CD parsing capability
+  - Custom format: Breaks conventional commits convention, inconsistent with codebase
+
+  ### 6. Push with Upstream Tracking (-u Flag)
+  **Decision**: Use `git push -u origin HEAD` to establish upstream tracking.
+
+  **Rationale**:
+  - Simplifies future pushes (no need to specify remote/branch)
+  - Works seamlessly in CI/CD and local development environments
+  - Git tools (GitPushTool) already implement this pattern via set_upstream=True
+
+  **Alternatives Rejected**:
+  - Force push: Unnecessary, not needed for new files, violates safety practices
+  - No upstream tracking: Leaves tracking setup as manual step in future
+
+  ## Implementation Strategy
+
+  ### Phase Ordering
+  The four phases are strictly sequential by necessity:
+  1. **Content Generation** comes first—must produce content before writing file
+  2. **File Creation** comes next—content must exist to write
+  3. **Validation** comes before commit—catch errors early, prevent bad commits
+  4. **Git Operations** comes last—commit only validated files
+
+  ### Minimal Implementation Scope
+  - Single file creation (test-o09hnk.md at repository root)
+  - No directory structure changes, no new modules, no configuration modifications
+  - Pure orchestration of existing helper functions
+  - Total implementation ~10-15 minutes per size estimate (S)
+
+  ### No Architectural Decisions Required
+  - All patterns established by 264+ precedents
+  - All helper functions available and tested
+  - All security considerations addressed by existing code
+  - No new dependencies or technologies needed
+
+  ## Risk Mitigation
+
+  | Risk | Severity | Mitigation |
+  | ---- | -------- | ---------- |
+  | LLM API timeouts or failures | Medium | wrap generate_markdown_content() call in try-except, provide meaningful error messages, allow retry |
+  | File I/O failures (permissions, disk space) | Low | write_markdown_file() validates path and destination, catches OSError and logs with context |
+  | Encoding validation failures | Low | validate_markdown_file() explicitly checks UTF-8 (no BOM) and LF line endings, provides specific error messages |
+  | Git configuration missing (user.name, user.email) | Low | Assume pre-configured per standard Git setup; catch GitError and suggest configuration if needed |
+  | Concurrent file modifications | Very Low | Feature operates only on new file test-o09hnk.md, no concurrent access concerns for single-file operation |
+  | Commit message exceeding conventions | Very Low | Message format is hardcoded per spec, no user input, no risk of invalid format |
+  | Feature number mismatch in commit | Low | Feature number (265) is hardcoded in commit message, matches spec exactly, no parameterization risk |
+  | Remote push failures (network, authentication) | Medium | GitPushTool catches subprocess errors, provides structured error messages, user can retry or investigate auth |
