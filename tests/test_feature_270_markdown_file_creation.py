@@ -171,11 +171,11 @@ class TestFeature270UnitTests:
 
     @patch("sheep.features.feature_270_markdown_file_creation.push_markdown_file")
     @patch("sheep.features.feature_270_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.write_markdown_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.validate_created_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.create_markdown_file")
     def test_success_path_all_functions_called_in_order(
         self,
-        mock_write,
+        mock_create,
         mock_validate,
         mock_commit,
         mock_push,
@@ -183,7 +183,7 @@ class TestFeature270UnitTests:
         """Test that all infrastructure functions are called in correct order."""
         # Setup mocks
         expected_content = f"# {TITLE}\n\n{PROSE}\n"
-        mock_write.return_value = "/repo/test-2sqwpg.md"
+        mock_create.return_value = Path("/repo/test-2sqwpg.md")
         mock_validate.return_value = True
         mock_commit.return_value = "abc123"
         mock_push.return_value = "pushed"
@@ -192,24 +192,24 @@ class TestFeature270UnitTests:
         create_feature_270_markdown_file("/repo")
 
         # Verify all mocks were called
-        mock_write.assert_called_once_with(expected_content, MARKDOWN_FILENAME)
-        mock_validate.assert_called_once_with("/repo/test-2sqwpg.md")
+        mock_create.assert_called_once_with("/repo")
+        mock_validate.assert_called_once()
         mock_commit.assert_called_once()
         mock_push.assert_called_once_with("/repo")
 
     @patch("sheep.features.feature_270_markdown_file_creation.push_markdown_file")
     @patch("sheep.features.feature_270_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.write_markdown_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.validate_created_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.create_markdown_file")
     def test_commit_message_format_is_correct(
         self,
-        mock_write,
+        mock_create,
         mock_validate,
         mock_commit,
         mock_push,
     ):
         """Test that commit_markdown_file is called with correct custom message."""
-        mock_write.return_value = "/repo/test-2sqwpg.md"
+        mock_create.return_value = Path("/repo/test-2sqwpg.md")
         mock_validate.return_value = True
         mock_commit.return_value = "abc123"
         mock_push.return_value = "pushed"
@@ -227,18 +227,18 @@ class TestFeature270UnitTests:
 
     @patch("sheep.features.feature_270_markdown_file_creation.push_markdown_file")
     @patch("sheep.features.feature_270_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.write_markdown_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.validate_created_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.create_markdown_file")
     def test_returns_dict_with_all_required_keys(
         self,
-        mock_write,
+        mock_create,
         mock_validate,
         mock_commit,
         mock_push,
     ):
         """Test that function returns dict with all required keys."""
         expected_content = f"# {TITLE}\n\n{PROSE}\n"
-        mock_write.return_value = "/repo/test-2sqwpg.md"
+        mock_create.return_value = Path("/repo/test-2sqwpg.md")
         mock_validate.return_value = True
         mock_commit.return_value = "abc123"
         mock_push.return_value = "pushed"
@@ -256,17 +256,17 @@ class TestFeature270UnitTests:
 
     @patch("sheep.features.feature_270_markdown_file_creation.push_markdown_file")
     @patch("sheep.features.feature_270_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.write_markdown_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.validate_created_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.create_markdown_file")
     def test_repo_path_defaults_to_current_directory(
         self,
-        mock_write,
+        mock_create,
         mock_validate,
         mock_commit,
         mock_push,
     ):
         """Test that function uses current directory when repo_path is None."""
-        mock_write.return_value = "test-2sqwpg.md"
+        mock_create.return_value = Path("test-2sqwpg.md")
         mock_validate.return_value = True
         mock_commit.return_value = "abc123"
         mock_push.return_value = "pushed"
@@ -279,33 +279,33 @@ class TestFeature270UnitTests:
         assert call_args is not None  # Should have defaulted to cwd
 
     @patch("sheep.features.feature_270_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.write_markdown_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.validate_created_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.create_markdown_file")
     def test_error_handling_propagates_write_error(
         self,
-        mock_write,
+        mock_create,
         mock_validate,
         mock_commit,
     ):
-        """Test that exceptions from write_markdown_file are propagated."""
-        mock_write.side_effect = OSError("Cannot write file")
+        """Test that exceptions from create_markdown_file are propagated."""
+        mock_create.side_effect = OSError("Cannot write file")
 
         with pytest.raises(OSError, match="Cannot write file"):
             create_feature_270_markdown_file("/repo")
 
     @patch("sheep.features.feature_270_markdown_file_creation.push_markdown_file")
     @patch("sheep.features.feature_270_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.write_markdown_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.validate_created_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.create_markdown_file")
     def test_error_handling_propagates_validation_error(
         self,
-        mock_write,
+        mock_create,
         mock_validate,
         mock_commit,
         mock_push,
     ):
-        """Test that exceptions from validate_markdown_file are propagated."""
-        mock_write.return_value = "/repo/test-2sqwpg.md"
+        """Test that exceptions from validate_created_file are propagated."""
+        mock_create.return_value = Path("/repo/test-2sqwpg.md")
         mock_validate.side_effect = ValueError("Invalid markdown format")
 
         with pytest.raises(ValueError, match="Invalid markdown format"):
@@ -313,17 +313,17 @@ class TestFeature270UnitTests:
 
     @patch("sheep.features.feature_270_markdown_file_creation.push_markdown_file")
     @patch("sheep.features.feature_270_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.write_markdown_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.validate_created_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.create_markdown_file")
     def test_error_handling_propagates_commit_error(
         self,
-        mock_write,
+        mock_create,
         mock_validate,
         mock_commit,
         mock_push,
     ):
         """Test that exceptions from commit_markdown_file are propagated."""
-        mock_write.return_value = "/repo/test-2sqwpg.md"
+        mock_create.return_value = Path("/repo/test-2sqwpg.md")
         mock_validate.return_value = True
         mock_commit.side_effect = Exception("Git commit failed")
 
@@ -332,17 +332,17 @@ class TestFeature270UnitTests:
 
     @patch("sheep.features.feature_270_markdown_file_creation.push_markdown_file")
     @patch("sheep.features.feature_270_markdown_file_creation.commit_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.validate_markdown_file")
-    @patch("sheep.features.feature_270_markdown_file_creation.write_markdown_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.validate_created_file")
+    @patch("sheep.features.feature_270_markdown_file_creation.create_markdown_file")
     def test_error_handling_propagates_push_error(
         self,
-        mock_write,
+        mock_create,
         mock_validate,
         mock_commit,
         mock_push,
     ):
         """Test that exceptions from push_markdown_file are propagated."""
-        mock_write.return_value = "/repo/test-2sqwpg.md"
+        mock_create.return_value = Path("/repo/test-2sqwpg.md")
         mock_validate.return_value = True
         mock_commit.return_value = "abc123"
         mock_push.side_effect = Exception("Git push failed")
