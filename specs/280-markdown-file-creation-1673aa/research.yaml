@@ -1,0 +1,427 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-1673aa"
+summary: >
+  Feature 280 replicates the established markdown-file-creation pattern from 225+ identical test files
+  across the repository. Implementation uses CrewAI + Claude LLM for content generation, Python pathlib
+  for file I/O, and existing sheep.tools GitCommitTool/GitPushTool for git integration. No architectural
+  decisions remain—all choices align with precedent and established patterns.
+
+# Relationships
+relatedFeatures:
+  - number: 279
+    name: "markdown-file-creation"
+    relationship: "Identical implementation pattern"
+  - number: 278
+    name: "markdown-file-creation"
+    relationship: "Identical implementation pattern"
+  - number: 277
+    name: "markdown-file-creation"
+    relationship: "Identical implementation pattern"
+
+technologies:
+  - "Python 3.11+ (runtime)"
+  - "pathlib (Python stdlib, file I/O)"
+  - "CrewAI framework (LLM orchestration)"
+  - "Claude LLM (content generation)"
+  - "Git (version control)"
+  - "structlog (logging)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "CommonMark specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Git conventional commits"
+    url: "https://www.conventionalcommits.org/"
+  - title: "CrewAI documentation"
+    url: "https://docs.crewai.com/"
+
+# Structured technology decisions
+decisions:
+  - title: "Content Generation Method"
+    chosen: "Claude LLM via CrewAI framework"
+    rejected:
+      - "Hardcoded prose snippets — less flexible, reduces content variety, doesn't align with Sheep platform's agentic automation purpose"
+      - "Template-based generation system — adds complexity without proportional benefit, requires template management, less scalable"
+    rationale: >
+      The Sheep platform is designed for agentic automation; using Claude LLM via CrewAI aligns with this purpose and demonstrates
+      LLM-driven implementation. CrewAI is already a production dependency (crewai>=0.86.0) with Claude support configured.
+      LLM-based generation provides content variety and scalability across 200+ iterations while maintaining quality constraints
+      (2-3 sentences, H1 heading). The content_generators.py module in src/sheep/ already implements this pattern for features 069-279,
+      confirming its viability.
+
+  - title: "File I/O Implementation"
+    chosen: "Python pathlib.Path with context manager"
+    rejected:
+      - "os.open() + os.write() — more verbose, less Pythonic, requires manual file descriptor management"
+      - "open() with os.getcwd() — works but doesn't use modern pathlib API, less safe for path operations"
+      - "Direct string concatenation for paths — prone to separator issues on Windows, security risk"
+    rationale: >
+      pathlib.Path is the modern Python standard (stdlib), cross-platform safe, and explicitly required by NFR-5.
+      The / operator for path joining is safe and readable. Using context manager (with statement) ensures proper
+      file closure. pathlib is already used throughout the codebase (sheep/content_generators.py, existing features).
+      UTF-8 encoding is the Python default on Unix systems; explicitly specifying it ensures cross-platform consistency.
+
+  - title: "Git Integration Approach"
+    chosen: "Existing sheep.tools.GitCommitTool and GitPushTool classes"
+    rejected:
+      - "GitPython library wrapper — while available as dependency (gitpython>=3.1.0), direct use bypasses sheep abstraction"
+      - "subprocess.run() with git CLI — lower-level approach, less integrated with sheep observability/logging, harder to maintain"
+    rationale: >
+      sheep.tools provides GitCommitTool and GitPushTool which integrate with the platform's observability, logging (structlog),
+      and error handling patterns. This maintains consistency with features 069-279, which all use the same tools. The abstraction
+      layer provides a better foundation for future changes and monitoring.
+
+  - title: "Encoding and Line Ending Handling"
+    chosen: "UTF-8 encoding (default), LF validation post-write"
+    rejected:
+      - "Manual CRLF conversion on Windows — adds complexity, error-prone, unnecessary on modern systems"
+      - "UTF-16 or other encodings — spec requires UTF-8, no rationale for alternatives"
+      - "No validation — risky, could result in CRLF files on Windows systems"
+    rationale: >
+      Python's open() with encoding=\"utf-8\" handles UTF-8 correctly on all platforms. Unix systems naturally produce LF;
+      Windows Python also respects encoding parameter on write. The content_generators.py already includes validate_file_properties()
+      which checks for absence of UTF-8 BOM and presence of LF-only line endings. Post-write validation ensures compliance.
+      This matches the requirement in NFR-1 and NFR-2.
+
+  - title: "Content Validation Strategy"
+    chosen: "Dual validation: format validation after generation, property validation after file write"
+    rejected:
+      - "No validation — risky, could result in malformed files, violates success criteria"
+      - "Only content validation — misses encoding/line ending issues, incomplete quality assurance"
+      - "Only file property validation — misses semantic correctness (sentence count, H1 structure)"
+    rationale: >
+      Dual validation ensures both semantic correctness (2-3 sentences, H1 heading, prose quality) and technical correctness
+      (UTF-8 encoding, LF line endings, file exists and has content). The _validate_markdown_content() and validate_file_properties()
+      functions in content_generators.py implement this pattern. This aligns with success criteria which require both structure
+      (H1 heading, 2-3 sentences) and technical properties (UTF-8, LF, 400-600 bytes).
+
+  - title: "Topic Selection Mechanism"
+    chosen: "Free-form topic selection by LLM prompt"
+    rejected:
+      - "Hardcoded topic list (predefined categories) — adds constraint without proportional benefit, requires maintenance"
+      - "Random topic selection from fixed corpus — reduces LLM capability utilization, less flexible"
+    rationale: >
+      The feature specification explicitly allows free-form topic selection (NFR-8: \"Prose topic may be any topic chosen by the
+      implementer\"). The LLM is well-capable of generating coherent, contextually appropriate prose on any topic. Existing test files
+      (test-elv4sx.md, test-b2fl92.md, test-3nslmx.md) demonstrate successful free-form topics (iterative development, Aurora Borealis,
+      joy of discovery). Allowing the LLM to choose topic is simpler, more scalable, and provides content variety without additional
+      implementation complexity.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should we use LLM-based content generation or static prose?"
+    resolved: true
+    options:
+      - option: "Claude LLM via CrewAI"
+        description: >
+          Use the Claude API through the CrewAI framework (already configured in the platform) to generate markdown content.
+          Pros: Aligns with Sheep platform purpose, provides variety, leverages existing infrastructure. Cons: Adds latency
+          (typically 1-3s per request), depends on external API availability.
+        selected: true
+      - option: "Hardcoded prose or templates"
+        description: >
+          Use predefined prose content or simple template substitution. Pros: Fast, deterministic, no external dependencies.
+          Cons: Reduces content variety, doesn't scale well across 200+ features, doesn't leverage platform capabilities.
+        selected: false
+      - option: "Hybrid approach with fallback"
+        description: >
+          Use LLM for generation, fall back to hardcoded prose if LLM fails. Pros: Provides reliability and speed fallback.
+          Cons: Adds complexity, maintains two code paths, still requires hardcoded prose maintenance.
+        selected: false
+    selectionRationale: >
+      Features 069-279 successfully use Claude LLM via CrewAI for content generation (confirmed by test-elv4sx.md, test-b2fl92.md
+      in repo, content_generators.py implementation). This approach has been validated across 200+ iterations, demonstrating reliability
+      and consistency. The Sheep platform's core purpose is agentic automation; using LLM aligns with this mission. CrewAI is already
+      a production dependency with proven integration.
+
+  - question: "What is the file I/O and encoding approach?"
+    resolved: true
+    options:
+      - option: "pathlib.Path with UTF-8 encoding, validation post-write"
+        description: >
+          Use Python pathlib.Path with open(encoding=\"utf-8\"), validate file properties (BOM-free, LF-only) after write.
+          Pros: Modern Python API, cross-platform, explicitly required by NFR-5, already used in codebase. Cons: Requires
+          post-write validation to ensure LF on Windows.
+        selected: true
+      - option: "os module with manual encoding handling"
+        description: >
+          Use os.open(), os.write() with manual UTF-8 encoding and line ending conversion. Pros: Lower-level control.
+          Cons: Verbose, error-prone, less maintainable, not Pythonic.
+        selected: false
+      - option: "Third-party library (pathspec, fsspec)"
+        description: >
+          Use specialized libraries for path and file handling. Pros: Additional features if needed in future.
+          Cons: Adds external dependency without clear benefit, overkill for simple write operation, violates NFR-9
+          (no new dependencies).
+        selected: false
+    selectionRationale: >
+      pathlib is the modern Python standard library, explicitly required by NFR-5, and already used throughout the codebase
+      (src/sheep/content_generators.py). UTF-8 is the appropriate encoding for markdown files. Post-write validation using
+      validate_file_properties() (already implemented in content_generators.py) ensures LF line endings on all platforms.
+      This approach has been successfully used for features 069-279.
+
+  - question: "Should we integrate with git at the feature level or implementation level?"
+    resolved: true
+    options:
+      - option: "Use existing sheep.tools.GitCommitTool and GitPushTool"
+        description: >
+          Leverage existing git integration tools from the sheep.tools module, which handle commit/push with observability
+          integration. Pros: Consistent with platform patterns, integrates with logging/monitoring, abstraction layer.
+          Cons: Less flexible for custom git operations.
+        selected: true
+      - option: "Direct GitPython API usage"
+        description: >
+          Use GitPython library directly (already a dependency: gitpython>=3.1.0). Pros: Fine-grained control over git operations,
+          powerful API. Cons: Bypasses sheep abstractions, harder to maintain, duplicate work vs existing tools.
+        selected: false
+      - option: "subprocess.run() with git CLI"
+        description: >
+          Execute git commands via subprocess. Pros: Minimal dependencies, clear shell semantics. Cons: Error-prone,
+          harder to integrate with observability, less maintainable.
+        selected: false
+    selectionRationale: >
+      Features 069-279 use sheep.tools for git integration, confirming this is the established pattern. The tools provide
+      abstraction and logging integration. Direct use of raw git commands would require reimplementation of patterns already
+      established and tested across 200+ features.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (complete)
+  - **Updated:** 2026-03-30
+  - **Decision Status:** All decisions resolved; technical approach fully specified
+
+  ## Summary of Findings
+
+  Feature 280 is a straightforward continuation of the markdown-file-creation pattern established in features 069-279.
+  Research reveals that:
+
+  1. **No new architectural decisions are required** — all choices align with established precedent
+  2. **Technology stack is fully specified** — Python 3.11+, pathlib, CrewAI, Claude LLM, existing sheep.tools
+  3. **Implementation pattern is proven** — 225+ existing test files demonstrate the approach works reliably
+  4. **Content generation is validated** — content_generators.py already implements the full generation and validation pipeline
+  5. **Git integration is mature** — sheep.tools provides robust git abstraction with observability
+
+  ## Technology Decisions
+
+  ### 1. Content Generation Method: Claude LLM via CrewAI
+
+  **Chosen:** Claude LLM via CrewAI framework for markdown content generation
+
+  **Rejected:**
+  - Hardcoded prose snippets — less flexible, reduces content variety, doesn't demonstrate LLM capabilities
+  - Template-based generation with substitution — adds maintenance burden, less scalable across 200+ features
+
+  **Rationale:** The Sheep platform's core purpose is agentic automation. Using Claude LLM via CrewAI aligns with this mission
+  while leveraging infrastructure already in place (CrewAI is dependency crewai>=0.86.0). The content_generators.py module
+  in src/sheep/ implements this pattern successfully for features 069-279. LLM generation provides content variety while
+  maintaining quality through validation (2-3 sentences, H1 heading requirement).
+
+  **Implementation Details:**
+  - Uses MARKDOWN_GENERATION_PROMPT template from content_generators.py
+  - Calls get_reasoning_llm() to access Claude LLM
+  - Validates response format post-generation
+  - Ensures trailing LF newline
+
+  ### 2. File I/O: Python pathlib.Path with UTF-8 Encoding
+
+  **Chosen:** pathlib.Path with open(encoding=\"utf-8\"), validate file properties post-write
+
+  **Rejected:**
+  - os.open() + os.write() — verbose, requires manual FD management, less Pythonic
+  - String path concatenation — separator issues on Windows, security risk for path traversal
+
+  **Rationale:** pathlib.Path is the modern Python 3 standard (explicitly required by NFR-5), cross-platform safe,
+  and already used throughout the codebase. The / operator for path joining is safe and readable. Using context manager
+  (with statement) ensures proper file closure. UTF-8 encoding is specified in NFR-1; Python's default on Unix systems
+  ensures consistent behavior.
+
+  **Implementation Details:**
+  - Use Path.cwd() to get repository root (correct at invocation time)
+  - Use path / filename for safe path joining
+  - Specify encoding=\"utf-8\" in open() call
+  - Validate file exists and has content post-write
+
+  ### 3. Git Integration: sheep.tools GitCommitTool and GitPushTool
+
+  **Chosen:** Use existing sheep.tools.GitCommitTool and GitPushTool classes
+
+  **Rejected:**
+  - GitPython library — available as dependency but bypasses sheep abstractions
+  - subprocess.run() — lower-level, harder to maintain, no observability integration
+
+  **Rationale:** sheep.tools provides abstraction layer that integrates with platform observability, logging, and error handling.
+  This maintains consistency with features 069-279, which all use the same tools. The abstraction provides foundation for future
+  changes and monitoring while avoiding code duplication.
+
+  **Implementation Details:**
+  - Import GitCommitTool and GitPushTool from sheep.tools
+  - Use exact commit message format: \"feat(280): create markdown file test-fra9no.md with title and prose content\"
+  - Ensure staging (git add) occurs before commit
+  - Push to current branch (feat/280-markdown-file-creation-1673aa)
+
+  ### 4. Encoding and Line Ending Validation
+
+  **Chosen:** UTF-8 encoding (Python default), explicit LF validation post-write
+
+  **Rejected:**
+  - Manual CRLF conversion — unnecessary complexity on modern systems
+  - Skip validation — risky, could result in platform-specific line ending issues
+
+  **Rationale:** Python's open() with encoding=\"utf-8\" handles UTF-8 correctly cross-platform. Unix systems naturally produce LF.
+  The validate_file_properties() function in content_generators.py checks for absence of UTF-8 BOM (b\"\\xef\\xbb\\xbf\") and
+  presence of LF-only line endings (no b\"\\r\\n\"). This validation ensures compliance with NFR-1 and NFR-2.
+
+  **Implementation Details:**
+  - No additional code needed; use Python's standard encoding parameter
+  - Call validate_file_properties(filepath) after write to verify
+  - Validation raises ValueError if BOM present or CRLF found
+
+  ### 5. Content Validation: Dual-Layer Approach
+
+  **Chosen:** Format validation after generation + property validation after file write
+
+  **Rejected:**
+  - No validation — violates success criteria, quality risk
+  - Single-layer validation — misses either semantic or technical correctness
+
+  **Rationale:** Dual validation ensures both semantic correctness (2-3 sentences, H1 heading) and technical correctness
+  (UTF-8, LF, non-empty file). The _validate_markdown_content() function checks structure; validate_file_properties() checks
+  encoding. This layered approach catches issues at their source.
+
+  **Implementation Details:**
+  - Generate content → validate_markdown_content() [checks H1 heading, sentence count]
+  - Write to file → validate_file_properties() [checks encoding, line endings, BOM]
+  - Both functions raise descriptive ValueError on failure
+
+  ### 6. Topic Selection: Free-Form LLM Choice
+
+  **Chosen:** Allow LLM to select topic freely per prompt
+
+  **Rejected:**
+  - Fixed topic list — adds constraint without benefit, requires maintenance
+  - Predefined prose corpus — reduces LLM utilization, less flexible
+
+  **Rationale:** Spec explicitly allows free-form topic selection (NFR-8). Existing test files demonstrate successful free-form
+  topics (iterative development, Aurora Borealis, joy of discovery, etc.). LLM-based selection is simpler and scales better
+  than maintaining predefined topics.
+
+  **Implementation Details:**
+  - MARKDOWN_GENERATION_PROMPT allows LLM to choose any topic
+  - No topic constraints or validation needed
+  - LLM naturally produces contextually appropriate content
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  |---|---|---|---|
+  | pathlib (stdlib) | File I/O and path operations | Use | Required by NFR-5; modern Python standard; cross-platform safe |
+  | CrewAI (>=0.86.0) | LLM orchestration framework | Use | Already production dependency; Claude support configured; proven in 200+ features |
+  | Claude (via CrewAI) | Content generation | Use | Best-in-class LLM; produces coherent, contextually appropriate prose |
+  | structlog (>=24.0.0) | Structured logging | Use | Platform standard; already used in content_generators.py |
+  | sheep.tools | Git integration | Use | Provides abstraction; integrated observability; established pattern |
+  | GitPython (>=3.1.0) | Low-level git operations | Reject* | Available but using higher-level abstractions (sheep.tools) is preferred |
+  | subprocess (stdlib) | External command execution | Reject for git | Prefer sheep.tools abstraction for maintainability and observability |
+  | pathspec (external) | Path pattern matching | Reject | Not needed; filename is hardcoded (test-fra9no.md) |
+  | Jinja2 (hypothetical) | Template rendering | Reject | No templates needed; direct string generation works |
+
+  *GitPython is an available dependency but not used directly; sheep.tools provides better abstraction.
+
+  ## Security Considerations
+
+  ### 1. Path Traversal Prevention
+  - **Issue:** Unsafe filename could write to arbitrary location
+  - **Mitigation:** Filename validation in write_markdown_file() checks for \"/\", \"\\\", and \".\" prefixes
+  - **Implementation:** Use Path.cwd() / filename pattern; validate filename before use
+  - **Status:** ✓ Covered by content_generators.py validation
+
+  ### 2. UTF-8 Encoding Safety
+  - **Issue:** Encoding mismatches could cause file corruption or display issues
+  - **Mitigation:** Explicit encoding=\"utf-8\" in open() call; post-write validation
+  - **Implementation:** Use open(file_path, \"w\", encoding=\"utf-8\")
+  - **Status:** ✓ Covered by Python's encoding parameter and validate_file_properties()
+
+  ### 3. LLM Content Safety
+  - **Issue:** Generated content could include malicious or inappropriate text
+  - **Mitigation:** Structural validation (H1 heading, 2-3 sentences) provides constraint; sentence count check prevents prompt injection payloads
+  - **Implementation:** _validate_markdown_content() checks structure; sentence count (2-3) limits content size
+  - **Status:** ✓ Covered by validation layer
+
+  ### 4. Git Operation Safety
+  - **Issue:** Git operations could fail or corrupt repository state
+  - **Mitigation:** Use sheep.tools which handles error checking; validate file staged before commit
+  - **Implementation:** Ensure git add succeeds before calling GitCommitTool
+  - **Status:** ✓ Covered by sheep.tools error handling
+
+  ### 5. File Permissions and Ownership
+  - **Issue:** File could be created with incorrect permissions or ownership
+  - **Mitigation:** File creation uses default umask; no special permission handling needed for test artifacts
+  - **Implementation:** pathlib.Path.write_text() uses system defaults
+  - **Status:** ✓ Standard behavior acceptable for test files
+
+  ## Performance Implications
+
+  ### 1. LLM Generation Latency
+  - **Impact:** Single LLM request adds 1-3 seconds typical latency
+  - **Mitigation:** Feature is expected to complete in ~10-15 minutes; LLM latency is acceptable
+  - **Optimization:** No optimization needed; content generation latency is inherent to approach
+
+  ### 2. File I/O Performance
+  - **Impact:** Single write operation (~400-600 bytes) is negligible
+  - **Optimization:** No optimization needed; write is atomic operation
+
+  ### 3. Git Operations Performance
+  - **Impact:** Single add/commit/push sequence adds 1-5 seconds typical
+  - **Optimization:** No optimization needed; operations are standard git performance
+
+  ### 4. Memory Usage
+  - **Impact:** Generated content (~400-600 bytes) + validation overhead is minimal
+  - **Optimization:** No optimization needed; memory footprint is negligible
+
+  ### 5. Overall Feature Execution
+  - **Expected duration:** 10-15 minutes (per size estimate S)
+  - **Breakdown:** LLM generation (1-3s) + validation (negligible) + file write (negligible) + git ops (1-5s)
+  - **Bottleneck:** LLM API latency (expected and acceptable)
+
+  ## Architecture Notes
+
+  ### Integration with Sheep Platform
+
+  Feature 280 integrates with Sheep's established architecture:
+
+  1. **CrewAI Integration:** Leverages platform's LLM orchestration via CrewAI framework
+  2. **Observability:** Uses structlog for logging; sheep.tools integration provides monitoring
+  3. **Error Handling:** Validation functions raise descriptive errors; platform captures and reports
+  4. **File Artifacts:** Test markdown files are validation artifacts of automation system, not application code
+
+  ### Pattern Consistency
+
+  Feature 280 follows identical patterns from features 069-279:
+  - Same markdown structure (H1 + prose)
+  - Same LLM-based generation approach
+  - Same git workflow (add/commit/push)
+  - Same file naming convention (test-RANDOMID.md)
+  - Same encoding standards (UTF-8, LF)
+
+  ### No Breaking Changes
+
+  Implementation has no impact on:
+  - Application source code (/src/sheep/)
+  - Test suite or test files
+  - Configuration or CI/CD pipelines
+  - Dependencies (no new packages required)
+  - Platform architecture
+
+  ## Conclusion
+
+  Feature 280 is a mature, well-established pattern with proven implementation across 200+ prior features. All technical
+  decisions are resolved; chosen approaches align with existing codebase patterns and have been validated in production.
+  Implementation can proceed directly to planning/execution phase without architectural concerns.
+
+  ---
+
+  _Research phase complete — all technical decisions made, no open questions remain, ready for planning phase_
