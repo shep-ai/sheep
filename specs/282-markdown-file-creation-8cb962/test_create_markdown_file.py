@@ -20,6 +20,7 @@ The test suite uses pytest fixtures, mocks, and helper functions to create
 isolated test environments and comprehensive validation testing.
 """
 
+import importlib.util
 import os
 import sys
 import tempfile
@@ -86,6 +87,104 @@ def sample_markdown_content():
 # ============================================================================
 # Test Classes
 # ============================================================================
+
+
+class TestWrapperScript:
+    """Unit tests for the wrapper script create_markdown_file.py."""
+
+    def _load_wrapper_module(self):
+        """Helper to dynamically load the wrapper module."""
+        wrapper_path = Path(__file__).parent / "create_markdown_file.py"
+        spec = importlib.util.spec_from_file_location("wrapper_module_test", wrapper_path)
+        wrapper_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(wrapper_module)
+        return wrapper_module
+
+    def test_imports_orchestration_function(self):
+        """Test that wrapper script imports orchestration function successfully."""
+        wrapper_module = self._load_wrapper_module()
+
+        # Should have main function
+        assert hasattr(wrapper_module, "main")
+        assert callable(wrapper_module.main)
+
+        # Should have imported create_markdown_file
+        assert hasattr(wrapper_module, "create_markdown_file")
+
+    def test_calls_create_markdown_file_with_correct_filename(self, temp_dir):
+        """Test that wrapper script calls create_markdown_file with filename='test-9xt2ec.md'."""
+        wrapper_module = self._load_wrapper_module()
+
+        # Mock the create_markdown_file in the wrapper module's namespace
+        with mock.patch.object(wrapper_module, "create_markdown_file") as mock_create:
+            mock_create.return_value = {
+                "filepath": str(Path.cwd() / "test-9xt2ec.md"),
+                "content": "# Test\n\nSentence one. Sentence two. Sentence three.",
+                "commit_message": "feat(282): create markdown file test-9xt2ec.md with title and prose content",
+                "push_result": "Success",
+            }
+
+            result = wrapper_module.main()
+
+            # Verify create_markdown_file was called with correct filename
+            mock_create.assert_called_once()
+            call_args = mock_create.call_args
+            # Verify "test-9xt2ec.md" is the first positional argument
+            assert call_args[0][0] == "test-9xt2ec.md"
+
+    def test_calls_create_markdown_file_with_correct_feature_number(self, temp_dir):
+        """Test that wrapper script calls create_markdown_file with feature_number=282."""
+        wrapper_module = self._load_wrapper_module()
+
+        # Mock the create_markdown_file in the wrapper module's namespace
+        with mock.patch.object(wrapper_module, "create_markdown_file") as mock_create:
+            mock_create.return_value = {
+                "filepath": str(Path.cwd() / "test-9xt2ec.md"),
+                "content": "# Test\n\nSentence one. Sentence two. Sentence three.",
+                "commit_message": "feat(282): create markdown file test-9xt2ec.md with title and prose content",
+                "push_result": "Success",
+            }
+
+            result = wrapper_module.main()
+
+            # Verify create_markdown_file was called with correct feature number
+            mock_create.assert_called_once()
+            call_kwargs = mock_create.call_args[1]
+            assert call_kwargs.get("feature_number") == 282
+
+    def test_handles_orchestration_error_gracefully(self, temp_dir):
+        """Test that wrapper script catches exceptions from orchestration function."""
+        wrapper_module = self._load_wrapper_module()
+
+        # Mock create_markdown_file to raise an exception
+        with mock.patch.object(wrapper_module, "create_markdown_file") as mock_create:
+            mock_create.side_effect = ValueError("Test error message")
+
+            # Wrapper should catch and re-raise (but not crash)
+            with pytest.raises(ValueError, match="Test error message"):
+                wrapper_module.main()
+
+    def test_returns_result_dictionary_on_success(self, temp_dir):
+        """Test that wrapper script returns result dictionary from orchestration."""
+        wrapper_module = self._load_wrapper_module()
+
+        with mock.patch.object(wrapper_module, "create_markdown_file") as mock_create:
+            expected_result = {
+                "filepath": str(Path.cwd() / "test-9xt2ec.md"),
+                "content": "# Test Title\n\nFirst sentence. Second sentence. Third sentence.",
+                "commit_message": "feat(282): create markdown file test-9xt2ec.md with title and prose content",
+                "push_result": "Success",
+            }
+            mock_create.return_value = expected_result
+
+            result = wrapper_module.main()
+
+            assert result == expected_result
+            assert isinstance(result, dict)
+            assert "filepath" in result
+            assert "content" in result
+            assert "commit_message" in result
+            assert "push_result" in result
 
 
 class TestCreateMarkdownFileIntegration:
@@ -321,8 +420,8 @@ class TestWriteMarkdownFile:
             write_markdown_file(content, "..\\windows\\system32")
 
 
-class TestValidateMarkdownFile:
-    """Tests for the validate_markdown_file() function."""
+class TestMarkdownValidation:
+    """Tests for markdown file validation covering all file properties and constraints."""
 
     def test_validate_markdown_file_passes_for_valid_file(self, temp_dir, sample_markdown_content):
         """Test that validate_markdown_file passes for correctly formatted files."""
@@ -373,6 +472,51 @@ class TestValidateMarkdownFile:
         with pytest.raises(ValueError, match="BOM"):
             validate_markdown_file(str(filepath))
 
+    def test_validate_markdown_file_requires_utf8_encoding(self, temp_dir):
+        """Test that validate_markdown_file requires UTF-8 encoding."""
+        # Valid UTF-8 content should pass
+        content = "# Title\n\nFirst sentence. Second sentence. Third sentence.\n"
+        filepath = write_markdown_file(content, "test-9xt2ec.md")
+
+        # Should be decodable as UTF-8
+        try:
+            validate_markdown_file(filepath)
+        except ValueError:
+            pytest.fail("Valid UTF-8 file should pass validation")
+
+    def test_validate_markdown_file_requires_trailing_newline(self, temp_dir):
+        """Test that validate_markdown_file requires trailing newline."""
+        content = "# Title\n\nFirst sentence. Second sentence. Third sentence.\n"
+        filepath = write_markdown_file(content, "test-9xt2ec.md")
+
+        # File should end with newline
+        binary_content = Path(filepath).read_bytes()
+        assert binary_content.endswith(b"\n")
+
+        # Should pass validation
+        assert validate_markdown_file(filepath) is True
+
+    def test_validate_markdown_file_rejects_file_too_small(self, temp_dir):
+        """Test that validate_markdown_file rejects files smaller than 400 bytes."""
+        # Create very small markdown file
+        content = "# T\n\nA.\n"  # Only ~10 bytes
+        filepath = write_markdown_file(content, "test-9xt2ec.md")
+
+        # Should fail validation due to file size
+        with pytest.raises(ValueError):
+            validate_markdown_file(filepath)
+
+    def test_validate_markdown_file_rejects_file_too_large(self, temp_dir):
+        """Test that validate_markdown_file rejects files larger than 600 bytes."""
+        # Create large markdown file (>600 bytes)
+        long_prose = "This is a very long sentence with many words. " * 20
+        content = f"# Long Title\n\n{long_prose}"
+        filepath = write_markdown_file(content, "test-9xt2ec.md")
+
+        # Should fail validation due to file size
+        with pytest.raises(ValueError):
+            validate_markdown_file(filepath)
+
 
 class TestGitIntegration:
     """Tests for git integration (commit and push)."""
@@ -420,6 +564,67 @@ class TestGitIntegration:
 
                     # Push result should be in the response
                     assert result["push_result"] is not None
+
+    def test_git_commit_tool_is_called(self, temp_dir):
+        """Test that GitCommitTool is called for commit operation."""
+        with mock.patch("sheep.content_generators.get_reasoning_llm") as mock_llm:
+            mock_llm_instance = mock.Mock()
+            mock_llm.return_value = mock_llm_instance
+
+            mock_response = {
+                "content": "# Test Title\n\nFirst sentence. Second sentence. Third sentence."
+            }
+            mock_llm_instance.call.return_value = mock_response
+
+            with mock.patch("sheep.content_generators.GitCommitTool") as mock_commit:
+                with mock.patch("sheep.content_generators.GitPushTool") as mock_push:
+                    mock_commit.return_value._run.return_value = "Commit successful"
+                    mock_push.return_value._run.return_value = "Push successful"
+
+                    result = create_markdown_file("test-9xt2ec.md", feature_number=282)
+
+                    # Verify GitCommitTool was instantiated and called
+                    mock_commit.assert_called()
+
+    def test_git_push_tool_is_called(self, temp_dir):
+        """Test that GitPushTool is called for push operation."""
+        with mock.patch("sheep.content_generators.get_reasoning_llm") as mock_llm:
+            mock_llm_instance = mock.Mock()
+            mock_llm.return_value = mock_llm_instance
+
+            mock_response = {
+                "content": "# Test Title\n\nFirst sentence. Second sentence. Third sentence."
+            }
+            mock_llm_instance.call.return_value = mock_response
+
+            with mock.patch("sheep.content_generators.GitCommitTool"):
+                with mock.patch("sheep.content_generators.GitPushTool") as mock_push:
+                    mock_push.return_value._run.return_value = "Push successful"
+
+                    result = create_markdown_file("test-9xt2ec.md", feature_number=282)
+
+                    # Verify GitPushTool was instantiated and called
+                    mock_push.assert_called()
+
+    def test_commit_message_has_exact_expected_format(self, temp_dir):
+        """Test that commit message has the exact format specified in requirements."""
+        with mock.patch("sheep.content_generators.get_reasoning_llm") as mock_llm:
+            mock_llm_instance = mock.Mock()
+            mock_llm.return_value = mock_llm_instance
+
+            mock_response = {
+                "content": "# Test Title\n\nFirst sentence. Second sentence. Third sentence."
+            }
+            mock_llm_instance.call.return_value = mock_response
+
+            with mock.patch("sheep.content_generators.GitCommitTool"):
+                with mock.patch("sheep.content_generators.GitPushTool"):
+                    result = create_markdown_file("test-9xt2ec.md", feature_number=282)
+
+                    # Verify exact commit message format
+                    expected_prefix = "feat(282):"
+                    assert result["commit_message"].startswith(expected_prefix)
+                    assert "test-9xt2ec.md" in result["commit_message"]
 
 
 class TestProseContent:
