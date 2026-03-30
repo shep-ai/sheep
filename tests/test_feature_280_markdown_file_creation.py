@@ -29,7 +29,8 @@ from sheep.features.feature_280_markdown_file_creation import (
 # Sample valid markdown content for testing
 SAMPLE_MARKDOWN = """# Quantum Computing Breakthroughs
 
-Quantum computing represents a paradigm shift in computational power, leveraging quantum mechanical phenomena to solve complex problems. Recent advances in error correction and qubit stability have brought practical quantum computers closer to reality. These technologies promise revolutionary applications in cryptography, drug discovery, and optimization problems."""
+Quantum computing represents a paradigm shift in computational power, leveraging quantum mechanical phenomena to solve complex problems. Recent advances in error correction and qubit stability have brought practical quantum computers closer to reality. These technologies promise revolutionary applications in cryptography, drug discovery, and optimization problems.
+"""
 
 
 class TestFeature280Module:
@@ -540,5 +541,495 @@ class TestFeature280IntegrationTests:
                 create_feature_280_markdown_file(tmpdir)
                 content = Path(tmpdir, MARKDOWN_FILENAME).read_text()
                 assert content.endswith('\n'), "File should end with trailing newline"
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestFeature280GitIntegration:
+    """Tests for task-4: Git integration (stage, commit, push)."""
+
+    @patch('sheep.features.feature_280_markdown_file_creation.push_markdown_file')
+    @patch('sheep.features.feature_280_markdown_file_creation.commit_markdown_file')
+    @patch('sheep.features.feature_280_markdown_file_creation.generate_markdown_content')
+    def test_git_integration_calls_commit_tool(
+        self,
+        mock_generate,
+        mock_commit,
+        mock_push,
+    ):
+        """Test that git integration calls GitCommitTool with correct parameters."""
+        mock_generate.return_value = SAMPLE_MARKDOWN
+        mock_commit.return_value = "abc123"
+        mock_push.return_value = "pushed"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Setup git repo
+            subprocess.run(
+                ["git", "init"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            # Create initial commit
+            Path(tmpdir, "README.md").write_text("# Test\n")
+            subprocess.run(
+                ["git", "add", "README.md"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+
+            # Create file and call feature
+            Path(tmpdir, MARKDOWN_FILENAME).write_text(SAMPLE_MARKDOWN)
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                create_feature_280_markdown_file(tmpdir)
+
+                # Verify commit was called
+                mock_commit.assert_called_once()
+                # Verify push was called
+                mock_push.assert_called_once_with(tmpdir)
+            finally:
+                os.chdir(original_cwd)
+
+    @patch('sheep.features.feature_280_markdown_file_creation.push_markdown_file')
+    @patch('sheep.features.feature_280_markdown_file_creation.commit_markdown_file')
+    @patch('sheep.features.feature_280_markdown_file_creation.generate_markdown_content')
+    def test_git_integration_uses_exact_commit_message(
+        self,
+        mock_generate,
+        mock_commit,
+        mock_push,
+    ):
+        """Test that git integration uses exact commit message format."""
+        mock_generate.return_value = SAMPLE_MARKDOWN
+        mock_commit.return_value = "abc123"
+        mock_push.return_value = "pushed"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Setup git repo
+            subprocess.run(
+                ["git", "init"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            # Create initial commit
+            Path(tmpdir, "README.md").write_text("# Test\n")
+            subprocess.run(
+                ["git", "add", "README.md"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+
+            # Create file and call feature
+            Path(tmpdir, MARKDOWN_FILENAME).write_text(SAMPLE_MARKDOWN)
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                create_feature_280_markdown_file(tmpdir)
+
+                # Verify exact commit message
+                expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with title and prose content"
+                mock_commit.assert_called_once()
+                call_kwargs = mock_commit.call_args[1]
+                assert call_kwargs['custom_message'] == expected_message
+            finally:
+                os.chdir(original_cwd)
+
+    @patch('sheep.content_generators.get_reasoning_llm')
+    def test_git_integration_file_is_staged_before_commit(self, mock_llm_factory):
+        """Test that file is staged with git add before commit."""
+        mock_llm = MagicMock()
+        mock_llm.call.return_value = SAMPLE_MARKDOWN
+        mock_llm_factory.return_value = mock_llm
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Setup git repo
+            subprocess.run(
+                ["git", "init"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            # Create initial commit
+            Path(tmpdir, "README.md").write_text("# Test\n")
+            subprocess.run(
+                ["git", "add", "README.md"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                create_feature_280_markdown_file(tmpdir)
+
+                # Verify file is committed (check git log)
+                result = subprocess.run(
+                    ["git", "log", "--oneline"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                # Should have at least 2 commits (initial + feature)
+                commits = result.stdout.strip().split('\n')
+                assert len(commits) >= 2, "File should be committed"
+                assert MARKDOWN_FILENAME in commits[0], "Latest commit should contain filename"
+            finally:
+                os.chdir(original_cwd)
+
+    @patch('sheep.content_generators.get_reasoning_llm')
+    def test_git_integration_pushes_to_origin(self, mock_llm_factory):
+        """Test that changes are pushed to origin remote."""
+        mock_llm = MagicMock()
+        mock_llm.call.return_value = SAMPLE_MARKDOWN
+        mock_llm_factory.return_value = mock_llm
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Setup main git repo (simulating origin)
+            origin_dir = Path(tmpdir) / "origin"
+            origin_dir.mkdir()
+            subprocess.run(
+                ["git", "init", "--bare"],
+                cwd=str(origin_dir),
+                check=True,
+                capture_output=True,
+            )
+
+            # Setup feature branch repo
+            feature_repo_dir = Path(tmpdir) / "feature"
+            feature_repo_dir.mkdir()
+            subprocess.run(
+                ["git", "clone", str(origin_dir), "."],
+                cwd=str(feature_repo_dir),
+                check=True,
+                capture_output=True,
+            )
+
+            # Setup git config
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=str(feature_repo_dir),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=str(feature_repo_dir),
+                check=True,
+                capture_output=True,
+            )
+
+            # Create initial commit
+            Path(feature_repo_dir, "README.md").write_text("# Test\n")
+            subprocess.run(
+                ["git", "add", "README.md"],
+                cwd=str(feature_repo_dir),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=str(feature_repo_dir),
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "push", "-u", "origin", "HEAD"],
+                cwd=str(feature_repo_dir),
+                check=True,
+                capture_output=True,
+            )
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(str(feature_repo_dir))
+                create_feature_280_markdown_file(str(feature_repo_dir))
+
+                # Verify file exists in feature repo
+                assert Path(feature_repo_dir, MARKDOWN_FILENAME).exists()
+
+                # Verify it was pushed (check origin has the file)
+                origin_files = subprocess.run(
+                    ["git", "ls-tree", "-r", "HEAD"],
+                    cwd=str(origin_dir),
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                assert MARKDOWN_FILENAME in origin_files.stdout, "File should be pushed to origin"
+            finally:
+                os.chdir(original_cwd)
+
+
+class TestFeature280EndToEndIntegration:
+    """Tests for task-5: End-to-end integration and orchestration."""
+
+    @patch('sheep.content_generators.get_reasoning_llm')
+    def test_complete_feature_execution_creates_and_pushes_file(self, mock_llm_factory):
+        """Test complete feature execution: generate, write, validate, commit, push."""
+        mock_llm = MagicMock()
+        mock_llm.call.return_value = SAMPLE_MARKDOWN
+        mock_llm_factory.return_value = mock_llm
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Setup git repo
+            subprocess.run(
+                ["git", "init"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            # Create initial commit
+            Path(tmpdir, "README.md").write_text("# Test\n")
+            subprocess.run(
+                ["git", "add", "README.md"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                result = create_feature_280_markdown_file(tmpdir)
+
+                # Verify return value has all required keys
+                assert "filepath" in result
+                assert "content" in result
+                assert "commit_message" in result
+                assert "push_result" in result
+
+                # Verify file exists
+                assert Path(result['filepath']).exists()
+
+                # Verify content is correct
+                assert result['content'] == SAMPLE_MARKDOWN
+
+                # Verify commit message format
+                expected_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with title and prose content"
+                assert result['commit_message'] == expected_message
+
+                # Verify file is actually in git
+                git_log = subprocess.run(
+                    ["git", "log", "--oneline"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                assert MARKDOWN_FILENAME in git_log.stdout
+                assert expected_message in git_log.stdout
+            finally:
+                os.chdir(original_cwd)
+
+    @patch('sheep.content_generators.get_reasoning_llm')
+    def test_end_to_end_file_is_valid_markdown(self, mock_llm_factory):
+        """Test that created file is valid markdown meeting all success criteria."""
+        mock_llm = MagicMock()
+        mock_llm.call.return_value = SAMPLE_MARKDOWN
+        mock_llm_factory.return_value = mock_llm
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Setup git repo
+            subprocess.run(
+                ["git", "init"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            # Create initial commit
+            Path(tmpdir, "README.md").write_text("# Test\n")
+            subprocess.run(
+                ["git", "add", "README.md"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                result = create_feature_280_markdown_file(tmpdir)
+
+                # Read the file
+                filepath = result['filepath']
+                content = Path(filepath).read_text()
+                binary_content = Path(filepath).read_bytes()
+
+                # Verify all success criteria
+                # 1. File exists
+                assert Path(filepath).exists()
+
+                # 2. Contains H1 heading
+                assert content.lstrip().startswith('# '), "Must have H1 heading"
+
+                # 3. Contains 2-3 sentences
+                sentence_count = content.count('.')
+                assert 2 <= sentence_count <= 3, f"Must have 2-3 sentences, found {sentence_count}"
+
+                # 4. UTF-8 encoding without BOM
+                assert not binary_content.startswith(b'\xef\xbb\xbf'), "Should not have BOM"
+                binary_content.decode('utf-8')  # Should not raise
+
+                # 5. Unix LF line endings
+                assert b'\r\n' not in binary_content, "Should use LF not CRLF"
+                assert b'\r' not in binary_content, "Should use LF not CR"
+
+                # 6. Ends with trailing newline
+                assert content.endswith('\n'), "Should end with newline"
+
+                # 7. File size in typical range
+                file_size = Path(filepath).stat().st_size
+                assert 400 <= file_size <= 600, f"File size {file_size} should be 400-600 bytes"
+            finally:
+                os.chdir(original_cwd)
+
+    @patch('sheep.content_generators.get_reasoning_llm')
+    def test_end_to_end_no_errors_propagated(self, mock_llm_factory):
+        """Test that complete feature execution succeeds without errors."""
+        mock_llm = MagicMock()
+        mock_llm.call.return_value = SAMPLE_MARKDOWN
+        mock_llm_factory.return_value = mock_llm
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Setup git repo
+            subprocess.run(
+                ["git", "init"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.email", "test@example.com"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "config", "user.name", "Test User"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            # Create initial commit
+            Path(tmpdir, "README.md").write_text("# Test\n")
+            subprocess.run(
+                ["git", "add", "README.md"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+            subprocess.run(
+                ["git", "commit", "-m", "Initial"],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmpdir)
+                # Should not raise any exception
+                result = create_feature_280_markdown_file(tmpdir)
+                assert result is not None
+                assert isinstance(result, dict)
             finally:
                 os.chdir(original_cwd)
