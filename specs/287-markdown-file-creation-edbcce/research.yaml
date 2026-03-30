@@ -1,0 +1,267 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-edbcce"
+summary: >
+  Technical analysis for markdown file creation feature. This feature creates a single markdown file
+  with UTF-8 encoding, LF line endings, H1 heading, and 2-3 sentences of prose, then commits and
+  pushes via git. Implementation follows the established pattern used across 287+ existing test files.
+  No architectural complexity required — straightforward file I/O and git CLI integration.
+
+relatedFeatures:
+  - number: 286
+    name: "markdown-file-creation"
+    relationship: "Identical pattern and implementation approach"
+  - number: 285
+    name: "markdown-file-creation"
+    relationship: "Identical pattern and implementation approach"
+  - number: 284
+    name: "markdown-file-creation"
+    relationship: "Identical pattern and implementation approach"
+
+technologies:
+  - "Python 3.11+"
+  - "pathlib (Python standard library)"
+  - "subprocess (Python standard library)"
+  - "Git (version control)"
+  - "CommonMark (Markdown specification)"
+
+relatedLinks:
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess Documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+  - title: "Python open() newline parameter"
+    url: "https://docs.python.org/3/library/functions.html#open"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+
+decisions:
+  - title: "File I/O Implementation Method"
+    chosen: "Python pathlib.Path with write_text() method"
+    rejected:
+      - "os.path.join() with open() — older idiom, requires manual file handle management, less Pythonic"
+      - "Direct open() with string path — more verbose, less clear about path semantics"
+      - "External file libraries — pathlib is sufficient and built-in to Python 3.11+"
+    rationale: >
+      The specification explicitly requires pathlib.Path (NFR-5). pathlib is the modern standard
+      for file operations in Python 3.11+, providing a clean object-oriented API. The write_text()
+      method handles encoding and newline parameters elegantly. Usage pattern:
+      Path("test-hzqchm.md").write_text(content, encoding="utf-8", newline="")
+      This is simple, correct, and explicitly required by the spec.
+
+  - title: "Line Ending Strategy"
+    chosen: "Use newline=\"\" parameter in write_text() to preserve LF line endings"
+    rejected:
+      - "Binary mode with manual encoding (e.g., .encode('utf-8')) — adds complexity, requires manual handling"
+      - "Relying on git's core.autocrlf — requires user configuration, not guaranteed to be set correctly"
+      - "Platform-conditional code (if sys.platform == 'win32') — adds unnecessary complexity"
+    rationale: >
+      The specification requires LF line endings (NFR-2). On Windows, Python's default text mode
+      converts '\n' to '\r\n', which violates the requirement. The newline="" parameter forces
+      Python into universal newlines mode, preserving '\n' exactly as written. This is the standard
+      Python approach and works identically across Windows, Linux, and macOS without additional
+      configuration. This is recommended in Python's official documentation.
+
+  - title: "Character Encoding Specification"
+    chosen: "Explicit encoding=\"utf-8\" parameter in write_text()"
+    rejected:
+      - "Implicit default encoding (no encoding parameter) — relies on system configuration, unclear intent"
+      - "encoding=\"utf-8-sig\" — would add Byte Order Mark (BOM), violating NFR-1"
+      - "Binary mode with manual encoding — unnecessary complexity for text files"
+    rationale: >
+      The specification explicitly requires UTF-8 without BOM (NFR-1). Explicit encoding parameter
+      clarifies intent and ensures correctness across different system configurations. Python's
+      UTF-8 codec does not add BOM by default, but explicit specification eliminates any ambiguity.
+      This is a best practice for clarity and maintainability.
+
+  - title: "Content Generation Method"
+    chosen: "Manually authored prose content (imperative approach)"
+    rejected:
+      - "LLM-based generation using CrewAI agents — over-engineered for test files, adds unnecessary complexity and latency"
+      - "Template-based generation with variable substitution — unnecessary abstraction layer for simple content"
+      - "Random or algorithmic generation — cannot guarantee meaningful, grammatically correct text as required"
+    rationale: >
+      The specification requires meaningful, grammatically correct prose (2-3 sentences on any topic,
+      FR-5 and FR-6). For a simple test file, manually authored content ensures quality and certainty
+      that requirements are met. The 287+ existing test files in the repository all follow this
+      straightforward pattern. Using CrewAI agents would overcomplicate a minimal feature. The
+      imperative approach (compose content string, write to file) is consistent with established
+      patterns and keeps implementation simple and fast (~5 minutes for content creation).
+
+  - title: "Git Integration Approach"
+    chosen: "subprocess module to execute git CLI commands (add, commit, push)"
+    rejected:
+      - "GitPython library — adds external dependency, unnecessary overhead for simple operations"
+      - "Full CrewAI agent orchestration — over-engineered for mechanical file creation and git workflow"
+      - "Native Python git reimplementation — complex, error-prone, duplicates mature git functionality"
+    rationale: >
+      The feature requires standard git workflow (add, commit, push). subprocess is part of Python's
+      standard library and reliably executes git CLI commands without additional dependencies.
+      The git CLI is guaranteed to be available in a git repository, handles all edge cases
+      correctly, and is simple to understand and debug. This avoids external dependencies while
+      maintaining reliability and simplicity.
+
+  - title: "File Naming Convention"
+    chosen: "Use exact filename from specification: test-hzqchm.md"
+    rejected:
+      - "Randomly generated filenames — contradicts specification requirement (FR-1)"
+      - "Environment variable substitution or template expansion — unnecessary when spec provides exact filename"
+    rationale: >
+      The specification explicitly provides the exact filename (test-hzqchm.md) as a functional
+      requirement (FR-1). Using the exact filename ensures consistency with the established pattern
+      of 287+ existing test files and meets the success criteria. No flexibility or substitution is
+      appropriate here — the specification is explicit and must be followed precisely.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation: pathlib.Path
+
+  **Chosen:** `pathlib.Path("test-hzqchm.md").write_text(content, encoding="utf-8", newline="")`
+
+  **Rejected:**
+  - os.path.join() with open() — older idiom, requires separate file handle management
+  - Direct open() with string path — more verbose, less expressive about path handling
+  - External libraries — pathlib is sufficient and built-in
+
+  **Rationale:** The specification explicitly requires pathlib.Path (NFR-5). It's the modern Python
+  standard for file operations in Python 3.11+. The write_text() method is clean, handles both
+  encoding and newline parameters, and eliminates manual file handle management. This is the
+  recommended approach in modern Python code.
+
+  ### 2. Line Ending Control: Universal Newlines Mode
+
+  **Chosen:** Use `newline=""` parameter with write_text() to preserve LF line endings
+
+  **Rejected:**
+  - Binary mode with manual encoding — adds unnecessary complexity
+  - Git configuration (core.autocrlf) — requires user setup, not guaranteed
+  - Platform-conditional code — adds complexity without benefit
+
+  **Rationale:** The specification requires LF line endings (NFR-2). On Windows, Python's default
+  text mode converts '\n' to '\r\n'. The `newline=""` parameter forces universal newlines mode,
+  preserving '\n' exactly. This is the standard Python approach, works identically on all platforms,
+  and requires no additional configuration.
+
+  ### 3. Character Encoding: Explicit UTF-8
+
+  **Chosen:** `encoding="utf-8"` explicitly specified, no BOM
+
+  **Rejected:**
+  - Implicit default encoding — system-dependent, unclear intent
+  - `encoding="utf-8-sig"` — would add Byte Order Mark, violating NFR-1
+  - Binary mode — unnecessary for text files
+
+  **Rationale:** The specification requires UTF-8 without BOM (NFR-1). Explicit encoding ensures
+  correctness and intent clarity. Python's UTF-8 codec does not add BOM by default, but explicit
+  specification guarantees this behavior regardless of system configuration.
+
+  ### 4. Content Generation: Simple Imperative Approach
+
+  **Chosen:** Manually authored prose content following the established pattern
+
+  **Rejected:**
+  - CrewAI agent-based generation — over-engineered for test files
+  - Template system — unnecessary abstraction
+  - Algorithmic generation — cannot ensure meaningful, correct content
+
+  **Rationale:** The specification requires meaningful, grammatically correct prose. Manual authoring
+  guarantees this. The 287+ existing test files follow this simple pattern. For a minimal feature,
+  straightforward hand-written content is most appropriate.
+
+  ### 5. Git Workflow: subprocess CLI Integration
+
+  **Chosen:** Use subprocess module to execute git commands
+
+  **Rejected:**
+  - GitPython library — adds external dependency not needed for simple operations
+  - Full CrewAI orchestration — over-engineered for mechanical workflow
+  - Manual user execution — contradicts automation platform architecture
+
+  **Rationale:** The specification describes an "automated implementation platform". subprocess is
+  in the Python standard library and reliably executes git CLI commands. This avoids external
+  dependencies, is guaranteed to work (git CLI is always available), and is simple to understand.
+
+  ### 6. Markdown Format: Simple Structure
+
+  **Chosen:** H1 heading (`# Title`) + blank line + 2-3 sentences of prose
+
+  **Rejected:**
+  - Alternative structures — specification explicitly defines this format
+  - Different heading levels — specification requires H1
+  - No blank line — specification requires blank line
+
+  **Rationale:** The specification is explicit about format (FR-2, FR-3, FR-4). This simple structure
+  is straightforward, CommonMark-compliant, and produces the required ~400-600 byte file naturally.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O and path operations | **Use** | Required by spec (NFR-5), part of Python 3.11+, modern API |
+  | subprocess (stdlib) | Git command execution | **Use** | Reliable, no external dependencies, guaranteed available |
+  | textwrap (stdlib) | Text wrapping (optional) | **Evaluate** | Not needed for 2-3 sentence prose, unnecessary complexity |
+  | GitPython | Git operations via Python API | **Reject** | External dependency, overkill for simple add/commit/push |
+  | CrewAI (existing) | Agent-based automation | **Evaluate** | Project uses it, but test file creation is too simple for agent overhead |
+  | os.path | Legacy path operations | **Reject** | Older idiom, replaced by pathlib in modern Python |
+
+  ## Security Considerations
+
+  - **File Encoding:** UTF-8 without BOM ensures consistent interpretation across platforms and text processing tools
+  - **Line Endings:** LF normalization prevents potential issues with tools expecting Unix line endings
+  - **No Input Validation:** Content is locally authored (not user/external input), so no injection risk
+  - **No Interpolation:** Git commands use exact strings (no template variables), minimal attack surface
+  - **File Permissions:** Default file creation permissions are appropriate for test files
+  - **No Secrets:** Content is prose only, no credentials or sensitive data at risk
+  - **Git Safety:** Using git CLI commands (vs. reimplementation) ensures correct, secure git operations
+
+  ## Performance Considerations
+
+  - **File I/O:** Single file creation (~400-600 bytes) has negligible I/O overhead
+  - **Encoding/Decoding:** UTF-8 processing is fast, unmeasurable overhead for this file size
+  - **Git Operations:** Local repository operations are fast, no network latency
+  - **Memory Usage:** Minimal — just holding a small content string during write
+  - **Startup Cost:** subprocess.run() for git commands is fast for local operations
+  - **No Optimization Needed:** This is a single-file feature with no performance-critical operations
+
+  ## Architecture Notes
+
+  This feature fits the established test-file-creation pattern used across 287+ features:
+
+  - **Isolation:** Changes confined to repository root, no impact on source code (/src/sheep/)
+  - **No Dependencies:** Uses only Python stdlib and existing git configuration
+  - **Consistency:** Follows identical pattern as related features (284, 285, 286)
+  - **Simplicity:** Straightforward imperative implementation, no complex abstractions
+  - **Integration:** Works with existing Sheep platform git workflow
+  - **Precedent:** 287+ existing test files demonstrate this pattern is well-established
+
+  The feature demonstrates the principle of minimal, isolated changes with clear success criteria.
+  No architectural refactoring or complex integration is required.
+
+  ## Markdown Validation
+
+  The output markdown conforms to CommonMark 0.30 specification:
+  - H1 headings via `# Title` syntax (ATX heading format)
+  - Blank lines between block elements (preserve structural separation)
+  - Plain text paragraphs with no special formatting
+  - UTF-8 character encoding
+  - LF line endings
+
+  No syntax errors or validation issues expected.
+
+  ## Implementation Approach
+
+  The straightforward implementation pattern:
+
+  1. Compose content string: `"# Title\n\nSentence 1. Sentence 2. Sentence 3."`
+  2. Write to file: `Path("test-hzqchm.md").write_text(content, encoding="utf-8", newline="")`
+  3. Stage file: `subprocess.run(["git", "add", "test-hzqchm.md"])`
+  4. Commit: `subprocess.run(["git", "commit", "-m", "feat(287): create markdown file test-hzqchm.md with title and prose content"])`
+  5. Push: `subprocess.run(["git", "push", "-u", "origin", "feat/287-markdown-file-creation-edbcce"])`
+
+  Total implementation: ~10-15 minutes following established pattern with 287+ precedents.
