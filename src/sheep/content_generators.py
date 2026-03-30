@@ -335,6 +335,7 @@ def commit_markdown_file(
     content: str,
     repo_path: str | None = None,
     custom_message: str | None = None,
+    feature_number: int | None = None,
 ) -> str:
     """
     Stage and commit the markdown file with a conventional commit message.
@@ -344,6 +345,7 @@ def commit_markdown_file(
         content: The markdown content (used to extract topic for commit message).
         repo_path: Path to the git repository (defaults to current directory).
         custom_message: Optional custom commit message to use instead of auto-generated.
+        feature_number: Feature number for conventional commit scope (defaults to 272).
 
     Returns:
         The commit result message from GitCommitTool.
@@ -354,6 +356,9 @@ def commit_markdown_file(
     """
     if repo_path is None:
         repo_path = str(Path.cwd())
+
+    if feature_number is None:
+        feature_number = 272
 
     _logger.info(f"Committing markdown file: {filepath}")
 
@@ -366,8 +371,8 @@ def commit_markdown_file(
             commit_message = custom_message
             _logger.debug(f"Using custom commit message: {commit_message}")
         else:
-            # Format commit message: "feat(145): create markdown file test-5dl5yi.md with prose content"
-            commit_message = f"feat(145): create markdown file {filename} with prose content"
+            # Format commit message: "feat(272): create markdown file test-visstj.md with prose content"
+            commit_message = f"feat({feature_number}): create markdown file {filename} with prose content"
 
         _logger.debug(f"Commit message: {commit_message}")
 
@@ -416,7 +421,7 @@ def push_markdown_file(repo_path: str | None = None, remote: str = "origin") -> 
 
 
 def create_markdown_file(
-    filename: str, repo_path: str | None = None
+    filename: str, repo_path: str | None = None, feature_number: int | None = None
 ) -> dict[str, str]:
     """
     Orchestrate the complete workflow to create, write, commit, and push a markdown file.
@@ -430,8 +435,9 @@ def create_markdown_file(
     5. Push to remote with upstream tracking
 
     Args:
-        filename: Name of the markdown file to create (e.g., "test-9veux3.md").
+        filename: Name of the markdown file to create (e.g., "test-visstj.md").
         repo_path: Path to the git repository (defaults to current directory).
+        feature_number: Feature number for conventional commit scope (defaults to 272).
 
     Returns:
         Dictionary containing:
@@ -447,6 +453,9 @@ def create_markdown_file(
     """
     if repo_path is None:
         repo_path = str(Path.cwd())
+
+    if feature_number is None:
+        feature_number = 272
 
     _logger.info(f"Creating markdown file: {filename}")
 
@@ -468,11 +477,11 @@ def create_markdown_file(
 
         # Step 4: Commit file
         _logger.info("Step 4: Committing markdown file")
-        commit_result = commit_markdown_file(filepath, content, repo_path)
+        commit_result = commit_markdown_file(filepath, content, repo_path, feature_number=feature_number)
         _logger.debug(f"Commit result: {commit_result}")
 
         # Construct commit message for return value (matches what was committed)
-        commit_message = f"feat(145): create markdown file {filename} with prose content"
+        commit_message = f"feat({feature_number}): create markdown file {filename} with prose content"
 
         # Step 5: Push to remote
         _logger.info("Step 5: Pushing to remote repository")
