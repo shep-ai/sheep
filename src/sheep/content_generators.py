@@ -123,8 +123,9 @@ def write_markdown_file(content: str, filename: str) -> str:
     _logger.info(f"Writing markdown file to {file_path}")
 
     try:
-        # Write file with UTF-8 encoding (handles LF line endings on Unix)
-        with open(file_path, "w", encoding="utf-8") as f:
+        # Write file with UTF-8 encoding and explicit Unix LF line endings
+        # Use newline="" to prevent Windows from converting LF to CRLF
+        with open(file_path, "w", encoding="utf-8", newline="") as f:
             f.write(content)
 
         # Verify file was created
