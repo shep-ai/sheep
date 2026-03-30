@@ -1,0 +1,382 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-80ca9d"
+summary: >
+  Technical research for feature 275 confirms pathlib for file I/O, direct string encoding for UTF-8/LF compliance,
+  and GitPython for version control. The feature is straightforward automation with minimal complexity: no libraries beyond
+  Python standard library (pathlib) and existing GitPython dependency (already in project). No security, performance,
+  or architectural risks identified.
+
+# Relationships
+relatedFeatures:
+  - number: 274
+    name: "markdown-file-creation"
+    status: "Precedent pattern — identical implementation"
+  - number: 273
+    name: "markdown-file-creation"
+    status: "Precedent pattern — identical implementation"
+  - number: 272
+    name: "markdown-file-creation"
+    status: "Precedent pattern — identical implementation"
+
+technologies:
+  - "Python 3.11+ (pathlib standard library)"
+  - "Git (version control)"
+  - "GitPython (already in dependencies, for git automation)"
+  - "Markdown (file format, CommonMark 0.30+)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3.11/library/pathlib.html"
+  - title: "CommonMark Markdown specification"
+    url: "https://spec.commonmark.org/0.30/"
+  - title: "GitPython documentation"
+    url: "https://gitpython.readthedocs.io/"
+  - title: "UTF-8 encoding without BOM specification"
+    url: "https://en.wikipedia.org/wiki/Byte_order_mark"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Implementation"
+    chosen: "Python pathlib.Path with write_text()"
+    rejected:
+      - "os.open()/os.write() — Lower-level API; pathlib is higher-level, more Pythonic, and already used in similar patterns across codebase. os module functions require more boilerplate for the same result."
+      - "io.open() context managers — More verbose than pathlib; requires explicit encoding parameter handling. pathlib.Path.write_text() is more readable and handles encoding automatically."
+      - "Third-party file libraries (e.g., fsspec) — Unnecessary complexity for simple local file creation. Project already uses pathlib implicitly through CrewAI file operations."
+    rationale: >
+      pathlib.Path.write_text() is the standard Python approach for simple file creation with explicit encoding control.
+      It is built into Python 3.11+ standard library, requires no additional dependencies, and provides a clean, readable API.
+      The codebase already uses pathlib for file operations (example: CrewAI framework uses pathlib internally).
+      Calling write_text(content, encoding='utf-8') automatically creates the file, handles encoding, and ensures proper line ending handling
+      when content is pre-formed with explicit '\n' characters.
+
+  - title: "Encoding and Line Ending Strategy"
+    chosen: "Compose content with explicit '\\n' characters, write with encoding='utf-8' parameter"
+    rejected:
+      - "Use newline='\\n' parameter with io.open() — More verbose and requires context manager; pathlib's write_text() with encoding parameter is cleaner."
+      - "Use os.linesep or platform detection — Unnecessary; feature spec explicitly requires LF line endings, not platform-native. Direct '\\n' in content is the correct approach."
+      - "Post-process file with dos2unix or sed — Fragile and adds unnecessary subprocess calls. Content composition with explicit '\\n' is cleaner and more reliable."
+    rationale: >
+      Python's write_text(encoding='utf-8') writes UTF-8 without BOM by default.
+      Composing the content with explicit '\\n' line feed characters (U+000A) directly in the Python string ensures LF line endings in the output file.
+      Since Python 3 strings are Unicode, each '\\n' in a source string is the Unicode line feed character, which write_text() encodes as ASCII 0x0A (LF) in UTF-8.
+      This approach: (1) guarantees UTF-8 encoding without BOM, (2) guarantees LF line endings, (3) requires no post-processing or file system calls,
+      (4) is observable and verifiable with 'file' command or 'od -c' inspection.
+
+  - title: "Prose Content Generation"
+    chosen: "Hand-composed prose with flexible topic selection"
+    rejected:
+      - "Random topic generation with template — Adds unnecessary complexity (requires topic pool, template system). Spec explicitly states flexible topic selection is preferred. Manual composition is faster for a single 2-3 sentence prose block."
+      - "AI-generated prose via LLM API — Introduces external API dependency, latency, and cost. Feature is a test artifact with no semantic requirement. The project's CrewAI integration does not justify using LLM for simple file creation."
+      - "Programmatic prose generation from data structures — Over-engineered for 2-3 sentences. Manual composition is more readable and maintainable for this scale."
+    rationale: >
+      Feature spec explicitly resolves the 'Should prose topic selection be constrained?' question with: Flexible topic selection that matches the diverse
+      pattern of existing 200+ test files (nature, technology, history, culture, philosophy, etc.). Hand-composing 2-3 sentences of coherent prose is
+      faster than any programmatic approach, requires no additional dependencies, and allows natural prose quality. The 200+ existing test files demonstrate
+      diverse topics, confirming this approach is established and acceptable.
+
+  - title: "Git Integration Approach"
+    chosen: "Subprocess calls (git add, git commit, git push) via shell execution"
+    rejected:
+      - "GitPython library (git.Repo API) — While GitPython is already in project dependencies, direct subprocess calls (os.system/subprocess.run) are simpler for straightforward git commands. GitPython adds abstraction without benefit for mechanical operations (add, commit, push)."
+      - "Programmatic git operations via GitPython Repo/Index APIs — More complex; requires Repo instance, Index handling, actor configuration. Shell commands are more direct and transparent for auditing."
+      - "Push directly without intermediate staging — Non-compliant with spec. Feature requires explicit 'git add' and conventional commit message."
+    rationale: >
+      Feature spec requires explicit: (1) git add test-mdhar3.md, (2) conventional commit message, (3) git push.
+      Direct subprocess.run() calls are transparent, predictable, and directly execute the required commands.
+      The shell approach is already used extensively in Sheep automation (CrewAI agents execute shell commands).
+      While GitPython is available, it requires: Repo object setup, actor (user) configuration, Index handling.
+      For mechanical add/commit/push operations, subprocess is cleaner, requires no GitPython-specific imports,
+      and output is directly observable for debugging.
+
+  - title: "Error Handling Strategy"
+    chosen: "Fail fast with exceptions; no silent fallbacks or retries"
+    rejected:
+      - "Retry logic for transient failures — Not appropriate for a file creation feature. If git push fails (network error, auth), the user should see the error immediately rather than retry. Retries mask underlying problems."
+      - "Silent fallback to draft file or staging-only (skip push) — Violates spec which explicitly requires push to feature branch. Partial success is worse than clear failure."
+      - "Try-except with custom error messages — File creation is simple; Python's built-in exceptions are sufficient. Wrapping them adds noise without value."
+    rationale: >
+      File I/O and git operations are atomic and deterministic in this context. If either fails (e.g., write_text() fails, git push fails),
+      the error is real and should be visible to the operator. No recovery strategy is possible at this layer.
+      Fail-fast semantics are appropriate for automated implementation: if the feature fails, the CI pipeline catches it
+      and the operator investigates. Retries and fallbacks would mask real problems and delay failure visibility.
+
+  - title: "Markdown Validation Approach"
+    chosen: "Manual inspection during code review (no automated validation)"
+    rejected:
+      - "Markdown linter (e.g., markdownlint, pylint-markdown) — Adds external tool dependency. Feature spec explicitly resolves this: 'Manual inspection is recommended because it aligns with established pattern from features 069-274 which have successfully validated 200+ files without automated checks.'"
+      - "Programmatic validation (check heading count, sentence count, byte size) — Adds unnecessary complexity for a simple artifact. Spec requirements are straightforward (one heading, 2-3 sentences, 400-600 bytes)."
+      - "Custom markdown parser — Overkill for validating simple heading + prose format."
+    rationale: >
+      Feature spec explicitly resolved this in product questions: 'Manual inspection is recommended because it aligns with the established pattern
+      from features 069-274 which have successfully validated 200+ files without automated checks, avoids unnecessary tooling dependencies for a simple artifact,
+      and visual inspection is sufficient.' The format is simple and transparent: file contents are immediately readable. The 200+ existing test files
+      demonstrate this approach is proven and acceptable.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-30
+  - **Status:** Complete
+
+  ## Technology Stack
+
+  ### Core Technologies
+
+  | Technology | Version | Role | Notes |
+  | ---------- | ------- | ---- | ----- |
+  | Python | 3.11+ | Runtime & file I/O | pathlib module from standard library |
+  | Git | (installed) | Version control | Shell execution via subprocess |
+  | Markdown | CommonMark 0.30+ | File format | Simple H1 heading + prose |
+
+  ### Dependencies Analysis
+
+  **Already in pyproject.toml:**
+  - GitPython 3.1.0+ — Available but not strictly needed; direct subprocess shell commands are simpler
+  - CrewAI, Langfuse, etc. — Not relevant to file creation task
+
+  **New dependencies:** None required. Implementation uses only Python standard library (pathlib) and shell git commands.
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation
+
+  **Chosen:** `pathlib.Path.write_text(content, encoding='utf-8')`
+
+  **Rejected:**
+  - `os.open()/os.write()` — Lower-level API; pathlib is more Pythonic and cleaner
+  - `io.open()` context managers — More verbose than pathlib
+  - Third-party file libraries — Unnecessary for simple local file creation
+
+  **Rationale:**
+  pathlib is the modern Python standard for file operations. It provides:
+  - Clean, readable API: `Path('test-mdhar3.md').write_text(content, encoding='utf-8')`
+  - Automatic file creation if it doesn't exist (atomically overwrites if it does)
+  - Explicit encoding parameter ensures UTF-8 without BOM (Python's default)
+  - No temporary files or cleanup needed
+  - Already used throughout the codebase (CrewAI framework uses pathlib internally)
+
+  ### 2. Encoding and Line Ending Strategy
+
+  **Chosen:** Compose content with explicit `\n` characters; write with `encoding='utf-8'`
+
+  **Rejected:**
+  - `newline='\n'` parameter with `io.open()` — More verbose than pathlib approach
+  - Platform detection (`os.linesep`) — Unnecessary; spec requires explicit LF (Unix-style) line endings
+  - Post-processing with `dos2unix` or `sed` — Fragile; adds subprocess calls and file I/O overhead
+
+  **Rationale:**
+  Python's `write_text(encoding='utf-8')` encodes content to UTF-8 without BOM. When the Python source contains
+  the literal escape sequence `\n` (line feed, U+000A), it is written to the file as ASCII 0x0A (LF) in UTF-8 encoding.
+  This guarantees:
+  - UTF-8 encoding without BOM (Python's standard)
+  - LF line endings (U+000A / 0x0A) — verifiable with `file test-mdhar3.md` or `od -c`
+  - No post-processing required
+  - Content is exactly as specified at write time
+
+  **Verification:**
+  ```bash
+  file -i test-mdhar3.md         # Should output: "charset=utf-8"
+  file test-mdhar3.md             # Should output: "ASCII text"
+  od -c test-mdhar3.md | head -1  # First line should show \n not \r\n
+  ```
+
+  ### 3. Prose Content Generation
+
+  **Chosen:** Hand-composed prose with flexible topic selection
+
+  **Rejected:**
+  - Random topic generation with templates — Adds complexity; spec prefers flexible selection
+  - AI-generated prose via LLM API — Introduces latency, cost, and external dependency; unnecessary for test artifact
+  - Programmatic prose generation — Over-engineered for 2-3 sentences
+
+  **Rationale:**
+  Feature spec explicitly resolves this in product questions: "Flexible topic selection is recommended because
+  it matches the established pattern of 200+ existing test files which cover diverse topics (nature, technology,
+  science, history, culture, philosophy), reduces implementation constraints, and allows natural prose composition."
+
+  The 200+ existing test files demonstrate diverse topics:
+  - "Automated File Creation" (technology topic)
+  - "The Art of Meaningful Communication" (philosophy/humanity topic)
+
+  Hand-composing 2-3 sentences is faster than any programmatic approach and allows natural prose quality.
+
+  ### 4. Git Integration
+
+  **Chosen:** Subprocess shell execution (`git add`, `git commit`, `git push`)
+
+  **Rejected:**
+  - GitPython library (git.Repo API) — While available, subprocess is simpler and more transparent for mechanical commands
+  - Programmatic git operations (Repo/Index APIs) — Adds abstraction complexity without benefit
+
+  **Rationale:**
+  Feature requires three explicit operations: `git add`, `git commit`, `git push`. Direct subprocess calls are:
+  - Transparent and auditable (shell commands are visible in execution logs)
+  - Predictable (no GitPython abstraction layer or actor configuration needed)
+  - Already used throughout the Sheep platform (CrewAI agents execute shell commands)
+
+  **Example:**
+  ```python
+  import subprocess
+
+  # Stage the file
+  subprocess.run(['git', 'add', 'test-mdhar3.md'], check=True)
+
+  # Commit with conventional message
+  msg = 'feat(275): create markdown file test-mdhar3.md with prose content'
+  subprocess.run(['git', 'commit', '-m', msg], check=True)
+
+  # Push to feature branch
+  subprocess.run(['git', 'push'], check=True)
+  ```
+
+  The `check=True` parameter ensures exceptions are raised if any command fails.
+
+  ### 5. Error Handling
+
+  **Chosen:** Fail fast; let exceptions propagate (no retries or fallbacks)
+
+  **Rejected:**
+  - Retry logic for transient failures — Masks underlying problems; user should see errors immediately
+  - Silent fallback (skip push if it fails) — Violates spec which requires push
+  - Custom error wrapping — Unnecessary; Python's built-in exceptions are sufficient
+
+  **Rationale:**
+  File creation and git operations are deterministic in this context. If either fails:
+  - File I/O failure → User has no write permission or disk is full (clear, actionable error)
+  - Git failure → Authentication issue, branch doesn't exist, network failure (user should see this immediately)
+
+  Fail-fast semantics are appropriate for automated implementation. The CI pipeline catches failures;
+  retries would only delay visibility of real problems.
+
+  ### 6. Markdown Validation
+
+  **Chosen:** Manual inspection (no automated validation)
+
+  **Rejected:**
+  - Markdown linters (markdownlint, pylint-markdown) — Adds tool dependency; unnecessary for simple format
+  - Programmatic validation (check heading count, sentence count) — Over-engineered
+
+  **Rationale:**
+  Feature spec explicitly resolved this in product questions: "Manual inspection is recommended because
+  it aligns with the established pattern from features 069-274 which have successfully validated 200+ files
+  without automated checks, avoids unnecessary tooling dependencies for a simple artifact, and visual inspection
+  is sufficient."
+
+  The format is simple and transparent: one H1 heading, blank line, 2-3 sentences of prose.
+  The 200+ existing test files demonstrate this manual approach is proven.
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | -------------- | ------- | -------- | --------- |
+  | pathlib (standard) | File I/O (create, write) | Use | Built-in, no dependencies, clean API, modern Python standard |
+  | subprocess | Git command execution | Use | Built-in, transparent, already used throughout Sheep platform |
+  | GitPython | Git operations (alternative) | Reject | Unnecessary abstraction for simple add/commit/push operations |
+  | markdownlint | Markdown validation | Reject | Unnecessary for simple format; manual inspection sufficient per spec |
+  | faker / random | Prose generation | Reject | Over-engineered; hand-composing 2-3 sentences is faster |
+  | io module | File I/O (alternative) | Reject | More verbose than pathlib; no advantage for this use case |
+
+  ## Security Considerations
+
+  **Risk Level: Minimal**
+
+  This feature creates a static markdown file with no user input, no dynamic code execution, and no external data sources.
+
+  ### Security Analysis
+
+  1. **File Writing:** Creating a local file in the repository root has minimal risk. The file is a static markdown artifact, not executable code.
+  2. **Git Operations:** Standard git commands (add, commit, push) are safe when executed with fixed arguments (file name and commit message are hardcoded in spec).
+  3. **Encoding:** UTF-8 encoding without BOM is secure; no special character handling or parsing needed.
+  4. **No User Input:** The implementation does not accept or process user input; file name and content are hardcoded.
+  5. **No External Dependencies:** pathlib and subprocess are standard library; no third-party packages introduce supply chain risk.
+
+  ### Mitigations
+
+  - Use `subprocess.run(..., check=True)` to ensure git commands succeed; catch exceptions if they fail
+  - No input validation needed (all parameters are hardcoded in spec)
+  - No privilege escalation (operations are within normal user permissions)
+
+  ## Performance Considerations
+
+  **Risk Level: None**
+
+  This is a minimal, single-operation feature with no performance constraints.
+
+  ### Analysis
+
+  1. **File Creation:** Writing 400-600 bytes is negligible. I/O latency is sub-millisecond on any modern filesystem.
+  2. **Git Operations:** Staging, committing, and pushing a single small file is fast:
+     - `git add` — Indexed only for the new file (~1-2 ms)
+     - `git commit` — Single-file commit with fixed message (~10-20 ms)
+     - `git push` — Network dependent, but feature branch operations are quick (~100-500 ms)
+  3. **Total Expected Runtime:** 5-15 minutes (per spec estimate), dominated by thinking/composition time, not I/O
+
+  ### Optimizations
+
+  No optimizations needed. The feature is already minimal.
+
+  ## Architecture Notes
+
+  ### How This Fits Into the Codebase
+
+  This feature is a **test artifact** with no impact on application architecture:
+
+  1. **Repository Root:** The markdown file is created at the root directory, joining 200+ existing test files (test-*.md). These files are not part of the application source code; they are validation artifacts for the automated implementation system.
+
+  2. **Existing Pattern:** Features 069-274 have already established this pattern. This is feature 275, continuing an identical workflow:
+     - File creation using pathlib
+     - Prose content (2-3 sentences, flexible topic)
+     - UTF-8 encoding, LF line endings
+     - Conventional commit message
+     - Push to feature branch
+
+  3. **No Source Code Impact:** The feature does not modify `/src/sheep/`, tests, configuration, or any application files. It is purely file creation and git workflow.
+
+  4. **No Runtime Impact:** The markdown file is not imported, executed, or referenced by the application. It has zero runtime impact.
+
+  5. **No Dependency Changes:** No new dependencies are introduced. The implementation uses only Python standard library (pathlib) and shell git commands.
+
+  ### Integration Points
+
+  - **Git Repository:** The feature uses the existing git setup (current branch is `feat/275-markdown-file-creation-80ca9d`, already created)
+  - **Filesystem:** Writes to the repository root (standard permissions)
+  - **No API/Service Integration:** This is a local file operation; no external services are involved
+
+  ### Architectural Patterns Observed
+
+  From the 200+ existing test files:
+
+  | Aspect | Pattern | Rationale |
+  | ------ | ------- | --------- |
+  | File Location | Repository root | Central, easily discoverable location for test artifacts |
+  | File Format | Markdown with H1 + prose | Simple, readable format; no parsing complexity |
+  | Prose Topics | Diverse (technology, nature, philosophy, etc.) | Reflects real-world diversity; avoids monotony |
+  | File Size | 400-600 bytes | Natural outcome of H1 + 2-3 sentences; consistent and verifiable |
+  | Git Workflow | add → commit → push | Standard, mechanical workflow; no complexities |
+  | Commit Message | Conventional (feat(N): ...) | Aligns with project conventions; easy to parse and audit |
+
+  ## Conclusion
+
+  The technical implementation is straightforward with no novel decisions:
+
+  1. **File I/O:** pathlib.Path.write_text() with explicit encoding — simple, Pythonic, standard
+  2. **Encoding/Line Endings:** Direct `\n` in content composed with UTF-8 encoding — guarantees spec compliance
+  3. **Prose:** Hand-composed, flexible topic — matches 200+ precedent; faster than programmatic generation
+  4. **Git Integration:** Direct subprocess commands — transparent and familiar
+  5. **Error Handling:** Fail fast — appropriate for automated implementation
+  6. **Validation:** Manual inspection — established pattern from 200+ prior implementations
+
+  **No security risks, performance concerns, or architectural complexities identified.**
+
+  The feature is ready for implementation phase.
+
+  ---
+
+  _Research phase complete — all technology decisions documented with rationale, library analysis complete, security/performance assessment confirms no risks_
