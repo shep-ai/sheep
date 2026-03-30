@@ -1,38 +1,44 @@
 #!/usr/bin/env python3
 """
-Create markdown file test-n49t8o.md following the established pattern.
+Create markdown file test-6ektaf.md following the established pattern.
 
 This script:
-1. Creates test-n49t8o.md with hardcoded prose content (H1 heading + 2-3 sentences)
-2. Uses pathlib.Path for file I/O (per NFR-5)
-3. Validates file format (UTF-8, LF line endings, structure)
+1. Creates test-6ektaf.md with hardcoded prose content (H1 heading + 2-3 sentences)
+2. Uses pathlib.Path for file I/O (per FR-4)
+3. Validates file format (UTF-8 without BOM, LF line endings, structure)
 4. Stages file with git add
 5. Commits with conventional message
 6. Pushes to remote origin
 """
 
+import io
 import subprocess
 import sys
 from pathlib import Path
 
-# Hardcoded prose content: H1 heading + exactly 2-3 sentences
-# Topic: The Moon and its influence on Earth
-PROSE_CONTENT = """# The Moon and Its Impact on Earth
+# Fix for Windows encoding issues - ensure output can handle Unicode
+if sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-The Moon is Earth's only natural satellite and plays a crucial role in maintaining the conditions necessary for life. Its gravitational influence stabilizes Earth's axial tilt, preventing chaotic climate changes that would make complex life difficult to sustain. The Moon also regulates ocean tides, which have shaped marine ecosystems and human civilizations for millennia.
+# Hardcoded prose content: H1 heading + exactly 2-3 sentences
+# Topic: The Evolution of Programming Languages
+PROSE_CONTENT = """# The Evolution of Programming Languages
+
+Programming languages have evolved dramatically over the past seven decades, starting from machine code and assembly to high-level languages that abstract away hardware complexities. Each generation of languages has introduced new paradigms and features designed to make software development more efficient and expressive. Today, developers have an unprecedented choice of languages tailored to specific domains, from web development to scientific computing to systems programming.
 """
 
 # Filename to create
-FILENAME = "test-n49t8o.md"
+FILENAME = "test-6ektaf.md"
 
 
 def create_markdown_file():
-    """Create the markdown file using pathlib.Path.write_text()."""
+    """Create the markdown file using pathlib.Path.write_text() with UTF-8 and LF."""
     path = Path(FILENAME)
 
-    # Write file with explicit UTF-8 encoding
-    # write_text() handles file creation, closing, and encoding automatically
-    path.write_text(PROSE_CONTENT, encoding='utf-8')
+    # Write file with explicit UTF-8 encoding and LF line endings (NFR-1, NFR-2)
+    # encoding='utf-8' ensures UTF-8 without BOM
+    # newline='\n' forces LF line endings on all platforms (Windows, macOS, Linux)
+    path.write_text(PROSE_CONTENT, encoding='utf-8', newline='\n')
 
     print(f"✓ Created file: {FILENAME}")
     return path
@@ -77,9 +83,9 @@ def stage_and_commit():
     subprocess.run(['git', 'add', FILENAME], check=True)
     print(f"✓ Staged file with: git add {FILENAME}")
 
-    # Git commit with conventional message
-    commit_message = "feat(069): create markdown file test-n49t8o.md with prose content"
-    subprocess.run(['git', 'commit', '--no-verify', '-m', commit_message], check=True)
+    # Git commit with conventional message (FR-6)
+    commit_message = "feat(278): create markdown file test-6ektaf.md with title and prose content"
+    subprocess.run(['git', 'commit', '-m', commit_message], check=True)
     print(f"✓ Committed with message: {commit_message}")
 
 
@@ -104,7 +110,7 @@ def main():
         # Task 5: Git push
         push_to_remote()
 
-        print("\n✓ Feature 069 complete: markdown file created, committed, and pushed")
+        print("\n✓ Feature 278 complete: markdown file created, committed, and pushed")
         return 0
 
     except Exception as e:
