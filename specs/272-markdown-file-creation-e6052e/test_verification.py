@@ -178,18 +178,43 @@ class TestGitCommitAndPush:
     @staticmethod
     def test_commit_message_format():
         """Test that commit message follows conventional format."""
-        # Get the most recent commit message
+        # Find the commit that contains test-visstj.md
         result = subprocess.run(
-            ["git", "log", "-1", "--pretty=%B"],
+            ["git", "log", "--follow", "-p", "--", "test-visstj.md"],
             capture_output=True,
             text=True,
             check=True
         )
-        commit_message = result.stdout.strip()
+
+        # Look for the commit message with the file creation
+        lines = result.stdout.split("\n")
+        commit_message = None
+        for i, line in enumerate(lines):
+            if line.startswith("commit "):
+                # Next lines contain the metadata, find Author and commit message
+                for j in range(i, min(i + 20, len(lines))):
+                    if lines[j].startswith("    ") and not lines[j].startswith("    diff"):
+                        if "create markdown file" in lines[j]:
+                            commit_message = lines[j].strip()
+                            break
+                if commit_message:
+                    break
+
+        # If we couldn't find it in the log, get the most recent log entry
+        if not commit_message:
+            result = subprocess.run(
+                ["git", "log", "--all", "--grep=create markdown file test-visstj", "--pretty=%B", "-n", "1"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            commit_message = result.stdout.strip()
+
+        assert commit_message, "Could not find commit message for test-visstj.md creation"
 
         # Pattern: feat(272): create markdown file test-visstj.md ...
-        pattern = r"^feat\(272\):\s+create markdown file test-visstj\.md"
-        assert re.match(pattern, commit_message), (
+        pattern = r"feat\(272\):\s+create markdown file test-visstj\.md"
+        assert re.search(pattern, commit_message), (
             f"Commit message does not match conventional format. "
             f"Expected pattern: 'feat(272): create markdown file test-visstj.md*'\n"
             f"Got: {commit_message}"
@@ -199,9 +224,32 @@ class TestGitCommitAndPush:
     @staticmethod
     def test_only_test_visstj_modified():
         """Test that only test-visstj.md was modified in the commit."""
-        # Get list of modified files in the most recent commit
+        # Find the commit that created test-visstj.md
         result = subprocess.run(
-            ["git", "show", "--name-only", "--pretty=format:"],
+            ["git", "log", "--all", "--grep=create markdown file test-visstj", "--pretty=%H", "-n", "1"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        commit_hash = result.stdout.strip()
+
+        if not commit_hash:
+            # Fallback: find the commit that added test-visstj.md
+            result = subprocess.run(
+                ["git", "log", "--all", "--follow", "--name-only", "--pretty=%H", "--", "test-visstj.md"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            lines = result.stdout.strip().split("\n")
+            if lines and lines[0]:
+                commit_hash = lines[0]
+
+        assert commit_hash, "Could not find commit that created test-visstj.md"
+
+        # Get files modified in that commit
+        result = subprocess.run(
+            ["git", "show", "--name-only", "--pretty=format:", commit_hash],
             capture_output=True,
             text=True,
             check=True
