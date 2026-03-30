@@ -374,16 +374,97 @@ class TestValidateMarkdownFile:
             validate_markdown_file(str(filepath))
 
 
-class TestFileSizeRequirements:
-    """Tests for file size validation."""
+class TestGitIntegration:
+    """Tests for git integration (commit and push)."""
 
-    def test_file_size_is_reasonable(self, temp_dir):
-        """Test that created file size is within reasonable range for markdown with prose."""
+    def test_git_commit_message_format_is_conventional(self, temp_dir):
+        """Test that git commit message follows conventional commits format."""
         with mock.patch("sheep.content_generators.get_reasoning_llm") as mock_llm:
             mock_llm_instance = mock.Mock()
             mock_llm.return_value = mock_llm_instance
 
-            # Content that results in reasonable size for H1 heading + 2-3 sentences
+            mock_response = {
+                "content": "# Test Title\n\nFirst sentence. Second sentence. Third sentence."
+            }
+            mock_llm_instance.call.return_value = mock_response
+
+            with mock.patch("sheep.content_generators.GitCommitTool") as mock_commit:
+                with mock.patch("sheep.content_generators.GitPushTool") as mock_push:
+                    mock_commit.return_value._run.return_value = "Commit successful"
+                    mock_push.return_value._run.return_value = "Push successful"
+
+                    result = create_markdown_file("test-elv4sx.md", feature_number=279)
+
+                    # Verify conventional commit format: type(scope): subject
+                    msg = result["commit_message"]
+                    assert msg.startswith("feat("), "Commit message must start with 'feat('"
+                    assert "279" in msg, "Commit message must include feature number 279"
+                    assert "test-elv4sx.md" in msg, "Commit message must include filename"
+
+    def test_git_push_result_is_included_in_response(self, temp_dir):
+        """Test that push result is returned in the result dictionary."""
+        with mock.patch("sheep.content_generators.get_reasoning_llm") as mock_llm:
+            mock_llm_instance = mock.Mock()
+            mock_llm.return_value = mock_llm_instance
+
+            mock_response = {
+                "content": "# Test Title\n\nFirst sentence. Second sentence. Third sentence."
+            }
+            mock_llm_instance.call.return_value = mock_response
+
+            with mock.patch("sheep.content_generators.GitCommitTool"):
+                with mock.patch("sheep.content_generators.GitPushTool") as mock_push:
+                    mock_push.return_value._run.return_value = "Push successful"
+
+                    result = create_markdown_file("test-elv4sx.md", feature_number=279)
+
+                    # Push result should be in the response
+                    assert result["push_result"] is not None
+
+
+class TestProseContent:
+    """Tests for prose content validation."""
+
+    def test_prose_contains_2_to_3_sentences(self, temp_dir):
+        """Test that file prose content contains exactly 2-3 sentences."""
+        with mock.patch("sheep.content_generators.get_reasoning_llm") as mock_llm:
+            mock_llm_instance = mock.Mock()
+            mock_llm.return_value = mock_llm_instance
+
+            # Three sentences (periods)
+            mock_response = {
+                "content": "# Title\n\nFirst sentence. Second sentence. Third sentence."
+            }
+            mock_llm_instance.call.return_value = mock_response
+
+            with mock.patch("sheep.content_generators.GitCommitTool"):
+                with mock.patch("sheep.content_generators.GitPushTool"):
+                    result = create_markdown_file("test-elv4sx.md", feature_number=279)
+
+                    # Extract prose (everything after the blank line)
+                    content = Path(result["filepath"]).read_text(encoding="utf-8")
+                    lines = content.split("\n")
+                    # Prose is from line 2 onwards (after blank line at line 1)
+                    prose = "\n".join(lines[2:])
+
+                    # Count periods (sentences)
+                    sentence_count = prose.count(".")
+                    assert 2 <= sentence_count <= 3, (
+                        f"Prose contains {sentence_count} sentences, "
+                        f"expected 2-3 sentences"
+                    )
+
+
+class TestFileSizeRequirements:
+    """Tests for file size validation."""
+
+    def test_file_size_meets_specification_400_to_600_bytes(self, temp_dir):
+        """Test that created file size meets specification of 400-600 bytes."""
+        with mock.patch("sheep.content_generators.get_reasoning_llm") as mock_llm:
+            mock_llm_instance = mock.Mock()
+            mock_llm.return_value = mock_llm_instance
+
+            # Content that results in size within 400-600 byte requirement
             mock_response = {
                 "content": "# Iteration and Innovation in Software Development\n\nIteration is a fundamental principle in modern software development that drives continuous improvement and excellence through repeated cycles of design, implementation, and refinement. Each iteration builds upon the previous one, incorporating valuable feedback and lessons learned. Teams that embrace iterative processes adapt better to changing requirements and deliver increasingly valuable solutions."
             }
@@ -394,7 +475,8 @@ class TestFileSizeRequirements:
                     result = create_markdown_file("test-elv4sx.md", feature_number=279)
 
                     file_size = Path(result["filepath"]).stat().st_size
-                    # File should be at least 100 bytes (minimum for H1 + prose structure)
-                    # and typically under 1000 bytes for typical prose
-                    assert file_size > 100, f"File size {file_size} is too small"
-                    assert file_size < 1000, f"File size {file_size} is too large"
+                    # File must be between 400-600 bytes per specification
+                    assert 400 <= file_size <= 600, (
+                        f"File size {file_size} bytes does not meet specification "
+                        f"requirement of 400-600 bytes"
+                    )
