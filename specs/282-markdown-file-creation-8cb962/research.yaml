@@ -1,0 +1,431 @@
+name: "markdown-file-creation-8cb962"
+summary: >
+  Feature 282 creates a markdown file (test-9xt2ec.md) with an H1 title and 2-3 sentences
+  of prose content using the proven shared orchestration function from 280+ prior features.
+  The implementation uses unconstrained content generation, comprehensive validation, strict
+  enforcement of all 15 functional requirements, and standard pytest testing patterns.
+
+relatedFeatures: []
+
+technologies:
+  - "Python 3.6+"
+  - "Pathlib"
+  - "Anthropic SDK (Claude API)"
+  - "CrewAI LLM Framework"
+  - "pytest"
+  - "unittest.mock"
+  - "Git (version control)"
+  - "GitHub Actions (CI/CD)"
+
+relatedLinks:
+  - title: "Pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Conventional Commits Specification"
+    url: "https://www.conventionalcommits.org/"
+  - title: "pytest Documentation"
+    url: "https://docs.pytest.org/"
+  - title: "GitHub Actions CI/CD"
+    url: "https://docs.github.com/en/actions"
+
+decisions:
+  - title: "Orchestration Architecture"
+    chosen: "Use shared create_markdown_file() function from src/sheep/content_generators.py"
+    rejected:
+      - "Custom bespoke implementation in specs/282-*/create_markdown_file.py — duplicates validated code, increases testing burden, inconsistent with 280+ prior features, risks introducing bugs that shared module already avoids"
+      - "Manual step-by-step approach with separate generation/writing/validation/commit/push functions — harder to maintain, error-prone state management, violates DRY principle, lacks unified error handling"
+      - "External script (shell/bash) — poor error handling, environment variable management complexity, less testable, requires escaping/quoting concerns for special characters"
+    rationale: >
+      The shared orchestration function in src/sheep/content_generators.py is mature, well-tested,
+      and successfully proven across 280+ prior markdown file creation features. It handles all
+      15 functional requirements (generation, validation, encoding, line endings, size checking,
+      git operations) in a single coordinated workflow. Using it eliminates code duplication,
+      maintains consistency with established patterns, provides unified error handling and logging,
+      and significantly reduces implementation and test effort. The function signature
+      create_markdown_file(filename, repo_path=None, feature_number=None) is exactly designed
+      for this use case.
+
+  - title: "Content Generation Strategy"
+    chosen: "Claude API via CrewAI LLM framework with unconstrained prose topic"
+    rejected:
+      - "Constrained prose focused on Sheep project topics — adds unnecessary prompt engineering complexity, reduces generation autonomy, contradicts user query 'about anything', inconsistent with 280+ prior features showing topic variance is expected"
+      - "Local/open-source LLM (Ollama, LLaMA) — adds dependency management overhead, requires GPU resources, slower inference, network complexity for remote execution, no benefit over existing Claude API setup"
+      - "Static template-based generation — non-creative, violates autonomy requirement, less interesting content, doesn't leverage available API infrastructure"
+    rationale: >
+      The feature specification explicitly states user wants content 'about anything', and all
+      280+ prior features demonstrate that topic variance (unrelated to Sheep project) is both
+      acceptable and expected. The Claude API integration is already established via CrewAI's
+      get_reasoning_llm() function with automatic ANTHROPIC_API_KEY environment variable handling.
+      Unconstrained generation maximizes content diversity, aligns with the 'autonomous' requirement
+      (FR-6 specifies AI-chosen topic), and requires no additional prompt tuning or validation.
+      The existing MARKDOWN_GENERATION_PROMPT in content_generators.py already handles this.
+
+  - title: "File Encoding & Line Ending Strategy"
+    chosen: "UTF-8 without BOM, Unix LF line endings (enforced at write and validated post-creation)"
+    rejected:
+      - "UTF-8 with BOM (Byte Order Mark) — adds 3 unnecessary bytes, non-idiomatic for code/markdown, causes issues with some tools (shebangs, git diffs), validation complexity increases"
+      - "CRLF line endings — Windows convention, incompatible with Unix/Linux environments where repo will be run, causes git whitespace issues, fails validation checks in content_generators.py"
+      - "Mixed or auto-detected encoding — loses consistency, harder to debug, validation failures become non-deterministic"
+    rationale: >
+      Specification explicitly requires UTF-8 without BOM and Unix LF endings (NFR-7, FR-8).
+      The content_generators.write_markdown_file() function uses Python's open() with encoding='utf-8'
+      which produces LF line endings on Unix systems (no BOM by default). Validation checks
+      (validate_markdown_file, validate_file_properties) explicitly reject BOM and CRLF, ensuring
+      strict compliance. This matches all 280+ prior features and is the modern web standard.
+
+  - title: "Validation Strictness Level"
+    chosen: "Strict enforcement of all constraints before git operations (must pass all 15 FR checks)"
+    rejected:
+      - "Lenient validation with auto-correction — allows content that violates specification (1-2 sentences instead of 2-3), risks specification drift over time, introduces false positives (auto-corrections hide real problems), inconsistent with prior 280+ features"
+      - "Lazy validation (post-push) — impossible to recover from bad commits, defeats purpose of validation, violates spec requirement that validation must occur before staging (FR-9)"
+      - "No validation — trusts LLM output completely, risks file corruption/malformation in repository, fails success criteria, inconsistent with validation-first architecture of prior features"
+    rationale: >
+      Specification defines 15 functional requirements that must all be met (FR-1 through FR-15).
+      Validation functions in content_generators.py check: H1 heading existence, blank line separator,
+      sentence count (2-3 periods), UTF-8 encoding, no BOM, Unix LF endings, trailing newline, and
+      file size (400-600 bytes). These are strict objective checks with clear pass/fail criteria.
+      validate_markdown_file() runs before commit_markdown_file() in the orchestration function,
+      ensuring no invalid content reaches git history. This is the only approach that guarantees
+      all success criteria are met.
+
+  - title: "Test Coverage Scope"
+    chosen: "Comprehensive pytest suite matching 280+ prior features: unit + integration + validation tests with mocking"
+    rejected:
+      - "Integration tests only (no mocks) — requires live API credentials, slow (network latency), flaky (API failures), CI/CD unfriendly, can't test error paths easily, inconsistent with prior patterns using mocks"
+      - "Minimal tests (file exists only) — misses encoding/structure/size/git validation, false sense of coverage, risks shipping broken files, inconsistent with spec requirements (success criteria list 12 items)"
+      - "Manual testing only — not reproducible, not documented, doesn't scale across team, fails CI/CD automation"
+    rationale: >
+      The specification lists 12 success criteria and 15 functional requirements. Comprehensive
+      testing validates all of them: TestCreateMarkdownFileIntegration (orchestration), TestWriteMarkdownFile
+      (file I/O), TestValidateMarkdownFile (encoding/structure), TestGitIntegration (commit/push),
+      TestProseContent (sentence count), TestFileSizeRequirements (400-600 bytes). Using mocks
+      (unittest.mock) for LLM and Git tools allows testing without external dependencies while still
+      validating integration logic. This matches the test pattern from feature 279, which passed all CI checks.
+
+  - title: "Implementation Pattern Location"
+    chosen: "specs/282-markdown-file-creation-8cb962/ (matches 280+ prior features)"
+    rejected:
+      - "Implement directly in src/sheep/ as a new module — violates NFR-2 (no modifications to core platform), creates permanent code bloat, breaks one-feature-one-file pattern, 280+ features don't do this"
+      - "Root directory — pollutes repository root, no organizational structure, makes codebase harder to navigate"
+      - "tests/ directory — implementation shouldn't be in tests, confuses CI/CD tooling, violates structure convention"
+    rationale: >
+      All 280+ prior markdown file creation features follow the specs/{number}-{name}/ structure
+      with create_markdown_file.py and test_create_markdown_file.py. This maintains clear separation
+      of concerns: implementation files are in feature-specific directories that can be versioned,
+      tracked, and understood together. NFR-2 explicitly forbids modifications to core Sheep platform,
+      so specs/ directory is the only appropriate location.
+
+openQuestions:
+  - question: "Should we implement wrapper script or directly call the orchestration function?"
+    resolved: true
+    options:
+      - option: "Lightweight wrapper script in specs/282-*/create_markdown_file.py"
+        description: >
+          Thin Python script that imports and calls create_markdown_file() with feature number (282)
+          and filename (test-9xt2ec.md). Provides entry point for CI/CD execution, displays results nicely,
+          follows exact pattern from feature 279 and prior features. Minimal code (~30 lines), easy to test.
+        selected: true
+      - option: "Direct pytest invocation of orchestration function"
+        description: >
+          Call content_generators.create_markdown_file() directly from test suite without a separate
+          wrapper. Reduces boilerplate, one less file to maintain. But loses ability to run
+          independently from CI/CD, loses nice output formatting, breaks consistency with prior patterns.
+        selected: false
+      - option: "invoke/click CLI with argument parsing"
+        description: >
+          Use Click library to create full CLI with argument parsing. Adds flexibility for future features.
+          But adds dependency (Click), overengineering for one-time file creation, inconsistent with
+          simpler prior features, slower to implement.
+        selected: false
+    selectionRationale: >
+      The wrapper script approach (Option 1) is selected because: (1) Feature 279 demonstrates
+      this exact pattern works perfectly, (2) all 280+ prior features use simple wrapper scripts,
+      (3) it provides a clean entry point that CI/CD can invoke with `python create_markdown_file.py`,
+      (4) it allows displaying formatted output (filepath, size, commit hash) for user feedback,
+      (5) it's quick to implement (~30 lines), and (6) it maintains consistency with established patterns.
+
+  - question: "Should file size validation reject files outside 400-600 bytes or warn?"
+    resolved: true
+    options:
+      - option: "Strict rejection (raise ValueError if size outside 400-600 bytes)"
+        description: >
+          Validation fails if file is <400 or >600 bytes. Prevents any undersized/oversized content
+          from being committed. Matches spec language 'must conform to' and 'file size 400-600 bytes'.
+          Consistency with 280+ prior features. May require LLM retry if content too short/long.
+        selected: true
+      - option: "Warn but allow (log warning, continue if size outside range)"
+        description: >
+          File commits even if size outside 400-600 bytes. Less strict, allows more content variation.
+          But violates specification, inconsistent with success criterion 'file size between 400-600 bytes',
+          risks spec drift, inconsistent with prior features.
+        selected: false
+      - option: "Validate only after git push (cannot recover)"
+        description: >
+          Check size after push. Too late to fix without force-pushing. Violates requirement that
+          validation happens before staging (FR-9). Not viable approach.
+        selected: false
+    selectionRationale: >
+      Strict rejection (Option 1) is selected because the specification explicitly states
+      'File size is between 400-600 bytes' as a success criterion and functional requirement (FR-9).
+      The validate_markdown_file() function in content_generators.py already checks file size during
+      validation step. If file size is outside the range, validation fails before git operations,
+      allowing the calling code to retry with different content. This is the only approach that
+      guarantees success criteria are met and matches all 280+ prior features.
+
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-30
+  - **Pattern:** Proven across 280+ prior markdown file creation features
+
+  ## Technology Stack
+
+  ### LLM & Content Generation
+  - **Framework:** CrewAI LLM abstraction layer
+  - **LLM:** Claude (Anthropic) accessed via ANTHROPIC_API_KEY environment variable
+  - **Prompt:** Pre-defined template in content_generators.MARKDOWN_GENERATION_PROMPT
+  - **Request:** Single API call with user/system message structure, ~1-2 second latency
+
+  ### File I/O & Validation
+  - **File System:** Python `pathlib.Path` (cross-platform, safe)
+  - **Encoding:** UTF-8 (no BOM), enforced at write time via `encoding='utf-8'` parameter
+  - **Line Endings:** Unix LF (\n), enforced by Python's text mode on Unix systems
+  - **Validation:** Binary-level checks (bytes) for BOM/CRLF detection, text-level checks for structure/content
+
+  ### Version Control
+  - **Git Abstraction:** Custom `sheep.tools.GitCommitTool` and `sheep.tools.GitPushTool`
+  - **Commit Format:** Conventional Commits (`feat(282): create markdown file test-9xt2ec.md with prose content`)
+  - **Push Strategy:** `git push -u origin HEAD` (sets upstream tracking)
+  - **No Direct Shell Commands:** All git operations through library abstractions (prevents command injection)
+
+  ### Testing
+  - **Framework:** pytest 7.x+
+  - **Mocking:** unittest.mock (patch decorators, Mock objects)
+  - **Fixtures:** tempfile.TemporaryDirectory for isolated test environments
+  - **Patterns:** Arrange-Act-Assert with descriptive test names and docstrings
+
+  ## Library Analysis
+
+  | Library | Component | Purpose | Decision | Reasoning |
+  |---------|-----------|---------|----------|-----------|
+  | pathlib | File paths | Safe, cross-platform path manipulation without shell escaping | **Use** | Built-in, modern Python standard, prevents path traversal via direct validation |
+  | anthropic SDK | LLM client | Claude API access (wrapped by CrewAI) | **Use** | Already integrated via CrewAI abstraction, automatic credential handling |
+  | CrewAI | LLM framework | Unified interface to Claude (get_reasoning_llm) | **Use** | Already in use across repository, provides consistent LLM access pattern |
+  | pytest | Testing | Test discovery, assertions, fixtures | **Use** | Already in repository, matches prior features (279, etc.), comprehensive assertions |
+  | unittest.mock | Test mocking | Mock LLM calls and git tools without external dependencies | **Use** | Standard library, no additional dependencies, proven in feature 279 |
+  | sheep.tools | Git abstraction | GitCommitTool and GitPushTool wrappers | **Use** | Already exists, no additional code needed, provides safe git operations |
+  | sheep.content_generators | Orchestration | Main create_markdown_file() function with all validation | **Use** | Already exists, proven across 280+ features, no new code required |
+
+  **Rejected Libraries:**
+  - `Click` (CLI framework) — overengineering for simple one-time script, not used in prior features
+  - `regex` (advanced regex) — validation is straightforward (count periods, check strings), unnecessary
+  - Local LLMs (Ollama, LLaMA) — requires GPU setup, network complexity, no advantage over existing Claude API
+  - Custom git wrapper — existing sheep.tools already provides safe abstractions
+
+  ## Architecture & Design Decisions
+
+  ### 1. Orchestration Flow
+
+  The implementation follows this proven workflow (already in create_markdown_file):
+
+  ```
+  1. generate_markdown_content() → API call → H1 title + 2-3 sentences
+  2. write_markdown_file(content, filename) → UTF-8 file at repo root
+  3. validate_markdown_file(filepath) → Check structure/encoding/size/line-endings
+  4. commit_markdown_file(filepath, content, feature_number=282) → git add + git commit
+  5. push_markdown_file(repo_path) → git push -u origin HEAD
+  6. Return result dictionary with filepath, content, commit_message, push_result
+  ```
+
+  Each step has explicit error handling and descriptive logging. Failures at any step raise exceptions (not silent failures).
+
+  ### 2. Validation Strategy
+
+  Validation happens at TWO critical points:
+
+  **Point 1 — Content Validation (after generation)**
+  - `_validate_markdown_content()` checks:
+    - Not empty, starts with `# `, has reasonable length (>50 chars)
+    - Sentence count 2-3 (period-based counting)
+  - Catches LLM failures (malformed output, wrong structure)
+
+  **Point 2 — File Validation (after write, before commit)**
+  - `validate_markdown_file()` checks:
+    - H1 heading exists at line 0
+    - Blank line at line 1 (separator)
+    - 2-3 sentences in prose
+    - UTF-8 encoding without BOM
+    - Unix LF line endings (reject CRLF)
+    - Trailing newline exists
+  - Catches I/O failures, encoding issues, platform-specific problems
+
+  Both validations use binary-level inspection for encoding/line-ending checks (reliable, not platform-dependent).
+
+  ### 3. Git Safety
+
+  - **Path Traversal Prevention:** write_markdown_file() rejects filenames with `/`, `\`, or `.` prefix
+  - **No Shell Injection:** GitCommitTool/GitPushTool use library calls, not shell commands
+  - **Atomic Operations:** Each git operation is self-contained (add → commit → push)
+  - **Upstream Tracking:** `-u` flag ensures branch tracking is set for future pulls
+
+  ### 4. Error Handling
+
+  - **Generation Failures:** LLM API errors, malformed responses → caught by content validation
+  - **File I/O Failures:** Disk full, permission denied → caught by file validation
+  - **Encoding Issues:** Non-UTF-8 content, CRLF line endings → caught by encoding validation
+  - **Git Failures:** No remote, authentication issues → caught by git tool exceptions
+  - **All Failures:** Logged with context, re-raised with descriptive messages (no silent failures)
+
+  ## Security Considerations
+
+  ### 1. Path Traversal Prevention
+  - `write_markdown_file()` explicitly rejects filenames containing `/`, `\`, or starting with `.`
+  - Prevents attempts like `../../../etc/passwd` or `.\windows\system32`
+  - Uses `Path.cwd() / filename` which is safe after validation
+
+  ### 2. Encoding Safety
+  - UTF-8 validation (`binary_content.decode('utf-8')`) catches invalid byte sequences
+  - BOM check prevents invisible byte-order marks that could affect tooling
+  - LF-only line endings prevent CRLF injection attacks in git diffs
+
+  ### 3. API Credential Security
+  - ANTHROPIC_API_KEY sourced from environment variables only (not hardcoded)
+  - CrewAI framework handles credential passing to Anthropic SDK
+  - No credentials logged or exposed in error messages
+
+  ### 4. Git Operation Safety
+  - Custom `GitCommitTool` and `GitPushTool` abstractions prevent direct shell command construction
+  - Conventional commit message is built programmatically (not user input)
+  - No eval() or shell command injection vectors
+
+  ### 5. Content Validation
+  - LLM output validated before write (checks structure)
+  - File validated after write (checks encoding/line endings)
+  - No assumption that LLM or filesystem behaves as expected
+
+  ## Performance Implications
+
+  ### Expected Runtime Breakdown
+
+  | Phase | Duration | Notes |
+  |-------|----------|-------|
+  | Content generation (LLM API) | 1-2 seconds | Network latency to Anthropic API, one-time cost |
+  | Content validation | <10ms | String operations, period counting |
+  | File write to disk | <50ms | Local disk I/O, ~500 bytes of data |
+  | File validation | <10ms | Binary reads, pattern matching |
+  | Git commit | 100-200ms | Local git operations, no network |
+  | Git push | 1-3 seconds | Network to GitHub, branch creation overhead |
+  | **Total End-to-End** | **4-6 seconds** | Acceptable for CI/CD phases |
+
+  ### Scalability
+
+  - **No Bottlenecks:** LLM API is the primary bottleneck (1-2s), not within our control
+  - **No Caching Needed:** One-time operation per feature, no repeated calls
+  - **Linear Complexity:** All operations are O(1) or O(n) where n is file size (~500 bytes)
+  - **Resource Requirements:** Minimal (no GPU, <10MB memory, <1 network connection)
+
+  ### Optimization Opportunities (Not Needed)
+
+  - Parallel generation and validation — file must be written before validation
+  - Caching validation rules — rules are simple and fixed
+  - Batch git operations — only one file per feature
+  - Streaming file I/O — 500-byte files load entirely into memory
+
+  **Conclusion:** No performance optimizations are needed. This feature is I/O-bound (API latency, git operations) and not CPU-intensive.
+
+  ## Integration Points
+
+  ### External Dependencies
+
+  1. **Anthropic API (Claude)**
+     - Accessed via ANTHROPIC_API_KEY environment variable
+     - Called through CrewAI's get_reasoning_llm() abstraction
+     - Single API call, no complex retry logic (handled by SDK)
+
+  2. **Git Repository**
+     - Must have origin remote configured (for git push)
+     - Must have writable filesystem at repo root
+     - Must have git credentials configured (SSH keys or auth tokens)
+
+  3. **GitHub CI/CD**
+     - GitHub Actions will run pytest after commit
+     - Success depends on test suite passing
+     - No additional CI configuration needed
+
+  ### Internal Dependencies
+
+  - `src/sheep/content_generators.py` — Main orchestration (no code to write, already exists)
+  - `src/sheep/config/llm.py` — LLM configuration (already exists, used by content_generators)
+  - `src/sheep/tools.py` — Git abstractions (already exists)
+  - `src/sheep/observability/logging.py` — Logging infrastructure (already exists)
+
+  ### No New Code in Core Platform
+
+  - Per NFR-2, no modifications to `src/sheep/` modules
+  - All functionality uses existing utilities
+  - Feature-specific code stays in `specs/282-*/`
+
+  ## Implementation Checklist
+
+  - [ ] Create `specs/282-markdown-file-creation-8cb962/create_markdown_file.py` (wrapper script, ~30 lines)
+  - [ ] Create `specs/282-markdown-file-creation-8cb962/test_create_markdown_file.py` (test suite, ~450 lines, matching feature 279 pattern)
+  - [ ] Verify imports resolve (sys.path.insert pattern matches feature 279)
+  - [ ] Verify ANTHROPIC_API_KEY environment variable available in test environment
+  - [ ] Run pytest to validate all tests pass
+  - [ ] Run script manually: `python create_markdown_file.py` creates test-9xt2ec.md
+  - [ ] Verify file properties: 400-600 bytes, UTF-8, LF endings, H1 heading, 2-3 sentences
+  - [ ] Verify git operations: committed with `feat(282):` message, pushed to origin
+  - [ ] Verify file in repository root, not in subdirectories
+
+  ## Open Questions — All Resolved
+
+  All open questions from the feature specification have been resolved with clear rationale:
+
+  1. **Prose Topic Autonomy** ✓
+     - **Resolved:** Unconstrained (any topic)
+     - **Rationale:** User query "about anything", 280+ prior features show varied topics accepted
+
+  2. **Implementation Approach** ✓
+     - **Resolved:** Use shared create_markdown_file() function
+     - **Rationale:** Proven across 280+ features, no code duplication, comprehensive validation
+
+  3. **Test Coverage** ✓
+     - **Resolved:** Comprehensive (all validation aspects)
+     - **Rationale:** Matches prior patterns, catches encoding/structure/size issues early
+
+  4. **Validation Strictness** ✓
+     - **Resolved:** Strict enforcement (no deviations)
+     - **Rationale:** Specification explicitly defines all constraints
+
+  5. **Orchestration vs Direct Call** ✓
+     - **Resolved:** Lightweight wrapper script calling orchestration function
+     - **Rationale:** Matches feature 279 and 280+ prior features, clean separation of concerns
+
+  6. **File Size Validation** ✓
+     - **Resolved:** Strict rejection (raise ValueError if outside 400-600 bytes)
+     - **Rationale:** Specification success criterion requires 400-600 bytes exactly
+
+  ## Risk Assessment
+
+  | Risk | Likelihood | Impact | Mitigation |
+  |------|------------|--------|-----------|
+  | LLM API unavailable | Low | Blocks feature (can retry) | API status monitoring, ANTHROPIC_API_KEY validation |
+  | Git push fails (no origin) | Very Low | Can commit locally and retry | Repository setup validation before feature execution |
+  | File size always <400 bytes | Low | Content validation catches it | LLM prompt template ensures sufficient content |
+  | Encoding issues on Windows | Low | Platform-specific (Linux CI/CD) | Binary validation checks, Unix line endings enforced |
+  | Test flakiness from mocking | Very Low | Test suite maintainability | Clear mock setup, isolated fixtures, deterministic outputs |
+
+  ## Conclusion
+
+  Feature 282 is a straightforward, low-risk implementation that leverages proven infrastructure from
+  280+ prior features. The shared `create_markdown_file()` orchestration function handles all heavy
+  lifting (content generation, validation, git operations). The wrapper script and test suite follow
+  the established pattern from feature 279 exactly. No new dependencies, no core platform changes,
+  and comprehensive validation ensure all success criteria are met. Implementation is estimated at
+  30-60 minutes (S estimate is appropriate).
+
+  The technical decisions reflect best practices: unconstrained content generation matches the
+  specification, comprehensive validation catches all error conditions, strict enforcement prevents
+  specification drift, and mocked testing provides reliable CI/CD integration without external
+  dependencies. All security considerations (path traversal, encoding, credentials, git safety) are
+  addressed by existing library abstractions.
