@@ -8,7 +8,7 @@ summary: |
   pattern of markdown-file-creation from features 001-290. Implementation involves generating content
   via Claude API, creating the file, validating its structure, staging it in git, committing with
   a conventional message, and pushing to the feature branch.
-phase: "Analysis"
+phase: "Requirements"
 sizeEstimate: "S"
 
 relatedFeatures:
@@ -31,6 +31,7 @@ technologies:
   - "Claude API (content generation via sheep.config.llm.get_reasoning_llm)"
   - "UTF-8 encoding (file encoding standard — no BOM)"
   - "structlog (structured logging framework — observability)"
+  - "regex (pattern matching for validation — sentence and heading detection)"
 
 relatedLinks:
   - title: "CommonMark Specification"
@@ -42,7 +43,66 @@ relatedLinks:
   - title: "CrewAI Framework"
     url: "https://docs.crewai.com/"
 
-openQuestions: []
+openQuestions:
+  - question: "Should the implementation use existing utility functions from content_generators.py or implement file operations manually?"
+    resolved: true
+    options:
+      - option: "Use existing utilities"
+        description: "Leverage proven utility functions (generate_markdown_content, write_markdown_file, validate_markdown_file, commit_markdown_file, push_markdown_file) from src/sheep/content_generators.py. Ensures consistency with 290+ preceding features, reduces code duplication, and provides tested validation and git workflows."
+        selected: true
+      - option: "Manual implementation"
+        description: "Implement file I/O, validation, and git operations directly using pathlib and subprocess. Requires writing all validation logic and git commands from scratch, risks inconsistency with established patterns, and increases testing burden."
+        selected: false
+    selectionRationale: "Using existing utilities is recommended because it maintains consistency with the 290 preceding identical features, reduces code complexity, ensures proven validation patterns, and leverages tested git workflows. The utilities are purpose-built for exactly this pattern."
+    answer: "Use existing utilities"
+
+  - question: "What should happen if the markdown file test-sdxefr.md already exists?"
+    resolved: true
+    options:
+      - option: "Fail with error"
+        description: "Check for file existence before creation and raise an error if found. Prevents silent overwrites, ensures idempotency, and makes intent explicit. Matches established safety pattern from 290+ features."
+        selected: true
+      - option: "Silently overwrite"
+        description: "Directly write the file, overwriting any existing content without warning. Simpler implementation but risks data loss and makes failures harder to diagnose."
+        selected: false
+    selectionRationale: "Failing with error is recommended because it prevents accidental data loss, makes failures explicit and debuggable, and matches the established validation pattern from preceding features. The check is low-cost and provides safety."
+    answer: "Fail with error"
+
+  - question: "Should the content topic be specified or flexible?"
+    resolved: true
+    options:
+      - option: "Flexible (any topic)"
+        description: "Allow Claude API to generate content on any topic without constraints. Provides diversity across 291 files, matches feature specification ('about anything'), and allows creative freedom. Ensures each generated file is unique."
+        selected: true
+      - option: "Specified topic"
+        description: "Require a specific topic category (e.g., technology, nature, philosophy). Provides consistency across files but constrains creativity and differs from feature specification."
+        selected: false
+    selectionRationale: "Flexible topic is recommended because the feature specification explicitly states 'about anything', this matches the pattern from 290+ preceding features which have diverse topics, and it ensures uniqueness. No topic constraints are mentioned in requirements."
+    answer: "Flexible (any topic)"
+
+  - question: "Should validation be strict (fail on any deviation) or lenient (accept reasonable variations)?"
+    resolved: true
+    options:
+      - option: "Strict validation"
+        description: "Enforce all rules exactly: exactly 1 H1 heading, exactly 2-3 sentences, UTF-8 without BOM, Unix LF only. Fail if any criterion is not met. Ensures quality and consistency across 291 files."
+        selected: true
+      - option: "Lenient validation"
+        description: "Accept variations: at least 1 H1 heading, approximately 2-3 sentences, UTF-8 compatible. Simpler validation but risks inconsistent output quality."
+        selected: false
+    selectionRationale: "Strict validation is recommended because it ensures consistent output quality across 291 files, matches the established validation pattern from 290+ features, and the criteria are clearly defined and achievable. Strictness catches generation errors early."
+    answer: "Strict validation"
+
+  - question: "Should the git push happen immediately after commit, or should the commit be left staged for review?"
+    resolved: true
+    options:
+      - option: "Push immediately"
+        description: "Automatically push to feature branch with upstream tracking (git push -u origin HEAD) after commit. Matches established workflow from 290+ features, completes the full cycle, and integrates with automated pipelines."
+        selected: true
+      - option: "Leave staged for review"
+        description: "Commit the file but do not push. Allows manual review before pushing. Slower workflow and differs from established pattern, but provides review opportunity."
+        selected: false
+    selectionRationale: "Push immediately is recommended because it matches the established workflow from 290+ preceding features, completes the full automated cycle, and the feature is straightforward with no ambiguous decisions requiring review. The commit message is standardized and git history is preserved."
+    answer: "Push immediately"
 
 content: |
   ## Problem Statement
@@ -56,71 +116,58 @@ content: |
   validation approaches are well-documented and proven. This feature is identical in structure and
   requirements to all previous implementations.
 
-  ## Codebase Analysis
+  ## Success Criteria
 
-  ### Project Structure
+  - [ ] File `test-sdxefr.md` is created in repository root
+  - [ ] File contains exactly one H1 heading (CommonMark `#`) serving as the title
+  - [ ] File contains exactly 2-3 sentences of coherent prose content after the heading
+  - [ ] File is UTF-8 encoded without BOM (Byte Order Mark)
+  - [ ] File uses Unix LF line endings (\n) exclusively, no CRLF or CR
+  - [ ] File structure validation passes (H1 heading present, sentence count verified, encoding confirmed)
+  - [ ] File does not exist before creation; check fails with clear error if it does
+  - [ ] File is properly staged in git working directory
+  - [ ] Commit message follows conventional format: `feat(291): create markdown file test-sdxefr.md with prose content`
+  - [ ] Commit is successfully pushed to feature branch `feat/291-markdown-file-creation-420f73` with upstream tracking
+  - [ ] Content is generated via Claude API using `sheep.config.llm.get_reasoning_llm()`
+  - [ ] Implementation uses established utility functions from `src/sheep/content_generators.py`
+  - [ ] No source code, test files, or configuration files are modified
+  - [ ] File size falls within expected range (250-600 bytes)
 
-  The Sheep platform is organized as follows:
+  ## Functional Requirements
 
-  - **Root directory**: Contains markdown test files (test-*.md) from all preceding features (001-290+)
-    and repository configuration files (pyproject.toml, .env.example, docker-compose.yml, etc.)
-  - **src/sheep/**: Core platform code organized into modules
-    - `content_generators.py`: Utility functions for markdown generation, validation, and git operations
-    - `config/`: Configuration management including LLM configuration
-    - `observability/`: Logging infrastructure using structlog
-    - `tools/`: Git tools for commit and push operations
-    - `agents/`, `flows/`, `features/`: CrewAI agents, flows, and feature implementations
-  - **specs/**: Feature specifications stored as YAML (006-291 directories), each containing:
-    - `spec.yaml`: Complete feature specification and analysis
-    - `feature.yaml`, `plan.yaml`, `research.yaml`, `tasks.yaml`: Phase-specific artifacts
-  - **tests/**: Test suite for platform functionality
-  - **Dockerfile, docker-compose.yml**: Container configuration for deployment
+  - **FR-1**: Generate markdown content with H1 heading and 2-3 sentences via Claude API using `sheep.config.llm.get_reasoning_llm()`
+  - **FR-2**: Create markdown file named `test-sdxefr.md` in repository root using UTF-8 encoding
+  - **FR-3**: Validate H1 heading presence using regex pattern `^# ` (CommonMark format)
+  - **FR-4**: Validate sentence count is between 2 and 3 using regex boundary detection
+  - **FR-5**: Validate file encoding is UTF-8 without BOM (Byte Order Mark)
+  - **FR-6**: Validate file uses Unix LF line endings exclusively (\n only, no CRLF or CR)
+  - **FR-7**: Check that file does not already exist before creation; raise error if found
+  - **FR-8**: Stage the created file in git using `git add <filename>`
+  - **FR-9**: Create conventional commit with message `feat(291): create markdown file test-sdxefr.md with prose content`
+  - **FR-10**: Push to feature branch with upstream tracking using `git push -u origin HEAD`
+  - **FR-11**: Content topic is flexible (any topic is acceptable; no topic constraints enforced)
 
-  ### Architecture Patterns
+  ## Non-Functional Requirements
 
-  **Content Generation Pipeline**:
-  1. Utilize Claude API via `sheep.config.llm.get_reasoning_llm()` for LLM calls
-  2. Call with markdown-specific prompt to generate H1 heading + 2-3 sentences of prose
-  3. Validate generated content against requirements (heading present, sentence count, encoding)
-  4. Write to file using `pathlib.Path.write_text(encoding='utf-8')`
+  - **NFR-1**: File size must be in range 250-600 bytes (natural outcome of H1 heading + 2-3 sentences)
+  - **NFR-2**: Validation must be strict; any deviation from requirements must cause failure with clear error message
+  - **NFR-3**: Execution must complete in less than 20 minutes (typical execution ~3-5 minutes)
+  - **NFR-4**: Implementation must follow established patterns from 290+ preceding identical features
+  - **NFR-5**: Must use structured logging via `sheep.observability.logging.get_logger()` with structlog
+  - **NFR-6**: Must not modify any source code files, test files, or configuration files
+  - **NFR-7**: Markdown output must be CommonMark-compliant
+  - **NFR-8**: Git commit must use conventional commit format (feat, feature number, filename, descriptive text)
+  - **NFR-9**: No breaking changes to existing code or workflows; must integrate seamlessly with established patterns
 
-  **Git Workflow Pattern** (established across 290+ features):
-  1. Generate markdown content using Claude API
-  2. Write file to repository root with `Path.write_text()`
-  3. Stage file using `git add <filename>`
-  4. Create conventional commit: `feat(NNN): create markdown file <filename> with prose content`
-  5. Push to feature branch with upstream tracking: `git push -u origin HEAD`
+  ## Product Questions & AI Recommendations
 
-  **Validation Pattern**:
-  - Check for H1 heading presence (regex: `^# `)
-  - Verify sentence count using simple regex boundary detection
-  - Confirm UTF-8 encoding without BOM
-  - Verify Unix LF line endings (no CRLF)
-  - Ensure file doesn't already exist (prevent silent overwrite)
-
-  **Dependency Injection**:
-  - LLM obtained via `sheep.config.llm.get_reasoning_llm()`
-  - Logging obtained via `sheep.observability.logging.get_logger(__name__)`
-  - Git tools available from `sheep.tools` module
-
-  ### Relevant Technologies
-
-  **Python Standard Library**:
-  - `pathlib.Path`: File I/O with cross-platform compatibility
-  - `re` (regex): Sentence boundary and structure validation
-
-  **CrewAI Ecosystem**:
-  - `sheep.config.llm`: LLM configuration and access to Claude API
-  - `sheep.observability.logging`: Structured logging via structlog
-
-  **Git**:
-  - `git add`: Stage file for commit
-  - `git commit`: Create conventional commit
-  - `git push`: Push to feature branch with upstream tracking
-
-  **Encoding Standards**:
-  - UTF-8 without BOM (enforced by pathlib.Path.write_text with encoding='utf-8')
-  - Unix LF line endings (\n, not \r\n or \r)
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should implementation use existing utilities or implement manually? | Use existing utilities from content_generators.py | Proven pattern from 290+ features; ensures consistency; reduces code duplication; tested validation logic |
+  | 2 | What should happen if file test-sdxefr.md already exists? | Fail with clear error message | Prevents silent data loss; makes failures explicit; matches established safety pattern |
+  | 3 | Should content topic be specified or flexible? | Flexible (any topic acceptable) | Feature spec says "about anything"; ensures diversity; matches pattern from preceding features |
+  | 4 | Should validation be strict or lenient? | Strict validation on all criteria | Ensures consistent quality; matches 290+ features; criteria are clear and achievable |
+  | 5 | Should git push happen immediately or leave for review? | Push immediately to feature branch | Matches 290+ features; completes full automated cycle; straightforward feature with no ambiguities |
 
   ## Affected Areas
 
@@ -144,15 +191,23 @@ content: |
   **File System**:
   - Write access to repository root directory (standard)
   - Ability to read/validate files after creation
+  - File `test-sdxefr.md` must not exist before creation
 
   **Runtime Environment**:
   - Python 3.11+ with pathlib module available
   - Access to Claude API via ANTHROPIC_API_KEY or equivalent in environment
   - CrewAI framework and dependencies installed
 
+  **Code Dependencies**:
+  - `src/sheep/content_generators.py` with utility functions: generate_markdown_content(), write_markdown_file(), validate_markdown_file(), commit_markdown_file(), push_markdown_file()
+  - `sheep.config.llm.get_reasoning_llm()` for Claude API access
+  - `sheep.observability.logging.get_logger()` for structured logging
+  - `sheep.tools` module with GitCommitTool, GitPushTool
+  - `pathlib.Path` for file I/O
+  - `re` module for validation regex patterns
+
   **Established Patterns**:
   - 290 preceding test files (test-*.md) provide clear precedent for content format and validation
-  - `src/sheep/content_generators.py` provides core utilities: markdown generation, validation, file write, git operations
   - Conventional commit message format: `feat(NNN): create markdown file <filename> with prose content`
   - File naming convention: `test-<random-id>.md` with specified filename `test-sdxefr.md`
 
@@ -180,22 +235,6 @@ content: |
   - Git workflow is mechanical and follows proven precedent from 290+ prior implementations
   - Recent implementations (features 284-290) demonstrate efficient execution of identical features
 
-  ## Success Criteria
-
-  - [ ] File `test-sdxefr.md` is created in repository root
-  - [ ] File contains exactly one H1 heading (CommonMark `#`) serving as the title
-  - [ ] File contains exactly 2-3 sentences of coherent prose content after the heading
-  - [ ] File is UTF-8 encoded without BOM (Byte Order Mark)
-  - [ ] File uses Unix LF line endings (\n) exclusively, no CRLF or CR
-  - [ ] File structure validation passes (H1 heading present, sentence count verified, encoding confirmed)
-  - [ ] File is properly staged in git working directory
-  - [ ] Commit message follows conventional format: `feat(291): create markdown file test-sdxefr.md with prose content`
-  - [ ] Commit is successfully pushed to feature branch `feat/291-markdown-file-creation-420f73` with upstream tracking
-  - [ ] Content is generated via Claude API using `sheep.config.llm.get_reasoning_llm()`
-  - [ ] Implementation uses established utility functions from `src/sheep/content_generators.py`
-  - [ ] No source code, test files, or configuration files are modified
-  - [ ] File size falls within expected range (250-600 bytes, natural outcome of proper structure)
-
   ## Implementation Notes
 
   **Recommended Approach**:
@@ -220,4 +259,4 @@ content: |
 
   ---
 
-  _Analysis complete — ready for implementation phase_
+  _Requirements phase complete — ready for planning phase_
