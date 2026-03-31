@@ -1,0 +1,432 @@
+name: markdown-file-creation-3151f1
+summary: >
+  Technical implementation plan for creating a markdown file with Claude API-generated
+  prose content. Follows established patterns from features 289-294, using pathlib for
+  file I/O, GitPython for git operations, and Claude API for content generation.
+  No new architectural decisions needed; implementation is straightforward repetition
+  of proven patterns.
+
+relatedFeatures:
+  - number: 294
+    name: "markdown-file-creation-d5f4d7"
+    relationship: "Immediately preceding feature with identical requirements and architecture"
+  - number: 293
+    name: "markdown-file-creation-aced5f"
+    relationship: "Reference implementation for established workflow pattern"
+  - number: 289
+    name: "markdown-file-creation-fe70ed"
+    relationship: "First feature in series; establishes baseline pattern for all subsequent features"
+
+technologies:
+  - "Python 3.11+ (runtime, required)"
+  - "pathlib.Path (file I/O, required)"
+  - "GitPython 3.1.0+ (git operations, required)"
+  - "Anthropic Claude API (content generation, required)"
+  - "structlog (structured logging, required)"
+  - "CrewAI 0.86.0+ (framework context, required)"
+  - "Markdown (file format, CommonMark spec, required)"
+  - "UTF-8 text encoding (file encoding, required)"
+
+relatedLinks:
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "GitPython Documentation"
+    url: "https://gitpython.readthedocs.io/"
+  - title: "Anthropic Python SDK"
+    url: "https://github.com/anthropics/anthropic-sdk-python"
+
+decisions:
+  - title: "Content Generation Strategy"
+    chosen: "Use Claude API via sheep.config.llm.get_reasoning_llm() for dynamic prose generation"
+    rejected:
+      - "Pre-defined static prose: Less authentic demonstration of platform LLM integration; cannot scale pattern to thousands of unique features; misses opportunity to showcase AI capabilities"
+      - "Use local language model: Adds unnecessary complexity and external dependency; Claude API already available through Sheep platform; would require GPU resources and model hosting"
+    rationale: >
+      Claude API generation is the optimal choice because: (1) it aligns with Sheep platform's
+      architecture philosophy of centralized LLM access through sheep.config.llm, (2) it maintains
+      consistency with features 289-294 which all use this pattern, (3) it authentically demonstrates
+      the platform's core capability—AI-driven automation, (4) it generates unique, contextually
+      appropriate prose rather than repetitive static content, and (5) it scales seamlessly across
+      the entire feature series (289-295+).
+
+  - title: "File I/O Implementation"
+    chosen: "Use pathlib.Path for all file operations (reading, writing, path manipulation)"
+    rejected:
+      - "Open/read built-in functions: Works but less clear intent; pathlib provides object-oriented interface that's more maintainable; doesn't normalize paths across platforms"
+      - "os.path module: Older API; less Pythonic; requires string-based path manipulation; less readable than pathlib objects"
+    rationale: >
+      pathlib is the modern Python standard (3.4+) and is already specified in requirements.
+      It provides: (1) object-oriented path manipulation that's self-documenting, (2) automatic
+      platform-specific path handling (forward slashes on Unix, backslashes on Windows), (3) built-in
+      methods like .write_text() with encoding support, reducing boilerplate, and (4) consistency
+      with existing Sheep codebase patterns observed in features 289-294.
+
+  - title: "Git Operations Implementation"
+    chosen: "Use GitPython 3.1.0+ for all git operations (add, commit, push)"
+    rejected:
+      - "Subprocess calls to git CLI: Requires shell escaping, harder to test, external process overhead, less Pythonic error handling"
+      - "Direct git command execution via os.system(): Platform-dependent, no error handling, unmaintainable, requires shell parsing"
+    rationale: >
+      GitPython is the standard Python git library and is explicitly required. Benefits: (1) native
+      Python exceptions for error handling (e.g., GitCommandError), (2) clean API for repository
+      operations (repo.index.add(), repo.index.commit(), origin.push()), (3) cross-platform
+      compatibility, (4) no subprocess overhead or shell escaping needed, (5) consistent with
+      features 289-294 which use this library.
+
+  - title: "Content Validation Approach"
+    chosen: "Lenient validation: verify prose is present, roughly 2-3 sentences; accept natural LLM variation"
+    rejected:
+      - "Strict sentence counting: Requires sentence boundary detection (NLTK/spaCy), fails on edge cases like abbreviations (Mr., etc.), over-engineered for prose that's inherently variable from LLM; 294+ features succeed with lenient approach"
+      - "No validation: Risks accepting malformed or insufficient content; creates inconsistent output quality; undermines success criteria"
+    rationale: >
+      Lenient validation balances pragmatism with quality assurance. Claude-generated prose naturally
+      varies in sentence count (2-4 sentences depending on topic/length). Since the spec allows
+      2-3 sentences and the core requirement is "meaningful prose content," lenient validation
+      (checking presence of multiple sentences and approximate length) is appropriate. This
+      approach: (1) avoids regex/NLTK complexity, (2) reduces retry loops for edge cases, (3) maintains
+      quality (prose is still verified as coherent), (4) matches the pattern that's worked for 289-294,
+      and (5) acknowledges that LLM output naturally varies.
+
+  - title: "Markdown Format and Structure"
+    chosen: "Use CommonMark-compliant structure: H1 heading, blank line, prose (no validation library needed)"
+    rejected:
+      - "Use markdown parsing library (markdown-it-py): Adds external dependency for format that's simple enough to construct correctly; overkill for a single heading + prose"
+      - "Use regex to validate markdown structure: Fragile, hard to maintain, error-prone for edge cases; constructing correct format is simpler than parsing/validating"
+    rationale: >
+      The required markdown structure is trivial: a single `# Title` line, a blank line, and prose.
+      Rather than add parsing complexity, construct the file correctly from the start using string
+      formatting. This is the approach used in features 289-294. Validation that the result is correct
+      can be done by: (1) verifying file exists and contains expected sections, (2) verifying against
+      CommonMark spec manually (checking no syntax errors), or (3) simple string checks for `#` prefix
+      and line count.
+
+  - title: "Error Handling and Retry Logic"
+    chosen: "Single attempt with explicit error handling; no automatic retries for content generation"
+    rejected:
+      - "Automatic retry on content generation failure: Increases latency, complexity, and cloud API costs; better to fail fast and let upstream orchestration decide on retry policy"
+      - "No error handling: Risks silent failures; makes debugging hard; violates observability requirements in NFR-4"
+    rationale: >
+      Error handling should be explicit and minimal: (1) Claude API calls may fail (network, rate limit,
+      quota); catch these and log clearly via structlog, (2) file I/O may fail (permissions, disk space);
+      let exceptions propagate with logging context, (3) git operations may fail (permissions, remote
+      unreachable); log and fail explicitly. Retry logic belongs in higher-level orchestration (CrewAI
+      flow/crew wrapper), not in this tool. This keeps the implementation simple and testable while
+      maintaining observability through structured logging.
+
+openQuestions:
+  - question: "How should generated prose be prompted to ensure quality and length?"
+    resolved: true
+    options:
+      - option: "Simple prompt: 'Write 2-3 sentences about any topic'"
+        description: "Minimal prompt relying on Claude's default capabilities"
+        selected: true
+      - option: "Detailed system prompt with examples and constraints"
+        description: "Explicit system prompt with examples and strict tone/length guidelines"
+        selected: false
+      - option: "Multi-turn prompt engineering with validation feedback"
+        description: "Initial prompt + validation + regeneration if out of spec"
+        selected: false
+    selectionRationale: >
+      Simple prompting is appropriate because Claude is capable of generating coherent 2-3 sentences
+      without explicit examples. A simple, clear prompt (`Generate 2-3 sentences of prose about any
+      topic. Topic choice is up to you.`) will succeed reliably. Detailed prompting adds complexity
+      without measurable benefit for this straightforward task. Multi-turn validation is overkill and
+      increases latency/cost. This approach matches the simplicity assumption built into features
+      289-294 which all succeeded without special prompt engineering.
+
+  - question: "Should the implementation be a standalone tool or integrated into CrewAI flow?"
+    resolved: true
+    options:
+      - option: "Standalone tool: Simple Python function (easier to test, reuse, debug)"
+        description: "Implement as a utility module that can be called directly"
+        selected: true
+      - option: "CrewAI tool: Decorated function registered as a tool in a crew"
+        description: "Implement as a CrewAI tool with full framework integration"
+        selected: false
+      - option: "CrewAI flow: Full flow with agents, crews, and orchestration"
+        description: "Implement as a complete flow with Research, Implementation, Review phases"
+        selected: false
+    selectionRationale: >
+      A standalone tool is sufficient because the task is deterministic and straightforward: (1) no
+      complex reasoning required, (2) no multi-step exploration or validation loops, (3) features
+      289-294 suggest a simple implementation pattern. A standalone tool can be called from CrewAI if
+      needed, or invoked directly. This provides maximum flexibility and testability. Full CrewAI
+      integration adds ceremony without solving a real problem; saves development time while maintaining
+      compatibility with the broader platform.
+
+  - question: "How should logging be structured for observability?"
+    resolved: true
+    options:
+      - option: "Minimal structured logging at key checkpoints (content generated, file created, git operations)"
+        description: "Log start, success, failure points with structured fields for tracing"
+        selected: true
+      - option: "Verbose logging of every operation including intermediate states"
+        description: "Log every step (prompt construction, API call details, file validation, git staging, etc.)"
+        selected: false
+      - option: "No logging beyond error cases"
+        description: "Silent success; only log when failures occur"
+        selected: false
+    selectionRationale: >
+      Minimal structured logging balances observability with clarity. Key checkpoints: (1) feature
+      start/completion, (2) content generation (prompt, token count, success/failure), (3) file creation
+      (path, size, encoding check), (4) git operations (add, commit, push with commit hash). Each log
+      entry includes context (feature number, filename, branch) for tracing. This matches NFR-4
+      (observability) without overwhelming logs or adding performance overhead. Verbose logging is
+      harder to parse at scale; silent-on-success violates observability principle.
+
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-31
+  - **Confidence Level:** High — established pattern from 289-294 with no novel technical challenges
+
+  ## Overview
+
+  Feature 295 is a straightforward implementation of the established markdown file creation pattern
+  used in features 289-294. No new architectural decisions are required; this feature follows a
+  proven, repeatable workflow:
+
+  1. Generate prose content using Claude API (via sheep.config.llm)
+  2. Construct markdown file with H1 heading + blank line + prose
+  3. Write file to repository root using pathlib
+  4. Stage and commit using GitPython
+  5. Push to feature branch
+
+  The implementation is approximately 50-100 lines of Python code with no external dependencies
+  beyond what's already used in the platform.
+
+  ## Technology Decisions
+
+  ### 1. Content Generation via Claude API
+
+  **Chosen:** Use `sheep.config.llm.get_reasoning_llm()` to generate prose dynamically
+
+  **Rationale:**
+  - Aligns with Sheep platform architecture (centralized LLM access through config)
+  - Consistency with features 289-294 (proven successful pattern)
+  - Authentically demonstrates platform's AI-driven automation capabilities
+  - Generates unique prose rather than repetitive static content
+  - Scales seamlessly across feature series
+
+  **Prompt Design:**
+  ```
+  Generate 2-3 sentences of coherent prose about any topic.
+  The topic choice is entirely up to you. Write naturally.
+  ```
+
+  Minimal prompt design is sufficient; Claude reliably generates appropriate content for this
+  straightforward request without special engineering.
+
+  **Error Handling:**
+  - Catch API errors (network timeout, rate limit, invalid response)
+  - Log with structured fields (feature ID, attempt details, error message)
+  - Fail explicitly; let upstream orchestration handle retries
+
+  ### 2. File I/O with pathlib.Path
+
+  **Chosen:** Use pathlib for all file operations (write, path resolution, encoding)
+
+  **Rationale:**
+  - Modern Python standard (3.4+) with object-oriented API
+  - Automatic cross-platform path handling (Unix vs. Windows)
+  - Built-in methods like `.write_text()` with encoding support
+  - More readable and maintainable than os.path string operations
+  - Consistent with Python ecosystem best practices
+
+  **Implementation Pattern:**
+  ```python
+  from pathlib import Path
+
+  output_path = Path(".") / "test-7z6o6n.md"
+  output_path.write_text(content, encoding="utf-8")
+  ```
+
+  The `.write_text()` method with explicit `encoding="utf-8"` ensures:
+  - UTF-8 encoding (required by spec)
+  - No BOM (Byte Order Mark) — Python's utf-8 codec doesn't add BOM by default
+  - Exception raised if write fails (permissions, disk space, etc.)
+
+  ### 3. Git Operations with GitPython
+
+  **Chosen:** Use GitPython 3.1.0+ for add, commit, and push operations
+
+  **Rationale:**
+  - Standard Python git library (required in spec)
+  - Native Python exception handling (GitCommandError for debugging)
+  - Clean API without subprocess overhead or shell escaping
+  - Cross-platform compatibility
+  - Consistent with features 289-294
+
+  **Implementation Pattern:**
+  ```python
+  from git import Repo
+
+  repo = Repo(".")
+  repo.index.add(["test-7z6o6n.md"])
+  repo.index.commit("feat(295): create markdown file test-7z6o6n.md with prose content")
+  repo.remote().push("feat/295-markdown-file-creation-3151f1")
+  ```
+
+  **Error Handling:**
+  - Catch GitCommandError for permission/connection issues
+  - Log commit hash on success for tracing
+  - Log error details (remote, branch, stderr) on failure
+
+  ### 4. Markdown Format Construction
+
+  **Chosen:** Construct markdown directly; no parsing/validation library needed
+
+  **Structure:**
+  ```
+  # {Title}
+
+  {Prose sentences}
+  ```
+
+  Where:
+  - `# ` (H1 marker + space) begins the title
+  - Blank line separates heading from prose
+  - Prose is 2-3 sentences of coherent content
+
+  **Rationale:**
+  - Format is simple enough to construct correctly without validation library
+  - Adding markdown parser (e.g., markdown-it-py) is unnecessary complexity
+  - Validation can be done via simple string checks (heading marker present, line count, etc.)
+  - Matches approach in features 289-294
+
+  ### 5. Content Validation
+
+  **Chosen:** Lenient validation — verify prose exists and is roughly 2-3 sentences
+
+  **Validation Checks:**
+  1. Generated content is not empty/None
+  2. Content contains at least 2 sentences (split by `.`, `!`, `?`)
+  3. Content is approximately 100-500 characters (roughly 2-3 sentences)
+  4. Generated title is not empty
+  5. File was written successfully (path.exists() check post-write)
+
+  **Rationale:**
+  - LLM-generated prose naturally varies (2-4 sentences depending on topic/style)
+  - Strict sentence counting requires NLTK/spaCy (overkill dependency)
+  - Sentence boundaries are ambiguous (abbreviations, numbers, quotes)
+  - Lenient approach maintains quality while avoiding regex/parsing complexity
+  - Proven successful in 289-294
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O and path manipulation | **Use** | Required by spec; modern Python standard; automatic cross-platform path handling |
+  | GitPython 3.1.0+ | Git operations (add, commit, push) | **Use** | Required by spec; standard Python git library; native exception handling |
+  | Anthropic SDK | Claude API access | **Use** | Required for content generation; integrated via sheep.config.llm |
+  | structlog | Structured logging | **Use** | Required by NFR-4; enables observability and distributed tracing |
+  | CrewAI 0.86.0+ | Framework context | **Use** | Platform requirement; provides orchestration if needed for retry/flow logic |
+  | markdown-it-py | Markdown parsing/validation | **Reject** | Unnecessary complexity; format is trivial; simple string checks sufficient; adds external dependency |
+  | sentence-transformers | NLP for sentence boundary detection | **Reject** | Overkill for lenient validation; adds heavy dependency; not needed with lenient approach |
+  | NLTK | Natural language processing | **Reject** | Heavy dependency; overkill for prose that's already well-formed from Claude |
+
+  ## Security Considerations
+
+  **1. Input Validation**
+  - Claude API output is generated by model, not user input; no injection risk
+  - File path is hardcoded (`test-7z6o6n.md`); no path traversal risk
+  - File is written to repository root (working directory); within expected bounds
+
+  **2. File Permissions**
+  - File created with default umask (typically readable by all users on system)
+  - For sensitive repos, rely on repository-level permissions (git auth, ssh keys)
+  - Git operations use existing credentials; no credential storage in code
+
+  **3. Git Operations**
+  - Commit message is hardcoded; no user input in commit metadata
+  - Branch name is hardcoded; no git command injection risk
+  - GitPython handles escaping; no shell execution
+
+  **4. Encoding/Encoding Attacks**
+  - UTF-8 without BOM is standard, safe encoding
+  - Python's utf-8 codec does not produce BOM by default
+  - No binary data or encoding edge cases
+
+  **Overall Risk:** Minimal. File creation is local, content is AI-generated, all inputs are hardcoded.
+
+  ## Performance Implications
+
+  **1. API Latency**
+  - Claude API call: ~1-3 seconds typical (depends on load, model, region)
+  - No optimization needed; acceptable for CI/CD/automation context
+  - Single API call per feature (no loops or retries)
+
+  **2. File I/O**
+  - Writing ~200-500 byte file to disk: <1ms
+  - Negligible; no optimization needed
+
+  **3. Git Operations**
+  - `git add`: ~10-50ms (depends on repo size; this operation is fast)
+  - `git commit`: <100ms (local operation)
+  - `git push`: ~1-5 seconds (depends on network, repo size, remote)
+  - No optimization needed; expected for CI/CD workflow
+
+  **4. Overall Execution Time**
+  - Dominated by Claude API (~1-3 seconds)
+  - Total execution time: ~3-10 seconds
+  - Acceptable for feature branch automation
+  - No performance bottlenecks or optimization needed
+
+  ## Architecture Notes
+
+  **1. Integration with Sheep Platform**
+  - Follows established pattern from features 289-294
+  - Uses centralized LLM access (sheep.config.llm)
+  - Compatible with CrewAI orchestration (agents, crews, flows)
+  - Observability via structlog and Langfuse tracing
+
+  **2. Scalability**
+  - Pattern scales to 1000+ features (no architectural limits)
+  - Each feature is isolated (separate file, separate commit)
+  - No shared state or coordination between features
+  - API costs scale linearly with feature count
+
+  **3. Testing Considerations**
+  - Mock Claude API for unit tests
+  - Mock GitPython Repo object for git operation tests
+  - Mock pathlib.Path for file I/O tests
+  - Integration tests can use temporary git repo
+
+  **4. Extensibility**
+  - Current implementation hardcodes filename and feature number
+  - Future features could parameterize filename, title, topic
+  - Pattern is simple enough to adapt without architectural changes
+
+  ## Implementation Checklist
+
+  - [ ] Create Python module (or standalone script) in src/sheep/tools/ (if follows tool pattern) or inline
+  - [ ] Import: pathlib.Path, git.Repo, structlog, sheep.config
+  - [ ] Implement content generation using sheep.config.llm.get_reasoning_llm()
+  - [ ] Implement markdown file construction with validation
+  - [ ] Implement git operations (add, commit, push) with error handling
+  - [ ] Add structured logging at key checkpoints (info level for normal flow, error level for failures)
+  - [ ] Test locally: ensure file is created, valid markdown, committed, and pushed
+  - [ ] Run against feature branch feat/295-markdown-file-creation-3151f1
+  - [ ] Verify commit appears in git log with correct message
+  - [ ] Verify file content matches requirements (H1 heading, blank line, 2-3 sentences, UTF-8)
+  - [ ] Validate against CommonMark spec (no syntax errors)
+
+  ## Open Questions Resolved
+
+  **Q1: Content Generation Strategy** → Resolved: Use Claude API via sheep.config.llm
+  - Rationale: Aligns with platform design, consistent with 289-294, authentically demonstrates LLM integration
+
+  **Q2: Validation Approach** → Resolved: Lenient validation (presence + rough count)
+  - Rationale: Pragmatic for LLM output, avoids NLP complexity, maintains quality, proven in 289-294
+
+  **Q3: Commit Message Format** → Resolved: Exact pattern consistency
+  - Rationale: Maintains git history readability, enables automation, preserves proven pattern
+
+  ---
+
+  **Research completed:** 2026-03-31
+  **Confidence:** High — no novel technical challenges; follows established pattern
+  **Ready for implementation:** Yes
