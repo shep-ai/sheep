@@ -1,0 +1,533 @@
+name: markdown-file-creation-4a59ea
+summary: >
+  Feature 291 implements markdown file creation following the extensively-established pattern from
+  290 preceding features (001-290). Research confirms that all required utilities exist in
+  src/sheep/content_generators.py and have been proven reliable across 290+ identical implementations.
+  Implementation leverages CrewAI's LLM abstraction for content generation and follows strict
+  validation patterns for structure, encoding, and git operations. No new utilities, libraries,
+  or architectural changes are required.
+
+relatedFeatures:
+  - number: 290
+    name: markdown-file-creation
+    relationship: Identical pattern — immediately preceding feature
+  - number: 289
+    name: markdown-file-creation
+    relationship: Identical pattern — same requirements and workflow
+  - number: 288
+    name: markdown-file-creation
+    relationship: Identical pattern — same requirements and workflow
+
+technologies:
+  - "Python 3.11+ runtime"
+  - "pathlib (Path, file I/O operations)"
+  - "CrewAI framework (LLM abstraction layer)"
+  - "Claude API (via get_reasoning_llm() factory)"
+  - "structlog (structured logging)"
+  - "subprocess (git command execution via tools)"
+  - "UTF-8 encoding standard"
+  - "CommonMark markdown specification"
+  - "Unix LF line endings (\n)"
+
+relatedLinks:
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "CrewAI LLM Framework"
+    url: "https://docs.crewai.com/"
+  - title: "structlog Documentation"
+    url: "https://www.structlog.org/"
+
+decisions:
+  - title: "LLM Content Generation Framework"
+    chosen: "Use CrewAI's LLM abstraction via sheep.config.llm.get_reasoning_llm()"
+    rejected:
+      - "Direct Anthropic Python SDK (anthropic.Anthropic) — requires additional dependency management, duplicates abstraction already in place, does not align with CrewAI framework used throughout platform"
+      - "Hardcoded fallback template content — fails to meet specification requirement for non-deterministic content via Claude API, reduces test variety across 290+ files, violates explicit requirement in FR-4"
+    rationale: >
+      CrewAI's LLM abstraction is already integrated into the platform architecture via
+      sheep.config.llm module. This factory pattern provides consistent interface to Claude API
+      across all agents and flows, centralizes API key management, enables temperature/model
+      configuration without code changes, and maintains backward compatibility. The
+      get_reasoning_llm() factory is proven across 290 preceding implementations. Direct SDK
+      would add unnecessary dependency management burden and duplicate existing abstraction.
+
+  - title: "Content Generation Approach"
+    chosen: "Use existing generate_markdown_content() utility from sheep.content_generators"
+    rejected:
+      - "Inline LLM call in feature module — duplicates proven utility, increases maintenance burden if validation logic changes, reduces consistency across 290+ features, violates DRY principle"
+      - "External content service — adds complexity and latency, introduces additional failure points, not justified by requirements"
+    rationale: >
+      The generate_markdown_content() function in src/sheep/content_generators.py encapsulates
+      all validation logic, error handling, and LLM interaction patterns proven across features
+      001-290. It handles prompt engineering, response parsing, content validation, and logging
+      consistently. Reusing this utility ensures consistency, reduces code duplication, and
+      leverages 290 successful implementations as proof of reliability.
+
+  - title: "File Writing and Validation Strategy"
+    chosen: "Use utility functions: write_markdown_file() for I/O, validate_markdown_file() for validation"
+    rejected:
+      - "Manual file I/O in feature module — introduces encoding/line-ending bugs, duplicates validation logic, requires custom error handling, diverges from 290 established precedents"
+      - "Skip validation step — violates FR-9 requirements, risks committing invalid files, removes quality assurance checkpoint"
+    rationale: >
+      The write_markdown_file() function handles pathlib Path operations, UTF-8 encoding
+      enforcement, and binary write operations correctly. The validate_markdown_file() function
+      performs comprehensive checks: H1 heading present, exactly 2-3 sentences, UTF-8 without
+      BOM, Unix LF line endings only, trailing newline present. These validations are proven
+      across 290+ implementations and guarantee compliance with NFR-1, NFR-2, and FR-9.
+
+  - title: "Git Staging and Commit Implementation"
+    chosen: "Use commit_markdown_file() utility with custom_message parameter for exact conventional format"
+    rejected:
+      - "Manual git command invocation via subprocess — introduces error handling complexity, lacks validation, requires custom parameter management, diverges from proven utility approach"
+      - "GitCommitTool directly with add_all=True — correct but loses abstraction layer benefits of commit_markdown_file() wrapper"
+    rationale: >
+      The commit_markdown_file() utility in content_generators.py provides idiomatic Python
+      error handling, consistent logging, automatic staging via GitCommitTool, and flexible
+      message customization. It's proven across 290 implementations and handles edge cases
+      (missing repo path, default feature number fallback). Using custom_message parameter
+      ensures exact conventional commit format required by FR-7.
+
+  - title: "Push to Remote Implementation"
+    chosen: "Use push_markdown_file() utility with set_upstream=True for branch tracking"
+    rejected:
+      - "GitPushTool directly without wrapper — loses abstraction, requires manual parameter management, less readable"
+      - "Manual git push via subprocess — introduces error handling complexity, reduces consistency"
+    rationale: >
+      The push_markdown_file() utility encapsulates GitPushTool invocation and ensures
+      set_upstream=True is passed, satisfying FR-8 requirement for upstream tracking. Wrapper
+      maintains consistency with commit workflow, provides standard error handling, and has
+      been proven across 290 features.
+
+  - title: "Feature Module Structure"
+    chosen: "Create src/sheep/features/feature_291_markdown_file_creation.py following features 288-290 pattern"
+    rejected:
+      - "Inline implementation in CLI command — loses module reusability, makes testing harder, scatters feature logic across codebase"
+      - "Create new standalone script outside src/sheep/features/ — breaks established project structure, makes feature discovery harder"
+    rationale: >
+      Features 288-290 demonstrate clear pattern: module per feature in src/sheep/features/,
+      with feature_NUMBER_feature_name.py naming convention. Each module exports a callable
+      function (e.g., create_test_sv8lfo_markdown_file()) that can be imported by agents, CLI,
+      or tests. This structure maintains consistency, enables future composition into larger
+      flows, and follows CrewAI agent patterns used elsewhere in codebase.
+
+  - title: "Error Handling Philosophy"
+    chosen: "Fail fast with clear error messages; propagate exceptions rather than silently continuing"
+    rejected:
+      - "Retry logic with exponential backoff — adds complexity, contradicts explicit FR decision in spec, hides temporary failures from debugging"
+      - "Fallback content if LLM fails — violates quality standards, produces lower-quality test artifacts, obscures root cause of API issues"
+      - "Skip validation if LLM fails — violates quality assurance, allows invalid files into repository"
+    rationale: >
+      Specification explicitly selects \"fail with clear error message\" for API failures (open
+      question resolved). This aligns with explicit-over-implicit principle: developers should
+      see failures immediately rather than discovering invalid files later. Clear error
+      messages facilitate debugging. Propagating exceptions preserves stack traces for
+      investigation. This philosophy is proven across 290 features and maintains code clarity.
+
+  - title: "File Existence Handling"
+    chosen: "Fail with ValueError if test-sv8lfo.md already exists; prevent overwrite"
+    rejected:
+      - "Skip silently if file exists — hides unexpected repository state, may indicate previous failed run or manual file creation"
+      - "Overwrite without warning — risks data loss, violates safe-defaults principle, difficult to debug"
+    rationale: >
+      Specification explicitly selects \"fail with error\" for pre-existing files. The one-file-per-feature
+      pattern across 290+ features ensures test-sv8lfo.md should not exist before creation.
+      If it exists, something unexpected happened (incomplete cleanup, manual creation, merge
+      conflict). Failing fast with clear error forces investigation rather than silently
+      masking state issues. This approach prevents data loss and helps developers debug
+      unexpected repository state.
+
+  - title: "Logging Framework"
+    chosen: "Use structlog via sheep.observability.logging.get_logger(__name__)"
+    rejected:
+      - "Python standard logging module — less structured, harder to query/analyze across runs, not integrated with platform observability"
+      - "Print statements — no structured output, difficult to test, not integrated with logging infrastructure"
+    rationale: >
+      Platform uses structlog for structured logging throughout (observable in all existing
+      modules). Structured logs enable consistent analysis of feature execution, better
+      debugging, and integration with observability systems. get_logger(__name__) pattern
+      is proven across codebase. Using platform standard logging ensures consistency and
+      enables correlation across agent execution.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research Complete
+  - **Updated:** 2026-03-31
+  - **Pattern Maturity:** 290 preceding identical implementations proven stable and reliable
+
+  ## Technology Decisions
+
+  ### 1. LLM Content Generation Framework
+
+  **Chosen:** CrewAI's LLM abstraction via sheep.config.llm.get_reasoning_llm()
+
+  **Rejected:**
+  - Direct Anthropic Python SDK (anthropic.Anthropic) — Requires additional dependency management, duplicates abstraction already in place via CrewAI framework, does not align with platform architecture
+  - Hardcoded fallback template content — Fails to meet specification requirement for Claude API content generation via FR-4, reduces test file variety, violates non-deterministic content requirement
+
+  **Rationale:**
+  The platform already integrates CrewAI as its LLM abstraction layer through the sheep.config.llm module.
+  The get_reasoning_llm() factory pattern provides:
+  - Consistent Claude API interface across all agents and flows
+  - Centralized API key and credential management
+  - Temperature and model configuration without code changes
+  - Proven reliability across 290+ preceding identical features
+  - Standard error handling and logging integration
+
+  Using CrewAI's abstraction rather than direct SDK reduces dependency management burden,
+  maintains architectural consistency, and leverages existing platform infrastructure.
+
+  ### 2. Content Generation Approach
+
+  **Chosen:** Reuse existing generate_markdown_content() utility from src/sheep/content_generators.py
+
+  **Rejected:**
+  - Inline LLM call in feature module — Duplicates proven utility, increases maintenance burden if validation logic changes, reduces consistency across 290+ implementations
+  - External content generation service — Introduces unnecessary complexity, additional latency, and failure points
+
+  **Rationale:**
+  The generate_markdown_content() utility encapsulates:
+  - Prompt engineering for markdown structure (H1 heading + 2-3 sentences)
+  - LLM API interaction with get_reasoning_llm()
+  - Response parsing and format validation
+  - Comprehensive error handling with clear messages
+  - Structured logging via structlog
+
+  This utility has been proven across features 001-290, is actively maintained in content_generators.py,
+  and guarantees consistent quality. Reusing it follows DRY principle, reduces code duplication,
+  and ensures quality assurance.
+
+  ### 3. File Writing and Validation
+
+  **Chosen:** Use utility functions: write_markdown_file() for I/O, validate_markdown_file() for validation
+
+  **Rejected:**
+  - Manual file I/O in feature module — Introduces encoding/line-ending bugs, requires custom error handling, diverges from established precedent
+  - Skip validation — Violates FR-9 requirements, risks invalid files in repository
+
+  **Rationale:**
+  Utility functions handle critical requirements:
+  - write_markdown_file(): pathlib Path operations, UTF-8 encoding, verification of write success
+  - validate_markdown_file(): comprehensive checks including:
+    - H1 heading syntax (CommonMark compliance)
+    - Exactly 2-3 sentences of prose content
+    - UTF-8 encoding without BOM (NFR-1)
+    - Unix LF line endings only, no CRLF (NFR-2)
+    - Trailing newline (Unix convention)
+    - File existence and size verification
+
+  These validations are proven across 290+ implementations and guarantee compliance with all
+  NFR requirements. Validating before commit ensures only compliant files enter the repository.
+
+  ### 4. Git Operations
+
+  **Chosen:** Use commit_markdown_file() and push_markdown_file() utilities
+
+  **Rejected:**
+  - Manual subprocess git calls — Introduces error handling complexity, requires custom parameter management
+  - Direct tool calls without wrapper — Loses abstraction benefits and consistency
+
+  **Rationale:**
+  Utilities provide:
+  - Idiomatic Python error handling with clear error messages
+  - Automatic staging via GitCommitTool with add_all=True
+  - Flexible message customization via custom_message parameter
+  - Upstream tracking via set_upstream=True in push operation (FR-8)
+  - Structured logging at each step
+  - Proven across 290 implementations
+
+  Using utilities ensures consistency with established workflow and reduces boilerplate in feature module.
+
+  ### 5. Feature Module Architecture
+
+  **Chosen:** Create src/sheep/features/feature_291_markdown_file_creation.py
+
+  **Rejected:**
+  - Inline implementation in CLI — Loses reusability for agents/flows
+  - Script outside src/sheep/features/ — Breaks established project structure
+
+  **Rationale:**
+  Features 288-290 demonstrate proven pattern:
+  - Module location: src/sheep/features/feature_NUMBER_feature_name.py
+  - Export function: create_test_IDENTIFIER_markdown_file(repo_path=None)
+  - Support direct execution via if __name__ == "__main__" block
+  - Allow import by agents, CLI, and tests
+  - Maintain consistent feature discovery and structure
+
+  This architecture integrates with CrewAI agent patterns used throughout the platform.
+
+  ### 6. Error Handling Philosophy
+
+  **Chosen:** Fail fast with clear error messages; propagate exceptions for debugging
+
+  **Rejected:**
+  - Retry logic with backoff — Adds complexity, hides temporary failures
+  - Fallback content — Produces lower-quality artifacts, obscures root causes
+  - Skip validation — Allows invalid files, violates quality assurance
+
+  **Rationale:**
+  Specification explicitly selects \"fail with clear error\" (open question resolved).
+  This approach:
+  - Surfaces issues immediately rather than creating hidden failures
+  - Preserves stack traces for debugging
+  - Aligns with explicit-over-implicit principle
+  - Prevents commitment of invalid files
+  - Proven across 290 features
+
+  ### 7. File Existence Handling
+
+  **Chosen:** Fail with ValueError if test-sv8lfo.md already exists
+
+  **Rejected:**
+  - Skip silently if exists — Hides unexpected repository state
+  - Overwrite without warning — Risks data loss
+
+  **Rationale:**
+  One-file-per-feature pattern (290+ features) ensures file should not pre-exist.
+  If it exists, something unexpected occurred (incomplete cleanup, manual creation, etc.).
+  Failing fast forces investigation rather than masking state issues.
+  This prevents data loss and helps developers debug unexpected conditions.
+
+  ### 8. Logging Framework
+
+  **Chosen:** Use structlog via sheep.observability.logging.get_logger(__name__)
+
+  **Rejected:**
+  - Python standard logging — Less structured, harder to query, not integrated with platform observability
+  - Print statements — No structured output, difficult to test
+
+  **Rationale:**
+  Platform uses structlog throughout for structured logging integration.
+  get_logger(__name__) pattern is established across all modules.
+  Structured logging enables:
+  - Consistent analysis and debugging across feature execution
+  - Integration with observability systems
+  - Better correlation and tracing across agent execution
+  - Standard error reporting and monitoring
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib | File I/O cross-platform compatibility | Use (existing) | Standard library, proven in write_markdown_file() and validate_markdown_file() utilities, ensures correct path handling across Windows/Unix |
+  | CrewAI | LLM framework abstraction | Use (existing) | Platform standard, integrated via sheep.config.llm, provides consistent Claude API interface across all features |
+  | structlog | Structured logging | Use (existing) | Platform standard for observability, integrated throughout codebase, enables consistent logging patterns |
+  | subprocess | Git command execution | Use (existing) | Used by GitCommitTool and GitPushTool, proven for git operations across 290 features, standard library |
+  | typing (|) | Union type hints | Use (existing) | Python 3.10+ syntax, compatible with Python 3.11+ runtime requirement, used consistently in existing utilities |
+  | anthropic SDK | Direct Claude API access | Reject | CrewAI abstraction already provides access, direct SDK would duplicate dependency management, not needed for this feature |
+  | python-dotenv | Environment variable loading | Reject | Credential management handled by sheep.config module, dotenv already integrated at application startup, not needed in feature module |
+
+  ## Security Considerations
+
+  ### 1. File Path Traversal Prevention
+
+  **Issue:** Malicious filename could escape repository root via path traversal
+
+  **Mitigation:** write_markdown_file() validates filename at entry point:
+  - Rejects filenames containing "/" or "\\" characters (directory separators)
+  - Rejects filenames starting with "." (hidden files, relative path tricks)
+  - Uses pathlib.Path which prevents traversal attacks
+
+  **Implementation:** Line 116-117 in content_generators.py enforces:
+  ```python
+  if "/" in filename or "\\" in filename or filename.startswith("."):
+      raise ValueError(f"Invalid filename: {filename}")
+  ```
+
+  **Additional Safety:** Feature uses fixed filename "test-sv8lfo.md" provided in specification.
+  No user input is accepted for filename, eliminating attack surface entirely.
+
+  ### 2. Content Validation for Injection Attacks
+
+  **Issue:** Generated content could potentially contain injection payloads if LLM compromised
+
+  **Mitigation:**
+  - Content is written only to markdown file (no code evaluation)
+  - File committed as data artifact, never executed as code
+  - UTF-8 validation prevents encoding-based attacks
+  - Markdown is text format with no execution semantics
+
+  **Risk Assessment:** Very low — markdown files are inert text artifacts with no execution
+  capabilities. Even if LLM-generated content contains malicious text, it has no effect when
+  stored in repository.
+
+  ### 3. Git Operation Security
+
+  **Issue:** Git operations could be hijacked via compromised credentials or unsafe subprocess calls
+
+  **Mitigation:**
+  - Uses existing GitCommitTool and GitPushTool from platform
+  - Credentials managed by sheep.config module (environment-based)
+  - No direct subprocess.run() calls (wrapped via tools)
+  - Commit message uses custom_message parameter (no string concatenation risks)
+
+  **Implementation:** commit_markdown_file() uses GitCommitTool._run() with structured parameters,
+  not shell-based git commands.
+
+  ### 4. API Key and Credential Management
+
+  **Issue:** Claude API key could be exposed in logs or error messages
+
+  **Mitigation:**
+  - API key obtained via sheep.config.llm.get_reasoning_llm()
+  - Keys stored as SecretStr in settings (not printed in logs)
+  - LLM call error messages don't include API key details
+  - structlog integration ensures secrets aren't accidentally logged
+
+  **Risk Assessment:** Low — credential management is centralized in platform config module,
+  proven across 290+ features.
+
+  ### 5. File Permissions and Ownership
+
+  **Issue:** Created file could have overly-permissive permissions
+
+  **Mitigation:**
+  - Python open() with default mode 0o666 minus umask (respects system defaults)
+  - File created within managed repository with standard git configuration
+  - Platform handles permission management at infrastructure level
+  - Individual feature files don't have sensitive content (test artifacts)
+
+  **Risk Assessment:** Low — test files are not sensitive, permissions inherited from repository.
+
+  ## Performance Considerations
+
+  ### 1. LLM API Call Latency
+
+  **Impact:** generate_markdown_content() makes synchronous Claude API call (primary latency source)
+
+  **Typical Performance:**
+  - Claude API response: 1-3 seconds for simple prompt
+  - Prompt: "Generate H1 heading + 2-3 sentences" is minimal complexity
+  - Total LLM latency: ~2-3 seconds (dominant cost)
+
+  **Optimization Notes:**
+  - Single LLM call required (not iterative)
+  - Prompt is deterministic and minimal
+  - CrewAI batches requests efficiently
+  - No retries needed if prompt well-formed (it is)
+
+  **Scalability:** Feature is single-file creation; not performance-critical.
+  Could be parallelized across multiple features if needed in future.
+
+  ### 2. File I/O Operations
+
+  **Impact:** File writing and validation involve disk I/O
+
+  **Typical Performance:**
+  - write_markdown_file(): ~1-5ms (local disk write)
+  - validate_markdown_file(): ~1-5ms (read and validate)
+  - Total file I/O: ~2-10ms (negligible)
+
+  **Optimization:** None needed — file operations are microseconds compared to LLM latency.
+
+  ### 3. Git Operations
+
+  **Impact:** Git staging, commit, and push involve subprocess calls and network
+
+  **Typical Performance:**
+  - git add: ~10-50ms (index update)
+  - git commit: ~50-200ms (object creation, index write)
+  - git push: 500ms-2s (network dependent)
+  - Total git operations: ~1-2 seconds
+
+  **Optimization Notes:**
+  - Operations run serially (push depends on commit)
+  - Network latency dominates (not code optimization point)
+  - Set_upstream flag adds minimal overhead
+  - No alternative to full push operation (required by FR-8)
+
+  ### 4. Overall Performance Profile
+
+  **Total Estimated Runtime:** 5-8 seconds
+  - LLM call: ~2-3s (dominant)
+  - Git operations: ~1-2s
+  - File I/O and validation: ~10-20ms
+
+  **Performance Assessment:** Acceptable for automated feature creation process.
+  Speed is not a specification requirement; correctness is primary goal.
+
+  ## Architecture Notes
+
+  ### 1. Integration with CrewAI Framework
+
+  Feature uses CrewAI patterns consistent with platform architecture:
+  - LLM abstraction via sheep.config.llm module
+  - Logging via structlog integration used by CrewAI agents
+  - Module structure matches agent and tool organization
+  - Could be directly invoked by CrewAI Agent with callable parameter
+
+  ### 2. Composition with Existing Utilities
+
+  Feature is 100% composed from existing utilities:
+  - generate_markdown_content() — content generation + validation
+  - write_markdown_file() — file I/O with encoding enforcement
+  - validate_markdown_file() — comprehensive validation
+  - commit_markdown_file() — git staging + commit
+  - push_markdown_file() — git push with upstream tracking
+
+  No new utilities required. Implementation is thin orchestration layer.
+
+  ### 3. Consistency with 290+ Preceding Features
+
+  Architecture directly mirrors features 288-290:
+  - Module location: src/sheep/features/feature_291_markdown_file_creation.py
+  - Feature function: create_test_sv8lfo_markdown_file(repo_path=None)
+  - Workflow steps: Generate → Write → Validate → Commit → Push
+  - Logging pattern: structlog with INFO/DEBUG levels
+  - Error handling: Propagate exceptions with clear messages
+
+  This consistency enables:
+  - Zero learning curve for developers familiar with 288-290
+  - Predictable testing patterns
+  - Straightforward composition into larger flows
+  - Easy pattern replication for future markdown features
+
+  ### 4. Integration Points
+
+  Feature can be invoked by:
+  - **CLI:** Via sheep.cli module with feature discovery
+  - **Agents:** Via CrewAI agents as callable action
+  - **Tests:** Direct import and function call
+  - **Flows:** Via code_implementation or other flow orchestration
+  - **Direct script:** if __name__ == "__main__" block
+
+  No new integration points required; uses existing platform patterns.
+
+  ### 5. Data Flow
+
+  ```
+  Feature Request (test-sv8lfo.md)
+      ↓
+  generate_markdown_content()  [Claude API call]
+      ↓
+  write_markdown_file()  [Disk I/O]
+      ↓
+  validate_markdown_file()  [Validation checkpoint]
+      ↓
+  commit_markdown_file()  [Git staging + commit]
+      ↓
+  push_markdown_file()  [Git push with upstream]
+      ↓
+  Success ✓ or Exception ✗
+  ```
+
+  All steps are sequential (each depends on prior success).
+  Validation failures occur before git operations (fail-fast principle).
+
+  ---
+
+  ## Conclusion
+
+  Feature 291 implementation is straightforward orchestration of proven utilities.
+  The 290 preceding identical features establish reliability and performance baseline.
+  All required functionality exists in src/sheep/content_generators.py.
+  No new libraries, utilities, or architectural changes are required.
+  Implementation follows established patterns from features 288-290.
+  Estimated completion time: 5-10 minutes of actual development work
+  (majority of which is copying/adapting feature_290_markdown_file_creation.py template).
+
+  **Research Complete** — Ready for implementation planning and execution.
