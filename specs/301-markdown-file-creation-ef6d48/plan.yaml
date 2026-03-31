@@ -1,0 +1,203 @@
+name: "markdown-file-creation-ef6d48"
+summary: >
+  "Feature 301 creates a markdown file (test-wx8ewb.md) with H1 heading and 2-3 sentences of prose content.
+  The implementation is a thin wrapper around the existing create_markdown_file() orchestration function
+  from content_generators.py, which handles all workflow steps: content generation, validation, file writing,
+  git staging/commit/push. This approach follows the proven pattern from features 297-300 and requires no
+  architectural changes or new dependencies."
+
+relatedFeatures:
+  - 297
+  - 298
+  - 299
+  - 300
+
+technologies:
+  - "Python 3.x"
+  - "CrewAI"
+  - "Anthropic Claude API"
+  - "Git CLI"
+  - "Pydantic"
+
+relatedLinks:
+  - title: "Sheep Project Architecture"
+    url: "https://github.com/anthropics/sheep"
+  - title: "Feature 297 Reference Implementation"
+    url: "https://github.com/anthropics/sheep/tree/main/src/sheep/features"
+
+phases:
+  - id: "phase-1"
+    name: "Feature Module Creation"
+    description: "Create the feature module following the established pattern from feature 297. Define module constants (FEATURE_NUMBER, MARKDOWN_FILENAME) and the wrapper function that invokes the existing create_markdown_file() orchestration function."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Testing and Verification"
+    description: "Write integration tests to verify the feature creates the markdown file correctly, validates all properties (encoding, line endings, markdown structure), stages/commits/pushes to git, and handles errors appropriately."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_301_markdown_file_creation.py"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 301 integrates seamlessly with the existing Sheep architecture. The implementation leverages
+  the mature, battle-tested `create_markdown_file()` orchestration function from `src/sheep/content_generators.py`,
+  which has been proven across 300+ prior features. This function encapsulates the complete workflow:
+
+  1. **Content Generation**: Uses `generate_markdown_content()` to create markdown with H1 heading and 2-3 sentences
+  2. **File Writing**: Uses `write_markdown_file()` to write with UTF-8 encoding and LF line endings
+  3. **Validation**: Uses `validate_markdown_file()` and `validate_file_properties()` for comprehensive checks
+  4. **Git Operations**: Uses `commit_markdown_file()` and `push_markdown_file()` for staging, committing, and pushing
+
+  The feature module is a thin wrapper that:
+  - Defines constants for feature number and target filename
+  - Calls the orchestration function with appropriate parameters
+  - Handles logging and error reporting at the feature level
+
+  This architecture follows the single-responsibility principle: orchestration logic remains centralized in
+  content_generators.py (reusable across all features), while feature modules provide a consistent entry point
+  and maintain the feature registry.
+
+  ## Key Design Decisions
+
+  ### 1. Reuse Existing Orchestration Function
+
+  **Chosen**: Call `create_markdown_file(filename=\"test-wx8ewb.md\", feature_number=301)` from the feature module
+
+  **Why**: The orchestration function is proven across 300+ features, encapsulates all complexity (content
+  generation, validation, git operations), and is actively maintained. Reusing it ensures consistency,
+  reduces code duplication, and leverages existing error handling and logging infrastructure.
+
+  **Alternatives Considered**:
+  - Implement custom content generation and git operations in the feature module (violates DRY principle,
+    increases maintenance burden, higher risk of bugs)
+  - Call lower-level functions (GitCommitTool, GitPushTool) directly (loses orchestration abstraction,
+    makes feature module more complex)
+
+  ### 2. Minimal Validation Only
+
+  **Chosen**: Use the existing validation functions that check structure, encoding, and line endings
+
+  **Why**: The spec explicitly resolves the validation question: \"Minimal validation is recommended because
+  the existing content_generators.py validation is proven across 300+ features... LLM-generated content
+  consistently meets these without additional validators.\" Adding metrics like flesch reading level or
+  grammar checking contradicts the spec's guidance and increases complexity without improving quality.
+
+  **Validation Layers** (already implemented in orchestration function):
+  - Content validation: H1 heading format, 2-3 sentence count, 50+ byte minimum
+  - Property validation: UTF-8 encoding (no BOM), LF line endings, trailing newline
+  - Structure validation: blank line separator, markdown format compliance
+
+  ### 3. Exception on Git Push Failure
+
+  **Chosen**: Raise exception if `git push` fails; do not implement retry logic
+
+  **Why**: The spec explicitly rejects retry logic: \"Raising an exception is recommended because it preserves
+  data integrity and matches the existing error-handling pattern in the codebase... If push fails, the user
+  should be explicitly notified (not silently logged) so they can investigate.\"
+
+  **Error Handling Strategy**:
+  - Content generation failure → Exception with descriptive message
+  - File writing failure → Exception with path and encoding details
+  - Validation failure → Exception with specific validation error
+  - Git commit failure → Exception (rare; indicates repo state issue)
+  - Git push failure → Exception (user must investigate network/permission issue)
+
+  ### 4. Thin Wrapper Pattern
+
+  **Chosen**: Create feature module with constants and wrapper function, following feature 297 pattern
+
+  **Why**: This pattern:
+  - Provides consistent entry point for the feature system
+  - Maintains compatibility with existing feature registry and CLI
+  - Allows feature-level logging and error handling
+  - Keeps module focused (single responsibility: orchestrate via existing infrastructure)
+  - Proven across 300+ features as the baseline pattern
+
+  **Module Structure**:
+  - Constants: FEATURE_NUMBER, FEATURE_NAME, MARKDOWN_FILENAME
+  - Function: create_test_wx8ewb_markdown_file() → calls create_markdown_file()
+  - Entry point: main() → handles logging and error handling
+
+  ## Implementation Strategy
+
+  ### Phase 1: Feature Module Creation
+
+  Create the feature module following the established pattern:
+
+  1. Define module-level constants (FEATURE_NUMBER=301, MARKDOWN_FILENAME=\"test-wx8ewb.md\")
+  2. Implement `create_test_wx8ewb_markdown_file()` function that calls `create_markdown_file()` with hardcoded parameters
+  3. Implement `main()` entry point that handles logging and error cases
+  4. Ensure imports are minimal (only content_generators, logging, pathlib)
+
+  **Why this order**: Constants first (simple, no dependencies), then the core function (depends only on
+  imports), then CLI entry point (depends on core function). This ordering ensures dependencies flow cleanly.
+
+  ### Phase 2: Testing and Verification
+
+  1. Write integration test that invokes the feature and verifies output
+  2. Test assertions check:
+     - File exists at repository root
+     - File contains H1 heading on first line
+     - H1 heading followed by blank line
+     - Prose contains 2-3 sentences
+     - File encoding is UTF-8 (no BOM)
+     - File uses LF line endings
+     - File size >= 50 bytes
+     - Git commit message matches spec
+     - Changes are pushed to remote
+  3. Run feature locally and verify output
+  4. Clean up test files if needed
+
+  **Why testing comes second**: Implementation must be complete and testable before writing comprehensive tests.
+  Testing verifies the implementation meets the spec's success criteria.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Content generation produces invalid markdown | Orchestration function has multi-layer validation; LLM consistently produces valid output across 300+ features |
+  | File writing fails (permissions, disk space) | Validation after write catches errors; exception is raised before git operations |
+  | UTF-8/LF encoding issues | Validation functions explicitly check encoding and line endings; test verifies file bytes |
+  | Git operations fail (network, permissions) | Exception is raised explicitly; user is notified to investigate; file is already committed locally |
+  | Unintended file modifications | Feature module calls only create_markdown_file(); no other file operations |
+
+  ## Files to Create and Modify
+
+  **Create**:
+  - `src/sheep/features/feature_301_markdown_file_creation.py` — Feature module with constants and wrapper function
+
+  **Modify**:
+  - None. The orchestration function already exists and is proven. No changes to existing modules needed.
+
+  ## Consistency with Prior Implementations
+
+  Feature 301 follows the exact pattern established by feature 297 and validated across features 298-300:
+
+  - Module location: `src/sheep/features/feature_[number]_[description].py`
+  - Constants: FEATURE_NUMBER, FEATURE_NAME, MARKDOWN_FILENAME
+  - Wrapper function: Calls `create_markdown_file()` with feature-specific parameters
+  - Entry point: `main()` function with try-except and logging
+  - Git workflow: Handled entirely by orchestration function (no feature-level git code)
+
+  ## Effort Estimate
+
+  **Total**: ~2-3 hours
+
+  **Breakdown**:
+  - Feature module creation: 30 minutes (constants + wrapper function + main entry point)
+  - Integration test development: 45 minutes (test structure + assertions + test data)
+  - Manual testing and verification: 30 minutes (run feature, verify output, check git history)
+  - Documentation and code review: 15 minutes (docstrings, review for consistency)
+
+  The effort is minimal because:
+  - All complex logic is already implemented in content_generators.py
+  - Module is a thin wrapper with no custom implementation
+  - Pattern is well-established with clear precedent (feature 297)
+  - No architectural changes or new dependencies required
