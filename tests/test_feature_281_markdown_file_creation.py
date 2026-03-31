@@ -15,7 +15,6 @@ Test Coverage:
 - End-to-end integration of the complete workflow
 """
 
-import os
 from pathlib import Path
 
 import pytest
@@ -229,9 +228,9 @@ class TestProseContent:
         # (except the last sentence)
         sentences = prose_content.split(". ")
         # Should have 2-3 parts when split by ". "
-        assert 2 <= len(
+        assert len(
             sentences
-        ), "Prose should have well-formed sentences separated by periods"
+        ) >= 2, "Prose should have well-formed sentences separated by periods"
 
 
 class TestFileSizeRequirements:

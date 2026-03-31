@@ -1,6 +1,5 @@
 """Tests for feature 256: Create markdown file test-50k3t2.md with prose content."""
 
-import pytest
 
 from sheep.features.feature_256_markdown_file_creation import (
     FEATURE_NAME,
@@ -91,11 +90,11 @@ class TestFeature256Integration:
     def test_imports_required_wrappers(self):
         """Test that module imports required wrapper functions."""
         from sheep.features.feature_256_markdown_file_creation import (
-            generate_markdown_content,
-            write_markdown_file,
-            validate_markdown_file,
             commit_markdown_file,
+            generate_markdown_content,
             push_markdown_file,
+            validate_markdown_file,
+            write_markdown_file,
         )
 
         # Verify all required wrappers are imported

@@ -12,7 +12,6 @@ The implementation uses the Sheep platform's unified content_generators module w
 provides complete end-to-end markdown generation with full validation.
 """
 
-from pathlib import Path
 
 from sheep.content_generators import generate_markdown_content
 from sheep.observability.logging import get_logger
@@ -52,7 +51,7 @@ def execute_phase_1_content_generation() -> str:
 
         # Log success metrics
         content_bytes = len(content.encode("utf-8"))
-        _logger.info(f"✓ Content generation successful")
+        _logger.info("✓ Content generation successful")
         _logger.info(f"  - Generated: {len(content)} characters ({content_bytes} bytes)")
 
         # Step 2: Validate structure

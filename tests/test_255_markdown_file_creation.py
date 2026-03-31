@@ -29,7 +29,6 @@ import pytest
 
 from sheep.features.feature_255_markdown_file_creation import create_feature_255_markdown_file
 
-
 # Sample valid markdown content for testing
 # Prose is 232 characters (within 100-300 spec)
 SAMPLE_MARKDOWN_CONTENT = (

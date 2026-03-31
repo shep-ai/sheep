@@ -4,8 +4,9 @@ Tests the end-to-end workflow: file creation, git staging, committing, and pushi
 Verifies all success criteria from the feature specification are met.
 """
 
-from pathlib import Path
 import subprocess
+from pathlib import Path
+
 import pytest
 
 

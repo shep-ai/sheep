@@ -1,6 +1,5 @@
 """Tests for feature 277: Creating markdown file test-yziemx.md with title and prose content."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

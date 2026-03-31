@@ -45,10 +45,11 @@ def test_feature_255_logger_is_available():
 
 def test_feature_255_function_signature():
     """Test that create_feature_255_markdown_file function has correct signature."""
+    import inspect
+
     from sheep.features.feature_255_markdown_file_creation import (
         create_feature_255_markdown_file,
     )
-    import inspect
 
     sig = inspect.signature(create_feature_255_markdown_file)
 
@@ -173,8 +174,8 @@ class TestFeature255Integration:
             mock_push.return_value = "push result"
 
             from sheep.features.feature_255_markdown_file_creation import (
-                create_feature_255_markdown_file,
                 MARKDOWN_FILENAME,
+                create_feature_255_markdown_file,
             )
 
             result = create_feature_255_markdown_file()

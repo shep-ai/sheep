@@ -10,17 +10,14 @@ Tests cover:
 - Function returns correct structure
 """
 
-import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock, Mock
-
-import pytest
+from unittest.mock import MagicMock, Mock, patch
 
 from sheep.features.feature_262_markdown_file_creation import (
-    create_feature_262_markdown_file,
     FEATURE_NUMBER,
     MARKDOWN_FILENAME,
+    create_feature_262_markdown_file,
 )
 
 # Sample valid markdown content for testing

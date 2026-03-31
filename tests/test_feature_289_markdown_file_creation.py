@@ -1,6 +1,6 @@
 """Tests for feature 289: Create markdown file test-ayadmw.md with prose content."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -93,11 +93,11 @@ class TestFeature289Integration:
     def test_imports_required_wrappers(self):
         """Test that module imports required wrapper functions."""
         from sheep.features.feature_289_markdown_file_creation import (
-            generate_markdown_content,
-            write_markdown_file,
-            validate_markdown_file,
             commit_markdown_file,
+            generate_markdown_content,
             push_markdown_file,
+            validate_markdown_file,
+            write_markdown_file,
         )
 
         # Verify all required wrappers are imported
