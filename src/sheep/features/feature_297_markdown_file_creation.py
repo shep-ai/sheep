@@ -13,13 +13,7 @@ from 296 preceding features (001-296). The file is created with:
 
 from pathlib import Path
 
-from sheep.content_generators import (
-    commit_markdown_file,
-    generate_markdown_content,
-    push_markdown_file,
-    validate_markdown_file,
-    write_markdown_file,
-)
+from sheep.content_generators import create_markdown_file
 from sheep.observability.logging import get_logger
 
 _logger = get_logger(__name__)
@@ -34,7 +28,7 @@ def create_test_odrj2h_markdown_file(repo_path: str | None = None) -> dict[str, 
     """
     Create markdown file for feature 297.
 
-    Orchestrates the complete workflow:
+    Orchestrates the complete workflow using the established orchestration function:
     1. Generate valid markdown content (H1 heading + 2-3 sentences)
     2. Write file to repository root with UTF-8 encoding
     3. Validate file meets all specification requirements
@@ -64,53 +58,44 @@ def create_test_odrj2h_markdown_file(repo_path: str | None = None) -> dict[str, 
     )
 
     try:
-        # Task 1: Generate valid markdown content
-        _logger.info("Task 1: Generating markdown content")
-        content = generate_markdown_content()
-        _logger.debug(f"Generated {len(content)} bytes of content")
-
-        # Task 2: Write file to disk with proper encoding
-        _logger.info("Task 2: Writing markdown file to disk")
-        filepath = write_markdown_file(content, MARKDOWN_FILENAME)
-        _logger.debug(f"File written to: {filepath}")
-
-        # Task 3: Validate file meets all specification requirements
-        _logger.info("Task 3: Validating markdown file")
-        validate_markdown_file(filepath)
-        _logger.info("File validation passed")
-
-        # Task 4: Stage and commit file with exact conventional message
-        _logger.info("Task 4: Staging and committing file")
-        commit_message = f"feat({FEATURE_NUMBER}): create markdown file {MARKDOWN_FILENAME} with prose content"
-        _logger.debug(f"Using commit message: {commit_message}")
-        commit_result = commit_markdown_file(filepath, content, repo_path, custom_message=commit_message)
-        _logger.debug(f"Commit result: {commit_result}")
-
-        # Task 5: Push to remote repository
-        _logger.info("Task 5: Pushing to remote repository")
-        push_result = push_markdown_file(repo_path)
-        _logger.debug(f"Push result: {push_result}")
+        # Call the orchestration function with correct parameters
+        result = create_markdown_file(
+            filename=MARKDOWN_FILENAME,
+            repo_path=repo_path,
+            feature_number=FEATURE_NUMBER
+        )
 
         _logger.info(
             f"Successfully created and published feature {FEATURE_NUMBER}: {MARKDOWN_FILENAME}"
         )
 
-        return {
-            "filepath": filepath,
-            "content": content,
-            "commit_message": commit_message,
-            "push_result": push_result,
-        }
+        return result
 
     except Exception as e:
         _logger.error(f"Failed to create feature {FEATURE_NUMBER}: {e}")
         raise
 
 
+def main() -> int:
+    """
+    Execute feature 297 as a standalone task.
+
+    Returns:
+        0 on success, 1 on failure.
+    """
+    try:
+        result = create_test_odrj2h_markdown_file()
+        _logger.info(f"Feature {FEATURE_NUMBER} completed successfully")
+        print("Feature 297 created successfully:")
+        print(f"  File: {result['filepath']}")
+        print(f"  Size: {len(result['content'])} bytes")
+        print(f"  Message: {result['commit_message']}")
+        return 0
+    except Exception as e:
+        _logger.error(f"Feature {FEATURE_NUMBER} failed: {e}")
+        print(f"Error: Failed to create feature {FEATURE_NUMBER}: {e}")
+        return 1
+
+
 if __name__ == "__main__":
-    """Execute feature 297 when run as a script."""
-    result = create_test_odrj2h_markdown_file()
-    print("Feature 297 created successfully:")
-    print(f"  File: {result['filepath']}")
-    print(f"  Size: {len(result['content'])} bytes")
-    print(f"  Message: {result['commit_message']}")
+    exit(main())
