@@ -4,9 +4,9 @@ Tests for the entry point function that orchestrates the creation of
 markdown file test-6sw4o8.md with H1 heading and prose content.
 """
 
+from unittest.mock import patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 
 class TestFeature291EntryPoint:
@@ -22,10 +22,10 @@ class TestFeature291EntryPoint:
 
     def test_entry_point_no_required_parameters(self):
         """Test that entry point function requires no parameters."""
-        from feature_291_entry import create_feature_291_markdown
-
         # Get function signature
         import inspect
+
+        from feature_291_entry import create_feature_291_markdown
         sig = inspect.signature(create_feature_291_markdown)
 
         # All parameters should be optional (have defaults)
