@@ -3,7 +3,6 @@
 import os
 import subprocess
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -159,7 +158,7 @@ class TestFileCreationIntegration:
         result = create_feature_291_markdown()
         filepath = Path(result["filepath"])
 
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             first_line = f.readline()
 
         assert first_line.startswith("# ")
@@ -173,7 +172,7 @@ class TestFileCreationIntegration:
         result = create_feature_291_markdown()
         filepath = Path(result["filepath"])
 
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             content = f.read()
 
         lines = content.split("\n")
@@ -240,7 +239,7 @@ class TestFileCreationIntegration:
         result = create_feature_291_markdown()
         filepath = Path(result["filepath"])
 
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             content = f.read()
 
         assert content.endswith("\n"), "File should end with newline"
@@ -299,7 +298,7 @@ class TestGitOperationsIntegration:
         git_log_before, _ = self._run_git_command("git log -1 --format=%H")
 
         # Run the entry point
-        result = create_feature_291_markdown()
+        create_feature_291_markdown()
 
         # Get the current HEAD commit after running the entry point
         git_log_after, _ = self._run_git_command("git log -1 --format=%H")
@@ -313,7 +312,7 @@ class TestGitOperationsIntegration:
         from feature_291_entry import create_feature_291_markdown
 
         # Run the entry point
-        result = create_feature_291_markdown()
+        create_feature_291_markdown()
 
         # Get the latest commit message
         git_log_output, _ = self._run_git_command("git log -1 --format=%B")
@@ -328,7 +327,7 @@ class TestGitOperationsIntegration:
         from feature_291_entry import create_feature_291_markdown
 
         # Run the entry point
-        result = create_feature_291_markdown()
+        create_feature_291_markdown()
 
         # Get the latest commit message
         git_log_output, _ = self._run_git_command("git log -1 --format=%B")
