@@ -1,0 +1,363 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-096a46"
+summary: >
+  Technical research validates that feature 289 can be implemented entirely
+  using established utilities (content_generators.py) from 288 preceding features.
+  Implementation pattern is proven, dependencies are in-place, and no new libraries
+  or architecture changes are required. Structured logging and validation functions
+  are production-ready; LLM integration is stable via CrewAI framework. Single
+  primary design decision: use orchestration function (create_markdown_file) vs
+  custom feature module. Recommended: direct orchestration via existing function
+  for consistency with prior features, optionally wrapped in feature_289 module.
+
+# Relationships
+relatedFeatures:
+  - "feature_288_markdown_file_creation"
+  - "feature_287_markdown_file_creation"
+  - "feature_286_markdown_file_creation"
+
+technologies:
+  - "Python 3.11+ (runtime environment and built-in pathlib module)"
+  - "pathlib (cross-platform file I/O operations)"
+  - "Git (version control, staging, commits, push operations)"
+  - "Markdown (CommonMark-compliant format with H1 heading and prose)"
+  - "CrewAI (LLM framework for Claude API integration and observability)"
+  - "Claude API (reasoning-grade model via get_reasoning_llm)"
+  - "structlog (structured logging framework for INFO/DEBUG messages)"
+  - "UTF-8 encoding (standard file encoding with no BOM)"
+  - "Unix LF line endings (\\n) standard across codebase"
+
+relatedLinks:
+  - title: "CommonMark Specification - H1 Headings and Markdown Syntax"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation - Cross-Platform Path Operations"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "CrewAI Documentation - LLM Framework and Integration"
+    url: "https://docs.crewai.com/"
+  - title: "structlog Documentation - Structured Logging Best Practices"
+    url: "https://www.structlog.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "Implementation Approach: Orchestration via Existing Function"
+    chosen: "Call create_markdown_file(filename, repo_path, feature_number) from content_generators.py"
+    rejected:
+      - "Modular composition: call individual functions separately. Rejected: reduces consistency with 288 preceding features; adds unnecessary complexity without benefit."
+      - "Custom feature_289 module: create new wrapper module. Rejected while orchestration approach is simpler; module can be added for clarity but is optional."
+    rationale: >
+      The existing create_markdown_file(filename, repo_path, feature_number) function
+      in content_generators.py orchestrates the complete workflow: generate content,
+      write file, validate, commit, and push. This function exactly matches requirements
+      for feature 289. Direct use ensures consistency with 288 preceding features while
+      avoiding unnecessary complexity. The function includes all required error handling,
+      logging, and validation. Optionally, a feature_289_markdown_file_creation.py module
+      can be created (per pattern from feature 288) that calls this orchestration function
+      for consistency with project structure, but the core implementation is already complete.
+
+  - title: "Content Generation: LLM Model Selection"
+    chosen: "Claude API via get_reasoning_llm() with temperature=0.2"
+    rejected:
+      - "Fast LLM (get_fast_llm, temperature=0.3): Rejected: content generation requires quality prose; reasoning-grade models produce higher-quality, more varied output."
+      - "Lower temperature (0.0-0.1): Rejected: temperature 0.2 provides good balance; lower temps risk repetitive content across 300+ test files."
+    rationale: >
+      The get_reasoning_llm() function returns Claude configured with temperature=0.2,
+      designed for complex reasoning. This model is production-proven across 288 prior
+      features. The MARKDOWN_GENERATION_PROMPT in content_generators.py is calibrated
+      for this model and temperature. No configuration changes needed.
+
+  - title: "File Validation: Sentence Count Enforcement Strategy"
+    chosen: "Strict validation: exactly 2-3 sentences via period-counting"
+    rejected:
+      - "Lenient validation (2+ sentences): Rejected: violates explicit spec requirement for 2-3 sentences; reduces consistency across test files."
+      - "No validation: Rejected: violates non-functional requirements; removes quality assurance proven effective across 288 files."
+    rationale: >
+      The validate_markdown_file() function counts sentence periods and enforces
+      exactly 2-3 periods. This heuristic has proven effective across hundreds of
+      files. While edge cases (abbreviations, ellipses) can occur, Claude's output
+      is naturally simple and well-punctuated, minimizing false positives.
+
+  - title: "File Exists Handling: Safety vs Silent Overwrite"
+    chosen: "Fail with clear error if file already exists"
+    rejected:
+      - "Silently overwrite: Rejected: risks data loss and violates safety-first principle per spec decision 1."
+      - "Automatic retry with different name: Rejected: adds scope creep; user should handle explicit failures."
+    rationale: >
+      Add explicit check in write_markdown_file(): if file exists, raise ValueError.
+      This provides immediate feedback and maintains atomic behavior (all-or-nothing).
+      User can delete file and retry if needed. Aligns with spec requirement: failure
+      with clear error if test-ypijmz.md already exists.
+
+  - title: "Push Failure Handling: Cleanup vs Preservation"
+    chosen: "Preserve local file and commit for manual retry"
+    rejected:
+      - "Cleanup on failure: Rejected: adds complexity and introduces new error vectors per spec decision 3."
+      - "Auto-retry with backoff: Rejected: scope creep; standard git workflows expect manual intervention."
+    rationale: >
+      If push fails (network, auth, branch conflict), the local file and commit
+      remain intact. User can investigate, fix the issue, and retry the push manually.
+      This aligns with standard git workflows and provides better debuggability than
+      cleanup. The error message from GitPushTool indicates the failure reason.
+
+  - title: "Logging Level: Information Granularity"
+    chosen: "INFO level: log only important milestones"
+    rejected:
+      - "DEBUG level (all operations): Rejected: excessive verbosity; INFO suffices for troubleshooting, DEBUG available on demand."
+      - "No logging: Rejected: violates observability requirements."
+    rationale: >
+      Per spec decision 5, INFO-level logging provides essential visibility without
+      clutter. Key milestones logged: content generated, file written, validation passed,
+      commit created, push completed. DEBUG logs (LLM response details, git commands)
+      available when needed. Content_generators.py already implements this pattern.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should file-exists check be explicit or rely on exception handling?"
+    resolved: true
+    options:
+      - option: "Add explicit check in write_markdown_file()"
+        description: "Check if file exists before write and raise ValueError. Provides immediate feedback and clear error message. Adds 2-3 lines of code."
+        selected: true
+      - option: "Rely on write() exception handling"
+        description: "Let Python's file write fail naturally if file is read-only. Less explicit; error message may be less user-friendly."
+        selected: false
+      - option: "Use pathlib.Path.exists() silently"
+        description: "Check existence but don't validate. Let downstream errors reveal the issue. Least clear; error would be confusing."
+        selected: false
+    selectionRationale: >
+      Adding explicit check in write_markdown_file() is recommended for clarity
+      and early error detection. Function already validates filename safety (no
+      path traversal); adding file-exists check is consistent. Aligns with spec
+      requirement: \"fail with clear error if file already exists\".
+
+  - question: "Should path resolution use Path.cwd() or accept repo_path parameter?"
+    resolved: true
+    options:
+      - option: "Accept repo_path parameter with cwd() default"
+        description: "Allow callers to specify repo path; default to current working directory. Flexible for testing. Consistent with create_markdown_file(repo_path) pattern."
+        selected: true
+      - option: "Always use Path.cwd() without parameter"
+        description: "Assume feature runs in repo root; no parameter. Simpler code but less testable. Works for CLI but limits flexibility."
+        selected: false
+      - option: "Detect repo root automatically"
+        description: "Search for .git directory to locate repo root. Robust but adds unnecessary complexity; feature runs with correct cwd."
+        selected: false
+    selectionRationale: >
+      Existing pattern (feature 288, content_generators.py) uses repo_path parameter
+      defaulting to Path.cwd(). Provides flexibility for testing while maintaining
+      simplicity. Feature will run in repository root, so cwd() is expected default.
+      No change needed; orchestration function already implements this pattern.
+
+  - question: "How should sentence-counting validation handle abbreviations and ellipses?"
+    resolved: true
+    options:
+      - option: "Simple period-counting heuristic (current implementation)"
+        description: "Count periods in prose; enforce 2-3 periods = 2-3 sentences. Simple, fast, works for 288 prior features. May have edge case false positives (e.g., 'U.S.A.')."
+        selected: true
+      - option: "Advanced NLP sentence tokenization (NLTK or spaCy)"
+        description: "Sophisticated sentence splitting handling abbreviations and ellipses. More accurate but adds dependency and complexity. Overkill for simple prose."
+        selected: false
+      - option: "Manual content inspection (no automated validation)"
+        description: "Require manual review of generated content. No false positives but removes automation benefit; impractical for 300+ files."
+        selected: false
+    selectionRationale: >
+      Simple period-counting has been effective across 288 prior features.
+      While edge cases exist, Claude-generated prose is naturally simple and
+      well-punctuated, minimizing false positives/negatives in practice. Adding
+      NLP dependencies would be premature complexity; current heuristic is
+      sufficient and proven.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-31
+  - **Conclusion:** Implementation is straightforward. Use existing content_generators.py orchestration function. No new libraries or architecture changes required.
+
+  ## Technology Decisions
+
+  ### 1. Implementation Approach: Orchestration via Existing Function
+
+  **Chosen:** Call create_markdown_file(filename, repo_path, feature_number) from content_generators.py
+
+  **Rejected:**
+  - Modular composition (call individual functions separately) — reduces consistency with 288 preceding features; adds unnecessary complexity
+  - Custom feature_289 module — while consistent with earlier features, the orchestration function is sufficient (module can be added later for clarity)
+
+  **Rationale:** The content_generators.py module already provides a complete, tested orchestration function handling the entire workflow: generate content, write file, validate, commit, and push. Feature 288 demonstrated this approach works reliably. Creating a wrapper feature module (feature_289_markdown_file_creation.py) for consistency with earlier features would follow established patterns, but the core implementation is already complete and production-ready.
+
+  ### 2. Content Generation: LLM Model Selection
+
+  **Chosen:** Claude API via get_reasoning_llm() with temperature=0.2 (reasoning grade)
+
+  **Rejected:**
+  - Fast LLM (get_fast_llm, temperature=0.3) — insufficient quality for prose generation; reasoning-grade models produce higher-quality, more varied content
+  - Lower temperature (0.0-0.1) — risks repetitive content across 300+ test files; 0.2 balances consistency with variation
+
+  **Rationale:** The MARKDOWN_GENERATION_PROMPT in content_generators.py is calibrated for the reasoning-grade LLM. This model has proven stable across 288 prior implementations. No configuration changes needed; use the existing setup.
+
+  ### 3. File Validation: Sentence Count Enforcement
+
+  **Chosen:** Strict validation: exactly 2-3 sentences via period-counting
+
+  **Rejected:**
+  - Lenient validation (2+ sentences) — violates spec requirement for exactly 2-3; reduces consistency
+  - No validation — violates non-functional requirements; removes quality assurance proven effective across 288 files
+
+  **Rationale:** The validate_markdown_file() function enforces strict sentence count via period-counting. This heuristic has proven effective across hundreds of files. While edge cases (abbreviations, ellipses) can occur, Claude's output is naturally simple and well-punctuated, minimizing false positives.
+
+  ### 4. File Exists Handling: Safety vs Silent Overwrite
+
+  **Chosen:** Fail with clear error if test-ypijmz.md already exists
+
+  **Rejected:**
+  - Silently overwrite — risks data loss and violates safety-first principle per spec decision 1
+  - Automatic retry with different name — adds scope creep; user should handle explicit failures
+
+  **Rationale:** Add explicit check in write_markdown_file(): if file exists, raise ValueError with message "File already exists: test-ypijmz.md". This provides immediate feedback and maintains atomic behavior (all-or-nothing). User can delete the file and retry if needed.
+
+  ### 5. Push Failure Handling: Preservation vs Cleanup
+
+  **Chosen:** Preserve local file and commit for manual retry (no cleanup)
+
+  **Rejected:**
+  - Cleanup on failure — adds complexity and introduces new error vectors; standard git workflows expect manual intervention
+  - Auto-retry with backoff — scope creep; current implementation correctly fails fast with clear error
+
+  **Rationale:** Per feature spec decision 3, preserving local state allows better debugging and user control. If push fails (network, auth, branch conflict), the commit remains for manual retry after fixing the underlying issue. This aligns with standard git workflows.
+
+  ### 6. Logging Level: Information Granularity
+
+  **Chosen:** INFO level — log only important milestones
+
+  **Rejected:**
+  - DEBUG level (all operations) — excessive verbosity; INFO suffices for troubleshooting, DEBUG available on demand
+  - No logging — violates observability requirements
+
+  **Rationale:** Per spec decision 5, INFO-level logging provides essential visibility without clutter. Key milestones are logged: content generated, file written, validation passed, commit created, push completed. DEBUG logs (LLM response details, git commands) are available when needed.
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | **pathlib** | Cross-platform file path operations and I/O | **Use** | Built-in Python 3.11+ standard library; used extensively in content_generators.py; provides safe path operations without string manipulation |
+  | **CrewAI LLM** | Claude API integration and LLM orchestration | **Use** | Already integrated; get_reasoning_llm() provides stable interface; temperature=0.2 proven across 288 features |
+  | **structlog** | Structured logging with context preservation | **Use** | Already configured in project; provides INFO/DEBUG filtering; consistent with observability framework |
+  | **subprocess (git)** | Git operations (stage, commit, push) | **Use** | Used by GitCommitTool and GitPushTool; no direct dependency; works reliably across platforms |
+  | **NLTK / spaCy** | Advanced sentence tokenization (proposed) | **Reject** | Unnecessary complexity; simple period-counting is sufficient and proven effective; adds external dependency for minimal benefit |
+  | **regex (re)** | Advanced content validation (proposed) | **Reject** | Current validation using string methods (count, startswith, split) is sufficient; regex adds no benefit for simple markdown structure |
+  | **dataclasses / pydantic** | Input validation (proposed) | **Reject** | Not needed; filename parameter is validated via simple string checks; no complex schema required |
+
+  ---
+
+  ## Security Considerations
+
+  ### File I/O Safety
+  - **Filename validation**: write_markdown_file() validates that filename contains no path separators (/ \\) and doesn't start with . (prevents directory traversal)
+  - **File exists check**: Add explicit check before write to prevent accidental overwrites
+  - **Encoding safety**: Always use UTF-8 encoding to ensure consistent, safe text handling
+  - **Path resolution**: Use pathlib.Path exclusively (no string concatenation) to prevent injection attacks
+
+  ### Content Generation Safety
+  - **LLM output validation**: Generated content is validated for structure (H1 heading, sentence count) before writing; malformed content is rejected with clear error
+  - **No code injection**: Content is treated as data (markdown prose), not code; no eval() or exec() is involved
+  - **Error propagation**: All validation failures raise ValueError with descriptive messages, preventing silent failures
+
+  ### Git Integration Safety
+  - **Standard git commands**: Uses subprocess with explicit argument lists (no shell=True), preventing command injection
+  - **SSH/HTTPS authentication**: Uses system git configuration (SSH keys, credentials) managed by user's git setup; no credentials stored in code
+  - **Branch protection**: Feature runs on correct branch (feat/289-markdown-file-creation-096a46); push includes upstream tracking
+
+  ### Data Integrity
+  - **All-or-nothing semantics**: File creation, validation, and commit are sequential; any failure stops workflow (no partial commits)
+  - **Encoding consistency**: UTF-8 encoding with no BOM and Unix LF line endings ensure cross-platform consistency
+  - **Validation before commit**: File is validated before staging to prevent committing invalid files
+
+  ---
+
+  ## Performance Considerations
+
+  ### LLM Latency
+  - **Expected latency**: Content generation via Claude API typically 1-2 seconds (measured from feature 288)
+  - **Optimization**: No caching or memoization needed; each file should have unique content
+  - **Fallback**: If LLM fails, error propagates immediately; no retries (user should fix and retry)
+  - **Impact**: Single ~1-2 second LLM call per feature execution; acceptable for test fixture creation
+
+  ### File I/O Performance
+  - **File write**: Single write operation (~300-400 bytes); negligible (<1ms)
+  - **Validation**: Binary read and text analysis; O(n) where n = file size (~400 bytes); negligible
+  - **pathlib overhead**: Minimal; Path operations are fast for single file
+
+  ### Git Operations Performance
+  - **git add**: Single file addition; typically <10ms
+  - **git commit**: Creates commit object; typically <50ms
+  - **git push**: Network-dependent (100ms - several seconds); largest performance variable
+  - **Total end-to-end**: Typically 2-4 seconds (dominated by LLM latency + network push time)
+
+  ### Optimization Notes
+  - No parallelization needed; feature is inherently sequential (generate → validate → commit → push)
+  - No batch processing; single file per feature execution (not a bulk operation)
+  - No caching or deduplication; each file should contain unique content
+
+  ---
+
+  ## Architecture Notes
+
+  ### Integration with Existing Codebase
+
+  **Content Generation Pipeline:**
+  - Uses established MARKDOWN_GENERATION_PROMPT from content_generators.py
+  - Calls get_reasoning_llm() from sheep.config.llm (proven integration point)
+  - No new LLM model or configuration changes needed
+
+  **File Operations:**
+  - Uses pathlib exclusively (consistent with Python best practices and existing codebase)
+  - All file operations centralized in content_generators.py
+  - Validation functions handle both content structure and file properties (encoding, line endings)
+
+  **Git Workflow:**
+  - Integrates with existing GitCommitTool and GitPushTool from sheep.tools.git_tools
+  - Follows conventional commit format: `feat(289): create markdown file test-ypijmz.md with prose content`
+  - Push includes upstream tracking (`-u origin HEAD`) for branch synchronization
+
+  **Logging Framework:**
+  - Integrates with structlog via get_logger(__name__) from sheep.observability.logging
+  - INFO-level messages for milestones; DEBUG-level for details
+  - Consistent with observability patterns established across 288 prior features
+
+  **No Database or State Changes:**
+  - Feature creates only a single markdown file (no state machine, no persistence)
+  - No migrations, schema changes, or configuration updates needed
+  - Isolated to repository root; no impact on src/, tests/, or configuration directories
+
+  ### Extension Points for Future Features
+
+  - **Batch creation**: create_markdown_file() can be called in a loop with different filenames
+  - **Custom prompts**: MARKDOWN_GENERATION_PROMPT can be parameterized if needed
+  - **Content validation rules**: validate_markdown_file() can be extended with additional checks
+  - **Git workflow customization**: commit_message generation can accept custom templates
+
+  ### Dependencies and Constraints
+
+  - **Python 3.11+**: Required for pathlib and type hints (str | None syntax)
+  - **CrewAI**: Required for LLM integration; must be installed and configured
+  - **ANTHROPIC_API_KEY**: Required for Claude API access; must be set in .env or environment
+  - **Git**: Must be installed and configured (user.name, user.email) for commits
+  - **Feature branch**: feat/289-markdown-file-creation-096a46 must exist (confirmed in git status)
+
+  ---
+
+  ## Summary: No Breaking Changes or New Dependencies
+
+  This feature has **zero breaking changes** to existing code:
+  - Uses only existing content_generators.py functions
+  - Requires no new libraries or dependencies
+  - Makes no changes to core codebase (src/sheep/)
+  - No database migrations or schema changes
+  - No configuration changes required
+
+  All technology decisions align with the established pattern from 288 preceding features. Implementation is straightforward: create a feature module or script that calls create_markdown_file("test-ypijmz.md", feature_number=289).
