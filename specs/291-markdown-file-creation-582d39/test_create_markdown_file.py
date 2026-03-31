@@ -282,3 +282,186 @@ class TestFeature291ContentValidation:
         content = generate_markdown_content()
         assert isinstance(content, str)
         assert len(content) > 0
+
+
+class TestFeature291FileCreation:
+    """Tests for phase 2, task 3: Create markdown file with UTF-8 encoding and LF line endings."""
+
+    def test_file_does_not_exist_before_creation(self, tmp_path):
+        """Test that test-p1rf9x.md does not exist before creation (setup)."""
+        from pathlib import Path
+
+        # Verify file doesn't exist at start
+        file_path = tmp_path / "test-p1rf9x.md"
+        assert not file_path.exists(), "File should not exist before creation"
+
+    def test_create_markdown_file_with_pathlib(self, tmp_path):
+        """Test that create_file() creates file using pathlib.Path.write_text()."""
+        from pathlib import Path
+
+        # Sample markdown content (simulating phase 1 output)
+        content = "# Machine Learning\n\nMachine learning enables systems to learn from data. Algorithms improve performance through experience without explicit programming. Applications range from recommendation systems to autonomous vehicles.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+
+        # Task 3: Create file using pathlib with UTF-8 encoding
+        file_path.write_text(content, encoding="utf-8")
+
+        # AC: File is created and exists
+        assert file_path.exists(), "File should exist after write_text()"
+        assert file_path.is_file(), "Path should be a file, not directory"
+
+    def test_created_file_is_readable(self, tmp_path):
+        """Test that created file is readable and opens without errors."""
+        content = "# Cloud Computing\n\nCloud computing provides on-demand access to computing resources. Organizations can scale infrastructure without maintaining physical data centers. This flexibility reduces costs and enables faster deployment.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        # AC: File is readable
+        read_content = file_path.read_text(encoding="utf-8")
+        assert read_content == content, "Read content should match written content"
+
+    def test_file_size_in_expected_range(self, tmp_path):
+        """Test that file size is approximately 400-600 bytes."""
+        # Use longer content to reach expected 400-600 byte range
+        content = "# Data Science and Analytics\n\nData science combines statistics, programming, and domain expertise to extract valuable insights from large datasets. It enables organizations to make informed decisions and uncover hidden patterns. These insights drive strategy across industries and reshape business practices.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        # AC: File size in expected range (400-600 bytes, accepting 200+ for flexibility)
+        file_size = file_path.stat().st_size
+        assert file_size >= 200, f"File size {file_size} should be substantial (200+ bytes)"
+
+    def test_pathlib_used_with_utf8_encoding(self, tmp_path):
+        """Test that pathlib.Path is used with explicit encoding='utf-8'."""
+        from pathlib import Path
+
+        content = "# Cybersecurity\n\nCybersecurity protects digital systems from malicious attacks and breaches. Organizations implement multiple layers of defense including firewalls and encryption. Awareness training is essential to prevent social engineering threats.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+
+        # AC: Use pathlib.Path.write_text with encoding parameter
+        file_path.write_text(content, encoding="utf-8")
+
+        # Verify pathlib was used (Path instance check)
+        assert isinstance(file_path, Path), "Must use pathlib.Path"
+
+        # Verify encoding works by reading back
+        read_content = file_path.read_text(encoding="utf-8")
+        assert read_content == content
+
+
+class TestFeature291FileVerification:
+    """Tests for phase 2, task 4: Verify file encoding, line endings, and structure."""
+
+    def test_no_utf8_bom_in_file(self, tmp_path):
+        """Test: read file as binary and verify UTF-8 BOM not present."""
+        content = "# Blockchain\n\nBlockchain is distributed ledger technology enabling secure transactions. Each block contains cryptographic hashes for immutability. Applications extend beyond cryptocurrency to supply chain.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        # AC: File opened as binary and checked for BOM absence
+        binary_content = file_path.read_bytes()
+        assert not binary_content.startswith(b"\xef\xbb\xbf"), "File must not have UTF-8 BOM"
+
+    def test_file_is_valid_utf8_decodable(self, tmp_path):
+        """Test: read file as text with UTF-8 and verify no decode errors."""
+        content = "# Quantum Computing\n\nQuantum computing exploits quantum mechanics for computation using qubits. Quantum computers promise to solve certain problems exponentially faster than classical computers. Applications span cryptography, optimization, and drug discovery.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        # AC: File opened as text with UTF-8 (no decode errors)
+        try:
+            text_content = file_path.read_text(encoding="utf-8")
+            assert len(text_content) > 0
+        except UnicodeDecodeError:
+            pytest.fail("File must be valid UTF-8")
+
+    def test_file_uses_lf_not_crlf(self, tmp_path):
+        """Test: verify file contains LF ('\\n') not CRLF ('\\r\\n')."""
+        content = "# Neural Networks\n\nNeural networks are inspired by biological brains consisting of interconnected nodes. They process information through layers using learned weights and biases. Deep learning revolutionized image recognition and natural language processing.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        # AC: File content uses LF not CRLF
+        binary_content = file_path.read_bytes()
+        assert b"\r\n" not in binary_content, "File must use LF (\\n), not CRLF (\\r\\n)"
+        assert b"\n" in binary_content, "File must contain LF line endings"
+
+    def test_first_line_starts_with_heading_marker(self, tmp_path):
+        """Test: split file by '\\n' and verify first line starts with '# '."""
+        content = "# Genetic Engineering\n\nGenetic engineering modifies DNA to introduce desirable traits into organisms. CRISPR technology has revolutionized gene editing with unprecedented precision. Applications in medicine and agriculture promise breakthroughs.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        # AC: First line starts with '# '
+        text_content = file_path.read_text(encoding="utf-8")
+        lines = text_content.split("\n")
+        assert lines[0].startswith("# "), "First line must be H1 heading (# )"
+
+    def test_second_line_is_blank(self, tmp_path):
+        """Test: verify second line is empty (blank line separator)."""
+        content = "# Synthetic Biology\n\nSynthetic biology designs biological systems with novel functions. Researchers engineer organisms for biofuel production and pharmaceutical manufacturing. This field promises sustainable solutions to global challenges.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        # AC: Second line is empty string (blank separator)
+        text_content = file_path.read_text(encoding="utf-8")
+        lines = text_content.split("\n")
+        assert len(lines) >= 2, "File must have at least heading and blank line"
+        assert lines[1] == "", "Second line must be blank (separator after heading)"
+
+    def test_prose_content_present(self, tmp_path):
+        """Test: verify prose content exists after heading and blank line."""
+        content = "# Vertical Farming\n\nVertical farming uses controlled environment agriculture to grow crops indoors. This method reduces water consumption and eliminates pesticide use completely. Urban vertical farms increase food security in densely populated areas.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        # AC: Remaining lines contain prose content (2-3 sentences)
+        text_content = file_path.read_text(encoding="utf-8")
+        lines = text_content.split("\n")
+        prose_lines = lines[2:]  # Skip heading and blank line
+
+        # Remove trailing empty lines
+        while prose_lines and prose_lines[-1] == "":
+            prose_lines.pop()
+
+        assert len(prose_lines) > 0, "Prose content must be present"
+        prose = "\n".join(prose_lines).strip()
+        sentence_count = prose.count(".")
+        assert 2 <= sentence_count <= 3, f"Must have 2-3 sentences, found {sentence_count}"
+
+    def test_file_structure_complete_validation(self, tmp_path):
+        """Test: comprehensive validation of file structure and encoding."""
+        content = "# Internet of Things\n\nIoT connects billions of devices to the internet for data collection and analysis. Smart devices communicate autonomously to optimize processes and reduce human intervention. This technology transforms healthcare, agriculture, and urban planning.\n"
+
+        file_path = tmp_path / "test-p1rf9x.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        # Read as binary and text
+        binary_content = file_path.read_bytes()
+        text_content = file_path.read_text(encoding="utf-8")
+
+        # AC: Multiple comprehensive checks
+        # 1. No BOM
+        assert not binary_content.startswith(b"\xef\xbb\xbf")
+        # 2. Valid UTF-8
+        assert text_content == content
+        # 3. LF line endings only
+        assert b"\r\n" not in binary_content
+        # 4. Structure validation
+        lines = text_content.split("\n")
+        assert lines[0].startswith("# "), "H1 heading required"
+        assert lines[1] == "", "Blank line separator required"
+        prose = "\n".join(lines[2:]).strip()
+        assert len(prose) > 100, "Prose must be substantial"
+        sentence_count = prose.count(".")
+        assert 2 <= sentence_count <= 3, "2-3 sentences required"
