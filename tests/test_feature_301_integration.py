@@ -18,6 +18,7 @@ import re
 import subprocess
 import sys
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -26,7 +27,7 @@ import pytest
 HAS_API_KEY = bool(os.getenv("ANTHROPIC_API_KEY"))
 
 
-def setup_module():
+def setup_module() -> None:
     """Set up test environment by adding src to path."""
     src_path = Path(__file__).parent.parent / "src"
     if str(src_path) not in sys.path:
@@ -34,7 +35,7 @@ def setup_module():
 
 
 @pytest.fixture
-def temp_repo():
+def temp_repo() -> Generator[Path, None, None]:
     """Create a temporary git repository for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_path = Path(tmpdir)
@@ -83,7 +84,7 @@ class TestFeature301FileCreation:
     """Test markdown file creation."""
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_file_exists_at_repository_root(self, temp_repo):
+    def test_file_exists_at_repository_root(self, temp_repo: Path) -> None:
         """Test that file test-wx8ewb.md is created at repository root."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -93,7 +94,7 @@ class TestFeature301FileCreation:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             # File should exist at repository root
             filepath = temp_repo / MARKDOWN_FILENAME
@@ -103,7 +104,7 @@ class TestFeature301FileCreation:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_file_has_h1_heading(self, temp_repo):
+    def test_file_has_h1_heading(self, temp_repo: Path) -> None:
         """Test that file starts with H1 heading matching ^# .+$."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -113,7 +114,7 @@ class TestFeature301FileCreation:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             filepath = temp_repo / MARKDOWN_FILENAME
             content = filepath.read_text(encoding="utf-8")
@@ -128,7 +129,7 @@ class TestFeature301FileCreation:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_blank_line_after_heading(self, temp_repo):
+    def test_blank_line_after_heading(self, temp_repo: Path) -> None:
         """Test that H1 heading is followed by blank line."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -138,7 +139,7 @@ class TestFeature301FileCreation:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             filepath = temp_repo / MARKDOWN_FILENAME
             content = filepath.read_text(encoding="utf-8")
@@ -152,7 +153,7 @@ class TestFeature301FileCreation:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_prose_contains_2_to_3_sentences(self, temp_repo):
+    def test_prose_contains_2_to_3_sentences(self, temp_repo: Path) -> None:
         """Test that prose content contains exactly 2-3 sentences."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -162,7 +163,7 @@ class TestFeature301FileCreation:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             filepath = temp_repo / MARKDOWN_FILENAME
             content = filepath.read_text(encoding="utf-8")
@@ -181,7 +182,7 @@ class TestFeature301FileCreation:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_utf8_encoding_no_bom(self, temp_repo):
+    def test_utf8_encoding_no_bom(self, temp_repo: Path) -> None:
         """Test that file is UTF-8 encoded without BOM."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -191,7 +192,7 @@ class TestFeature301FileCreation:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             filepath = temp_repo / MARKDOWN_FILENAME
 
@@ -211,7 +212,7 @@ class TestFeature301FileCreation:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_lf_line_endings(self, temp_repo):
+    def test_lf_line_endings(self, temp_repo: Path) -> None:
         """Test that file uses Unix LF line endings (not CRLF or mixed)."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -221,7 +222,7 @@ class TestFeature301FileCreation:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             filepath = temp_repo / MARKDOWN_FILENAME
             binary_content = filepath.read_bytes()
@@ -241,7 +242,7 @@ class TestFeature301FileCreation:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_file_size_minimum(self, temp_repo):
+    def test_file_size_minimum(self, temp_repo: Path) -> None:
         """Test that file size is at least 50 bytes."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -251,7 +252,7 @@ class TestFeature301FileCreation:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             filepath = temp_repo / MARKDOWN_FILENAME
             file_size = filepath.stat().st_size
@@ -262,7 +263,7 @@ class TestFeature301FileCreation:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_trailing_newline(self, temp_repo):
+    def test_trailing_newline(self, temp_repo: Path) -> None:
         """Test that file ends with exactly one trailing newline."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -272,7 +273,7 @@ class TestFeature301FileCreation:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             filepath = temp_repo / MARKDOWN_FILENAME
             binary_content = filepath.read_bytes()
@@ -290,7 +291,7 @@ class TestFeature301GitOperations:
     """Test git operations (commit and push)."""
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_git_commit_created(self, temp_repo):
+    def test_git_commit_created(self, temp_repo: Path) -> None:
         """Test that git commit is created with correct message."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -300,7 +301,7 @@ class TestFeature301GitOperations:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             # Get git log to verify commit was created
             log_result = subprocess.run(
@@ -321,7 +322,7 @@ class TestFeature301GitOperations:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_commit_message_format(self, temp_repo):
+    def test_commit_message_format(self, temp_repo: Path) -> None:
         """Test that commit message follows conventional commit format."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -350,7 +351,7 @@ class TestFeature301GitOperations:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_file_is_staged_and_committed(self, temp_repo):
+    def test_file_is_staged_and_committed(self, temp_repo: Path) -> None:
         """Test that file is staged and committed (not just created)."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -360,7 +361,7 @@ class TestFeature301GitOperations:
         original_cwd = os.getcwd()
         os.chdir(temp_repo)
         try:
-            result = create_test_wx8ewb_markdown_file(str(temp_repo))
+            _ = create_test_wx8ewb_markdown_file(str(temp_repo))
 
             # Check git status - should show no changes
             status_result = subprocess.run(
@@ -387,7 +388,7 @@ class TestFeature301ReturnValue:
     """Test that feature returns correct result structure."""
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_return_dict_structure(self, temp_repo):
+    def test_return_dict_structure(self, temp_repo: Path) -> None:
         """Test that function returns dictionary with required keys."""
         from sheep.features.feature_301_markdown_file_creation import (
             create_test_wx8ewb_markdown_file,
@@ -409,7 +410,7 @@ class TestFeature301ReturnValue:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_return_filepath_is_correct(self, temp_repo):
+    def test_return_filepath_is_correct(self, temp_repo: Path) -> None:
         """Test that returned filepath matches created file."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
@@ -436,7 +437,7 @@ class TestFeature301ReturnValue:
             os.chdir(original_cwd)
 
     @pytest.mark.skipif(not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
-    def test_return_content_matches_file(self, temp_repo):
+    def test_return_content_matches_file(self, temp_repo: Path) -> None:
         """Test that returned content matches file contents."""
         from sheep.features.feature_301_markdown_file_creation import (
             MARKDOWN_FILENAME,
