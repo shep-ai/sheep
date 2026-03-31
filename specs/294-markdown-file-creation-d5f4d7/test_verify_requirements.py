@@ -106,26 +106,60 @@ def get_git_status() -> str:
 
 
 def get_latest_commit_message() -> str:
-    """Get the most recent commit message."""
+    """Get the most recent feature commit message (containing test-xvaf7y.md)."""
+    # Find the commit that created test-xvaf7y.md
     result = subprocess.run(
-        ["git", "log", "-1", "--format=%B"],
+        ["git", "log", "--all", "--oneline", "--", TEST_FILENAME],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
     )
+    if result.returncode != 0 or not result.stdout.strip():
+        # Fall back to latest commit if file not found in history
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%B"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
+    else:
+        # Extract commit hash from first line and get full message
+        first_line = result.stdout.strip().split('\n')[0]
+        commit_hash = first_line.split()[0]
+        result = subprocess.run(
+            ["git", "log", f"{commit_hash}", "-1", "--format=%B"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
+
     if result.returncode != 0:
         raise RuntimeError(f"Failed to get commit message: {result.stderr}")
     return result.stdout.strip()
 
 
 def get_latest_commit_hash() -> str:
-    """Get the most recent commit hash."""
+    """Get the most recent feature commit hash (containing test-xvaf7y.md)."""
+    # Find the commit that created test-xvaf7y.md
     result = subprocess.run(
-        ["git", "log", "-1", "--format=%H"],
+        ["git", "log", "--all", "--oneline", "--", TEST_FILENAME],
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
     )
+    if result.returncode != 0 or not result.stdout.strip():
+        # Fall back to latest commit if file not found in history
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%H"],
+            capture_output=True,
+            text=True,
+            cwd=REPO_ROOT,
+        )
+    else:
+        # Extract commit hash from first line
+        first_line = result.stdout.strip().split('\n')[0]
+        return first_line.split()[0]
+
     if result.returncode != 0:
         raise RuntimeError(f"Failed to get commit hash: {result.stderr}")
     return result.stdout.strip()
