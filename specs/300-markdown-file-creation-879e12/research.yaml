@@ -1,0 +1,409 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: markdown-file-creation-879e12
+summary: >
+  This feature follows the established pattern from 300+ precedent test files (features 006-299).
+  File creation uses pathlib.Path.write_text() with explicit UTF-8 encoding and LF line endings.
+  Git integration uses subprocess.run() for staging, committing, and pushing. No external
+  dependencies required beyond Python 3.11+ stdlib. Implementation is straightforward and
+  deterministic with hardcoded prose content topically coherent to the H1 title.
+
+# Relationships
+relatedFeatures:
+  - number: 299
+    name: "markdown-file-creation"
+    relationship: "Identical pattern and implementation approach"
+  - number: 298
+    name: "markdown-file-creation"
+    relationship: "Identical pattern and implementation approach"
+  - number: 297
+    name: "markdown-file-creation"
+    relationship: "Identical pattern and implementation approach"
+
+technologies:
+  - "Python 3.11+ (runtime)"
+  - "pathlib (stdlib file I/O)"
+  - "subprocess (stdlib process execution)"
+  - "UTF-8 text encoding"
+  - "Unix LF line endings"
+  - "Git CLI (version control)"
+  - "Markdown (CommonMark spec)"
+
+relatedLinks:
+  - title: "CommonMark Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python subprocess documentation"
+    url: "https://docs.python.org/3/library/subprocess.html"
+
+# Structured technology decisions
+decisions:
+  - title: "File Creation Method"
+    chosen: "pathlib.Path.write_text() with explicit UTF-8 encoding and LF line endings"
+    rejected:
+      - "subprocess with echo command — requires shell escaping, platform-specific behavior, less reliable for special characters"
+      - "os.open() with manual encoding — more verbose, lower-level, no benefit over pathlib API"
+      - "open() context manager with manual encoding handling — more boilerplate, pathlib is modern standard"
+    rationale: >
+      pathlib.Path.write_text() is the modern Python standard (introduced in 3.4) for text file
+      operations. It provides atomic writes, handles encoding transparently, and supports the
+      newline parameter for cross-platform line ending control. All 300+ precedent test files use
+      this approach. The explicit newline="\n" parameter ensures Unix LF line endings on all
+      platforms (Windows, Linux, macOS) without relying on platform-specific defaults. This is
+      critical for reproducible test artifacts and git diff consistency.
+
+  - title: "Line Ending Handling"
+    chosen: "Explicit newline=\"\n\" parameter in write_text() to force Unix LF on all platforms"
+    rejected:
+      - "Platform default line endings (newline=None) — causes CRLF on Windows, breaks test consistency, diverges from 300+ precedents"
+      - "Manual LF replacement with str.replace() — error-prone, loses semantic information about intent"
+      - "Use os.linesep — creates platform-specific files, violates spec requirement for Unix LF"
+    rationale: >
+      The spec explicitly requires Unix-style LF (\n) line endings for consistency across all
+      platforms. Using newline="\n" is the correct Python API for this. The Python documentation
+      states: "When writing output to the stream, if newline is '\n', any '\n' characters written
+      are passed through as-is. When reading input from the stream, if newline is '\n', universal
+      newlines mode is disabled." This ensures that constructed content with explicit \n characters
+      is written as-is without platform translation. Feature specs and 300+ precedents all require
+      this behavior.
+
+  - title: "Git Integration Approach"
+    chosen: "subprocess.run() with git CLI commands for add, commit, and push operations"
+    rejected:
+      - "GitPython library — adds external dependency not in tech stack, overkill for simple git operations, increases attack surface"
+      - "os.system() or shell=True — deprecated, security risk (command injection), harder to debug with exit codes"
+      - "Direct git manipulation via git API — complexity without benefit, subprocess is lightweight and proven"
+    rationale: >
+      The git CLI is available in all environments (Linux, macOS, Windows with Git Bash). Using
+      subprocess.run() is lightweight, requires no external dependencies, and provides proper exit
+      code handling and error reporting. All 300+ precedent implementations use this approach.
+      subprocess.run() with check=True raises CalledProcessError on non-zero exit, providing clear
+      error handling. The pattern is: git add (stage), git commit -m (conventional message),
+      git push -u origin HEAD (push to feature branch). This is the standard workflow across
+      the codebase.
+
+  - title: "Content Source and Generation"
+    chosen: "Hardcoded prose content in Python source, topically coherent with H1 title"
+    rejected:
+      - "AI-generated content at runtime — adds non-determinism, complexity, potential latency, not in established pattern"
+      - "Content template system — unnecessary abstraction, test files are simple, no reusable template library"
+      - "Random content generator — violates determinism requirement for test artifacts, makes debugging harder"
+    rationale: >
+      Test markdown files are validation artifacts with no production code impact. Hardcoded
+      content is deterministic, reproducible, and easy to debug. Feature specifications grant
+      \"complete creative freedom\" on topic selection, so each implementer chooses a coherent
+      topic and writes 2-3 sentences. This approach is used by all 300+ precedent test files.
+      Content should be topically relevant to the H1 heading (e.g., if title is \"Resilience\",
+      prose discusses resilience). This creates higher-quality validation artifacts while
+      maintaining simplicity.
+
+  - title: "Error Handling Strategy"
+    chosen: "Defensive programming with specific exception handling: FileExistsError, OSError, subprocess.CalledProcessError"
+    rejected:
+      - "No error handling — silently fails or overwrites existing files, makes debugging harder, poor user experience"
+      - "Generic catch-all with bare except — masks actual problems, violates Python best practices, loses error context"
+      - "Suppress exceptions with try-except-pass — invalid file prevents subsequent git operations, creates hard-to-debug state"
+    rationale: >
+      Proper error handling prevents data loss (file overwrite), provides clear feedback (why did
+      it fail?), and enables debugging. Checking if file exists before writing prevents accidental
+      overwrites. Catching specific exceptions allows appropriate handling: FileExistsError ->
+      report conflict and exit, OSError -> report I/O problem, CalledProcessError -> report git
+      command failure with stderr. This pattern matches production quality standards and is used
+      in feature 219 and other recent implementations. The established pattern includes try-catch
+      blocks with informative stderr messages.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should the implementation validate the markdown structure programmatically before git operations, or rely on manual review?"
+    resolved: true
+    options:
+      - option: "No validation — create and commit immediately"
+        description: >
+          Create the file and push to git without programmatic validation. Assume the content
+          is correctly structured (H1 title, blank line, 2-3 sentences). Relies on implementer
+          care and code review to catch issues. Faster and simpler implementation.
+        selected: true
+      - option: "Basic structure validation"
+        description: >
+          Verify that file contains at least one # heading, a blank line, and prose content
+          before committing. Prevents obviously malformed files from being committed. Adds
+          complexity to implementation.
+        selected: false
+      - option: "Comprehensive validation with grammar checking"
+        description: >
+          Validate markdown syntax, word count per sentence, grammar, and prose quality before
+          committing. Most rigorous but adds significant complexity and may slow implementation.
+          Not aligned with test file artifact philosophy.
+        selected: false
+    selectionRationale: >
+      No validation is the correct choice because: (1) Feature specification says \"Structural
+      validation only\" is recommended; (2) Test markdown files are validation artifacts with no
+      production impact; (3) Code review and manual inspection provide quality gates; (4) All 300+
+      precedent test files use no validation; (5) Validation would add 5-10 minutes to
+      implementation for minimal benefit. The spec explicitly resolves this: test files serve as
+      validation artifacts and require only structural correctness checks, which are performed
+      by code review.
+
+  - question: "Should the git push use '-u origin HEAD' (set upstream tracking) or just 'push origin' (push without tracking)?"
+    resolved: true
+    options:
+      - option: "Use 'git push -u origin HEAD' to set upstream tracking"
+        description: >
+          The -u flag sets the upstream branch for this feature branch, making future pushes
+          simpler (git push alone will work). Better for subsequent commits to the same branch.
+          Aligns with feature branch workflow.
+        selected: true
+      - option: "Use 'git push origin HEAD' without upstream tracking"
+        description: >
+          Push to remote without setting upstream. Works but requires -u flag on next push to
+          same branch. Less convenient but acceptable.
+        selected: false
+      - option: "Use 'git push -f origin HEAD' to force-push"
+        description: >
+          Force push would overwrite any existing remote history. Dangerous and unnecessary for
+          new commits. Not recommended.
+        selected: false
+    selectionRationale: >
+      Using 'git push -u origin HEAD' is the established pattern from 300+ precedent
+      implementations. The -u flag sets upstream tracking, which is standard git workflow for
+      feature branches. This enables future contributors to use 'git push' without specifying
+      origin/HEAD. The feature branch is pre-created and clean, so upstream tracking is safe and
+      beneficial. All recent implementations (features 297-299) use this pattern.
+
+  - question: "Should the prose be generated with a deterministic seed (pseudo-random but reproducible) or hardcoded?"
+    resolved: true
+    options:
+      - option: "Hardcoded prose written by implementer"
+        description: >
+          Each implementer chooses a topic and writes 2-3 sentences of prose. Prose is directly
+          in the Python source code. Fully deterministic and human-curated.
+        selected: true
+      - option: "Pseudo-random prose with deterministic seed based on filename"
+        description: >
+          Use random.seed(hash(filename)) to generate reproducible but different prose per
+          file. Requires template or content pool. Adds complexity.
+        selected: false
+      - option: "Fetch content from online source (lorem ipsum service, Wikipedia, etc.)"
+        description: >
+          Retrieve prose from external source at runtime. Non-deterministic (depends on network,
+          source availability), adds latency, unnecessary complexity.
+        selected: false
+    selectionRationale: >
+      Hardcoded prose is the universal pattern across 300+ test files. It is fully deterministic,
+      requires no external sources or complex generation logic, and produces human-quality
+      content. Each implementer has creative freedom to choose a topic and write coherent prose,
+      which keeps implementation engaging while maintaining simplicity. Pseudo-random or fetched
+      content add unnecessary complexity and diverge from the established pattern. The feature
+      spec grants complete creative freedom on topic, making hardcoded prose the natural choice.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research (Complete)
+  - **Updated:** 2026-03-31
+  - **Pattern:** Established (300+ precedents)
+
+  ## Overview
+
+  This feature creates a single markdown test file (`test-egnd6v.md`) following the established
+  pattern used for 300+ prior test files (features 006-299). The implementation is straightforward
+  file creation with standard git workflow.
+
+  **Key Findings:**
+  - Well-established pattern with proven implementations in features 297, 298, 299
+  - No new technologies or architectural decisions required
+  - File I/O uses Python 3.11+ stdlib only (pathlib, subprocess, no external dependencies)
+  - Git integration is standard git CLI via subprocess
+  - Content is hardcoded prose, topically coherent with H1 title
+
+  ## Technology Decisions
+
+  ### 1. File Creation: pathlib.Path.write_text()
+
+  **Chosen:** `pathlib.Path.write_text(content, encoding="utf-8", newline="\n")`
+
+  **Rejected:**
+  - `subprocess` with `echo` command — requires shell escaping, platform-specific
+  - `os.open()` — verbose, low-level, no benefit over pathlib
+  - `open()` context manager — more boilerplate, pathlib is modern standard
+
+  **Rationale:** pathlib is the modern Python standard for text file operations. The `newline="\n"`
+  parameter ensures Unix LF line endings on all platforms, which is critical for test consistency
+  and git diff clarity. All 300+ precedent test files use this exact approach. The encoding
+  parameter ensures UTF-8 without BOM.
+
+  ### 2. Line Endings: Explicit Unix LF
+
+  **Chosen:** `newline="\n"` parameter forces Unix LF on all platforms
+
+  **Rejected:**
+  - Platform defaults (newline=None) — causes CRLF on Windows, breaks consistency
+  - Manual string replacement — error-prone, loses semantic intent
+  - os.linesep — creates platform-specific files
+
+  **Rationale:** The feature spec requires Unix LF line endings for reproducibility. Using
+  `newline="\n"` is the correct Python API. This ensures that `\n` characters in content are
+  written as-is without platform translation, creating consistent files across Windows, Linux,
+  and macOS.
+
+  ### 3. Git Integration: subprocess.run()
+
+  **Chosen:** `subprocess.run(["git", "add", filename], check=True)` and similar for commit/push
+
+  **Rejected:**
+  - GitPython library — external dependency, not in tech stack, overkill
+  - `os.system()` — deprecated, security risk, poor error handling
+  - Direct git API manipulation — unnecessary complexity
+
+  **Rationale:** The git CLI is universally available. subprocess.run() is lightweight, provides
+  proper exit code handling, and requires no external dependencies. check=True raises
+  CalledProcessError on non-zero exit, enabling clear error handling. All 300+ precedent
+  implementations use this approach.
+
+  **Git Workflow:**
+  - `git add test-egnd6v.md` — stage file
+  - `git commit -m "feat(300): create markdown file test-egnd6v.md with prose content"` — commit with conventional message
+  - `git push -u origin HEAD` — push to feature branch with upstream tracking
+
+  ### 4. Content Source: Hardcoded Prose
+
+  **Chosen:** Hardcoded prose in Python source, topically coherent with H1 title
+
+  **Rejected:**
+  - AI-generated content — adds non-determinism, latency, unnecessary complexity
+  - Template system — unnecessary abstraction for simple content
+  - Random generators — violates determinism requirement for test artifacts
+
+  **Rationale:** Test files are validation artifacts, not production code. Hardcoded content is
+  fully deterministic and reproducible. The feature spec grants complete creative freedom on
+  topic selection. Each implementer chooses a coherent topic and writes 2-3 sentences. This
+  approach is universal across 300+ precedent files and keeps implementation simple while
+  maintaining quality.
+
+  **Content Pattern:**
+  ```
+  # Title Here
+
+  2-3 sentences of prose content that are topically relevant to the title. The sentences should
+  be grammatically correct and properly punctuated. Content naturally falls within 300-500 bytes.
+  ```
+
+  ### 5. Error Handling: Defensive with Specific Exceptions
+
+  **Chosen:** Check file existence, catch FileExistsError, OSError, subprocess.CalledProcessError
+
+  **Rejected:**
+  - No error handling — silent failure or accidental overwrite
+  - Bare except — masks problems, violates best practices
+  - suppress with try-except-pass — creates broken state
+
+  **Rationale:** Defensive programming prevents data loss and provides clear failure messages.
+  Checking if file exists prevents overwrites. Specific exception handling enables appropriate
+  recovery: FileExistsError → report conflict and exit, OSError → report I/O problem,
+  CalledProcessError → report git failure with stderr. This enables effective debugging.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | Text file I/O | Use | Modern, stdlib, supports newline parameter, 300+ precedents |
+  | subprocess (stdlib) | Git command execution | Use | Lightweight, no external deps, proper error handling, 300+ precedents |
+  | UTF-8 encoding | Text encoding | Use | Spec requirement, Python 3 default, widely supported |
+  | GitPython | Alternative git interface | Reject | Not in tech stack, external dependency, unnecessary for simple operations |
+  | shell commands | Alternative for git | Reject | Security risk (command injection), deprecated, poor error handling |
+  | Template engines (Jinja2, etc.) | Content generation | Reject | Unnecessary complexity, hardcoded prose is simpler and proven |
+  | AI APIs (OpenAI, Anthropic, etc.) | Content generation | Reject | Non-determinism, latency, external dependency, diverges from established pattern |
+
+  ## Security Considerations
+
+  **File Operations:**
+  - pathlib.Path.write_text() is safe for UTF-8 text files
+  - No risk of path traversal (filename is fixed as test-egnd6v.md)
+  - File is created in repository root (expected location)
+  - No command injection possible (content is literal string, not interpolated into shell)
+
+  **Git Operations:**
+  - subprocess.run() with check=True prevents executing broken commands
+  - Commit message is hardcoded, not from user input (no injection risk)
+  - Using subprocess as list (["git", "commit", "-m", message]) prevents shell injection
+  - Git CLI is trusted and widely used in CI/CD systems
+
+  **Prose Content:**
+  - Content is hardcoded in source, not from external sources
+  - No XSS risk (markdown is for documentation, not web display at this stage)
+  - Grammar and coherence are human-curated, not generated
+
+  **Overall Risk Profile:** Minimal. This is a simple file creation with no user input, external
+  sources, or network operations.
+
+  ## Performance Considerations
+
+  **File Creation:** Negligible
+  - Write operation: < 1ms for 400-600 byte file
+  - UTF-8 encoding: < 1ms
+  - Path operations: < 1ms
+  - Total: < 5ms
+
+  **Git Operations:** Minimal (seconds)
+  - `git add`: < 100ms (file already in working tree)
+  - `git commit`: < 500ms (local operation, 300+ existing test files)
+  - `git push`: 1-5 seconds (depends on network, feature branch is lightweight)
+  - Total: 2-6 seconds
+
+  **Overall:** Implementation should complete in 5-15 minutes (as per feature estimate).
+
+  **No optimization needed:**
+  - File size is small (400-600 bytes is natural for 2-3 sentences)
+  - No memory concerns (single file in memory)
+  - No I/O bottlenecks (file creation is atomic)
+  - Git operations are sequential but fast (expected behavior)
+
+  ## Architecture Notes
+
+  **Fit into Codebase:**
+  - Feature is purely file creation at repository root (no code modules)
+  - Does not modify or depend on `/src/sheep/` or application code
+  - Follows established pattern from 300+ prior test files (features 006-299)
+  - No database, API, or configuration changes required
+
+  **Integration Points:**
+  - Git repository: Uses standard git workflow (add, commit, push)
+  - Feature branch: `feat/300-markdown-file-creation-879e12` (pre-created)
+  - Commit message: Follows conventional commits format (`feat(300):`)
+  - No interaction with build, test, or deployment systems
+
+  **Precedents and Patterns:**
+  - Features 297, 298, 299: Identical markdown file creation pattern
+  - 300+ test files at repository root: Established artifact collection
+  - No shared code, utilities, or helpers needed
+  - Each feature implementation is self-contained and independent
+
+  ## Known Constraints
+
+  1. **Filename**: test-egnd6v.md must be used exactly as specified
+  2. **Git branch**: Must commit on feat/300-markdown-file-creation-879e12 (pre-created)
+  3. **Git user**: Must have git user.name and user.email configured
+  4. **Write access**: Must have write permission to repository root (expected)
+  5. **Markdown format**: Must follow CommonMark spec for H1 headings and prose
+  6. **File encoding**: Must be UTF-8 without BOM, with LF line endings
+
+  ## Recommendation
+
+  This is a straightforward feature with a well-established pattern. Proceed with implementation
+  using the proven approach from features 297-299:
+
+  1. Create markdown file with pathlib.Path.write_text() using UTF-8 and newline="\n"
+  2. Use subprocess.run() for git operations (add, commit, push)
+  3. Hardcode prose content that is topically coherent with the H1 title
+  4. Include defensive error handling for file and git operations
+  5. Follow conventional commit message format
+
+  Expected implementation time: 5-15 minutes.
+
+  ---
+
+  _Research phase complete — all technology decisions documented, library analysis completed,
+  security and performance evaluated, ready for implementation planning._
