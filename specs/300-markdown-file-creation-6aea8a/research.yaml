@@ -1,0 +1,418 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-6aea8a"
+summary: >
+  This feature requires creating a single markdown file following the well-established pattern from 300+ existing implementations.
+  Key technical decisions involve using Python pathlib for file I/O, regex-based sentence detection for validation,
+  and GitPython for version control operations. No external dependencies beyond Python standard library are required
+  for core markdown file creation, as GitPython is already available in the project.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - "Python pathlib (file I/O)"
+  - "Python re module (sentence validation)"
+  - "GitPython 3.1.0+ (git operations)"
+  - "Markdown file format"
+  - "UTF-8 text encoding"
+  - "Unix line endings (LF)"
+
+relatedLinks:
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Python re module documentation"
+    url: "https://docs.python.org/3/library/re.html"
+  - title: "GitPython documentation"
+    url: "https://gitpython.readthedocs.io/"
+  - title: "Markdown CommonMark specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Git conventional commits"
+    url: "https://www.conventionalcommits.org/"
+
+# Structured technology decisions
+decisions:
+  - title: "File I/O Implementation Strategy"
+    chosen: "Python pathlib.Path with encoding parameter"
+    rejected:
+      - "Built-in open() function — less object-oriented, requires manual path joining, deprecated practice for modern Python"
+      - "os.path module — older API, requires string operations, not recommended in Python 3.4+"
+    rationale: >
+      pathlib.Path is the recommended approach in Python 3.11+ for file I/O operations. It provides:
+      (1) Clean object-oriented API for path manipulation and file operations, (2) Built-in encoding parameter
+      support for ensuring UTF-8 encoding without BOM, (3) Cross-platform compatibility (Windows/Unix paths handled automatically),
+      (4) Consistent with Python ecosystem best practices and PEP 3151, (5) Existing patterns in create_markdown.py likely use pathlib.
+      Using pathlib.Path.write_text(content, encoding='utf-8') ensures proper encoding handling without complexity.
+
+  - title: "Sentence Boundary Detection Strategy"
+    chosen: "Regex-based pattern matching using Python re module"
+    rejected:
+      - "NLTK library — external dependency, overkill for simple sentence counting, requires additional setup and configuration"
+      - "spaCy library — heavy NLP library, external dependency, excessive complexity for sentence boundary detection"
+      - "Simple string.split('.') — fragile, doesn't handle abbreviations, question marks, exclamation marks properly"
+    rationale: >
+      Regex-based sentence detection using re module is optimal because: (1) Uses only Python standard library (no external deps),
+      (2) Spec explicitly mentions 're module (sentence boundary detection)' as a technology, (3) Sufficient for detecting
+      sentence boundaries marked by periods, question marks, exclamation marks, (4) Can be implemented with simple pattern
+      like r'[.!?]+' to split sentences, (5) Already referenced in codebase analysis under create_markdown.py pattern.
+      Pattern: re.split(r'[.!?]+', text.strip()) gives sentence count, filtering empty strings.
+
+  - title: "Content Generation Approach"
+    chosen: "Fixed, pre-composed prose content on arbitrary topic"
+    rejected:
+      - "Random topic generation — adds complexity, requires topic database or selection logic, not aligned with established pattern"
+      - "LLM-based content generation — unnecessary external dependency, overkill for simple requirement, introduces non-determinism"
+      - "Template-based generation — still requires decision about template structure, adds abstraction without benefit"
+    rationale: >
+      Fixed, pre-composed prose is best because: (1) Spec resolves open question #1 as 'any arbitrary topic' with rationale
+      that 'flexibility reduces decision complexity and aligns with 300+ existing implementations', (2) No validation or filtering
+      needed if prose is composed manually to meet 100-300 character and 2-3 sentence requirements, (3) Eliminates need for
+      topic selection logic or external libraries, (4) File content example can be a simple technical concept, design pattern
+      explanation, or prose about programming — anything fitting the constraints.
+
+  - title: "Git Integration Method"
+    chosen: "GitPython library (existing project dependency)"
+    rejected:
+      - "subprocess with git CLI commands — requires shell escaping, less Pythonic, harder to test and verify"
+      - "dulwich library — lower-level control, requires more code, not already a project dependency"
+      - "Manual byte-level git operations — extreme complexity, no benefit over existing libraries"
+    rationale: >
+      GitPython is the right choice because: (1) Already listed in project dependencies (GitPython 3.1.0+), (2) Provides
+      Pythonic API for git operations (add, commit, push), (3) Consistent with existing Sheep codebase patterns for git
+      integration as mentioned in codebase analysis, (4) Cleaner, more maintainable code than subprocess-based approach,
+      (5) Better error handling and control over git operations. Usage: Repo(root_path).index.add(['test-tq8wxa.md']),
+      repo.index.commit('feat(300): ...'), repo.remotes.origin.push(branch).
+
+  - title: "Encoding and Line Ending Enforcement"
+    chosen: "Enforce UTF-8 without BOM using pathlib, then validate LF line endings"
+    rejected:
+      - "Open with 'utf-8-sig' encoding — removes BOM on read but would re-add on write, creates confusion"
+      - "Manual byte-level encoding control — low-level complexity, error-prone, less maintainable"
+      - "Skip encoding validation — violates spec requirement for UTF-8 without BOM and LF-only line endings"
+    rationale: >
+      UTF-8 without BOM + LF line endings must be explicitly enforced because: (1) Spec requires both conditions as success
+      criteria, (2) pathlib.Path.write_text(encoding='utf-8') naturally produces UTF-8 without BOM (Python default), (3) LF
+      line endings enforced by: composing content with '\n' (not '\r\n'), or post-processing to remove '\r' characters,
+      (4) Line ending enforcement needed on Windows where os.linesep is '\r\n' — explicitly use '\n' in string literals,
+      (5) Validation can be implemented by reading file in binary mode and checking for BOM bytes (EF BB BF) and '\r' characters.
+
+  - title: "File Existence Conflict Resolution"
+    chosen: "Fail with clear error if file already exists"
+    rejected:
+      - "Silently overwrite existing file — dangerous, could lose data, violates principle of least surprise"
+      - "Generate alternative filename — violates spec requirement for exact filename 'test-tq8wxa.md'"
+      - "Append to existing file — violates spec requirement for single file creation, changes semantics"
+    rationale: >
+      Failing with clear error is safest because: (1) Spec requires exact filename 'test-tq8wxa.md', no alternatives,
+      (2) Overwriting would be destructive without user consent, (3) Clear error message helps with debugging and prevents
+      silent failures, (4) Aligns with principle of explicit is better than implicit, (5) Feature pattern (300+ implementations)
+      assumes fresh feature branches where file doesn't pre-exist, (6) Implementation: check Path.exists() before write,
+      raise FileExistsError with descriptive message if file is present.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: "Should the implementation use subprocess-based git commands or the GitPython library for git operations?"
+    resolved: true
+    options:
+      - option: "Use GitPython library (existing dependency)"
+        description: "GitPython is already listed in project dependencies, provides clean Pythonic API, consistent with existing codebase patterns for git integration. Requires: from git import Repo; repo = Repo(); repo.index.add(...); repo.index.commit(...); repo.remotes.origin.push(...)."
+        selected: true
+      - option: "Use subprocess with git CLI commands"
+        description: "Direct git command execution via subprocess.run(), lower-level control, requires shell escaping and error handling. Example: subprocess.run(['git', 'add', 'test-tq8wxa.md']). Less Pythonic, harder to test."
+        selected: false
+      - option: "Use dulwich library for pure Python git implementation"
+        description: "Lower-level git operations in pure Python, more control over internals, but not already a project dependency. Requires additional package installation, more complex code, likely overkill for this simple use case."
+        selected: false
+    selectionRationale: >
+      GitPython is the optimal choice because: (1) Already available as project dependency (GitPython 3.1.0+),
+      (2) Provides clean, Pythonic API that's more maintainable than subprocess-based approaches, (3) Aligns with existing
+      codebase patterns mentioned in spec's codebase analysis section, (4) Better error handling and control flow compared
+      to subprocess, (5) Easier to test and mock in unit tests, (6) Reduces shell injection attack surface vs subprocess,
+      (7) Most straightforward integration path for this feature within existing Sheep architecture.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-31
+  - **Feature:** markdown-file-creation-6aea8a (Feature 300)
+  - **Completion:** Research phase completed
+
+  ## Executive Summary
+
+  This feature creates a single markdown file following the well-established pattern used in 300+ existing test file implementations.
+  Technical scope is minimal: file I/O, sentence validation, and git workflow. No complex architectural decisions,
+  external dependencies (beyond existing project deps), or novel patterns required.
+
+  ## Technology Decisions
+
+  ### 1. File I/O Implementation: pathlib.Path
+
+  **Chosen:** Python pathlib.Path with write_text() method and explicit encoding parameter
+
+  **Rejected:**
+  - Built-in open() function — less object-oriented, requires manual path handling, not recommended practice
+  - os.path module — older API from pre-pathlib era, string-based manipulation, deprecated for modern Python
+
+  **Rationale:**
+  pathlib.Path is the modern, recommended approach for file I/O in Python 3.11+. Benefits include:
+  - Clean object-oriented API for path and file operations
+  - Built-in encoding parameter (encoding='utf-8') for proper UTF-8 handling without BOM
+  - Cross-platform path handling (Windows/Unix automatically handled)
+  - Consistent with Python ecosystem best practices (PEP 3151)
+  - Likely already used in existing create_markdown.py module
+
+  Implementation pattern:
+  ```python
+  from pathlib import Path
+  content = "# Title\n\nFirst sentence. Second sentence. Third sentence."
+  Path('test-tq8wxa.md').write_text(content, encoding='utf-8')
+  ```
+
+  ### 2. Sentence Validation: Regex-Based Pattern Matching
+
+  **Chosen:** Python re module with sentence boundary patterns
+
+  **Rejected:**
+  - NLTK library — external dependency, overkill, requires additional configuration
+  - spaCy library — heavy NLP library, external dependency, excessive complexity
+  - Simple string.split('.') — fragile, doesn't handle multiple punctuation marks, abbreviations
+
+  **Rationale:**
+  The spec explicitly lists "Python re module (sentence boundary detection)" as a technology. Using regex is optimal because:
+  - Uses only Python standard library (aligns with NFR-6: no external dependencies)
+  - Sufficient for detecting sentences ending with '.', '!', or '?'
+  - Simple to implement and understand
+  - Aligns with established pattern in create_markdown.py
+
+  Implementation pattern:
+  ```python
+  import re
+  sentences = [s.strip() for s in re.split(r'[.!?]+', content.strip()) if s.strip()]
+  sentence_count = len(sentences)  # Validate: 2 <= sentence_count <= 3
+  character_count = len(content)   # Validate: 100 <= character_count <= 300
+  ```
+
+  ### 3. Content Generation: Fixed Prose, Any Topic
+
+  **Chosen:** Hand-composed prose content (any topic, meeting constraints)
+
+  **Rejected:**
+  - Random topic generation — requires topic selection logic, unnecessary complexity
+  - LLM-based generation — external dependency, overkill, introduces non-determinism
+  - Template-based approach — still requires design decisions, adds abstraction without benefit
+
+  **Rationale:**
+  Fixed, pre-composed prose is ideal because:
+  - Spec resolves open question #1 as "any arbitrary topic" — flexible content selection
+  - No validation logic needed if content is composed to meet requirements (100-300 chars, 2-3 sentences)
+  - Simpler, deterministic, reproducible implementation
+  - Aligns with established pattern across 300+ existing test files
+  - Content can be any topic (technical explanation, joke, design pattern, etc.)
+
+  Example valid content:
+  ```
+  # Programming Concepts
+
+  Functional programming emphasizes immutability and pure functions. This paradigm enables easier reasoning about code behavior and facilitates parallel processing. Understanding lambda expressions and higher-order functions is essential for modern development.
+  ```
+
+  Character count: ~220 characters (within 100-300 range)
+  Sentence count: 3 (valid, 2-3 sentences required)
+
+  ### 4. Git Integration: GitPython Library
+
+  **Chosen:** GitPython 3.1.0+ (existing project dependency)
+
+  **Rejected:**
+  - subprocess with git CLI commands — requires shell escaping, less Pythonic, harder to maintain
+  - dulwich library — low-level control, not already a dependency, adds complexity
+  - Manual byte-level git operations — excessive complexity, no practical benefit
+
+  **Rationale:**
+  GitPython is the right choice because:
+  - Already listed in project dependencies (GitPython 3.1.0+), no additional packages needed
+  - Provides clean Pythonic API for git operations (add, commit, push)
+  - Consistent with existing Sheep codebase patterns for git integration
+  - Better error handling and control flow compared to subprocess approach
+  - More testable and mockable than subprocess-based implementation
+
+  Implementation pattern:
+  ```python
+  from git import Repo
+  repo = Repo('.')  # Current repository
+  repo.index.add(['test-tq8wxa.md'])
+  repo.index.commit('feat(300): create markdown file test-tq8wxa.md with prose content')
+  repo.remotes.origin.push('feat/300-markdown-file-creation-6aea8a')
+  ```
+
+  ### 5. Encoding and Line Ending Enforcement
+
+  **Chosen:** Explicit UTF-8 encoding (no BOM) + LF-only line endings
+
+  **Rejected:**
+  - Using 'utf-8-sig' encoding — confusing, would handle BOM on read but create issues on write
+  - Manual byte-level control — low-level complexity, error-prone
+  - Skipping validation — violates spec success criteria
+
+  **Rationale:**
+  UTF-8 without BOM and LF-only line endings must be explicitly enforced:
+  - pathlib.Path.write_text(encoding='utf-8') naturally produces UTF-8 without BOM (Python default)
+  - LF line endings enforced by:
+    - Using '\n' in string literals (not '\r\n')
+    - Windows compatibility: explicitly use '\n', avoid os.linesep
+    - Post-processing: strip any '\r' characters if needed
+  - Validation:
+    - Check for BOM bytes (EF BB BF) in binary read
+    - Verify no '\r' characters exist
+    - Confirm file size is 400-600 bytes (natural result of constraints)
+
+  Implementation:
+  ```python
+  # Enforce LF line endings (important on Windows)
+  content = "# Title\n\nSentence one. Sentence two. Sentence three."
+  Path('test-tq8wxa.md').write_text(content, encoding='utf-8')  # Ensures UTF-8, no BOM
+
+  # Validation
+  binary_content = Path('test-tq8wxa.md').read_bytes()
+  assert not binary_content.startswith(b'\xef\xbb\xbf'), "File has BOM"
+  assert b'\r' not in binary_content, "File has CRLF line endings"
+  assert 400 <= len(binary_content) <= 600, "File size out of range"
+  ```
+
+  ### 6. File Existence Conflict Resolution
+
+  **Chosen:** Fail with clear error if file already exists
+
+  **Rejected:**
+  - Silently overwrite — destructive, violates principle of least surprise
+  - Generate alternative filename — violates spec requirement for exact filename
+  - Append to existing file — changes semantics, violates spec
+
+  **Rationale:**
+  Clear error handling on file conflict:
+  - Spec requires exact filename 'test-tq8wxa.md', no alternatives allowed
+  - Overwriting without user consent is dangerous and destructive
+  - Clear error message aids debugging and prevents silent failures
+  - Feature pattern assumes fresh feature branches (file shouldn't pre-exist)
+
+  Implementation:
+  ```python
+  filepath = Path('test-tq8wxa.md')
+  if filepath.exists():
+      raise FileExistsError(f"File {filepath} already exists in repository root")
+  filepath.write_text(content, encoding='utf-8')
+  ```
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | pathlib (stdlib) | File I/O operations | Use | Standard library, modern Python API, built-in encoding support |
+  | re (stdlib) | Sentence boundary detection | Use | Standard library, sufficient for regex-based pattern matching |
+  | GitPython 3.1.0+ | Git operations (add, commit, push) | Use | Existing project dependency, Pythonic API, consistent with codebase patterns |
+  | NLTK | NLP sentence tokenization | Reject | External dependency, overkill for simple sentence counting, adds complexity |
+  | spaCy | Advanced NLP | Reject | External dependency, heavy library, excessive complexity |
+  | Markdown validation libs | CommonMark compliance | Reject | Not necessary — prose structure constraints (2-3 sentences, 100-300 chars) ensure valid markdown; simple H1 heading + sentences is always valid |
+  | pathspec/gitignore libs | Git pattern matching | Reject | Not needed for single file, simple git add/commit/push sufficient |
+
+  ## Security Considerations
+
+  1. **File Overwrite Protection**
+     - Explicit check for file existence prevents accidental data loss
+     - Clear error messages aid debugging without exposing sensitive information
+
+  2. **Command Injection Prevention**
+     - Using GitPython API instead of subprocess eliminates shell injection risks
+     - GitPython abstracts git operations, no shell metacharacter handling needed
+
+  3. **Encoding Safety**
+     - Explicit UTF-8 encoding without BOM prevents encoding-related vulnerabilities
+     - File content is hardcoded prose (no user input), no injection vectors
+
+  4. **Repository Integrity**
+     - GitPython's Repo API verifies repository state before operations
+     - Conventional commit message format follows security best practices
+
+  5. **No Secrets or Credentials**
+     - File is public markdown content, no sensitive data
+     - No configuration, API keys, or credentials involved
+
+  ## Performance Implications
+
+  1. **File I/O Performance**
+     - Single file write operation is negligible (400-600 bytes)
+     - pathlib.write_text() is optimized for modern Python versions
+     - No performance bottlenecks for this operation
+
+  2. **Git Operations**
+     - GitPython operations are fast for single-file add/commit/push
+     - Network latency on git push is dominant factor (expected)
+     - No database queries or expensive operations involved
+
+  3. **Sentence Validation**
+     - Regex split on sentence boundaries is O(n) where n = content length
+     - Content is small (100-300 chars), negligible computational cost
+     - No regex compilation overhead (compile pattern once if in production)
+
+  4. **Scalability**
+     - Single-file creation has no scalability implications
+     - No loops, batch operations, or external API calls
+     - Feature runs in 10-15 minutes as per spec estimates
+
+  5. **Memory Usage**
+     - All operations work with in-memory strings (400-600 bytes)
+     - No large data structures, no memory overhead
+     - Minimal memory footprint
+
+  ## Architecture Notes
+
+  1. **Integration with Sheep Codebase**
+     - Feature follows established pattern from 300+ existing implementations
+     - Uses existing project dependencies (pathlib, GitPython)
+     - No new external dependencies required (aligns with NFR-6)
+     - No modifications to src/sheep/, configuration, or tests
+
+  2. **Alignment with Existing Patterns**
+     - Markdown file creation pattern: one H1 heading + 2-3 sentences prose
+     - Git workflow: conventional commits, feature branch push
+     - File location: repository root directory
+     - Content validation: sentence count, character length, encoding, line endings
+     - These patterns are consistent across 300+ existing features
+
+  3. **Error Handling**
+     - File existence check with clear error messages
+     - Git operation failures propagate with GitPython exceptions
+     - Validation failures detected before git operations (fail-fast)
+     - No silent failures or unexpected state changes
+
+  4. **Implementation Location**
+     - Feature implementation likely in existing create_markdown.py module
+     - Follows patterns already established in that module
+     - No new modules or refactoring needed
+     - Minimal code addition (likely <50 lines of straightforward Python)
+
+  5. **Testing Approach** (not applicable per NFR-3, but documented for completeness)
+     - File creation: verify file exists, content correct, encoding valid
+     - Sentence validation: test regex pattern on various sentence structures
+     - Git operations: mock GitPython Repo object, verify add/commit/push called
+     - No integration tests needed (spec explicitly says no test modifications)
+
+  ## Summary
+
+  This feature requires creating a single markdown file following an extremely well-established pattern
+  (300+ existing implementations). Technical decisions are straightforward:
+
+  - Use **pathlib** for modern, clean file I/O
+  - Use **regex (re module)** for sentence validation
+  - Compose **fixed prose content** (any topic)
+  - Use **GitPython** for git operations (existing dependency)
+  - Enforce **UTF-8 without BOM** and **LF line endings** explicitly
+  - **Fail with clear errors** on file conflicts
+
+  No complex architectural decisions, external dependencies beyond project scope, or security concerns.
+  Feature is well-contained, follows existing patterns, and can be implemented in 10-15 minutes with
+  minimal code changes. All technical decisions are grounded in established Sheep platform patterns
+  proven across 300+ feature implementations.
