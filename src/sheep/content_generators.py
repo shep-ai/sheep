@@ -1,5 +1,6 @@
 """Content generation utilities for creating markdown and other content."""
 
+import subprocess
 from pathlib import Path
 
 from sheep.config.llm import get_reasoning_llm
@@ -417,6 +418,161 @@ def push_markdown_file(repo_path: str | None = None, remote: str = "origin") -> 
 
     except Exception as e:
         _logger.error(f"Failed to push to remote: {e}")
+        raise
+
+
+def git_add(filename: str, repo_path: str | None = None) -> str:
+    """
+    Stage a file with git add using subprocess.
+
+    Args:
+        filename: Name of the file to add (e.g., "test-msqxtg.md").
+        repo_path: Path to the git repository (defaults to current directory).
+
+    Returns:
+        Success message with exit code 0.
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist.
+        subprocess.CalledProcessError: If git add fails.
+        ValueError: If filename is invalid.
+    """
+    if repo_path is None:
+        repo_path = str(Path.cwd())
+
+    # Validate filename
+    if "/" in filename or "\\" in filename or filename.startswith("."):
+        raise ValueError(f"Invalid filename: {filename}")
+
+    repo_root = Path(repo_path)
+    file_path = repo_root / filename
+
+    _logger.info(f"Staging file with git add: {filename}")
+
+    try:
+        # Check if file exists
+        if not file_path.exists():
+            raise FileNotFoundError(f"File does not exist: {file_path}")
+
+        # Run git add
+        result = subprocess.run(
+            ["git", "add", filename],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        _logger.info(f"Successfully staged file: {filename}")
+        return f"Successfully added {filename} (exit code: {result.returncode})"
+
+    except FileNotFoundError:
+        _logger.error(f"File not found: {file_path}")
+        raise
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"git add failed: {e.stderr}")
+        raise
+    except Exception as e:
+        _logger.error(f"Unexpected error in git_add: {e}")
+        raise
+
+
+def git_commit(message: str, repo_path: str | None = None) -> str:
+    """
+    Create a git commit with the exact specified message using subprocess.
+
+    Args:
+        message: Exact commit message to use.
+        repo_path: Path to the git repository (defaults to current directory).
+
+    Returns:
+        Commit result message with exit code 0.
+
+    Raises:
+        subprocess.CalledProcessError: If git commit fails.
+    """
+    if repo_path is None:
+        repo_path = str(Path.cwd())
+
+    repo_root = Path(repo_path)
+
+    _logger.info(f"Creating git commit with message: {message}")
+
+    try:
+        # Run git commit with exact message
+        result = subprocess.run(
+            ["git", "commit", "-m", message],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        _logger.info(f"Successfully created commit: {message}")
+        return f"Committed: {message}\n{result.stdout}"
+
+    except subprocess.CalledProcessError as e:
+        # Check if nothing to commit (not an error)
+        if "nothing to commit" in e.stderr.lower():
+            _logger.warning("Nothing to commit, working tree clean")
+            return "Nothing to commit, working tree clean."
+        _logger.error(f"git commit failed: {e.stderr}")
+        raise
+    except Exception as e:
+        _logger.error(f"Unexpected error in git_commit: {e}")
+        raise
+
+
+def git_push(repo_path: str | None = None, remote: str = "origin") -> str:
+    """
+    Push to remote repository with upstream tracking using subprocess.
+
+    Args:
+        repo_path: Path to the git repository (defaults to current directory).
+        remote: Remote name to push to (default: origin).
+
+    Returns:
+        Push result message with exit code 0.
+
+    Raises:
+        subprocess.CalledProcessError: If git push fails.
+    """
+    if repo_path is None:
+        repo_path = str(Path.cwd())
+
+    repo_root = Path(repo_path)
+
+    _logger.info(f"Pushing to remote {remote} with upstream tracking")
+
+    try:
+        # Get current branch
+        result_branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        current_branch = result_branch.stdout.strip()
+        _logger.debug(f"Current branch: {current_branch}")
+
+        # Run git push with upstream tracking (-u flag)
+        result = subprocess.run(
+            ["git", "push", "-u", remote, current_branch],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        _logger.info(f"Successfully pushed to {remote}/{current_branch}")
+        return f"Pushed to {remote}/{current_branch}\n{result.stderr}"
+
+    except subprocess.CalledProcessError as e:
+        _logger.error(f"git push failed: {e.stderr}")
+        raise
+    except Exception as e:
+        _logger.error(f"Unexpected error in git_push: {e}")
         raise
 
 

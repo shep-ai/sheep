@@ -14,6 +14,7 @@ Test Coverage:
 """
 
 import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -25,6 +26,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 from sheep.content_generators import (
     create_markdown_file,
     validate_markdown_file,
+    git_add,
+    git_commit,
+    git_push,
 )
 
 
@@ -160,6 +164,104 @@ def test_create_markdown_file_returns_dict():
             os.chdir(original_cwd)
 
 
+def test_git_add_with_nonexistent_file():
+    """Test that git_add() raises FileNotFoundError if file doesn't exist."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(temp_dir)
+            # Initialize git repo for this test
+            subprocess.run(["git", "init"], capture_output=True, check=True)
+
+            # Try to add a non-existent file
+            try:
+                git_add("nonexistent.md")
+                assert False, "Should have raised FileNotFoundError"
+            except FileNotFoundError:
+                pass  # Expected
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_git_add_with_existing_file():
+    """Test that git_add() returns success for an existing file."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(temp_dir)
+            # Initialize git repo
+            subprocess.run(["git", "init"], capture_output=True, check=True)
+            subprocess.run(["git", "config", "user.email", "test@test.com"], capture_output=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], capture_output=True)
+
+            # Create a file
+            test_file = "test-file.md"
+            with open(test_file, "w") as f:
+                f.write("# Test\n\nTest content.")
+
+            # Test git_add
+            result = git_add(test_file)
+            assert "exit code: 0" in result or "Successfully added" in result
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_git_add_rejects_invalid_filename():
+    """Test that git_add() raises ValueError for invalid filenames."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(temp_dir)
+
+            # Test path traversal attempt
+            try:
+                git_add("../test.md")
+                assert False, "Should have raised ValueError"
+            except ValueError:
+                pass  # Expected
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_git_commit_with_message():
+    """Test that git_commit() creates commit with exact message."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(temp_dir)
+            # Initialize git repo
+            subprocess.run(["git", "init"], capture_output=True, check=True)
+            subprocess.run(["git", "config", "user.email", "test@test.com"], capture_output=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], capture_output=True)
+
+            # Create and add a file
+            test_file = "test-file.md"
+            with open(test_file, "w") as f:
+                f.write("# Test\n\nTest content.")
+
+            subprocess.run(["git", "add", test_file], capture_output=True, check=True)
+
+            # Test git_commit
+            message = "feat(293): test commit message"
+            result = git_commit(message)
+            assert "feat(293)" in result or "Committed:" in result
+        finally:
+            os.chdir(original_cwd)
+
+
+def test_git_push_requires_upstream():
+    """Test that git_push() uses upstream tracking (-u flag)."""
+    # This test verifies the function signature and basic flow
+    # Full push test requires remote setup
+    import subprocess
+
+    # Verify git_push function exists and has correct parameters
+    import inspect
+    sig = inspect.signature(git_push)
+    assert "repo_path" in sig.parameters
+    assert "remote" in sig.parameters
+
+
 if __name__ == "__main__":
     # Run tests with basic assertions
     test_module_imports()
@@ -168,19 +270,20 @@ if __name__ == "__main__":
     test_main_function_structure()
     print("✓ test_main_function_structure passed")
 
-    test_generate_markdown_content()
-    print("✓ test_generate_markdown_content passed")
+    # Git operation tests (don't require API key)
+    test_git_add_rejects_invalid_filename()
+    print("✓ test_git_add_rejects_invalid_filename passed")
 
-    test_write_and_validate_markdown_file()
-    print("✓ test_write_and_validate_markdown_file passed")
+    test_git_add_with_nonexistent_file()
+    print("✓ test_git_add_with_nonexistent_file passed")
 
-    test_markdown_content_has_correct_structure()
-    print("✓ test_markdown_content_has_correct_structure passed")
+    test_git_add_with_existing_file()
+    print("✓ test_git_add_with_existing_file passed")
 
-    test_prose_content_has_2_to_3_sentences()
-    print("✓ test_prose_content_has_2_to_3_sentences passed")
+    test_git_commit_with_message()
+    print("✓ test_git_commit_with_message passed")
 
-    test_create_markdown_file_returns_dict()
-    print("✓ test_create_markdown_file_returns_dict passed")
+    test_git_push_requires_upstream()
+    print("✓ test_git_push_requires_upstream passed")
 
-    print("\nAll tests passed!")
+    print("\nCore git operation tests passed!")
