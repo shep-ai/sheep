@@ -1,0 +1,399 @@
+name: "markdown-file-creation-d5f4d7"
+summary: >
+  Technical research for feature 294 markdown file creation. This continues the established pattern from features 289-293, requiring creation of a single markdown file with H1 heading and 2-3 sentences of AI-generated prose. Implementation leverages the proven sheep.content_generators module with CrewAI LLM integration, pathlib file I/O, comprehensive validation, and standard git operations. No new architectural decisions or external dependencies required.
+
+relatedFeatures:
+  - "291-markdown-file-creation"
+  - "292-markdown-file-creation"
+  - "293-markdown-file-creation"
+
+technologies:
+  - "Python 3.11+"
+  - "pathlib (file I/O)"
+  - "CrewAI (LLM framework)"
+  - "Claude API (content generation)"
+  - "subprocess (git integration)"
+  - "structlog (logging)"
+  - "Markdown (CommonMark spec)"
+  - "Git (version control)"
+  - "UTF-8 encoding"
+
+relatedLinks:
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib Documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "POSIX Text File Convention"
+    url: "https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap03.html"
+
+decisions:
+  - title: "Content Generation Integration"
+    chosen: "CrewAI LLM framework with Claude API via sheep.config.llm"
+    rejected:
+      - "Direct Anthropic SDK calls — Adds dependency, breaks platform abstraction, redundant layer"
+      - "Static templates — Violates requirement for topically coherent prose (NFR-3)"
+      - "Pre-curated prose library — Cannot scale to 289+ files with variety, requires maintenance"
+    rationale: >
+      The Sheep platform abstracts LLM access through CrewAI's LLM factory via sheep.config.llm.get_reasoning_llm(). This handles API key management, model selection, provider switching, and temperature tuning. Features 289-293 demonstrate this pattern works reliably. Reusing platform infrastructure ensures consistency and proper error handling.
+
+  - title: "File I/O and Path Handling"
+    chosen: "pathlib.Path with built-in open() and UTF-8 encoding"
+    rejected:
+      - "Raw string paths with os.path — Less Pythonic, requires additional imports"
+      - "Custom file wrapper classes — Over-engineered for a single file operation"
+      - "Binary mode I/O — Complicates encoding management unnecessarily"
+    rationale: >
+      pathlib is the Python 3.4+ standard and is used throughout the Sheep platform. It provides cross-platform path handling, cleaner API, and natural integration with open(). UTF-8 text mode is the universal standard for markdown and explicitly required by NFR-1.
+
+  - title: "Markdown Validation Strategy"
+    chosen: "Comprehensive validation: H1 heading, blank line, sentence count, encoding, line endings"
+    rejected:
+      - "No validation — Risks non-compliance with FR-2 through FR-4 and NFR-1 through NFR-5"
+      - "Minimal validation — Would miss encoding issues and line ending problems"
+      - "External markdown parser dependency — Adds complexity disproportionate to simple format"
+    rationale: >
+      Requirements mandate specific markdown structure (FR-2-FR-4) and encoding standards (NFR-1, NFR-5). The sheep.content_generators module provides validation functions that handle all checks. Validation is lightweight and prevents bugs while ensuring consistent quality.
+
+  - title: "Sentence Count Validation"
+    chosen: "Strict validation: count terminal punctuation; regenerate if count ≠ 2-3"
+    rejected:
+      - "Approximate validation (allow 2-4) — Violates FR-4 explicit requirement"
+      - "No validation — LLM outputs are non-deterministic; high risk of non-compliance"
+      - "Token-based detection — Adds complexity, depends on NLP libraries"
+    rationale: >
+      FR-4 explicitly requires \"exactly 2-3 sentences\". Simple period-counting is reliable for English prose. Feature 293 demonstrates this approach works. If validation fails, regenerate with refined prompt. This ensures strict compliance while remaining simple.
+
+  - title: "Git Integration Approach"
+    chosen: "Subprocess for git commands (add, commit, push)"
+    rejected:
+      - "GitPython library — Adds external dependency when stdlib subprocess is available"
+      - "Manual workflow (no automation) — Violates FR-6 through FR-9 requirements"
+      - "No git integration — Would break CI/CD and version control tracking"
+    rationale: >
+      Requirements FR-6-FR-9 mandate complete git automation. Subprocess provides transparent command execution, visibility for debugging, and avoids additional dependencies. Pattern is used in features 289-293. Git is already available in CI/CD environment.
+
+  - title: "Implementation Reuse Strategy"
+    chosen: "Use existing sheep.content_generators.create_markdown_file() orchestration function"
+    rejected:
+      - "Reimplement workflow inline — Creates code duplication, higher maintenance, risk of inconsistency"
+      - "Hybrid approach (partial reuse) — Unnecessary divergence from established pattern"
+    rationale: >
+      The sheep.content_generators.create_markdown_file(filename, feature_number=294) function encapsulates the entire workflow with proper error handling, validation, logging, and git integration. Using it directly ensures perfect consistency with features 289-293 and minimizes implementation risk.
+
+openQuestions:
+  - question: "Should content generation be deterministic or allow randomization?"
+    resolved: true
+    options:
+      - option: "Non-deterministic generation (random topic, free-form prose)"
+        description: >
+          Allow Claude API to freely choose title and prose content (minimal constraints). Benefits: variety across file collection, natural language generation, matches spec requirement \"about anything\". Trade-off: outputs are non-deterministic.
+        selected: true
+      - option: "Deterministic generation (fixed seed, controlled prompt)"
+        description: >
+          Use fixed random seed and tightly constrained prompt for reproducible output. Benefits: easier testing. Trade-offs: violates \"about anything\" spec, reduces variety, reduces natural quality.
+        selected: false
+      - option: "Hybrid: random topic with deterministic structure"
+        description: >
+          Random topic but forced sentence structure. Benefits: some variety. Trade-offs: artificial, stilted, conflicts with coherence requirement.
+        selected: false
+    selectionRationale: >
+      Non-deterministic generation is correct because: (1) spec explicitly states \"about anything\", (2) natural generation produces higher quality, (3) feature 293 demonstrates this works, (4) platform design embraces generative AI, (5) sentence count validation ensures quality.
+
+  - title: "Should implementation validate against full CommonMark specification?"
+    resolved: true
+    options:
+      - option: "Validate structure and encoding only (lightweight validation)"
+        description: >
+          Focus on H1 heading, blank line separator, sentence count, UTF-8 encoding, LF line endings. Benefits: fast, focused on actual requirements, no dependencies, matches feature 293. Trade-off: not exhaustive CommonMark validation.
+        selected: true
+      - option: "Validate against full CommonMark specification"
+        description: >
+          Use CommonMark parser library for 100% spec compliance. Benefits: comprehensive, catches edge cases. Trade-offs: adds dependency, unnecessary complexity, overkill for simple format.
+        selected: false
+      - option: "Skip validation entirely"
+        description: >
+          Generate and write immediately without validation. Benefits: fastest execution. Trade-offs: risks non-compliance with FR-2 through FR-4, no quality gates.
+        selected: false
+    selectionRationale: >
+      Lightweight validation is appropriate because: (1) markdown format is trivial (H1 + blank line + prose), (2) full CommonMark parsing adds disproportionate complexity, (3) feature 293 uses lightweight approach successfully, (4) encoding/line ending validation is essential for portability.
+
+  - title: "Should error handling include automatic retry on LLM failures?"
+    resolved: true
+    options:
+      - option: "Retry content generation on validation failure only (sentence count mismatch)"
+        description: >
+          Implement retry logic specifically for sentence count validation. If generated content has wrong sentence count, call LLM again with refined prompt. Benefits: ensures compliance with FR-4, simple to implement, feature 293 uses this. Trade-off: adds one extra API call if generation fails.
+        selected: true
+      - option: "Aggressive retries with exponential backoff"
+        description: >
+          Retry all API failures (timeouts, rate limits, etc.) with exponential backoff. Benefits: more resilient to transient failures. Trade-offs: overkill for this simple task, platform may handle this at orchestration level.
+        selected: false
+      - option: "No retry logic; fail fast"
+        description: >
+          No retries; fail immediately on any API error. Benefits: clear error reporting, fast failure. Trade-offs: less resilient to transient issues, may cause unnecessary feature failures.
+        selected: false
+    selectionRationale: >
+      Targeted retry on validation failure is the right balance: (1) addresses the actual issue (sentence count mismatch is deterministic), (2) simple to implement, (3) feature 293 uses this pattern, (4) keeps failure handling focused, (5) allows platform-level retry logic for transient API errors.
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-03-31
+  - **Status:** Complete
+
+  ## Overview
+
+  Feature 294 is a straightforward markdown file creation task following the established pattern from features 289-293. The implementation requires creating a single markdown file (`test-xvaf7y.md`) with an H1 heading and 2-3 sentences of topically coherent prose content, then committing and pushing to git.
+
+  This feature demonstrates the Sheep platform's ability to consistently execute the same automation pattern across a series of 289+ identical features. No new architectural decisions, code patterns, or external dependencies are introduced.
+
+  ## Technology Stack
+
+  The Sheep platform provides a mature technology stack for this task:
+
+  - **LLM Integration**: CrewAI framework with Claude API access via `sheep.config.llm.get_reasoning_llm()`
+  - **File I/O**: Python pathlib (modern, cross-platform path handling) with built-in `open()` and UTF-8 encoding
+  - **Validation**: Comprehensive validation functions in `sheep.content_generators` module
+  - **Git Operations**: Subprocess-based git commands plus optional `sheep.tools.GitCommitTool` and `GitPushTool`
+  - **Logging**: Structured logging via `sheep.observability.logging.get_logger()` (structlog integration)
+  - **Format**: Standard CommonMark markdown with H1 heading and prose paragraph
+
+  ## Technology Decisions
+
+  ### 1. Content Generation: CrewAI LLM Framework with Claude API
+
+  **Chosen:** Use `sheep.config.llm.get_reasoning_llm()` to access Claude API via CrewAI
+
+  **Rejected:**
+  - Direct Anthropic SDK calls — Adds dependency, breaks abstraction, platform already handles this
+  - Static templates — Violates coherence requirements, lower quality
+  - Pre-curated content library — Not scalable to 289+ files, requires maintenance
+  - Lorem ipsum placeholders — Explicitly prohibited by requirements
+
+  **Rationale:** The Sheep platform abstracts LLM access through CrewAI's LLM factory. The configuration is already in place (model selection, API keys, temperature settings). Using `get_reasoning_llm()` with temperature=0.2 ensures consistent, focused prose generation. Feature 293 demonstrates this approach works reliably. Reusing platform infrastructure ensures consistency and proper error handling.
+
+  ### 2. File I/O: pathlib.Path with Built-in open()
+
+  **Chosen:** Use `pathlib.Path` for path handling and built-in `open(mode='w', encoding='utf-8')`
+
+  **Rejected:**
+  - Raw `os.path` strings — Less Pythonic, requires os import, doesn't scale
+  - Custom file wrappers — Unnecessary abstraction for a single file operation
+  - Binary mode I/O — Complicates UTF-8 handling unnecessarily
+
+  **Rationale:** pathlib is the Python 3.4+ standard and is used throughout the Sheep platform. It provides clean path manipulation, cross-platform support (Windows/Unix), and natural integration with `open()`. UTF-8 text mode is the standard for markdown files and is explicitly required by NFR-1.
+
+  ### 3. Markdown Validation: Comprehensive Structure and Encoding
+
+  **Chosen:** Validate H1 heading, blank line separator, sentence count (2-3), UTF-8 encoding without BOM, LF line endings, trailing newline
+
+  **Rejected:**
+  - No validation — Risks non-compliance with FR-2 through FR-4 and NFR-1 through NFR-5
+  - Minimal validation — Would miss critical issues (encoding, line ending problems)
+  - Full CommonMark parser dependency — Adds complexity and dependencies, unnecessary for this simple format
+
+  **Rationale:** Requirements explicitly mandate specific markdown structure (FR-2 through FR-4) and encoding standards (NFR-1, NFR-5). The established `sheep.content_generators` module provides validation functions that handle all these checks. Validation is lightweight and integrates naturally with content generation. This approach prevents bugs and ensures consistent file quality.
+
+  ### 4. Sentence Count Validation: Strict Count with Regeneration
+
+  **Chosen:** Count terminal punctuation marks (periods); regenerate if count ≠ 2-3
+
+  **Rejected:**
+  - Approximate validation (allow 2-4) — Violates FR-4 explicit requirement
+  - No validation — Risky, LLM outputs are non-deterministic
+  - Token-based sentence detection — Adds complexity, depends on NLP libraries
+
+  **Rationale:** FR-4 requires \"exactly 2-3 sentences\". Simple period-counting is reliable for English prose. Feature 293 uses this approach successfully. If validation fails, the generation prompt should be refined and the LLM called again. This ensures strict compliance while remaining simple to implement.
+
+  ### 5. Git Integration: Subprocess with Git Commands
+
+  **Chosen:** Use subprocess module to call `git add`, `git commit`, `git push`
+
+  **Rejected:**
+  - GitPython library — Adds external dependency, subprocess is standard library
+  - Manual workflow (no automation) — Violates FR-6 (git staging), FR-7 (commit), FR-9 (push)
+  - No git integration — Would break CI/CD integration and version control tracking
+
+  **Rationale:** Requirements FR-6 through FR-9 explicitly mandate git workflow (add, commit, push). Subprocess provides transparent command execution, visibility for CI/CD debugging, and avoids additional dependencies. The pattern is used in established features 289-293. Git is already available in the CI/CD environment.
+
+  ### 6. Error Handling: Graceful Failures with Logging
+
+  **Chosen:** Try/except blocks with structured logging; regenerate on sentence count mismatch only
+
+  **Rejected:**
+  - No error handling — Would cause silent failures, breaks platform reliability
+  - Aggressive retries with exponential backoff — Overkill, platform should timeout cleanly
+  - Silent failures — Breaks debugging and CI/CD visibility
+
+  **Rationale:** The `sheep.content_generators` module provides proper error handling. Content generation failures should log clearly and exit. Sentence count mismatches trigger regeneration (with reasonable limit). This approach has proven reliable across features 289-293. Structured logging ensures debuggability.
+
+  ## Implementation Architecture
+
+  The feature should use the existing `sheep.content_generators.create_markdown_file()` orchestration function, which handles the complete workflow:
+
+  ```
+  1. generate_markdown_content()
+     → Calls LLM with prompt for H1 + 2-3 sentences
+     → Validates sentence count; regenerates if needed
+     → Returns markdown string with trailing newline
+
+  2. write_markdown_file(content, filename)
+     → Writes content to repository root
+     → Validates file creation and size
+     → Returns filepath
+
+  3. validate_markdown_file(filepath)
+     → Checks H1 heading present (FR-2)
+     → Checks blank line separator (FR-3)
+     → Counts sentences (FR-4)
+     → Validates UTF-8 encoding without BOM (NFR-1)
+     → Validates LF line endings (NFR-5)
+     → Validates trailing newline (POSIX standard)
+
+  4. commit_markdown_file(filepath, content, feature_number=294)
+     → Stages file with git add
+     → Creates commit with conventional message:
+        feat(294): create markdown file test-xvaf7y.md with prose content
+     → Returns commit result
+
+  5. push_markdown_file()
+     → Pushes to remote with upstream tracking (-u flag)
+     → Returns push result
+  ```
+
+  The function call would be:
+  ```python
+  from sheep.content_generators import create_markdown_file
+
+  result = create_markdown_file(\"test-xvaf7y.md\", feature_number=294)
+  ```
+
+  ## Library Analysis
+
+  | Library/Tool | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | pathlib | Cross-platform path handling | Use | Python 3.4+ standard, used throughout Sheep platform |
+  | open() (built-in) | File I/O | Use | Text mode with UTF-8 encoding, no external dependencies |
+  | subprocess | Git command execution | Use | Standard library, provides command visibility, lightweight |
+  | CrewAI LLM | Content generation via Claude | Use | Sheep platform's standard LLM abstraction, handles API keys and model selection |
+  | sheep.config.llm | LLM configuration factory | Use | Platform-provided, encapsulates LLM setup (model, temperature, API keys) |
+  | sheep.content_generators | Full orchestration module | Use | Proven, tested, handles complete workflow, consistent with features 289-293 |
+  | sheep.observability.logging | Structured logging | Use | Integration with CrewAI observability and CI/CD logging |
+  | GitPython | Alternative git integration | Reject | Adds external dependency, subprocess is available and simpler |
+  | markdown parsers (markdown-it, mistune) | Format validation | Reject | Unnecessary for simple format, adds dependency, lightweight validation sufficient |
+
+  ## Security Considerations
+
+  **File Creation:**
+  - Risk: File writes to repository root could be overwritten by concurrent processes
+  - Mitigation: Each feature 289-294+ creates a unique filename (test-RANDOM.md); no concurrent writes to same file
+  - Risk: Directory traversal via filename parameter
+  - Mitigation: Filename is hardcoded in spec (test-xvaf7y.md), not user-provided. Validation rejects paths with \"/\" or \"\\\\\"
+
+  **Git Operations:**
+  - Risk: Git credentials exposure
+  - Mitigation: Subprocess uses local git configuration; Sheep platform manages credentials via environment variables
+  - Risk: Injection via commit message
+  - Mitigation: Commit message is hardcoded template with no user input
+
+  **Content Generation:**
+  - Risk: Prompt injection via LLM prompt
+  - Mitigation: Prompt is fixed template, title is generated internally (not user-provided)
+  - Risk: API key exposure
+  - Mitigation: Handled by Sheep platform's secrets management
+
+  **Overall Assessment:** Security risk is **minimal**. All inputs are hardcoded or generated internally.
+
+  ## Performance Considerations
+
+  **Content Generation:**
+  - Claude API call: ~1-2 seconds latency
+  - Potential regeneration if sentence count fails: +1-2 seconds per retry (unlikely)
+  - Expected: 1-2 seconds per feature
+
+  **File I/O:**
+  - Writing ~200-300 byte markdown file: <10ms
+  - File validation (binary read, encoding check): negligible
+
+  **Git Operations:**
+  - `git add`: ~50-100ms
+  - `git commit`: ~100-150ms
+  - `git push`: ~500-1500ms (depends on network)
+  - Total git time: ~1-2 seconds
+
+  **Total Execution Time:** Expected 2-4 seconds per feature (dominated by LLM API latency and git push)
+
+  **Optimization Notes:**
+  - No optimization needed; execution time is acceptable for CI/CD automation
+  - LLM latency is unavoidable and expected
+  - Network latency on git push is expected; platform may batch operations
+
+  ## Architecture Notes
+
+  **How Feature 294 Fits into Sheep Platform:**
+
+  1. **Automation Layer**: One of 289+ identical features demonstrating platform's ability to execute repetitive tasks consistently
+  2. **LLM Integration**: Leverages CrewAI abstraction for Claude API access
+  3. **Version Control**: Integrates with git for tracking, CI/CD pipelines, and remote collaboration
+  4. **Observability**: Uses structured logging for debugging and monitoring
+  5. **Content Creation**: Demonstrates AI-driven content generation workflow
+
+  **Consistency with Features 289-293:**
+
+  - Same markdown format (H1 + blank line + prose)
+  - Same file location (repository root)
+  - Same git workflow (add, commit, push)
+  - Same conventional commit message pattern
+  - Same LLM integration approach
+  - Same validation strategy
+  - Same error handling and logging
+
+  **No Architectural Changes Required:**
+
+  - No code modifications to application
+  - No schema or database changes
+  - No API endpoint additions
+  - No infrastructure changes
+  - File is pure content (documentation/example like JOKE.md, SHEEP.md)
+
+  ## Risks and Mitigations
+
+  | Risk | Probability | Severity | Mitigation |
+  | --- | --- | --- | --- |
+  | Claude API rate limiting on content generation | Low | Medium | CrewAI handles retries; Sheep platform may batch requests |
+  | LLM generates wrong sentence count | Low | Low | Validation with regeneration ensures compliance |
+  | File I/O fails (permissions, disk space) | Very Low | Medium | CI/CD environment guarantees permissions and space |
+  | Git operations fail (credentials, network) | Very Low | Medium | Git already configured; CI/CD handles authentication |
+  | UTF-8 encoding issues | Very Low | Low | Python 3.11+ handles UTF-8 transparently in text mode |
+
+  All risks are manageable with standard error handling and platform infrastructure.
+
+  ## Verification
+
+  Feature 294 can be verified:
+
+  1. **File Creation**: `ls -la test-xvaf7y.md` shows file exists
+  2. **H1 Heading**: `head -1 test-xvaf7y.md` starts with \"# \"
+  3. **Sentence Count**: `grep -o '\\.' test-xvaf7y.md | wc -l` shows 2-3
+  4. **Encoding**: `file test-xvaf7y.md` reports UTF-8
+  5. **Trailing Newline**: `tail -c 1 test-xvaf7y.md | od -c` shows `\\n`
+  6. **Git History**: `git log --oneline` shows commit with correct message
+
+  ## Summary
+
+  Feature 294 requires no new architectural decisions, libraries, or patterns beyond those established in features 289-293. Implementation reuses the proven `sheep.content_generators.create_markdown_file()` function, which handles the complete workflow: content generation, file creation, validation, git commit, and push. The feature demonstrates the Sheep platform's ability to consistently execute automation tasks across a series of identical requirements.
+
+  **Key Technical Decisions:**
+  - Use CrewAI LLM integration for content generation via `sheep.config.llm`
+  - Validate markdown structure, encoding, and line endings comprehensively
+  - Implement sentence count validation with potential regeneration
+  - Use subprocess for transparent git operations
+  - Reuse sheep.content_generators orchestration function for complete workflow
+  - Follow established pattern from features 289-293
+
+  **No external dependencies or new patterns required. Research complete.**
+
+  ---
+
+  _Research completed 2026-03-31_
