@@ -1,0 +1,389 @@
+name: "markdown-file-creation-582d39"
+summary: |
+  Task breakdown for feature 291: 7 tasks across 3 phases. Phase 1 generates and validates markdown
+  content via Claude API. Phase 2 creates file with proper UTF-8 encoding and LF line endings,
+  then validates file structure. Phase 3 stages file, commits with conventional message, and pushes
+  to feature branch. Total estimated effort: ~45 minutes (content generation ~20m, file creation ~10m,
+  git workflow ~10m, testing/validation ~5m).
+
+relatedFeatures:
+  - number: 290
+    name: "markdown-file-creation-a37215"
+  - number: 289
+    name: "markdown-file-creation"
+  - number: 288
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.11+ (runtime)"
+  - "pathlib.Path (file I/O)"
+  - "Claude API (content generation)"
+  - "subprocess (git integration)"
+  - "regex (validation)"
+
+relatedLinks:
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+
+tasks:
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Generate markdown content via Claude API"
+    description: |
+      Generate markdown content with H1 heading and 2-3 sentences of prose using Claude API.
+      Leverage existing sheep.config.llm module for API integration and retry logic. Content
+      must be semantically coherent, unique, and suitable for a test file. Implementation uses
+      established MARKDOWN_GENERATION_PROMPT pattern from create_markdown.py module with automatic
+      retry on transient failures (exponential backoff, max 3 attempts).
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "Claude API call returns non-empty content string"
+      - "Content contains an H1 markdown heading (starts with '# ')"
+      - "Content contains at least one sentence of prose after heading"
+      - "Retry logic retries on API timeout or transient failures"
+      - "All API calls are logged via sheep.observability.logging"
+      - "Content generation time < 30 seconds (typical 2-5 seconds)"
+    tdd:
+      red:
+        - "Write test that calls generate_markdown_content() and asserts return value is non-empty string"
+        - "Write test that checks content contains H1 heading (matches regex '^# ')"
+        - "Write test that mocks API failure and verifies retry logic triggers"
+      green:
+        - "Call sheep.config.llm with MARKDOWN_GENERATION_PROMPT requesting H1 + prose"
+        - "Capture API response as string (content)"
+        - "Return content from function"
+      refactor:
+        - "Extract prompt to constant MARKDOWN_GENERATION_PROMPT"
+        - "Add error handling for API exceptions"
+        - "Add logging before, during, and after API call"
+        - "Add timeout parameter and exponential backoff retry logic"
+    estimatedEffort: "15m"
+
+  - id: "task-2"
+    phaseId: "phase-1"
+    title: "Validate generated content structure and quality"
+    description: |
+      Implement comprehensive validation of generated content. Verify heading format, sentence
+      count (2-3 sentences), prose length (100-300 characters), UTF-8 encoding, blank line
+      separation, and vocabulary variety. Validation runs before file creation to fail fast and
+      catch API errors early. Use existing validate_content() function pattern from create_markdown.py
+      module with detailed error messages for debugging.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "Validation function checks for valid H1 heading format (^# )"
+      - "Validation counts sentences using regex SENTENCE_BOUNDARY_PATTERN (expects 2-3)"
+      - "Validation checks prose length is 100-300 characters"
+      - "Validation verifies blank line exists between heading and prose"
+      - "Validation checks UTF-8 encoding (no BOM, valid bytes)"
+      - "Validation checks vocabulary variety (minimum 10 unique words)"
+      - "Invalid content triggers ValueError with descriptive message"
+      - "Valid content returns True"
+    tdd:
+      red:
+        - "Write test: invalid heading (no '#') raises ValueError"
+        - "Write test: prose with 1 sentence raises ValueError (< 2)"
+        - "Write test: prose with 4 sentences raises ValueError (> 3)"
+        - "Write test: prose < 100 characters raises ValueError"
+        - "Write test: prose > 300 characters raises ValueError"
+        - "Write test: valid content (H1 + 2-3 sentences) returns True"
+      green:
+        - "Implement heading validation with regex '^# '"
+        - "Implement sentence count validation with SENTENCE_BOUNDARY_PATTERN regex"
+        - "Implement prose length checks (>= 100 and <= 300)"
+        - "Implement blank line check between heading and prose"
+        - "Return True if all checks pass, raise ValueError otherwise"
+      refactor:
+        - "Extract validation checks to separate functions (validate_heading, validate_sentence_count, etc.)"
+        - "Extract regex patterns to module-level constants"
+        - "Improve error messages with specific failure reason"
+        - "Add logging for each validation check"
+    estimatedEffort: "10m"
+
+  - id: "task-3"
+    phaseId: "phase-2"
+    title: "Create markdown file with UTF-8 encoding and LF line endings"
+    description: |
+      Create test-p1rf9x.md in repository root using pathlib.Path.write_text() with explicit
+      UTF-8 encoding (no BOM). Content uses explicit '\n' characters for LF line endings
+      (platform-agnostic). File structure: H1 heading, blank line, prose content. Verify file
+      exists at correct path and is readable after creation.
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "File test-p1rf9x.md created in repository root (current working directory)"
+      - "File path verified as correct: ./test-p1rf9x.md or absolute path equivalence"
+      - "File contains exact content from task-2 (validated markdown + prose)"
+      - "File is readable and opens without errors"
+      - "File size is approximately 400-600 bytes (matches spec estimate)"
+      - "pathlib.Path used with encoding='utf-8' parameter"
+      - "Content written with explicit '\\n' line endings (not os.linesep)"
+    tdd:
+      red:
+        - "Write test that verifies test-p1rf9x.md does not exist (setup)"
+        - "Write test that calls create_file(validated_content) and checks file exists"
+        - "Write test that verifies created file is readable"
+        - "Write test that checks file size is in expected range (400-600 bytes)"
+      green:
+        - "Use pathlib.Path('test-p1rf9x.md').write_text(content, encoding='utf-8')"
+        - "Verify file exists using Path.exists()"
+        - "Return success status"
+      refactor:
+        - "Add pre-flight checks (file doesn't already exist, directory writable)"
+        - "Add error handling for file permission errors"
+        - "Add logging before and after file creation"
+        - "Verify file size matches expectation"
+    estimatedEffort: "8m"
+
+  - id: "task-4"
+    phaseId: "phase-2"
+    title: "Verify file encoding, line endings, and structure"
+    description: |
+      Validate file properties after creation. Verify UTF-8 encoding without BOM, LF line endings
+      (not CRLF), and correct structure (heading, blank line, prose). Read file as binary to check
+      encoding (no UTF-8 BOM bytes), then as text to verify structure. Ensure file matches spec
+      requirements before git operations.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "File opened as binary and checked for absence of UTF-8 BOM (no b'\\xef\\xbb\\xbf')"
+      - "File opened as text with encoding='utf-8' (verifies UTF-8 decodable)"
+      - "File content uses LF ('\\n') not CRLF ('\\r\\n')"
+      - "File structure verified: H1 heading on first line, blank line, prose content"
+      - "First line starts with '# ' (heading marker)"
+      - "Second line is empty (blank line separator)"
+      - "Remaining lines contain prose content (2-3 sentences)"
+      - "No extra blank lines at end of file (or only natural single trailing newline)"
+    tdd:
+      red:
+        - "Write test: read file as binary and assert UTF-8 BOM not present (b'\\xef\\xbb\\xbf')"
+        - "Write test: read file as text with UTF-8 and assert no decode errors"
+        - "Write test: split file by '\\n' and assert line[0] starts with '# '"
+        - "Write test: assert line[1] is empty string (blank line)"
+        - "Write test: assert file contains '\\n' not '\\r\\n' (LF not CRLF)"
+      green:
+        - "Read file as binary, check for BOM bytes, raise error if present"
+        - "Read file as text with encoding='utf-8' (will raise if encoding wrong)"
+        - "Split content by '\\n' and validate structure line-by-line"
+        - "Check all line endings are LF (no '\\r\\n' sequences)"
+      refactor:
+        - "Extract structure validation to separate function"
+        - "Add detailed error messages (e.g., 'BOM detected: file not UTF-8 clean')"
+        - "Add logging for each verification step"
+        - "Create test utility function to dump file in hex for debugging encoding issues"
+    estimatedEffort: "10m"
+
+  - id: "task-5"
+    phaseId: "phase-3"
+    title: "Stage file in git"
+    description: |
+      Stage test-p1rf9x.md using 'git add test-p1rf9x.md'. Verify git command succeeds (return
+      code 0). File must be staged and ready for commit. Use subprocess.run() with standard git
+      command following Sheep project patterns.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "subprocess.run(['git', 'add', 'test-p1rf9x.md']) executed"
+      - "Command returns with exit code 0 (success)"
+      - "No git errors or warnings"
+      - "File appears in 'git status' output as staged ('new file: test-p1rf9x.md')"
+      - "Git configuration (user.name, user.email) verified before running"
+    tdd:
+      red:
+        - "Write test that mocks subprocess.run and verifies correct arguments"
+        - "Write test that captures subprocess return code and asserts == 0"
+        - "Write test that runs 'git status' after add and checks file is staged"
+      green:
+        - "Call subprocess.run(['git', 'add', 'test-p1rf9x.md'], capture_output=True, text=True)"
+        - "Check return code, raise error if != 0"
+        - "Log stderr/stdout if return code != 0"
+      refactor:
+        - "Extract git command execution to utility function"
+        - "Add error handling for git not being available"
+        - "Add logging before and after git command"
+        - "Add validation that file exists before attempting git add"
+    estimatedEffort: "5m"
+
+  - id: "task-6"
+    phaseId: "phase-3"
+    title: "Create git commit with conventional message"
+    description: |
+      Create git commit with conventional commit message format:
+      'feat(291): create markdown file test-p1rf9x.md with prose content'. Message follows project
+      conventions (type(number): description). Use subprocess to run 'git commit' command.
+      Verify commit is created successfully (return code 0).
+    state: "Todo"
+    dependencies:
+      - "task-5"
+    acceptanceCriteria:
+      - "Commit message follows conventional format: 'feat(291): create markdown file test-p1rf9x.md with prose content'"
+      - "subprocess.run(['git', 'commit', '-m', message]) executed"
+      - "Command returns with exit code 0 (success)"
+      - "Commit appears in 'git log' output"
+      - "Commit author matches configured git user.name and user.email"
+    tdd:
+      red:
+        - "Write test that verifies commit message has correct format"
+        - "Write test that mocks subprocess.run(['git', 'commit', ...]) and checks arguments"
+        - "Write test that runs 'git log -1 --pretty=%B' and verifies commit message"
+      green:
+        - "Build commit message: 'feat(291): create markdown file test-p1rf9x.md with prose content'"
+        - "Call subprocess.run(['git', 'commit', '-m', message], capture_output=True, text=True)"
+        - "Check return code, raise error if != 0"
+      refactor:
+        - "Extract message format to constant CONVENTIONAL_COMMIT_FORMAT"
+        - "Add error handling for git config missing (user.name, user.email)"
+        - "Add logging of commit message before execution"
+        - "Add validation of git log output to confirm commit created"
+    estimatedEffort: "8m"
+
+  - id: "task-7"
+    phaseId: "phase-3"
+    title: "Push commit to feature branch"
+    description: |
+      Push commit to remote feature branch 'feat/291-markdown-file-creation-582d39' using
+      'git push -u origin feat/291-markdown-file-creation-582d39'. Verify push succeeds
+      (return code 0). File is now in remote repository on the feature branch.
+    state: "Todo"
+    dependencies:
+      - "task-6"
+    acceptanceCriteria:
+      - "git push command executes successfully (return code 0)"
+      - "Branch 'feat/291-markdown-file-creation-582d39' exists on remote"
+      - "File test-p1rf9x.md is accessible in remote branch"
+      - "No authentication errors or permission issues"
+      - "Command uses '-u' flag to set upstream tracking"
+    tdd:
+      red:
+        - "Write test that mocks subprocess.run(['git', 'push', '-u', 'origin', branch])"
+        - "Write test that verifies push command succeeds (return code 0)"
+        - "Write test that runs 'git branch -r' and verifies remote branch exists"
+      green:
+        - "Call subprocess.run(['git', 'push', '-u', 'origin', 'feat/291-markdown-file-creation-582d39'], capture_output=True, text=True)"
+        - "Check return code, raise error if != 0"
+        - "Log push output for verification"
+      refactor:
+        - "Extract branch name to constant FEATURE_BRANCH"
+        - "Add error handling for remote/network issues"
+        - "Add logging before and after push"
+        - "Add validation of push success by checking remote branch exists"
+    estimatedEffort: "8m"
+
+  - id: "task-8"
+    phaseId: "phase-3"
+    title: "Integration test and final validation"
+    description: |
+      End-to-end integration test: Create file, validate content, stage in git, commit,
+      and push. Verify complete workflow succeeds and all success criteria from spec are met.
+      Validate: file exists in repo root, has correct encoding/line endings, is staged/committed/pushed,
+      commit message is correct, file accessible in remote branch.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "Integration test executes all phases (content generation, validation, file creation, git workflow)"
+      - "File test-p1rf9x.md exists at repository root"
+      - "File contains H1 heading and 2-3 sentences of prose"
+      - "File uses UTF-8 encoding without BOM"
+      - "File uses LF line endings (not CRLF)"
+      - "File is staged in git"
+      - "Commit created with message 'feat(291): create markdown file test-p1rf9x.md with prose content'"
+      - "Commit pushed to feature branch 'feat/291-markdown-file-creation-582d39'"
+      - "File size approximately 400-600 bytes"
+      - "No existing files modified during process"
+      - "No errors or warnings in execution logs"
+    tdd:
+      red:
+        - "Write integration test that runs all phases in sequence"
+        - "Write test that verifies file exists after completion"
+        - "Write test that checks git log contains correct commit message"
+        - "Write test that runs 'git show' and verifies file in commit"
+      green:
+        - "Execute generate_markdown_content() → validate_content() → create_file() → verify_encoding_line_endings() → git_add() → git_commit() → git_push()"
+        - "Assert each step succeeds without exceptions"
+        - "Verify file and git state match expectations"
+      refactor:
+        - "Extract integration test to separate test module"
+        - "Add test cleanup (remove test file, reset git state for test isolation)"
+        - "Add detailed assertion messages for debugging failures"
+        - "Add performance logging to track overall execution time"
+    estimatedEffort: "10m"
+
+totalEstimate: "64 minutes"
+
+openQuestions: []
+
+content: |
+  ## Task Breakdown Summary
+
+  Feature 291 consists of 8 concrete tasks across 3 implementation phases:
+
+  ### Phase 1: Content Generation & Validation (Tasks 1-2, ~25 minutes)
+  Tasks 1-2 generate and validate markdown content via Claude API. Task 1 calls Claude API with
+  structured prompt to generate H1 heading + 2-3 sentences of prose, with automatic retry logic
+  for transient failures. Task 2 validates content structure (heading format, sentence count,
+  prose length, encoding, vocabulary) before file creation. Both tasks use existing Sheep
+  patterns and utilities from create_markdown.py module.
+
+  ### Phase 2: File I/O & Encoding Verification (Tasks 3-4, ~18 minutes)
+  Tasks 3-4 create the markdown file with proper encoding and line endings. Task 3 uses
+  pathlib.Path.write_text() with explicit encoding='utf-8' (guarantees no BOM) and explicit
+  '\n' characters (ensures LF line endings on all platforms). Task 4 verifies file properties
+  after creation: checks UTF-8 without BOM, verifies LF line endings (not CRLF), and validates
+  file structure (heading, blank line, prose). Together, these tasks guarantee spec compliance
+  for encoding and line endings (NFR-1, NFR-2).
+
+  ### Phase 3: Git Integration & Completion (Tasks 5-8, ~31 minutes)
+  Tasks 5-7 implement the git workflow (stage, commit, push). Task 5 stages file using
+  'git add test-p1rf9x.md'. Task 6 creates commit with conventional message format
+  'feat(291): create markdown file test-p1rf9x.md with prose content'. Task 7 pushes to
+  feature branch 'feat/291-markdown-file-creation-582d39'. Task 8 runs end-to-end integration
+  test verifying complete workflow and all success criteria from spec are met.
+
+  ### Task Dependencies
+  - Task 1 (content generation) has no dependencies
+  - Task 2 (validation) depends on task 1 (validates task 1 output)
+  - Task 3 (file creation) depends on task 2 (uses validated content)
+  - Task 4 (encoding verification) depends on task 3 (verifies task 3 output)
+  - Task 5 (git add) depends on task 4 (stages file after verification)
+  - Task 6 (git commit) depends on task 5 (commits staged file)
+  - Task 7 (git push) depends on task 6 (pushes committed changes)
+  - Task 8 (integration test) depends on task 7 (verifies complete workflow)
+
+  Linear dependency chain: task-1 → task-2 → task-3 → task-4 → task-5 → task-6 → task-7 → task-8.
+  No parallel execution possible due to sequential nature of task dependencies.
+
+  ### Effort Breakdown
+  - Phase 1 (content generation & validation): 25 minutes
+  - Phase 2 (file I/O & encoding): 18 minutes
+  - Phase 3 (git workflow): 21 minutes
+  - Total: 64 minutes
+
+  This includes all TDD cycles (RED/GREEN/REFACTOR), testing, validation, and integration
+  testing. Matches spec size estimate (S: 10-15 minutes) for core implementation plus ~50
+  minutes for comprehensive testing and validation.
+
+  ### Success Criteria Traceability
+  Each success criterion from spec.yaml is addressed by one or more tasks:
+  - File creation in repo root: Task 3, 4
+  - H1 heading and 2-3 sentences: Task 1, 2, 4
+  - UTF-8 without BOM: Task 3, 4
+  - LF line endings: Task 3, 4
+  - File structure (heading, blank line, prose): Task 1, 2, 4
+  - File size 400-600 bytes: Task 3, 4
+  - Git add: Task 5
+  - Git commit with conventional message: Task 6
+  - Git push to feature branch: Task 7
+  - No modifications to existing files: Task 8 (verification)
+
+  ---
+
+  _Task breakdown complete — ordered by dependency, each task has TDD cycles and acceptance criteria.
+  Ready for implementation execution._
