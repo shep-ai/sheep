@@ -1,34 +1,436 @@
-# Task Breakdown (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
+name: "markdown-file-creation-a7c367"
+summary: >
+  8 tasks across 2 phases: Phase 1 generates and validates markdown content via Claude API
+  with retry logic and comprehensive checks (tasks 1-4). Phase 2 creates the file using
+  pathlib and completes git workflow with staging, commit, and push (tasks 5-8).
+  Estimated total: 15-20 minutes (includes potential API retries).
 
-name: markdown-file-creation-a7c367
-summary: Task breakdown for 292-markdown-file-creation-a7c367
+relatedFeatures:
+  - "291-markdown-file-creation-582d39"
+  - "290-markdown-file-creation-a37215"
+  - "289-markdown-file-creation"
 
-# Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+technologies:
+  - "Python 3.11+"
+  - "pathlib.Path"
+  - "Claude API"
+  - "subprocess"
+  - "regex"
 
-# Structured task list
-tasks: []
+relatedLinks:
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Anthropic Claude API"
+    url: "https://docs.anthropic.com/"
 
-# Total effort estimate
-totalEstimate: TBD
+tasks:
+  - id: "task-1"
+    phaseId: "phase-1"
+    title: "Test and implement Claude API content generation with retry logic"
+    description: >
+      Call Claude API with structured prompt to generate markdown heading (# Title) and
+      2-3 sentences of prose. Implement retry logic with exponential backoff (max 3 attempts,
+      1-4 second delays) to handle transient failures. Return generated content string or
+      raise exception after max retries exhausted.
+    state: "Todo"
+    dependencies: []
+    acceptanceCriteria:
+      - "Function accepts retry_max=3 and retry_delay=1.0 parameters"
+      - "Function calls Claude API with appropriate markdown generation prompt"
+      - "Function returns generated content string on success"
+      - "Function implements exponential backoff: 1s, 2s, 4s delays between retries"
+      - "Function logs each attempt (info level) and final failure (error level)"
+      - "Function raises clear exception after max retries exceeded"
+      - "Generated content contains both heading and prose sections"
+    tdd:
+      red:
+        - "Write test that calls generate_markdown_content() and asserts it returns a non-empty string"
+        - "Write test that asserts returned string contains a heading section and prose section"
+        - "Write test that mocks Claude API to fail twice, then succeed on third attempt (tests retry logic)"
+        - "Write test that asserts exponential backoff timing (1s, 2s, 4s) via mock time.sleep"
+      green:
+        - "Create generate_markdown_content() function that calls sheep.config.llm.claude_api_call()"
+        - "Structure prompt to request '# [Title]' followed by blank line and 2-3 sentences"
+        - "Implement try-except loop with max_retries and exponential backoff (delay *= 2)"
+        - "On success, return generated content; on max retries, raise ValueError with details"
+        - "Add logging at info level for each attempt, error level for final failure"
+      refactor:
+        - "Extract prompt template as module constant MARKDOWN_GENERATION_PROMPT"
+        - "Extract retry logic into reusable retry_with_backoff() helper function"
+        - "Improve error messages with context (attempt number, delay, API error details)"
+        - "Add structured logging (log level, function name, attempt count, delay)"
+    estimatedEffort: "2h"
 
-# Open questions
+  - id: "task-2"
+    phaseId: "phase-1"
+    title: "Test and implement heading validation"
+    description: >
+      Validate that generated content contains exactly one markdown H1 heading (# Title).
+      Check for `# ` prefix followed by non-empty title. Raise ValueError with details if
+      heading format is invalid.
+    state: "Todo"
+    dependencies:
+      - "task-1"
+    acceptanceCriteria:
+      - "Function accepts content string as parameter"
+      - "Function returns True if content starts with '# ' followed by non-empty title"
+      - "Function returns False if heading missing, malformed, or wrong level"
+      - "Function raises ValueError with details if heading validation fails"
+      - "Function extracts heading text for use in further validations"
+      - "Function correctly rejects heading at wrong level (e.g., '## Title' or '#Title')"
+    tdd:
+      red:
+        - "Write test that asserts validate_heading() raises ValueError for content with no heading"
+        - "Write test that asserts validate_heading() raises ValueError for '#Title' (missing space)"
+        - "Write test that asserts validate_heading() raises ValueError for '## Title' (wrong level)"
+        - "Write test that asserts validate_heading() returns True for '# Valid Title\\nMore text'"
+      green:
+        - "Create validate_heading() function that uses regex pattern '^# [^\\n]+'"
+        - "Raise ValueError if pattern doesn't match: 'Content must start with H1 heading (# Title)'"
+        - "Extract heading text from matched pattern for return or further use"
+      refactor:
+        - "Extract heading regex pattern as constant HEADING_PATTERN = r'^# ([^\\n]+)'"
+        - "Improve error message: include first 50 chars of content for context"
+        - "Add debug logging: log extracted heading text"
+    estimatedEffort: "1h"
+
+  - id: "task-3"
+    phaseId: "phase-1"
+    title: "Test and implement sentence count validation"
+    description: >
+      Validate that the prose section (content after heading) contains exactly 2-3 sentences.
+      Use regex to detect sentence boundaries (., !, ?). Raise ValueError if count is outside
+      2-3 range.
+    state: "Todo"
+    dependencies:
+      - "task-2"
+    acceptanceCriteria:
+      - "Function accepts content string as parameter"
+      - "Function extracts prose section (after heading and blank line)"
+      - "Function counts sentences using regex sentence boundary pattern"
+      - "Function returns True if sentence count is exactly 2 or 3"
+      - "Function raises ValueError if sentence count < 2 or > 3"
+      - "Function correctly handles abbreviations (e.g., 'Dr.' doesn't count as sentence end)"
+      - "Function correctly counts sentences ending with . ! or ?"
+    tdd:
+      red:
+        - "Write test that asserts validate_sentence_count() raises ValueError for 1 sentence"
+        - "Write test that asserts validate_sentence_count() raises ValueError for 4+ sentences"
+        - "Write test that asserts validate_sentence_count() returns True for 2 sentences"
+        - "Write test that asserts validate_sentence_count() returns True for 3 sentences"
+        - "Write test with abbreviation (e.g., 'Dr. Smith said hello. This is the end.')"
+      green:
+        - "Create validate_sentence_count() function that extracts prose section"
+        - "Use regex SENTENCE_BOUNDARY_PATTERN = r'[.!?]+' to find sentence ends"
+        - "Count sentence boundaries; handle multiple punctuation marks (.? or !!) as single boundary"
+        - "Raise ValueError if count != 2 and count != 3"
+      refactor:
+        - "Extract sentence boundary pattern as constant SENTENCE_BOUNDARY_PATTERN"
+        - "Handle edge cases: multiple punctuation marks, trailing whitespace, ellipsis (...)"
+        - "Improve error message: show detected sentence count and boundaries"
+        - "Add debug logging: log extracted sentences for validation"
+    estimatedEffort: "1.5h"
+
+  - id: "task-4"
+    phaseId: "phase-1"
+    title: "Test and implement prose length and encoding validation"
+    description: >
+      Validate prose length (100-300 characters for prose section), UTF-8 encoding, and
+      blank line separator between heading and prose. Combine all validation checks into
+      single validate_content() function. Raise ValueError with details if any check fails.
+    state: "Todo"
+    dependencies:
+      - "task-3"
+    acceptanceCriteria:
+      - "Function validate_content() combines all heading, sentence, length, and encoding checks"
+      - "Function validates prose section is 100-300 characters"
+      - "Function validates UTF-8 encoding (no BOM, valid bytes)"
+      - "Function validates blank line exists between heading and prose"
+      - "Function returns True if all validations pass"
+      - "Function raises ValueError with specific error message for each validation failure"
+      - "Function logs all validation steps (debug level on success, error level on failure)"
+    tdd:
+      red:
+        - "Write test that calls validate_content() with valid content, asserts returns True"
+        - "Write test that asserts validate_content() raises ValueError for prose < 100 chars"
+        - "Write test that asserts validate_content() raises ValueError for prose > 300 chars"
+        - "Write test that asserts validate_content() raises ValueError for invalid UTF-8"
+        - "Write test that asserts validate_content() raises ValueError if no blank line after heading"
+      green:
+        - "Create validate_content() function that chains all validation checks"
+        - "Call validate_heading(), validate_sentence_count() from previous tasks"
+        - "Add prose length check: extract prose section, count characters, validate 100 <= len <= 300"
+        - "Add encoding check: verify content is valid UTF-8 (decode attempt)"
+        - "Add blank line check: verify '\\n\\n' exists between heading and prose"
+        - "Return True only if all checks pass"
+        - "Raise ValueError with context: which check failed, expected vs actual"
+      refactor:
+        - "Extract length validation bounds as constants PROSE_MIN_LENGTH=100, PROSE_MAX_LENGTH=300"
+        - "Extract blank line pattern as constant BLANK_LINE_PATTERN"
+        - "Consolidate error messages: use structured format with check name and details"
+        - "Add comprehensive debug logging for each validation step"
+    estimatedEffort: "1.5h"
+
+  - id: "task-5"
+    phaseId: "phase-2"
+    title: "Test and implement file creation with pathlib and explicit encoding"
+    description: >
+      Create test-kp1fm3.md file in repository root using pathlib.Path.write_text() with
+      explicit UTF-8 encoding (no BOM) and LF line endings. Verify file exists and contains
+      expected content with correct encoding and line endings.
+    state: "Todo"
+    dependencies:
+      - "task-4"
+    acceptanceCriteria:
+      - "Function accepts content string and filename as parameters"
+      - "Function creates file in repository root only (relative path, no directory traversal)"
+      - "Function uses pathlib.Path.write_text(encoding='utf-8')"
+      - "Function verifies file exists after creation"
+      - "Function verifies file contains exact content (no extra bytes)"
+      - "Function verifies UTF-8 encoding without BOM"
+      - "Function verifies LF line endings (not CRLF)"
+      - "Function raises IOError if file creation fails"
+    tdd:
+      red:
+        - "Write test that calls create_markdown_file() and asserts file exists at expected path"
+        - "Write test that reads file back and asserts content matches input"
+        - "Write test that opens file in binary mode and verifies no UTF-8 BOM (first 3 bytes != EF BB BF)"
+        - "Write test that verifies file contains '\\n' (LF) not '\\r\\n' (CRLF)"
+      green:
+        - "Create create_markdown_file() function that takes content and filename parameters"
+        - "Use pathlib.Path(filename).write_text(content, encoding='utf-8')"
+        - "Add file existence check: Path(filename).exists()"
+        - "Add content verification: read back and assert matches input"
+        - "Raise IOError if file creation fails"
+      refactor:
+        - "Extract file path resolution as helper: ensure repository root only (security check)"
+        - "Add detailed logging: file path, size, encoding, line ending verification"
+        - "Improve error messages: include file path and encoding details"
+    estimatedEffort: "1h"
+
+  - id: "task-6"
+    phaseId: "phase-2"
+    title: "Test and implement git staging (git add)"
+    description: >
+      Stage the created file in git index using subprocess.run() to execute `git add test-kp1fm3.md`.
+      Verify file is staged by checking git status output. Raise subprocess.CalledProcessError if
+      git add fails.
+    state: "Todo"
+    dependencies:
+      - "task-5"
+    acceptanceCriteria:
+      - "Function accepts filename as parameter"
+      - "Function executes 'git add <filename>' via subprocess.run()"
+      - "Function verifies file is staged using 'git status --short'"
+      - "Function returns True if file successfully staged"
+      - "Function raises subprocess.CalledProcessError if git add fails"
+      - "Function logs git command and output for debugging"
+      - "Function captures and logs stderr for error diagnosis"
+    tdd:
+      red:
+        - "Write test that calls stage_file_in_git() and asserts return value is True"
+        - "Write test that runs 'git status --short' and asserts output contains 'A  test-kp1fm3.md' (staged)"
+        - "Write test that mocks subprocess to return non-zero exit code, asserts raises CalledProcessError"
+      green:
+        - "Create stage_file_in_git() function that takes filename parameter"
+        - "Execute subprocess.run(['git', 'add', filename], check=True, capture_output=True)"
+        - "Verify staging: subprocess.run(['git', 'status', '--short'], capture_output=True)"
+        - "Assert 'A  <filename>' appears in status output"
+        - "Return True on success; raise CalledProcessError on failure"
+      refactor:
+        - "Extract git command execution as helper: run_git_command(cmd_list)"
+        - "Add structured logging: command, return code, stdout, stderr"
+        - "Improve error messages: show git output for debugging"
+    estimatedEffort: "1h"
+
+  - id: "task-7"
+    phaseId: "phase-2"
+    title: "Test and implement git commit with conventional message"
+    description: >
+      Commit the staged file with conventional commit message format: \"feat(292): create markdown
+      file test-kp1fm3.md with prose content\". Use subprocess.run() to execute git commit.
+      Verify commit was created by checking git log. Raise subprocess.CalledProcessError if commit fails.
+    state: "Todo"
+    dependencies:
+      - "task-6"
+    acceptanceCriteria:
+      - "Function accepts filename as parameter"
+      - "Function constructs commit message: 'feat(292): create markdown file <filename> with prose content'"
+      - "Function executes 'git commit -m <message>' via subprocess.run()"
+      - "Function verifies commit was created using 'git log --oneline -1'"
+      - "Function returns True if commit successfully created"
+      - "Function raises subprocess.CalledProcessError if git commit fails"
+      - "Function logs commit message and git log output for verification"
+      - "Commit message matches conventional commits specification (feat: prefix)"
+    tdd:
+      red:
+        - "Write test that calls commit_file_in_git() and asserts return value is True"
+        - "Write test that runs 'git log --oneline -1' and asserts message starts with 'feat(292)'"
+        - "Write test that mocks subprocess to return non-zero exit code, asserts raises CalledProcessError"
+      green:
+        - "Create commit_file_in_git() function that takes filename parameter"
+        - "Construct message: f'feat(292): create markdown file {filename} with prose content'"
+        - "Execute subprocess.run(['git', 'commit', '-m', message], check=True, capture_output=True)"
+        - "Verify commit: subprocess.run(['git', 'log', '--oneline', '-1'], capture_output=True)"
+        - "Assert message appears in log output"
+        - "Return True on success; raise CalledProcessError on failure"
+      refactor:
+        - "Extract commit message template as constant COMMIT_MESSAGE_TEMPLATE"
+        - "Add formatted logging: show constructed message before executing commit"
+        - "Improve error messages: show git log output for verification"
+    estimatedEffort: "1h"
+
+  - id: "task-8"
+    phaseId: "phase-2"
+    title: "Test and implement git push to feature branch"
+    description: >
+      Push the commit to feature branch `feat/292-markdown-file-creation-a7c367` using
+      subprocess.run() to execute `git push -u origin <branch>`. Verify push was successful
+      by checking git status. Raise subprocess.CalledProcessError if push fails.
+    state: "Todo"
+    dependencies:
+      - "task-7"
+    acceptanceCriteria:
+      - "Function accepts branch name as parameter"
+      - "Function executes 'git push -u origin <branch>' via subprocess.run()"
+      - "Function verifies push was successful using 'git status -sb'"
+      - "Function returns True if push successfully completed"
+      - "Function raises subprocess.CalledProcessError if git push fails"
+      - "Function logs git command and output for verification"
+      - "Function captures and logs stderr (useful for auth/network errors)"
+      - "Push targets correct feature branch (feat/292-markdown-file-creation-a7c367)"
+    tdd:
+      red:
+        - "Write test that calls push_to_branch() and asserts return value is True"
+        - "Write test that runs 'git status -sb' and asserts branch is up-to-date with origin"
+        - "Write test that mocks subprocess to return non-zero exit code, asserts raises CalledProcessError"
+      green:
+        - "Create push_to_branch() function that takes branch name parameter"
+        - "Execute subprocess.run(['git', 'push', '-u', 'origin', branch], check=True, capture_output=True)"
+        - "Verify push: subprocess.run(['git', 'status', '-sb'], capture_output=True)"
+        - "Assert status output shows branch tracking origin (e.g., '[origin/<branch>]')"
+        - "Return True on success; raise CalledProcessError on failure"
+      refactor:
+        - "Extract push command construction as helper function"
+        - "Add structured logging: branch name, push command, status output"
+        - "Improve error messages: show git status and stderr for debugging network/auth issues"
+    estimatedEffort: "1h"
+
+totalEstimate: "10h"
+
 openQuestions: []
 
-# Markdown content (the full tasks document)
 content: |
-  ## Status
+  ## Task Breakdown Summary
 
-  - **Phase:** Implementation
-  - **Updated:** 2026-03-31
+  Feature 292 is implemented in 8 focused tasks across 2 sequential phases:
 
-  ## Task List
+  ### Phase 1: Content Generation and Validation (Tasks 1-4)
 
-  TBD
+  **Task 1**: Generate markdown content using Claude API with retry logic
+  - Calls Claude API with structured prompt requesting H1 heading + 2-3 sentences
+  - Implements exponential backoff (1s, 2s, 4s) for transient failures
+  - Returns generated content or raises exception after max retries
+
+  **Task 2**: Validate heading structure
+  - Checks content starts with `# ` followed by non-empty title
+  - Ensures exactly one H1 heading (not multiple, not wrong level)
+  - Raises ValueError if heading format invalid
+
+  **Task 3**: Validate sentence count
+  - Counts sentences using regex sentence boundary detection
+  - Ensures exactly 2 or 3 sentences in prose section
+  - Handles edge cases (abbreviations, multiple punctuation marks)
+
+  **Task 4**: Validate prose length and encoding
+  - Combines all validation checks into single function
+  - Verifies prose is 100-300 characters
+  - Verifies UTF-8 encoding (no BOM)
+  - Verifies blank line separator between heading and prose
+  - Only succeeds if all checks pass
+
+  ### Phase 2: File Creation and Git Integration (Tasks 5-8)
+
+  **Task 5**: Create markdown file using pathlib
+  - Uses `pathlib.Path.write_text(encoding='utf-8')` for explicit UTF-8 without BOM
+  - Ensures LF (not CRLF) line endings
+  - Verifies file exists and contains expected content
+
+  **Task 6**: Stage file in git (`git add`)
+  - Executes `git add test-kp1fm3.md` via subprocess
+  - Verifies file appears in `git status --short` with 'A' flag (staged)
+
+  **Task 7**: Commit with conventional message (`git commit`)
+  - Message format: `feat(292): create markdown file test-kp1fm3.md with prose content`
+  - Verifies commit appears in `git log --oneline`
+
+  **Task 8**: Push to feature branch (`git push`)
+  - Executes `git push -u origin feat/292-markdown-file-creation-a7c367`
+  - Verifies branch tracking status via `git status -sb`
+
+  ## Task Dependencies
+
+  ```
+  Task 1 (Content Generation)
+    ↓
+  Task 2 (Heading Validation)
+    ↓
+  Task 3 (Sentence Count Validation)
+    ↓
+  Task 4 (Full Content Validation)
+    ↓
+  Task 5 (File Creation)
+    ↓
+  Task 6 (Git Add)
+    ↓
+  Task 7 (Git Commit)
+    ↓
+  Task 8 (Git Push)
+  ```
+
+  All tasks are sequentially dependent (each depends on previous success).
+
+  ## TDD Cycle Pattern
+
+  Each task follows TDD:
+  1. **RED**: Write tests that assert desired behavior (tests fail initially)
+  2. **GREEN**: Implement minimal code to pass tests
+  3. **REFACTOR**: Improve implementation (extract constants, enhance logging, better error messages)
+
+  Non-code tasks like documentation would use `tdd: null`.
+
+  ## Effort Breakdown
+
+  | Phase | Tasks | Effort | Rationale |
+  | ----- | ----- | ------ | --------- |
+  | Phase 1: Content Generation & Validation | 1-4 | 6h | Content generation (2h) + three validation tasks (1h, 1.5h, 1.5h) |
+  | Phase 2: File Creation & Git Integration | 5-8 | 4h | File creation (1h) + three git operations (1h, 1h, 1h) |
+  | **Total** | **8 tasks** | **10h** | Includes test writing, implementation, and refactoring |
+
+  **Notes:**
+  - Effort includes writing tests (RED), implementation (GREEN), and refactoring
+  - Does not include integration testing or manual verification
+  - Time estimates are conservative (include potential debugging)
+  - Actual execution may be faster (~5-15 minutes) due to parallelizable git operations and simple implementation
+
+  ## Success Criteria Coverage
+
+  Each task addresses specific success criteria from the feature spec:
+
+  | Task | Success Criteria Addressed |
+  | ---- | -------------------------- |
+  | 1 | Generated content with heading and 2-3 sentences |
+  | 2 | File contains exactly one markdown heading |
+  | 3 | File contains 2-3 sentences of prose |
+  | 4 | File uses valid CommonMark syntax; UTF-8 encoding; ~400-600 bytes |
+  | 5 | File exists in root; uses UTF-8 with LF line endings |
+  | 6 | File is staged in git |
+  | 7 | Commit with conventional message created |
+  | 8 | Commit pushed to feature branch |
 
   ---
 
-  _Task breakdown for implementation tracking_
+  _Task breakdown complete. All 8 tasks sequentially ordered with clear dependencies,
+  acceptance criteria, and TDD cycles. Ready for implementation phase._

@@ -1,35 +1,274 @@
-# Implementation Plan (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
+name: "markdown-file-creation-a7c367"
+summary: >
+  Implementation plan for feature 292: Create markdown file test-kp1fm3.md with H1 heading
+  and 2-3 sentences of prose. Uses Claude API for content generation, pathlib for file I/O
+  with explicit UTF-8/LF encoding, comprehensive validation, and standard git workflow.
+  Pattern proven across 290+ identical features.
 
-name: markdown-file-creation-a7c367
-summary: Implementation plan for 292-markdown-file-creation-a7c367
+relatedFeatures:
+  - "291-markdown-file-creation-582d39"
+  - "290-markdown-file-creation-a37215"
+  - "289-markdown-file-creation"
 
-# Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+technologies:
+  - "Python 3.11+"
+  - "pathlib.Path (file I/O)"
+  - "Claude API (content generation)"
+  - "subprocess (git integration)"
+  - "regex (validation)"
 
-# Structured implementation phases
-phases: []
+relatedLinks:
+  - title: "CommonMark Markdown Specification"
+    url: "https://spec.commonmark.org/"
+  - title: "Python pathlib documentation"
+    url: "https://docs.python.org/3/library/pathlib.html"
+  - title: "Anthropic Claude API"
+    url: "https://docs.anthropic.com/"
 
-# File change tracking
-filesToCreate: []
+phases:
+  - id: "phase-1"
+    name: "Content Generation and Validation"
+    description: >
+      Generate markdown content using Claude API with retry logic, then validate the output
+      to ensure it meets all structural and quality requirements before file creation.
+      This phase prioritizes correctness through comprehensive validation before commitment
+      to the file system or git repository.
+    parallel: false
+
+  - id: "phase-2"
+    name: "File Creation and Git Integration"
+    description: >
+      Create the validated markdown file using pathlib with explicit UTF-8 encoding and LF
+      line endings, then perform the complete git workflow (stage, commit with conventional
+      message, push to feature branch). This phase executes only after validation succeeds.
+    parallel: false
+
+filesToCreate:
+  - "test-kp1fm3.md"
+
 filesToModify: []
 
-# Open questions (should all be resolved before implementation)
 openQuestions: []
 
-# Markdown content (the full plan document)
 content: |
-  ## Status
+  ## Architecture Overview
 
-  - **Phase:** Planning
-  - **Updated:** 2026-03-31
+  This feature follows the established Sheep automated implementation pattern proven across
+  290+ identical markdown-file-creation features (291, 290, 289, ... 069). The architecture
+  consists of four key components orchestrated sequentially:
+
+  ### 1. Content Generation (Claude API)
+
+  Uses `sheep.config.llm` module to call Claude API with a structured prompt requesting:
+  - A markdown H1 heading (# Title)
+  - Exactly 2-3 sentences of prose content
+  - Natural language (not code or technical jargon)
+
+  The Claude API provides semantic coherence and variety across the 290+ test files.
+  Includes retry logic with exponential backoff (max 3 attempts, 1-4 second delays) to
+  handle transient network failures.
+
+  ### 2. Content Validation
+
+  Four sequential validation checks (all must pass before proceeding):
+  - **Heading structure**: Validates `^# ` prefix and non-empty title
+  - **Sentence count**: Uses regex to detect exactly 2-3 sentences via sentence boundaries
+  - **Prose length**: Validates prose portion is 100-300 characters
+  - **Encoding**: Verifies UTF-8 encoding compliance
+
+  Validation catches generation errors early (fail-fast principle). If any check fails,
+  retry Claude API up to 3 times. If final attempt fails, halt with clear error message.
+
+  ### 3. File Creation (pathlib)
+
+  Uses `pathlib.Path(filename).write_text(content, encoding='utf-8')` to create the file:
+  - Explicit `encoding='utf-8'` ensures UTF-8 without Byte Order Mark (BOM)
+  - Line endings: Python's `\n` characters are written as-is (Unix LF on all platforms)
+  - No directory creation or modification — file created in repository root only
+  - No existing file overwriting — git operations will fail if file already exists
+
+  ### 4. Git Workflow (subprocess)
+
+  Three sequential subprocess calls to standard git commands:
+  1. `git add test-kp1fm3.md` — stage file in index
+  2. `git commit -m "feat(292): create markdown file test-kp1fm3.md with prose content"` — commit with conventional message
+  3. `git push -u origin feat/292-markdown-file-creation-a7c367` — push to feature branch
+
+  Uses subprocess for consistency with Sheep project patterns (no external git library
+  dependencies). Error handling via return code checking. Stderr captured for debugging.
+
+  ## Key Design Decisions
+
+  ### Decision 1: Claude API for Content Generation
+
+  **Chosen:** Claude API via `sheep.config.llm` with structured prompts (existing pattern)
+
+  **Rejected alternatives:**
+  - Hard-coded content — inflexible, doesn't scale to 290+ features, violates DRY principle
+  - Random/template content — lacks semantic coherence, harder to validate quality
+
+  **Rationale:**
+  The existing `sheep.config.llm` module provides production-hardened Claude API integration.
+  Using structured prompts ensures each generated heading and prose is unique, semantically
+  coherent, and thematically appropriate. This approach is proven across all 290+ prior
+  markdown-file-creation features and is already integrated into Sheep's observability
+  (logging, tracing via Langfuse) and error handling infrastructure.
+
+  ### Decision 2: pathlib.Path.write_text() with Explicit UTF-8
+
+  **Chosen:** `pathlib.Path(filename).write_text(content, encoding='utf-8')`
+
+  **Rejected alternatives:**
+  - Python `open()` with manual encoding — equivalent functionality, more boilerplate
+  - Bash/shell script — platform differences in line ending handling, less portable
+
+  **Rationale:**
+  Spec explicitly requires "Python pathlib (file I/O)". pathlib provides a clean, modern
+  API; avoids context manager boilerplate; and is Python 3.11+ standard library (zero
+  external dependencies). Explicit `encoding='utf-8'` parameter guarantees UTF-8 without
+  BOM by Python's codec design.
+
+  ### Decision 3: Comprehensive Validation Before File Creation
+
+  **Chosen:** Multi-stage validation (heading, sentence count, prose length, encoding)
+
+  **Rejected alternatives:**
+  - Minimal validation — risks invalid output, harder debugging
+  - No validation — violates spec requirements
+
+  **Rationale:**
+  Validation ensures output meets all nine success criteria before touching file system
+  or git. Early detection of generation errors enables retry logic within same attempt.
+  Comprehensive error messages support troubleshooting. This pattern is proven across
+  all 290+ prior features and significantly reduces post-commit issues.
+
+  ### Decision 4: subprocess for Git Operations
+
+  **Chosen:** `subprocess.run()` for git add, commit, push (standard pattern)
+
+  **Rejected alternatives:**
+  - GitPython library — adds external dependency, unnecessary abstraction
+  - Custom git tools — reinvents existing infrastructure
+
+  **Rationale:**
+  Git is guaranteed to be available (feature branch workflow requires it). subprocess
+  is Python stdlib. Pattern matches Sheep codebase (used throughout for orchestration).
+  Standard git commands are well-documented, easy to debug, and require no additional
+  abstractions. Error handling via return codes is straightforward.
+
+  ### Decision 5: Explicit LF Line Endings (Platform-Agnostic)
+
+  **Chosen:** Write with explicit `\n` characters in Python (pathlib handles platform-agnostic)
+
+  **Rejected alternatives:**
+  - `.gitattributes` normalization — less explicit, harder to guarantee across platforms
+  - `os.linesep` — platform-dependent (CRLF on Windows), violates spec requirement for LF
+
+  **Rationale:**
+  Spec explicitly requires "File uses LF (Unix-style) line endings, not CRLF". Using
+  explicit `\n` in Python is platform-agnostic by design. Python always treats `\n`
+  as logical newline internally; pathlib.write_text() writes exactly what's specified.
+  This approach is simpler, more explicit, and guaranteed to work across all platforms.
+
+  ### Decision 6: Retry Logic with Exponential Backoff
+
+  **Chosen:** Retry on API failures (max 3 attempts, 1-4 second delays)
+
+  **Rejected alternatives:**
+  - Fail immediately — poor UX, doesn't handle transient network failures
+  - Infinite retries — could hang indefinitely, violates timeout expectations
+
+  **Rationale:**
+  Claude API calls experience transient failures (network timeouts, brief rate limiting).
+  Exponential backoff (1s, 2s, 4s) provides robustness while respecting timeout budgets.
+  Total max wait: 7 seconds before permanent failure. Logged at each attempt for
+  observability. This pattern is proven across all 290+ features.
+
+  ### Decision 7: UTF-8 Without BOM
+
+  **Chosen:** `encoding='utf-8'` (default) — guarantees UTF-8 without BOM
+
+  **Rejected alternatives:**
+  - `encoding='utf-8-sig'` — explicitly writes BOM, violates spec
+  - Manual byte-level handling — unnecessary, Python codec handles correctly
+
+  **Rationale:**
+  Python's `utf-8` codec (without '-sig' suffix) writes UTF-8 without BOM by design.
+  The 'utf-8-sig' variant adds BOM for Windows compatibility (not needed here).
+  Spec explicitly requires "File encoding must be UTF-8 without Byte Order Mark (BOM)".
+  Using `encoding='utf-8'` is the correct, simplest approach.
 
   ## Implementation Strategy
 
-  TBD
+  ### Phase Ordering Rationale
+
+  The two-phase approach follows a "validate-then-commit" pattern:
+
+  1. **Content Generation and Validation First** (Phase 1)
+     - Performs all quality checks before touching file system or git
+     - Enables retry loop (regenerate on validation failure) without side effects
+     - Ensures file system and git repository see only valid output
+     - Fail-fast principle: catch generation errors within API loop
+
+  2. **File Creation and Git Integration Second** (Phase 2)
+     - Executes only after Phase 1 succeeds
+     - Simple file I/O and git operations (no complex logic)
+     - No rollback needed if git operations succeed (append-only files + commits)
+     - Clear, sequential git workflow mirrors established patterns
+
+  ### No Parallelization
+
+  All tasks are sequential because:
+  - Content generation must complete before validation
+  - Validation must pass before file creation
+  - File must exist before git operations
+  - Git operations depend on previous git state
+
+  ## Risk Mitigation
+
+  | Risk | Probability | Mitigation |
+  | ---- | ----------- | ---------- |
+  | Claude API timeout/failure | Low | Retry logic with exponential backoff (max 3 attempts, 7s total wait). Clear error messages on final failure. Logged for observability. |
+  | Generated content invalid | Low | Comprehensive validation (heading, sentence count, length, encoding) before file creation. Fails fast and retries generation. |
+  | File already exists | Low | Git operations will fail with clear error if file already exists. Not overwritten. |
+  | Git configuration missing | Low | Spec requirement: "standard git configuration (user.name, user.email) must be set up". Failure will be caught at `git commit` stage with clear error. |
+  | Platform-specific line endings | Low | Explicit `\n` in Python avoids `os.linesep` platform differences. Guaranteed LF on all platforms. |
+  | Encoding issues (BOM, charset) | Very Low | Explicit `encoding='utf-8'` parameter with Python's codec guarantees UTF-8 without BOM. No manual byte handling. |
+  | Git push failure (network/auth) | Low | Git push errors are reported with full stderr. Feature branch (not main) limits impact. User can retry manually. |
+  | Race condition (file modified between check and write) | Very Low | File check-then-write happens atomically in pathlib.write_text(). Subsequent git add will catch any issues. |
+
+  ## Success Criteria Met
+
+  The implementation plan directly addresses all nine success criteria from the spec:
+
+  1. ✅ File `test-kp1fm3.md` exists in repository root (Phase 2: File Creation)
+  2. ✅ File contains exactly one markdown heading (`#`) (Phase 1: Validation)
+  3. ✅ File contains 2-3 sentences of prose (Phase 1: Validation + Content Generation)
+  4. ✅ File uses valid CommonMark syntax (Phase 1: Validation)
+  5. ✅ File uses UTF-8 encoding with LF line endings (Phase 2: File Creation with pathlib)
+  6. ✅ File is 400-600 bytes (Phase 1: Prose length validation 100-300 chars + heading)
+  7. ✅ File is staged in git (Phase 2: `git add`)
+  8. ✅ Commit with conventional message exists (Phase 2: `git commit`)
+  9. ✅ Commit is pushed to feature branch (Phase 2: `git push`)
+
+  ## Implementation Complexity & Effort
+
+  **Size Estimate: S (Small)**
+  - **Content Generation**: 2-5 seconds (Claude API latency)
+  - **Validation**: <1 second (regex matching)
+  - **File Creation**: <1ms (single pathlib write)
+  - **Git Workflow**: 1-5 seconds (network-dependent push)
+  - **Total**: ~5-15 seconds execution; 10-15 minutes wall-clock (including potential retries)
+
+  Justification:
+  - Well-established pattern with 90+ identical test files as precedent
+  - No architectural decisions; all choices proven across 290+ implementations
+  - Single file with minimal, well-understood content format
+  - Flexible topic selection (no research needed)
+  - Pre-specified filename eliminates naming decisions
+  - Mechanical git workflow with no complexity
 
   ---
 
-  _To be updated during planning phase_
+  _Planning phase complete. Architecture, design decisions, and phasing documented.
+  Ready for task breakdown and implementation._
