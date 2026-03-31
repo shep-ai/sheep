@@ -68,6 +68,95 @@ def generate_markdown_content() -> str:
         raise
 
 
+def validate_prose_content(
+    prose: str | None,
+    lenient: bool = True,
+    min_length: int = 100,
+    max_length: int = 500,
+    min_sentences: int = 2,
+    max_sentences: int = 3,
+) -> bool:
+    """
+    Validate prose content for quality and length requirements.
+
+    Performs lenient validation that checks:
+    - Prose is not empty or None
+    - Prose contains at least min_sentences sentence-ending punctuation marks
+    - Prose is between min_length and max_length characters
+    - In lenient mode, accepts variation beyond strict 2-3 sentence range
+
+    Args:
+        prose: The prose content to validate.
+        lenient: If True (default), accepts natural LLM variation (2-4 sentences).
+                If False, enforces strict 2-3 sentence range.
+        min_length: Minimum character length (default: 100).
+        max_length: Maximum character length (default: 500).
+        min_sentences: Minimum sentence count (default: 2).
+        max_sentences: Maximum sentence count in strict mode (default: 3).
+
+    Returns:
+        True if prose passes validation, False otherwise.
+
+    Note:
+        Sentence counting is lenient and counts sentence-ending punctuation (. ! ?).
+        It does not attempt to detect sentence boundaries precisely, which avoids
+        false negatives from abbreviations like "Mr." or "Dr.".
+    """
+    # Handle None or empty
+    if prose is None or not isinstance(prose, str):
+        _logger.debug("Prose validation failed: input is None or not a string")
+        return False
+
+    # Strip whitespace for validation
+    prose_stripped = prose.strip()
+
+    if not prose_stripped:
+        _logger.debug("Prose validation failed: prose is empty after stripping")
+        return False
+
+    # Check length
+    prose_length = len(prose_stripped)
+    if prose_length < min_length:
+        _logger.debug(
+            f"Prose validation failed: too short ({prose_length} < {min_length})"
+        )
+        return False
+
+    if not lenient and prose_length > max_length:
+        _logger.debug(
+            f"Prose validation failed: too long ({prose_length} > {max_length})"
+        )
+        return False
+
+    # Count sentences (by sentence-ending punctuation)
+    sentence_count = prose_stripped.count(".") + prose_stripped.count(
+        "!"
+    ) + prose_stripped.count("?")
+
+    if sentence_count < min_sentences:
+        _logger.debug(
+            f"Prose validation failed: insufficient sentences ({sentence_count} < {min_sentences})"
+        )
+        return False
+
+    if lenient:
+        # In lenient mode, allow up to 4 sentences (natural LLM variation)
+        if sentence_count > 4:
+            _logger.debug(
+                f"Prose validation warning: many sentences ({sentence_count}), "
+                "accepting in lenient mode"
+            )
+    else:
+        if sentence_count > max_sentences:
+            _logger.debug(
+                f"Prose validation failed: too many sentences ({sentence_count} > {max_sentences})"
+            )
+            return False
+
+    _logger.debug(f"Prose validation passed: {sentence_count} sentences, {prose_length} chars")
+    return True
+
+
 def _validate_markdown_content(content: str) -> None:
     """
     Validate that generated content meets markdown format requirements.
@@ -124,8 +213,9 @@ def write_markdown_file(content: str, filename: str) -> str:
     _logger.info(f"Writing markdown file to {file_path}")
 
     try:
-        # Write file with UTF-8 encoding (handles LF line endings on Unix)
-        with open(file_path, "w", encoding="utf-8") as f:
+        # Write file with UTF-8 encoding and explicit LF line ending (newline='')
+        # This ensures Unix LF (\n) line endings even on Windows
+        with open(file_path, "w", encoding="utf-8", newline="") as f:
             f.write(content)
 
         # Verify file was created
