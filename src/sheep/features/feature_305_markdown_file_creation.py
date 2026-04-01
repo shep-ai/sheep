@@ -60,7 +60,7 @@ def create_feature_305_markdown_file(repo_path: str | None = None) -> dict[str, 
     try:
         # Call orchestration function from content_generators
         result = create_markdown_file(
-            MARKDOWN_FILENAME, repo_path=repo_path, feature_number=FEATURE_NUMBER
+            filename=MARKDOWN_FILENAME, repo_path=repo_path, feature_number=FEATURE_NUMBER
         )
 
         _logger.info(
@@ -74,10 +74,26 @@ def create_feature_305_markdown_file(repo_path: str | None = None) -> dict[str, 
         raise
 
 
+def main() -> int:
+    """
+    Execute feature 305 as a standalone task.
+
+    Returns:
+        0 on success, 1 on failure.
+    """
+    try:
+        result = create_feature_305_markdown_file()
+        _logger.info(f"Feature {FEATURE_NUMBER} completed successfully")
+        print("Feature 305 created successfully:")
+        print(f"  File: {result['filepath']}")
+        print(f"  Size: {len(result['content'])} bytes")
+        print(f"  Message: {result['commit_message']}")
+        return 0
+    except Exception as e:
+        _logger.error(f"Feature {FEATURE_NUMBER} failed: {e}")
+        print(f"Error: Failed to create feature {FEATURE_NUMBER}: {e}")
+        return 1
+
+
 if __name__ == "__main__":
-    """Execute feature 305 when run as a script."""
-    result = create_feature_305_markdown_file()
-    print("Feature 305 created successfully:")
-    print(f"  File: {result['filepath']}")
-    print(f"  Size: {len(result['content'])} bytes")
-    print(f"  Message: {result['commit_message']}")
+    exit(main())
