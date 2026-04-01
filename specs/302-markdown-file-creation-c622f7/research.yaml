@@ -1,0 +1,388 @@
+name: "markdown-file-creation-c622f7"
+summary: >
+  Feature 302 leverages fully-proven infrastructure from 300+ prior features.
+  The technical approach is straightforward: wrap the existing `create_markdown_file()`
+  orchestration function (which handles content generation, validation, git operations)
+  in a thin feature module. All critical decisions already resolved via the spec's product questions.
+  No new dependencies or architectural changes required.
+
+relatedFeatures:
+  - 301
+  - 300
+  - 299
+
+technologies:
+  - "Python 3.x (pathlib, subprocess, logging standard library)"
+  - "CrewAI (LLM orchestration framework)"
+  - "Anthropic Claude API (reasoning model for content generation)"
+  - "Git CLI (subprocess-based git operations)"
+  - "Pydantic (validation and settings management)"
+
+relatedLinks:
+  - title: "Sheep Project Architecture"
+    url: "https://github.com/anthropics/sheep"
+  - title: "CrewAI Framework Documentation"
+    url: "https://crewai.com"
+  - title: "Anthropic Claude API"
+    url: "https://docs.anthropic.com"
+
+decisions:
+  - title: "Content Generation Strategy"
+    chosen: "Use existing `generate_markdown_content()` from `content_generators.py`"
+    rejected:
+      - "Implement inline content generation in feature module — violates DRY principle, duplicates proven logic across 300+ features, increases maintenance burden"
+      - "Use a different LLM provider or direct API call — breaks consistency with established CrewAI wrapper, requires new configuration management"
+      - "Generate static content instead of LLM — contradicts functional requirement FR-1, loses the coherence and contextual quality that LLM provides"
+    rationale: >
+      The `generate_markdown_content()` function in `content_generators.py` is battle-tested
+      across 300+ prior features. It uses the CrewAI LLM framework via `get_reasoning_llm()`
+      with configured temperature (0.2 for deterministic quality) and handles all validation
+      requirements: H1 heading format, 2-3 sentence structure, 50+ byte minimum, trailing newline.
+      Reusing this function ensures consistency, reduces code duplication, and guarantees
+      compliance with all content validation rules proven in production.
+
+  - title: "File Writing Approach"
+    chosen: "Use existing `write_markdown_file()` from `content_generators.py`"
+    rejected:
+      - "Write directly in feature module using built-in open() — bypasses established validation patterns, risk of missing UTF-8 or path traversal checks"
+      - "Use a file abstraction layer or ORM — adds unnecessary complexity, existing solution is simple and proven"
+      - "Stream content to disk — not needed for <1KB files, adds complexity without benefit"
+    rationale: >
+      The `write_markdown_file()` function handles path safety validation (prevents `../` traversal),
+      creates file at repo root using `pathlib.Path.cwd()`, uses UTF-8 encoding with proper
+      line ending handling, and verifies post-write that file exists and has content.
+      This pattern is proven across 300+ features and matches established conventions
+      in the codebase (pathlib for cross-platform compatibility).
+
+  - title: "Validation Strategy"
+    chosen: "Use existing `validate_markdown_file()` and `validate_file_properties()` functions"
+    rejected:
+      - "Skip validation and trust LLM output — violates requirement validation layer (FR-3 through FR-6), reduces data integrity guarantees, increases support burden if validation issues arise"
+      - "Implement custom validation in feature module — duplicates logic already optimized and tested, contradicts DRY principle"
+      - "Add additional metrics (flesch reading level, NLP analysis) — spec explicitly rejects extended validation; minimal validation is proven pattern"
+    rationale: >
+      Feature 302 spec resolves the validation question with clear guidance: use minimal validation
+      only (sentence count, coherence). The existing `validate_markdown_file()` function checks:
+      H1 heading format, blank line separator, 2-3 sentence count via period detection, UTF-8
+      encoding, LF line endings, trailing newline. The `validate_file_properties()` function
+      validates encoding/line endings separately. This layered approach (content validation +
+      property validation) is the proven pattern across 300+ features and meets all spec requirements.
+
+  - title: "Git Operations Orchestration"
+    chosen: "Use existing `commit_markdown_file()` and `push_markdown_file()` from `content_generators.py`"
+    rejected:
+      - "Call GitCommitTool and GitPushTool directly in feature module — creates unnecessary complexity, bypasses orchestration function that handles both operations atomically"
+      - "Use raw subprocess calls in feature module — reduces testability, duplicates code from content_generators.py and git_tools.py"
+      - "Implement retry logic with exponential backoff for push failures — spec explicitly rejects this; raising exception is proven pattern, allows user to handle failure explicitly"
+    rationale: >
+      The `create_markdown_file()` orchestration function handles the complete workflow:
+      it calls `commit_markdown_file()` which stages and commits, then calls `push_markdown_file()`
+      which pushes with upstream tracking (`-u` flag). Both functions use subprocess for git
+      operations and are wrapped by tools in git_tools.py. Error handling raises exceptions
+      on failure (per spec guidance), which matches the pattern in features 297-301. This
+      orchestration approach ensures atomicity: if push fails, the user is explicitly notified
+      and can retry or investigate the issue.
+
+  - title: "Feature Module Structure"
+    chosen: "Create thin wrapper module following feature_301 pattern: define constants, call orchestration function"
+    rejected:
+      - "Complex feature module with multiple helper functions — adds cognitive overhead, violates KISS principle, existing orchestration function handles all complexity"
+      - "No feature module (call create_markdown_file directly from CLI) — loses feature registry and makes progress tracking difficult"
+      - "Monolithic feature module bundling content generation, git, validation — duplicates existing modular design, harder to test and maintain"
+    rationale: >
+      Feature 301 establishes the proven pattern: define FEATURE_NUMBER and MARKDOWN_FILENAME
+      constants, then call `create_markdown_file()` with those parameters. This thin wrapper:
+      provides a consistent entry point for the feature system, allows logging at feature level,
+      maintains compatibility with existing feature registry and CI/CD pipeline, and keeps the
+      module focused (single responsibility: orchestrate via existing infrastructure). No new code
+      duplication because orchestration is centralized in content_generators.py.
+
+openQuestions: []
+
+content: |
+  ## Technical Architecture
+
+  Feature 302 implements markdown file creation using a proven, highly-optimized pattern
+  established over 300+ prior features. The implementation is straightforward: create a
+  feature module that wraps the existing `create_markdown_file()` orchestration function.
+
+  ### Overview
+
+  The workflow is fully automated end-to-end:
+
+  1. **Content Generation**: LLM generates markdown with H1 heading + 2-3 sentences
+  2. **File Writing**: Write to repository root with UTF-8, LF line endings
+  3. **Validation**: Verify markdown structure, encoding, line endings, file size
+  4. **Git Staging**: Stage file using `git add`
+  5. **Git Commit**: Create commit with conventional message format
+  6. **Git Push**: Push to remote with upstream tracking (`-u origin HEAD`)
+
+  All steps are orchestrated by the existing `create_markdown_file()` function in
+  `content_generators.py`, which is proven across 300+ prior features.
+
+  ## Technology Decisions
+
+  ### 1. LLM Framework: CrewAI with Anthropic Claude
+
+  **Chosen:** Use CrewAI framework via `get_reasoning_llm()` from `config/llm.py`
+
+  **Rejected:**
+  - Direct Anthropic API calls — loses the abstraction layer that allows provider switching,
+    creates coupling to Anthropic implementation details, adds API management boilerplate
+  - OpenAI or other providers — breaks consistency with established pattern, requires configuration changes
+  - Hardcoded model selection — violates settings management, reduces flexibility
+
+  **Rationale:** The `create_markdown_file()` orchestration function uses `get_reasoning_llm()`
+  which abstracts away LLM provider selection (via CrewAI). The reasoning model is configured
+  in `config/settings.py` with default temperature=0.2 for deterministic output. This pattern:
+  - Provides consistent behavior across all 300+ features
+  - Allows runtime model selection via settings (no code changes)
+  - Ensures API key management is centralized
+  - Integrates with CrewAI's tracing and observability
+
+  ### 2. Content Validation: Multi-Layer Approach
+
+  **Chosen:** Use existing `validate_markdown_file()` which validates both structure and properties
+
+  **Rejected:**
+  - Minimal validation (only sentence count) — insufficient, misses encoding/line ending bugs
+  - Extended validation with NLP metrics — spec resolves this: minimal validation is correct
+  - No validation, trust LLM output — risky, violates data integrity requirements
+
+  **Rationale:** The validation architecture has two layers:
+
+  **Layer 1: Content Validation (`_validate_markdown_content()` during generation)**
+  - Checks H1 heading format (`^# .+$`)
+  - Counts periods to verify 2-3 sentences
+  - Verifies 50+ byte minimum (meaningful content)
+  - Ensures no empty content
+
+  **Layer 2: File Property Validation (`validate_markdown_file()` after writing)**
+  - Verifies UTF-8 encoding (no BOM)
+  - Confirms LF line endings (not CRLF)
+  - Checks markdown structure (H1 heading, blank separator, prose)
+  - Validates trailing newline (Unix convention)
+  - Confirms file size >= 50 bytes
+
+  This two-layer approach is proven across 300+ features and ensures both content coherence
+  and file format compliance. The spec's product question explicitly endorses minimal validation
+  because "LLM-generated content consistently meets these without additional validators."
+
+  ### 3. File I/O: pathlib.Path for Cross-Platform Safety
+
+  **Chosen:** Use `pathlib.Path` for all filesystem operations
+
+  **Rejected:**
+  - `os.path` — less readable, more verbose path operations
+  - String concatenation — risk of incorrect separators on Windows
+  - Direct file operations without path abstraction — security risk
+
+  **Rationale:** `pathlib.Path` is the modern Python standard (PEP 519) and:
+  - Automatically handles path separators (`/` on Unix, `\` on Windows)
+  - Provides method-based API (`.exists()`, `.stat()`, `.cwd()`) that's clearer than `os` module
+  - Supports safe path operations preventing traversal attacks (checked in `write_markdown_file()`)
+  - Used consistently throughout the codebase
+
+  ### 4. Git Operations: Subprocess with Tool Abstraction
+
+  **Chosen:** Use `commit_markdown_file()` and `push_markdown_file()` from content_generators.py,
+  which wrap subprocess calls and CrewAI tools
+
+  **Rejected:**
+  - Direct subprocess calls — verbose, loses logging and error handling
+  - GitCommitTool/GitPushTool directly — loses orchestration abstraction, creates tight coupling
+  - Shell-based git (using shell=True) — security risk, not used in codebase
+
+  **Rationale:** The git operation functions in `content_generators.py`:
+  - Use subprocess with `text=True` for readable output, `check=True` for error detection
+  - Automatically determine current branch for push (no hardcoding)
+  - Set upstream tracking (`-u` flag) for proper branch association
+  - Provide detailed error messages and logging via `_logger`
+  - Match the pattern established in git_tools.py which all feature modules follow
+
+  Git push error handling (per spec): raise exception on failure. This preserves data
+  integrity and matches the existing error-handling pattern in the codebase.
+
+  ### 5. Commit Message Format: Conventional Commits
+
+  **Chosen:** Use format `feat(302): create markdown file test-k6bwm0.md with prose content`
+
+  **Rejected:**
+  - Custom format (e.g., "Feature 302 - Create markdown") — not machine-parseable, inconsistent with codebase
+  - Minimal message ("Create test-k6bwm0.md") — loses context and feature number
+  - Auto-generated from timestamp or random strings — less meaningful for humans
+
+  **Rationale:** Conventional Commits format is the standard across the Sheep codebase:
+  - Type: `feat` (feature creation)
+  - Scope: `(302)` (feature number for tracking)
+  - Description: specific action (create markdown file test-k6bwm0.md with prose content)
+  - Machine-parseable by tooling (CI/CD, release notes generation)
+  - Follows established pattern in features 297-301
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | CrewAI | LLM orchestration framework | Use (already in use) | Provides abstraction layer for multiple LLM providers, integrated with existing infrastructure, handles prompt templating and response parsing |
+  | Anthropic SDK | Claude API client | Use (via CrewAI) | Factory function `get_reasoning_llm()` encapsulates SDK usage; direct SDK calls not needed because CrewAI abstracts away details |
+  | pathlib | Cross-platform path operations | Use (standard library) | Modern Python standard for filesystem paths, prevents path traversal bugs, clearer API than `os.path` |
+  | subprocess | Execute git CLI | Use (standard library) | subprocess with `text=True, check=True` is safe, avoids shell injection, matches existing git_tools.py pattern |
+  | Pydantic | Settings validation and type checking | Use (already in use) | Enforces type safety for settings, API keys, configuration; existing integration via `config/settings.py` |
+  | logging | Structured logging | Use (existing wrapper via sheep.observability.logging) | Centralized logger configuration, supports structured logging (tags, context), matches codebase logging patterns |
+
+  ## Security Implications
+
+  ### 1. Path Traversal Prevention
+
+  **Risk:** Attacker could pass filename like `../../etc/passwd.md` to create files outside repo root
+
+  **Mitigation (in `write_markdown_file()`):**
+  Validation checks for path separators and relative paths before writing.
+  Feature 302 uses hardcoded filename `test-k6bwm0.md`, so path traversal
+  is not a concern. Validation is defensive for future features with dynamic filenames.
+
+  **Level of Concern:** Low.
+
+  ### 2. Git Command Injection
+
+  **Risk:** If commit message contained shell metacharacters, subprocess could be vulnerable
+
+  **Mitigation (in `commit_markdown_file()` and `git_commit()`):**
+  - Uses subprocess with `check=True, capture_output=True` (not shell=True)
+  - Message is passed as separate argument in list form
+  - Subprocess automatically escapes arguments, preventing shell injection
+
+  **Level of Concern:** Low. Feature 302 uses hardcoded message from constants, no user input.
+
+  ### 3. LLM Output Validation
+
+  **Risk:** LLM could generate unexpected content
+
+  **Mitigation:**
+  - Markdown files are static content, not executed
+  - Validation confirms markdown structure (H1, prose, no code blocks)
+  - File is readable only by repo author and collaborators (Git access control)
+
+  **Level of Concern:** Low. Feature 302 is creating static markdown, not executable code.
+
+  ### 4. UTF-8 Encoding Verification
+
+  **Risk:** File with incorrect encoding could be interpreted differently in different tools
+
+  **Mitigation (in `validate_file_properties()` and `validate_markdown_file()`):**
+  - Binary read to check for UTF-8 BOM
+  - Attempt UTF-8 decode to verify valid encoding
+  - Ensures file is valid UTF-8 without BOM (standard for markdown files)
+
+  **Level of Concern:** Low. Python's `open()` with `encoding=\"utf-8\"` ensures proper encoding.
+
+  ## Performance Implications
+
+  ### 1. LLM API Call (Dominant Cost)
+
+  **Concern:** Single LLM call for content generation is the main performance bottleneck
+
+  **Mitigation:**
+  - Uses `get_reasoning_llm()` configured with temperature=0.2 for deterministic, fast responses
+  - Single call (not iterative refinement or retries) for feature content
+  - Prompt is straightforward (not complex reasoning), fast token processing
+  - Expected latency: 2-5 seconds for typical Anthropic API response
+
+  **Spec Compliance:** NFR-2 requires feature complete within 15 minutes. Total time:
+  LLM call (2-5s) + file I/O (<100ms) + validation (<50ms) + git operations (1-2s) = ~5-10 seconds.
+
+  ### 2. File I/O Operations
+
+  **Concern:** Writing, validating, committing, pushing files involves multiple disk/network operations
+
+  **Analysis:**
+  - File write: <100ms (small file ~300-600 bytes)
+  - Binary validation read: <50ms (same file, already in OS cache)
+  - Text parsing for structure validation: <50ms (small string)
+  - Git add/commit: 500ms-2s (depends on repo size, typically fast)
+  - Git push: 1-5s (network latency to remote, small object transmission)
+
+  **Optimization:** None available (operations are sequential, not parallelizable).
+
+  ### 3. Validation Overhead
+
+  **Concern:** Multiple validation functions could be redundant
+
+  **Analysis:**
+  - Content validation during generation: validates structure before writing (fail fast)
+  - File property validation: validates encoding/line endings (defensive, low cost)
+  - Full markdown validation: validates all requirements (comprehensive, ~100ms)
+
+  **Optimization:** Current approach is already optimized. Fail-fast validation during generation
+  prevents writing invalid files. Post-write validation is comprehensive but efficient.
+
+  ## Architecture Notes
+
+  ### Integration with Existing Infrastructure
+
+  Feature 302 integrates cleanly with the Sheep architecture:
+
+  **1. Content Generators Module**
+  - Entry point: `create_markdown_file(filename, feature_number)`
+  - Orchestrates all steps: generate -> write -> validate -> commit -> push
+  - Existing, proven across 300+ features
+  - No modifications needed for feature 302
+
+  **2. LLM Configuration**
+  - LLM factory in `config/llm.py`: `get_reasoning_llm()`
+  - Settings-driven model selection (via `config/settings.py`)
+  - Anthropic Claude API configured with API key from environment
+  - Temperature=0.2 for deterministic output (no changes needed)
+
+  **3. Git Operations**
+  - Git tools in `tools/git_tools.py`: `GitCommitTool`, `GitPushTool`
+  - Content generators functions wrap these tools with error handling
+  - Subprocess calls with proper quoting, no shell execution
+  - Upstream tracking (-u flag) for proper branch association
+
+  **4. Logging and Observability**
+  - Centralized logger: `sheep.observability.logging.get_logger(__name__)`
+  - Structured logging with context (function name, operation stage)
+  - Error and debug logging throughout orchestration
+  - No new observability infrastructure needed
+
+  **5. Feature Module Pattern**
+  - Location: `src/sheep/features/feature_302_markdown_file_creation.py`
+  - Constants: `FEATURE_NUMBER`, `FEATURE_NAME`, `MARKDOWN_FILENAME`
+  - Function: `create_test_k6bwm0_markdown_file()` -> calls `create_markdown_file()`
+  - Main entry point: `main()` function for CLI invocation
+  - Error handling: try-except at feature level, explicit logging
+
+  ### Consistency with Prior Implementations
+
+  Feature 301 is the immediate predecessor and establishes the pattern that feature 302
+  follows exactly: constants defined at module level, feature-specific wrapper function
+  calling `create_markdown_file()`, and `main()` entry point for CLI.
+
+  Feature 302 follows this exact pattern with updated constants and filenames.
+
+  ## Implementation Checklist
+
+  - [ ] Create feature module: `src/sheep/features/feature_302_markdown_file_creation.py`
+  - [ ] Define constants: FEATURE_NUMBER=302, MARKDOWN_FILENAME=\"test-k6bwm0.md\"
+  - [ ] Define function: `create_test_k6bwm0_markdown_file()` calling `create_markdown_file()`
+  - [ ] Define `main()` entry point with try-except and logging
+  - [ ] Verify no other files modified
+  - [ ] Test: Run feature and verify output file exists with correct content
+  - [ ] Test: Verify git commit message matches spec
+  - [ ] Test: Verify file validation passes (UTF-8, LF, markdown structure)
+  - [ ] Test: Verify git push succeeds
+
+  ## Conclusion
+
+  Feature 302 is a straightforward implementation that reuses proven, battle-tested
+  infrastructure from 300+ prior features. The technical approach is clear:
+
+  1. Create thin feature module wrapping existing `create_markdown_file()` orchestration
+  2. No new dependencies, architecture changes, or security concerns
+  3. All validation, error handling, and git operations already implemented
+  4. Pattern established by feature 301 serves as direct reference implementation
+
+  The spec's product questions are already resolved with clear guidance (minimal validation,
+  raise exceptions on git failure), so implementation is a straightforward wrapper with no
+  decision points. Estimated effort: 5-15 minutes including testing (follows established convention).
