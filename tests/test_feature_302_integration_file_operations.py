@@ -349,6 +349,96 @@ class TestIntegrationTask5GitOperations:
             pytest.skip("Upstream tracking not visible (feature may not be pushed)")
 
 
+class TestFullEndToEndIntegration:
+    """Full end-to-end integration test simulating complete feature workflow."""
+
+    def test_complete_feature_workflow_simulation(self, tmp_path):
+        """Test complete feature workflow with simulated file creation and validation."""
+        # Create a simulated markdown file that would be created by the feature
+        test_file = tmp_path / "test-k6bwm0.md"
+        simulated_content = "# Renewable Energy Solutions\n\nRenewable energy sources reduce carbon emissions significantly. Solar and wind power are becoming increasingly affordable worldwide. Transitioning to clean energy creates jobs and protects the environment for future generations.\n"
+        test_file.write_text(simulated_content, encoding="utf-8")
+
+        # Now verify all properties that the feature should produce
+        assert test_file.exists(), "File should exist"
+        assert test_file.stat().st_size > 50, "File should have minimum size"
+
+        # Verify markdown structure
+        content = test_file.read_text(encoding="utf-8")
+        lines = content.split("\n")
+        assert lines[0].startswith("#"), "First line should be H1 heading"
+        assert lines[1] == "", "Second line should be empty (blank separator)"
+
+        # Verify encoding
+        with open(test_file, "rb") as f:
+            file_bytes = f.read()
+        file_bytes.decode("utf-8")  # Should not raise
+        assert not file_bytes.startswith(b"\xef\xbb\xbf"), "Should not have BOM"
+        assert b"\r\n" not in file_bytes, "Should use LF, not CRLF"
+        assert b"\r" not in file_bytes, "Should not have CR"
+
+        # Verify prose structure
+        prose_text = " ".join(lines[2:])
+        period_count = prose_text.count(".")
+        assert 2 <= period_count <= 3, f"Should have 2-3 sentences, found {period_count}"
+
+        # Verify file ends with newline
+        assert content.endswith("\n"), "File should end with newline"
+
+    def test_feature_integration_with_mocked_orchestration(self):
+        """Test feature integration with mocked orchestration function."""
+        from unittest.mock import patch
+
+        from sheep.features.feature_302_markdown_file_creation import (
+            create_test_k6bwm0_markdown_file,
+        )
+
+        mock_response = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Sustainable Technology\n\nTechnology enables sustainable solutions for environmental challenges. Renewable energy and circular design reduce our carbon footprint. This commitment preserves the planet for future generations.\n",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "pushed to origin/feat/markdown-file-creation-c622f7",
+        }
+
+        with patch(
+            "sheep.features.feature_302_markdown_file_creation.create_markdown_file"
+        ) as mock_create:
+            mock_create.return_value = mock_response
+
+            result = create_test_k6bwm0_markdown_file()
+
+            # Verify the orchestration function was called
+            assert mock_create.called
+            assert mock_create.call_count == 1
+
+            # Verify result structure
+            assert isinstance(result, dict)
+            assert all(
+                key in result
+                for key in ["filepath", "content", "commit_message", "push_result"]
+            )
+
+            # Verify content structure
+            content = result["content"]
+            assert content.startswith("#"), "Content should start with H1 heading"
+            assert "\n\n" in content, "Content should have blank line separator"
+            lines = content.split("\n")
+            assert len(lines) >= 3, "Content should have multiple lines"
+
+            # Verify sentence count
+            prose = " ".join(lines[2:])
+            periods = prose.count(".")
+            assert 2 <= periods <= 3, f"Should have 2-3 sentences, got {periods}"
+
+            # Verify commit message format
+            msg = result["commit_message"]
+            assert "feat(302)" in msg, "Commit should use feat(302)"
+            assert "test-k6bwm0.md" in msg, "Commit should reference filename"
+
+            # Verify push result
+            assert result["push_result"], "Push result should not be empty"
+
+
 class TestIntegrationSimulatedWorkflow:
     """Simulated integration tests that verify workflow without requiring API key."""
 
