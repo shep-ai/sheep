@@ -1,6 +1,6 @@
 """Tests for feature 302: Create markdown file test-k6bwm0.md with prose content."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -156,7 +156,7 @@ class TestContentGenerationTask:
             create_test_k6bwm0_markdown_file()
 
             # Verify INFO log for task start and completion
-            info_calls = [call for call in mock_logger.info.call_args_list]
+            info_calls = list(mock_logger.info.call_args_list)
             assert len(info_calls) > 0
 
 
@@ -253,5 +253,194 @@ class TestMainEntryPoint:
                 # Should not raise, but return error code
                 assert result == 1
                 # Should log the error
-                error_calls = [call for call in mock_logger.error.call_args_list]
+                error_calls = list(mock_logger.error.call_args_list)
                 assert len(error_calls) > 0
+
+
+class TestIntegrationTask2ExecutionEndToEnd:
+    """Integration tests for task-2: Test feature module execution end-to-end."""
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_function_executes_without_exceptions(self, mock_create):
+        """Test that create_test_k6bwm0_markdown_file executes without raising exceptions."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Artificial Intelligence\n\nArtificial intelligence is transforming industries and society. Machine learning models process vast amounts of data to discover patterns. This technology will reshape how we work and solve complex problems.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "pushed to feature branch",
+        }
+
+        # Should not raise any exception
+        result = create_test_k6bwm0_markdown_file()
+
+        assert result is not None
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_return_value_is_dict(self, mock_create):
+        """Test that create_test_k6bwm0_markdown_file returns a dictionary."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Quantum Computing\n\nQuantum computing leverages quantum mechanics for computation. Traditional computers process bits as 0 or 1. Quantum computers use qubits that can be 0, 1, or both simultaneously.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "pushed",
+        }
+
+        result = create_test_k6bwm0_markdown_file()
+
+        assert isinstance(result, dict)
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_return_dict_contains_required_keys(self, mock_create):
+        """Test that returned dict contains required keys: filepath, content, commit_message, push_result."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Climate Action\n\nClimate change demands urgent action from individuals and nations. Renewable energy sources provide sustainable alternatives. Together we can build a better future for coming generations.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "success",
+        }
+
+        result = create_test_k6bwm0_markdown_file()
+
+        assert "filepath" in result
+        assert "content" in result
+        assert "commit_message" in result
+        assert "push_result" in result
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_filepath_is_not_none_and_not_empty(self, mock_create):
+        """Test that return value filepath is not None and is non-empty string."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Space Exploration\n\nSpace exploration expands human knowledge and capability. Satellites provide essential services for communications. Future missions will establish permanent settlements on the Moon.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "success",
+        }
+
+        result = create_test_k6bwm0_markdown_file()
+
+        assert result["filepath"] is not None
+        assert isinstance(result["filepath"], str)
+        assert len(result["filepath"]) > 0
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_content_starts_with_h1_heading(self, mock_create):
+        """Test that return value content contains H1 markdown heading."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Ocean Conservation\n\nOcean health is crucial for all life on Earth. Plastic pollution threatens marine ecosystems daily. We must implement sustainable practices to protect our oceans.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "success",
+        }
+
+        result = create_test_k6bwm0_markdown_file()
+
+        assert "#" in result["content"]
+        # Content should start with H1 heading
+        lines = result["content"].split("\n")
+        assert len(lines) > 0
+        assert lines[0].startswith("#")
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_commit_message_contains_feature_number(self, mock_create):
+        """Test that return value commit_message contains feature number 302."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Renewable Energy\n\nRenewable energy sources reduce carbon emissions significantly. Solar and wind power are becoming increasingly affordable. Transitioning to clean energy creates jobs and protects the environment.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "success",
+        }
+
+        result = create_test_k6bwm0_markdown_file()
+
+        assert "302" in result["commit_message"]
+        assert "test-k6bwm0.md" in result["commit_message"]
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_push_result_indicates_success(self, mock_create):
+        """Test that return value push_result contains indication of successful push."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Biodiversity\n\nBiodiversity is essential for ecosystem resilience and human survival. Species extinction rates are alarming globally. Conservation efforts must be strengthened to protect all life forms.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "pushed to feature branch",
+        }
+
+        result = create_test_k6bwm0_markdown_file()
+
+        # Push result should contain indication of success
+        assert result["push_result"] is not None
+        assert isinstance(result["push_result"], str)
+        assert len(result["push_result"]) > 0
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_logger_contains_info_messages(self, mock_create):
+        """Test that logger messages include at least info-level entries for start and completion."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Education Innovation\n\nEducation technology transforms learning experiences for students worldwide. Digital tools enable personalized learning paths. Access to quality education becomes more equitable through innovation.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "success",
+        }
+
+        with patch(
+            "sheep.features.feature_302_markdown_file_creation._logger"
+        ) as mock_logger:
+            create_test_k6bwm0_markdown_file()
+
+            # Should have at least info-level logs for start and completion
+            info_calls = list(mock_logger.info.call_args_list)
+            assert len(info_calls) >= 2
+
+
+class TestIntegrationTask2FunctionIntegration:
+    """Tests for integration between feature module and orchestration function."""
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_calls_create_markdown_file_with_correct_filename(self, mock_create):
+        """Test that create_test_k6bwm0_markdown_file calls create_markdown_file with correct filename."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Sustainable Cities\n\nSustainable cities integrate environmental and social considerations. Green infrastructure reduces urban heat. Smart planning creates livable communities for all residents.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "success",
+        }
+
+        create_test_k6bwm0_markdown_file()
+
+        # Verify create_markdown_file was called with correct filename
+        call_args = mock_create.call_args
+        assert call_args[1]["filename"] == MARKDOWN_FILENAME
+        assert call_args[1]["filename"] == "test-k6bwm0.md"
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_calls_create_markdown_file_with_feature_number_302(self, mock_create):
+        """Test that create_test_k6bwm0_markdown_file calls create_markdown_file with feature_number=302."""
+        mock_create.return_value = {
+            "filepath": "/repo/test-k6bwm0.md",
+            "content": "# Healthcare Innovation\n\nHealthcare innovation improves patient outcomes and quality of life. Telemedicine expands access to medical expertise. Artificial intelligence assists in diagnosis and treatment planning.",
+            "commit_message": "feat(302): create markdown file test-k6bwm0.md with prose content",
+            "push_result": "success",
+        }
+
+        create_test_k6bwm0_markdown_file()
+
+        # Verify create_markdown_file was called with correct feature number
+        call_args = mock_create.call_args
+        assert call_args[1]["feature_number"] == FEATURE_NUMBER
+        assert call_args[1]["feature_number"] == 302
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_exception_propagates_from_orchestration_function(self, mock_create):
+        """Test that exceptions from create_markdown_file propagate correctly."""
+        mock_create.side_effect = ValueError("Invalid content generated")
+
+        with pytest.raises(ValueError, match="Invalid content generated"):
+            create_test_k6bwm0_markdown_file()
+
+    @patch("sheep.features.feature_302_markdown_file_creation.create_markdown_file")
+    def test_io_error_from_orchestration_function_propagates(self, mock_create):
+        """Test that IOError from create_markdown_file propagates."""
+        mock_create.side_effect = OSError("Failed to write file")
+
+        with pytest.raises(OSError, match="Failed to write file"):
+            create_test_k6bwm0_markdown_file()
