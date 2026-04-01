@@ -20,6 +20,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Ensure proper output encoding on Windows
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 # Module-level constants
 FILENAME = "test-94uqvv.md"
 MARKDOWN_TITLE = "The Power of Curiosity"
