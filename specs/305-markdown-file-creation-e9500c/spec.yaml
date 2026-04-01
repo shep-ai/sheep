@@ -7,7 +7,7 @@ summary: >
   (title) and 2-3 sentences of coherent prose about any topic. The file must use UTF-8 encoding
   with Unix LF line endings. This is a content-only task following the established pattern from
   304 preceding similar features in this repository.
-phase: Analysis
+phase: Requirements
 sizeEstimate: S
 
 relatedFeatures: []
@@ -24,12 +24,107 @@ relatedLinks:
   - title: "Feature 304 implementation reference"
     url: "specs/304-markdown-file-creation-3e35de/spec.yaml"
 
-openQuestions: []
+openQuestions:
+  - question: "What level of prose quality validation should be performed beyond basic structure checking?"
+    resolved: true
+    options:
+      - option: "Basic validation only"
+        description: "Validate UTF-8 encoding, line endings, H1 heading presence, and sentence count only. Trust Claude API for prose quality. Fastest execution, minimal overhead, matches established pattern from features 1-304."
+        selected: true
+      - option: "Advanced validation with quality metrics"
+        description: "Add grammar checking, coherence scoring, readability metrics (e.g., Flesch-Kincaid), and semantic relevance validation. Slower execution, higher confidence in output quality, adds external dependencies (grammar libraries)."
+        selected: false
+      - option: "No validation beyond file integrity"
+        description: "Skip prose validation entirely, only verify file exists and is readable. Fastest execution but highest risk of accepting garbled or incoherent content. Not recommended for user-facing features."
+        selected: false
+    selectionRationale: "Basic validation is recommended because: (1) Claude API output is consistently high-quality and rarely requires prose validation; (2) it keeps execution simple and fast, matching the established pattern from 304 prior features; (3) validation can catch encoding/structure issues while avoiding external dependencies; (4) simpler validation makes debugging easier if issues arise."
+    answer: "Basic validation only"
+
+  - question: "How should the feature respond when generation, file operations, or git operations fail?"
+    resolved: true
+    options:
+      - option: "Fail fast with error reporting"
+        description: "Stop immediately on any error, log detailed error message, and report to caller. Simple, predictable, easy to debug. Caller must decide retry strategy. Matches established pattern from prior features."
+        selected: true
+      - option: "Automatic retry with exponential backoff"
+        description: "Automatically retry transient failures (API rate limits, network timeouts, git conflicts) up to N times with exponential backoff. More resilient but adds complexity, may mask underlying issues, requires timeout tuning."
+        selected: false
+      - option: "Manual review queue for failures"
+        description: "On failure, place artifacts (generated content, partial files) into a human review queue. Allows recovery but requires manual intervention, doesn't fit automation-only workflow, adds significant complexity."
+        selected: false
+    selectionRationale: "Fail fast is recommended because: (1) it keeps orchestration logic simple and transparent; (2) it matches the existing pattern proven across 304 features; (3) errors are rare in stable infrastructure so automatic retry adds complexity for minimal benefit; (4) fast failure enables quick debugging and re-runs; (5) no manual intervention needed, supporting fully automated workflow."
+    answer: "Fail fast with error reporting"
+
+  - question: "Should prose content topics be constrained to a predefined list or remain completely free-form?"
+    resolved: true
+    options:
+      - option: "Any topic (free-form)"
+        description: "Allow Claude API to generate content about any topic of its choice. Maximum flexibility, simplest implementation, leverages Claude's creativity. May produce inconsistent topic diversity across 305 files."
+        selected: true
+      - option: "Predefined topic list"
+        description: "Define a list of allowed topics (e.g., technology, science, history) and pass to Claude API as constraint. More consistent content, but adds configuration overhead and reduces flexibility. Requires topic list maintenance."
+        selected: false
+      - option: "Random topic selection from corpus"
+        description: "Maintain a corpus of topics and randomly select one for each feature. Balanced approach with consistency and variety, but adds data maintenance overhead and complexity."
+        selected: false
+    selectionRationale: "Free-form topics are recommended because: (1) simplest implementation requires no topic configuration or list management; (2) Claude API is capable of generating coherent content on any topic without explicit constraints; (3) maximizes creativity and diversity across the 305 files; (4) aligns with automation-first philosophy of the project; (5) previous 304 features likely used this approach, so consistency matters."
+    answer: "Any topic (free-form)"
 
 content: |
   ## Problem Statement
 
-  Create a single markdown file at the repository root with filename test-9s145k.md, containing an H1 heading (title) and 2-3 sentences of coherent prose. The file must be properly encoded (UTF-8, no BOM) with Unix line endings (LF). This feature follows the established workflow pattern from 304 preceding markdown file creation features: generate content → write file → validate → commit → push.
+  Create a single markdown file at the repository root with filename `test-9s145k.md`, containing an H1 heading (title) and 2-3 sentences of coherent prose. The file must be properly encoded (UTF-8, no BOM) with Unix line endings (LF). This feature follows the established workflow pattern from 304 preceding markdown file creation features: generate content → write file → validate → commit → push.
+
+  ## Functional Requirements
+
+  - **FR-1: Content Generation**: Generate markdown content via Claude API consisting of an H1 heading (title) and 2-3 coherent sentences of prose about any topic using the `generate_markdown_content()` utility.
+
+  - **FR-2: File Creation**: Write generated content to a file named `test-9s145k.md` at the repository root using the `write_markdown_file()` utility with proper UTF-8 encoding.
+
+  - **FR-3: UTF-8 Encoding**: Ensure the file is saved with UTF-8 character encoding and contains no Byte Order Mark (BOM).
+
+  - **FR-4: Unix Line Endings**: Ensure the file uses Unix LF (`\n`) line endings, not CRLF (`\r\n`) or CR (`\r`).
+
+  - **FR-5: Markdown Structure**: Ensure the first line of the file is a valid H1 markdown heading in the format `# Title`, followed by 2-3 sentences of prose content.
+
+  - **FR-6: Content Validation**: Validate the file against structural and encoding requirements using the `validate_markdown_file()` utility before committing.
+
+  - **FR-7: Git Operations**: Stage, commit, and push the file to the remote repository with a conventional commit message in the format `feat(305): create markdown file test-9s145k.md with prose content`.
+
+  - **FR-8: Commit Metadata**: Ensure the commit includes proper author information, timestamp, and follows conventional commit structure as required by the project.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Code Reusability**: Implementation must reuse existing utilities from `src/sheep/content_generators.py` without modifying them. No new infrastructure or utilities should be created.
+
+  - **NFR-2: No Source Code Modifications**: The feature must not modify any existing source code in `src/sheep/`, configuration files, or tests. Only the new markdown file and feature module should be added.
+
+  - **NFR-3: Minimal Orchestration Code**: Implementation should require approximately 10-15 lines of orchestration code following the established pattern from features 1-304.
+
+  - **NFR-4: Structured Logging**: All steps (generate, write, validate, commit, push) must emit structured log entries via `sheep.observability.logging.get_logger()` for observability and debugging.
+
+  - **NFR-5: Error Propagation**: Any error during generation, file operations, validation, or git operations must be logged with full context and propagated to the caller (fail-fast pattern).
+
+  - **NFR-6: Environment Compatibility**: Implementation must work in Unix environments with Python 3.10+, Git CLI, and configured Claude API credentials via `.env`.
+
+  - **NFR-7: Execution Deadline**: Complete generation, validation, commit, and push within the project's infrastructure timeout constraints (typically 30-60 seconds for full workflow).
+
+  ## Success Criteria
+
+  - [ ] File `test-9s145k.md` exists at the repository root
+  - [ ] File contains valid UTF-8 encoded text with no BOM (Byte Order Mark)
+  - [ ] File uses Unix LF line endings exclusively (not CRLF or CR)
+  - [ ] First line is a valid H1 markdown heading in the format `# Title` or `# Proper Title`
+  - [ ] Content includes exactly 2-3 sentences of coherent, grammatically correct prose after the heading
+  - [ ] Prose content is thematically related and logically connected to the H1 title
+  - [ ] File passes all validation checks in `validate_markdown_file()`
+  - [ ] File is staged and committed to the local repository
+  - [ ] Git commit message matches format: `feat(305): create markdown file test-9s145k.md with prose content`
+  - [ ] Commit includes author metadata and timestamp in conventional format
+  - [ ] Changes are pushed to remote repository on branch `origin/feat/305-markdown-file-creation-e9500c`
+  - [ ] No existing files, source code, or configuration modified
+  - [ ] Execution completes without errors or warnings in logs
+  - [ ] Feature module `src/sheep/features/feature_305.py` created and follows established orchestration pattern
 
   ## Codebase Analysis
 
@@ -82,7 +177,7 @@ content: |
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
   | Repository root | Low | Single new .md file (test-9s145k.md) added at root; no existing files modified |
-  | src/sheep/features/ | None | New feature_305.py module will be added during implementation; existing code unchanged |
+  | src/sheep/features/ | Low | New feature_305.py module will be added; existing code unchanged |
   | src/sheep/content_generators.py | None | Existing utilities reused without modification; no changes needed |
   | Git history | Low | Single commit added with conventional message format (feat(305): ...) |
   | specs/ | None | Spec document itself is updated; no implementation specs touched |
@@ -106,22 +201,6 @@ content: |
   - No modifications to existing source code, tests, or configuration files
   - No build system changes needed
 
-  ## Success Criteria
-
-  - [ ] File `test-9s145k.md` exists at repository root
-  - [ ] File contains valid UTF-8 encoded text with no BOM (Byte Order Mark)
-  - [ ] File uses Unix LF line endings (not CRLF or CR)
-  - [ ] First line is an H1 markdown heading (format: # Title)
-  - [ ] Content includes 2-3 additional sentences of coherent, grammatically correct prose
-  - [ ] Prose is thematically related to the title
-  - [ ] File passes all validation in `validate_markdown_file()`
-  - [ ] File is staged, committed, and pushed to remote
-  - [ ] Git commit message follows format: `feat(305): create markdown file test-9s145k.md with prose content`
-  - [ ] Commit includes all required metadata (author, timestamp, conventional commit structure)
-  - [ ] Changes pushed to remote repository on `origin/feat/305-markdown-file-creation-e9500c` branch
-  - [ ] No existing files or source code modified
-  - [ ] Execution completes without errors or warnings
-
   ## Size Estimate
 
   **S** — This is a minimal feature unit:
@@ -144,6 +223,14 @@ content: |
   - Single file creation with no side effects or impacts
   - Reuses established patterns and utilities without modification
 
+  ## Product Decisions Summary
+
+  | # | Decision | Answer | Rationale |
+  | - | -------- | ------ | --------- |
+  | 1 | Prose Quality Validation Level | Basic validation only | Claude API output is high-quality; basic validation catches encoding/structure issues while keeping execution fast and simple, matching the established pattern from 304 prior features. |
+  | 2 | Error Handling Strategy | Fail fast with error reporting | Keeps orchestration logic transparent and simple; errors are rare in stable infrastructure so retries add unnecessary complexity; enables quick debugging and re-runs without manual intervention. |
+  | 3 | Prose Content Topics | Any topic (free-form) | Simplest implementation with no configuration overhead; leverages Claude's creativity; maximizes content diversity; aligns with automation-first philosophy; matches approach from prior features. |
+
   ---
 
-  _Analysis phase complete — proceed with implementation planning_
+  _Requirements phase complete — ready for implementation planning_
