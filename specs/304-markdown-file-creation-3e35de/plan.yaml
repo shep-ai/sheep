@@ -1,0 +1,203 @@
+name: "markdown-file-creation-3e35de"
+summary: >
+  Minimal orchestration feature that creates test-ypzjo0.md at repository root
+  using existing content_generators.py infrastructure. All complexity
+  (content generation via Claude, validation, git operations) is delegated
+  to battle-tested utility functions. Feature implementation is a simple
+  wrapper calling create_markdown_file() with parameters.
+
+relatedFeatures:
+  - number: 303
+    name: "markdown-file-creation"
+  - number: 302
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.11+"
+  - "pathlib (file I/O)"
+  - "CrewAI LLM Framework"
+  - "Claude API (via CrewAI)"
+  - "git (subprocess-based)"
+  - "structlog (logging)"
+
+relatedLinks:
+  - title: "content_generators.py utility module"
+    url: "src/sheep/content_generators.py"
+  - title: "LLM configuration"
+    url: "src/sheep/config/llm.py"
+  - title: "Feature 303 reference implementation"
+    url: "specs/303-markdown-file-creation/spec.yaml"
+
+phases:
+  - id: "phase-1"
+    name: "Feature Implementation"
+    description: "Create the feature orchestration function that calls existing content_generators.create_markdown_file(). This phase wraps pre-built infrastructure into a callable entry point for the specific filename and feature number."
+    parallel: false
+
+  - id: "phase-2"
+    name: "Validation & Testing"
+    description: "Verify that the feature execution produces test-ypzjo0.md with correct structure, encoding, line endings, and markdown format. Test that validation passes all checks (H1 heading, 2-3 sentences, UTF-8, LF line endings)."
+    parallel: false
+
+  - id: "phase-3"
+    name: "Git Integration Verification"
+    description: "Confirm that git staging, committing with conventional message, and pushing to remote all succeed. Verify commit includes correct metadata and message format."
+    parallel: false
+
+filesToCreate:
+  - "src/sheep/features/feature_304.py"
+  - "test-ypzjo0.md"
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature 304 follows the established pattern from 300+ preceding markdown file creation features. The implementation is a straightforward orchestration wrapper that:
+
+  1. Instantiates parameters (filename: "test-ypzjo0.md", feature_number: 304)
+  2. Calls existing `create_markdown_file()` from `src/sheep/content_generators.py`
+  3. Handles exceptions and returns result
+
+  The `create_markdown_file()` function encapsulates all complexity:
+  - Calls `generate_markdown_content()` → produces H1 heading + 2-3 sentences via Claude API
+  - Calls `write_markdown_file()` → writes with UTF-8 encoding, LF line endings, path validation
+  - Calls `validate_markdown_file()` → comprehensive validation (encoding, line endings, markdown structure, sentence count)
+  - Calls `commit_markdown_file()` → stages and commits with conventional message format
+  - Calls `push_markdown_file()` → pushes to remote with upstream tracking
+  - Includes structured logging at each step
+
+  This architecture ensures:
+  - **High Reusability:** Same utility functions used across 300+ features
+  - **Minimal Feature Code:** Feature implementation is 2-5 lines of functional code
+  - **Consistent Patterns:** All features follow identical orchestration flow
+  - **Proven Infrastructure:** All utilities are production-tested across preceding features
+
+  ## Key Design Decisions
+
+  ### 1. Content Generation Strategy
+  **Decision:** Use existing `generate_markdown_content()` from `content_generators.py` with Claude API
+
+  **Rationale:**
+  - Function already encapsulates LLM prompt engineering, response validation, and error handling
+  - Enforces required format (H1 heading + 2-3 sentences) through structured response validation
+  - Integrates with project's CrewAI LLM abstraction via `get_reasoning_llm()`
+  - Claude API credentials managed by `config/llm.py` (SecretStr, no exposure in logs)
+  - Consistent with 303+ pattern — all preceding features use dynamic content generation
+  - Alternative (hardcoded static content) would not exercise infrastructure or demonstrate full workflow
+
+  ### 2. File I/O and Encoding
+  **Decision:** Use existing `write_markdown_file()` from `content_generators.py`
+
+  **Rationale:**
+  - Validates filename for safety (prevents path traversal: rejects "/" , "\\", and leading ".")
+  - Opens file with `encoding="utf-8"` (Python enforces LF on Unix systems)
+  - Verifies file creation and content presence
+  - Returns full filepath as string
+  - Alternative (direct `open()`) loses validation, error handling, and safety checks already implemented
+  - Alternative (binary mode) unnecessarily complex for text content
+
+  ### 3. File Validation Approach
+  **Decision:** Use existing `validate_markdown_file()` from `content_generators.py` with comprehensive validation
+
+  **Rationale:**
+  - Checks UTF-8 encoding validity and rejects BOM (Byte Order Mark)
+  - Detects and rejects CRLF (Windows) line endings, enforces LF only
+  - Validates H1 heading on first line
+  - Validates blank line separator (line 2)
+  - Counts sentences (must be 2-3 periods)
+  - Enforces trailing newline
+  - Logs validation results with structured logging
+  - Alternative (minimal validation) risks committing malformed content
+  - Alternative (custom validation in feature code) duplicates logic, increases maintenance burden
+
+  ### 4. Git Orchestration
+  **Decision:** Use existing `commit_markdown_file()` and `push_markdown_file()` from `content_generators.py`
+
+  **Rationale:**
+  - `commit_markdown_file(filepath, content, repo_path, feature_number)` generates conventional commit message: `feat(304): create markdown file test-ypzjo0.md with prose content`
+  - Stages and commits in single function call with error handling (e.g., "nothing to commit" scenarios)
+  - `push_markdown_file(repo_path, remote)` pushes with upstream tracking (-u flag)
+  - Uses subprocess with list arguments (no shell=True), preventing command injection
+  - Alternative (GitPython) adds external dependency; project uses subprocess for git operations
+  - Alternative (manual git commands) duplicates error handling and logging already implemented
+
+  ### 5. Orchestration Pattern
+  **Decision:** Call existing `create_markdown_file()` orchestration function
+
+  **Rationale:**
+  - Single function call: `create_markdown_file("test-ypzjo0.md", feature_number=304)`
+  - Function orchestrates complete workflow: generate → write → validate → commit → push
+  - Returns dict with filepath, content, commit_message, push_result
+  - Feature implementation becomes trivial (2-5 lines)
+  - Consistent with 303+ pattern — all preceding features use this approach
+  - Alternative (manual step-by-step) duplicates orchestration logic
+  - Alternative (agent-based) unnecessarily complex for deterministic sequential workflow
+
+  ### 6. Error Handling Strategy
+  **Decision:** Propagate exceptions from `create_markdown_file()` with logging, allow caller to handle
+
+  **Rationale:**
+  - Errors in content generation, file I/O, validation, or git operations are already logged by utility functions
+  - Caller (test or CLI) can decide whether to retry, skip, or fail
+  - Consistent with existing pattern in 303+ features
+  - Simplifies feature implementation (no need for custom error handling)
+
+  ## Implementation Strategy
+
+  ### Phase 1: Feature Implementation
+  Create `src/sheep/features/feature_304.py` that:
+  1. Imports `create_markdown_file` from `src.sheep.content_generators`
+  2. Defines a feature function that accepts feature_number and filename
+  3. Calls `create_markdown_file(filename, feature_number=304)`
+  4. Returns the result dict
+  5. Includes docstring and type hints
+
+  Estimated code: 5-10 lines total
+
+  ### Phase 2: Validation & Testing
+  Write integration test that:
+  1. Calls the feature function
+  2. Verifies test-ypzjo0.md exists at repository root
+  3. Reads file and checks UTF-8 encoding (no BOM)
+  4. Verifies LF line endings (not CRLF)
+  5. Asserts H1 heading on first line
+  6. Counts sentences (2-3 required)
+  7. Verifies trailing newline
+
+  ### Phase 3: Git Integration Verification
+  Verify through git inspection that:
+  1. File is staged for commit (git status shows no uncommitted changes for test-ypzjo0.md)
+  2. Commit exists with message: `feat(304): create markdown file test-ypzjo0.md with prose content`
+  3. Commit includes proper author metadata
+  4. Changes are pushed to remote (git rev-parse origin/feat/304-markdown-file-creation-3e35de matches HEAD)
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Claude API unavailable or quota exceeded | Error is caught by `generate_markdown_content()` and logged; feature fails gracefully with clear error message |
+  | File creation fails (permissions, disk full) | `write_markdown_file()` validates file creation and returns error; caught by orchestration function |
+  | Git operations fail (unstaged changes, network issues) | `commit_markdown_file()` and `push_markdown_file()` include error handling; test verifies success or expected failure |
+  | Markdown validation fails (wrong format, line endings) | `validate_markdown_file()` provides detailed error message identifying which check failed |
+  | Duplicate file (test-ypzjo0.md already exists) | `write_markdown_file()` will overwrite; this is acceptable for feature demonstrations |
+  | Path traversal attack (malicious filename) | `write_markdown_file()` validates filename (rejects "/", "\\", leading "."); filename "test-ypzjo0.md" passes validation |
+  | UTF-8 encoding errors | `validate_markdown_file()` rejects non-UTF-8 content; Claude API output is guaranteed valid UTF-8 |
+
+  ## File Changes Summary
+
+  **New files:**
+  - `src/sheep/features/feature_304.py` — feature orchestration function (~10 lines)
+  - `test-ypzjo0.md` — generated markdown file (~4-5 lines)
+
+  **Modified files:** None
+
+  **Deleted files:** None
+
+  This minimal footprint is intentional — the feature demonstrates the power of reusing existing infrastructure rather than building new abstractions.
+
+  ---
+
+  _Planning phase complete — ready for implementation_
