@@ -518,7 +518,7 @@ class TestFeature303EndToEndWithMockedContent:
             test_file.unlink()
 
         try:
-            result = create_test_t4bvyv_markdown_file()
+            create_test_t4bvyv_markdown_file()
 
             # Verify UTF-8 encoding without BOM
             file_bytes = test_file.read_bytes()
@@ -552,7 +552,7 @@ class TestFeature303EndToEndWithMockedContent:
             test_file.unlink()
 
         try:
-            result = create_test_t4bvyv_markdown_file()
+            create_test_t4bvyv_markdown_file()
 
             # Verify file uses LF not CRLF
             file_bytes = test_file.read_bytes()
@@ -694,7 +694,7 @@ class TestFeature303EndToEndIntegration:
             test_file.unlink()
 
         try:
-            result = create_test_t4bvyv_markdown_file()
+            create_test_t4bvyv_markdown_file()
 
             # Verify file bytes don't start with UTF-8 BOM
             file_bytes = test_file.read_bytes()
@@ -727,7 +727,7 @@ class TestFeature303EndToEndIntegration:
             test_file.unlink()
 
         try:
-            result = create_test_t4bvyv_markdown_file()
+            create_test_t4bvyv_markdown_file()
 
             # Verify file uses LF not CRLF
             file_bytes = test_file.read_bytes()
@@ -816,7 +816,7 @@ class TestFeature303EndToEndIntegration:
             test_file.unlink()
 
         try:
-            result = create_test_t4bvyv_markdown_file()
+            create_test_t4bvyv_markdown_file()
 
             # Validate file using the standard validation function
             try:
