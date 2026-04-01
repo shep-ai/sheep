@@ -1,5 +1,6 @@
 """Tests for feature 303: Create markdown file test-t4bvyv.md with prose content."""
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -10,6 +11,9 @@ from sheep.features.feature_303_markdown_file_creation import (
     MARKDOWN_FILENAME,
     create_test_t4bvyv_markdown_file,
 )
+
+# Check if ANTHROPIC_API_KEY is set for integration tests
+HAS_API_KEY = bool(os.getenv("ANTHROPIC_API_KEY"))
 
 
 class TestFeature303Module:
@@ -444,3 +448,294 @@ class TestIntegrationTask2FunctionIntegration:
 
         with pytest.raises(OSError, match="Failed to write file"):
             create_test_t4bvyv_markdown_file()
+
+
+class TestFeature303EndToEndIntegration:
+    """End-to-end integration tests for feature 303 (task-6)."""
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_file_is_created_in_repository_root(self):
+        """Test that test-t4bvyv.md file is created in repository root."""
+        from pathlib import Path
+
+        # Store original path to ensure cleanup
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        # Clean up before test if file exists from previous run
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            # Execute the feature
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify file was created
+            assert test_file.exists(), f"File {MARKDOWN_FILENAME} was not created"
+            assert result["filepath"] is not None
+            # Verify filepath ends with correct filename
+            assert MARKDOWN_FILENAME in result["filepath"]
+        finally:
+            # Cleanup after test
+            if test_file.exists():
+                test_file.unlink()
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_file_contains_h1_heading(self):
+        """Test that created file contains valid H1 markdown heading."""
+        from pathlib import Path
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify file has H1 heading
+            content = result["content"]
+            lines = content.split("\n")
+            assert len(lines) > 0, "Content is empty"
+            assert lines[0].startswith("# "), f"First line is not H1 heading: {lines[0]}"
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_file_contains_blank_line_after_h1(self):
+        """Test that created file contains blank line immediately after H1 heading."""
+        from pathlib import Path
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify blank line after H1
+            content = result["content"]
+            lines = content.split("\n")
+            assert len(lines) >= 2, "Content has fewer than 2 lines"
+            assert lines[0].startswith("# "), "First line is not H1"
+            assert lines[1] == "", f"Second line is not blank: '{lines[1]}'"
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_file_contains_2_to_3_sentences(self):
+        """Test that created file contains exactly 2-3 sentences of prose content."""
+        from pathlib import Path
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Count sentences (periods) in the prose
+            content = result["content"]
+            lines = content.split("\n")
+
+            # Prose is lines[2:] (after H1 and blank line)
+            prose = "\n".join(lines[2:])
+            sentence_count = prose.count(".")
+
+            # Should have 2-3 sentences (periods)
+            assert 2 <= sentence_count <= 3, (
+                f"Expected 2-3 sentences (periods), got {sentence_count}: {prose}"
+            )
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_file_is_utf8_encoded_without_bom(self):
+        """Test that created file is UTF-8 encoded without BOM (byte order mark)."""
+        from pathlib import Path
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify file bytes don't start with UTF-8 BOM
+            file_bytes = test_file.read_bytes()
+
+            # UTF-8 BOM is b'\xef\xbb\xbf'
+            assert not file_bytes.startswith(b"\xef\xbb\xbf"), (
+                "File contains UTF-8 BOM (should not)"
+            )
+
+            # Verify file can be decoded as UTF-8
+            try:
+                file_bytes.decode("utf-8")
+            except UnicodeDecodeError as e:
+                pytest.fail(f"File is not valid UTF-8: {e}")
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_file_uses_unix_lf_line_endings(self):
+        """Test that created file uses Unix LF line endings (no CRLF)."""
+        from pathlib import Path
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify file uses LF not CRLF
+            file_bytes = test_file.read_bytes()
+
+            # Check that file doesn't contain CRLF (Windows line ending)
+            assert b"\r\n" not in file_bytes, (
+                "File contains CRLF line endings (should use LF)"
+            )
+
+            # File should contain LF characters for line breaks
+            assert b"\n" in file_bytes, "File contains no LF line endings"
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_commit_message_format_is_conventional(self):
+        """Test that git commit message follows conventional commits format."""
+        from pathlib import Path
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify commit message format
+            commit_message = result["commit_message"]
+            assert "feat(303)" in commit_message, (
+                f"Commit message should contain 'feat(303)': {commit_message}"
+            )
+            assert "test-t4bvyv.md" in commit_message, (
+                f"Commit message should contain filename: {commit_message}"
+            )
+            assert commit_message == (
+                "feat(303): create markdown file test-t4bvyv.md with prose content"
+            ), f"Unexpected commit message format: {commit_message}"
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_returned_content_is_valid_string(self):
+        """Test that returned content is a non-empty string."""
+        from pathlib import Path
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            content = result["content"]
+            assert isinstance(content, str), "Content should be a string"
+            assert len(content) > 0, "Content should not be empty"
+            assert len(content) > 100, (
+                f"Content seems too short ({len(content)} chars)"
+            )
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_markdown_file_passes_validation(self):
+        """Test that markdown file passes structure validation."""
+        from pathlib import Path
+
+        from sheep.content_generators import validate_markdown_file
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Validate file using the standard validation function
+            try:
+                is_valid = validate_markdown_file(test_file)
+                assert (
+                    is_valid is not False
+                ), "File failed markdown structure validation"
+            except Exception as e:
+                pytest.fail(f"File validation raised exception: {e}")
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+    @pytest.mark.skipif(
+        not HAS_API_KEY, reason="ANTHROPIC_API_KEY not set - skipping API integration test"
+    )
+    def test_result_dict_contains_all_required_keys(self):
+        """Test that result dictionary contains all required keys."""
+        from pathlib import Path
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify all required keys exist
+            required_keys = ["filepath", "content", "commit_message", "push_result"]
+            for key in required_keys:
+                assert key in result, f"Result dict missing key: {key}"
+                assert result[key] is not None, f"Result[{key}] is None"
+        finally:
+            if test_file.exists():
+                test_file.unlink()
