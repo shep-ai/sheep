@@ -1,3 +1,3 @@
-# Testing Encoding
+# Line Endings Test
 
-Unicode characters work correctly. Émojis and spëcial çharacters are supported. UTF-8 encoding handles everything properly.
+This file should use Unix line endings. No CRLF carriage returns here. Only LF line feeds are acceptable.
