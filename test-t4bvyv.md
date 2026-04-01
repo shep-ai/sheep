@@ -1,3 +1,3 @@
-# Artificial Intelligence
+# Testing Encoding
 
-Artificial intelligence transforms industries globally. Machine learning processes vast data patterns. This technology reshapes our future society.
+Unicode characters work correctly. Émojis and spëcial çharacters are supported. UTF-8 encoding handles everything properly.
