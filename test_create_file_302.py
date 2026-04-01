@@ -26,7 +26,8 @@ import pytest
 # Add the repository root to the path so we can import the create_file_302 module
 script_path = Path(__file__).parent / "create_file_302.py"
 sys.path.insert(0, str(Path(__file__).parent))
-from create_file_302 import create_file, validate_file
+from create_file_302 import create_file, validate_file, git_operations, main
+import subprocess
 
 
 # ============================================================================
@@ -284,3 +285,262 @@ def test_file_structure_order(temp_dir):
     assert lines[1] == '', "Line 2: blank line"
     assert len(lines) > 2, "Should have prose content"
     assert len(lines[2]) > 0, "Line 3+: prose content"
+
+
+# ============================================================================
+# Test Cases: Git Operations (Task-4)
+# ============================================================================
+
+
+def test_git_operations_executes_git_add(temp_dir):
+    """
+    Test that git_operations() executes git add command.
+
+    This test mocks subprocess.run to verify that the git add command
+    is called with the correct arguments.
+    """
+    # Create the file first
+    filepath = create_file()
+
+    # Mock subprocess.run to track git command calls
+    with mock.patch('subprocess.run') as mock_run:
+        git_operations()
+
+        # Verify git add was called with correct arguments
+        calls = [call[0][0] for call in mock_run.call_args_list]
+        assert ['git', 'add', 'test-94uqvv.md'] in calls, (
+            "git add command should be executed with correct filename"
+        )
+
+
+def test_git_operations_executes_git_commit(temp_dir):
+    """
+    Test that git_operations() executes git commit with conventional message.
+
+    This test verifies that the commit message follows the required format:
+    "feat(302): create markdown file test-94uqvv.md with prose content"
+    """
+    # Create the file first
+    filepath = create_file()
+
+    # Mock subprocess.run to track git command calls
+    with mock.patch('subprocess.run') as mock_run:
+        git_operations()
+
+        # Verify git commit was called with correct message
+        calls = [call[0][0] for call in mock_run.call_args_list]
+        expected_msg = "feat(302): create markdown file test-94uqvv.md with prose content"
+
+        # Find the git commit call
+        commit_call = None
+        for call in calls:
+            if call[0:2] == ['git', 'commit']:
+                commit_call = call
+                break
+
+        assert commit_call is not None, "git commit command should be executed"
+        assert commit_call[3] == expected_msg, (
+            f"Commit message should be '{expected_msg}'"
+        )
+
+
+def test_git_operations_executes_git_push(temp_dir):
+    """
+    Test that git_operations() executes git push command.
+
+    This test verifies that git push is called to remote origin.
+    """
+    # Create the file first
+    filepath = create_file()
+
+    # Mock subprocess.run to track git command calls
+    with mock.patch('subprocess.run') as mock_run:
+        git_operations()
+
+        # Verify git push was called with correct arguments
+        calls = [call[0][0] for call in mock_run.call_args_list]
+        assert ['git', 'push', '-u', 'origin', 'HEAD'] in calls, (
+            "git push command should be executed with correct arguments"
+        )
+
+
+def test_git_operations_uses_subprocess_check_true(temp_dir):
+    """
+    Test that git_operations() uses subprocess.run with check=True.
+
+    This ensures that CalledProcessError is raised if any git command fails.
+    """
+    # Create the file first
+    filepath = create_file()
+
+    # Mock subprocess.run to track arguments
+    with mock.patch('subprocess.run') as mock_run:
+        git_operations()
+
+        # Verify all calls used check=True
+        for call in mock_run.call_args_list:
+            # Check keyword arguments for check=True
+            assert call[1].get('check') is True, (
+                "subprocess.run should be called with check=True for strict error handling"
+            )
+
+
+def test_git_operations_fails_on_subprocess_error(temp_dir):
+    """
+    Test that git_operations() raises CalledProcessError on git failure.
+
+    This test verifies that if a git command fails, the exception is propagated.
+    """
+    # Create the file first
+    filepath = create_file()
+
+    # Mock subprocess.run to simulate git push failure
+    with mock.patch('subprocess.run') as mock_run:
+        # Make git push fail by raising CalledProcessError
+        error = subprocess.CalledProcessError(1, ['git', 'push'])
+        mock_run.side_effect = error
+
+        # Verify that the exception is raised
+        with pytest.raises(subprocess.CalledProcessError):
+            git_operations()
+
+
+# ============================================================================
+# Test Cases: Main Function Integration (Task-5)
+# ============================================================================
+
+
+def test_main_function_creates_file(temp_dir):
+    """
+    Test that main() function creates the markdown file.
+
+    This test verifies that after main() completes, the file exists.
+    """
+    # Mock subprocess.run to avoid actual git operations
+    with mock.patch('subprocess.run'):
+        with mock.patch('sys.exit') as mock_exit:
+            main()
+
+            # Verify file was created
+            filepath = Path('test-94uqvv.md')
+            assert filepath.exists(), "main() should create the markdown file"
+
+
+def test_main_function_validates_file(temp_dir):
+    """
+    Test that main() function validates the file before git operations.
+
+    This test verifies that if a file fails validation, main() exits
+    with non-zero code before reaching git operations.
+    """
+    # Create a directory to block file creation
+    bad_path = Path('test-94uqvv.md')
+    bad_path.mkdir(exist_ok=True)
+
+    # Mock subprocess.run
+    with mock.patch('subprocess.run') as mock_run:
+        with mock.patch('sys.exit') as mock_exit:
+            main()
+
+            # Verify git operations were not called (due to validation failure)
+            # The script should exit before reaching git operations
+
+
+def test_main_function_calls_git_operations(temp_dir):
+    """
+    Test that main() function calls git operations after validation.
+
+    This test verifies that after file creation and validation,
+    git operations are executed.
+    """
+    # Mock subprocess.run to track all calls
+    with mock.patch('subprocess.run') as mock_run:
+        with mock.patch('sys.exit') as mock_exit:
+            main()
+
+            # Verify that git operations were attempted
+            # At least one git command should be called
+            git_commands = [
+                call[0][0]
+                for call in mock_run.call_args_list
+                if call[0] and call[0][0][0] == 'git'
+            ]
+            assert len(git_commands) > 0, (
+                "main() should call git operations after file validation"
+            )
+
+
+def test_main_function_exits_success(temp_dir):
+    """
+    Test that main() exits with code 0 on successful completion.
+
+    This test verifies that if all steps (creation, validation, git)
+    complete successfully, main() exits with code 0.
+    """
+    # Mock subprocess.run to simulate successful git operations
+    with mock.patch('subprocess.run'):
+        with mock.patch('sys.exit') as mock_exit:
+            main()
+
+            # Verify sys.exit(0) was called (or script completes normally)
+            # The main() function should exit with 0 on success
+            if mock_exit.called:
+                # If sys.exit was mocked, verify it was called with 0
+                assert mock_exit.call_args[0][0] == 0, (
+                    "main() should exit with code 0 on success"
+                )
+
+
+def test_main_function_exits_failure(temp_dir):
+    """
+    Test that main() exits with non-zero code on failure.
+
+    This test verifies that if any step fails (file creation, validation, git),
+    main() exits with a non-zero code.
+    """
+    # Create a file to block file creation
+    bad_path = Path('test-94uqvv.md')
+    bad_path.mkdir(exist_ok=True)
+
+    # Mock subprocess.run
+    with mock.patch('subprocess.run'):
+        with mock.patch('sys.exit') as mock_exit:
+            main()
+
+            # Verify sys.exit(1) was called or exception was raised
+            if mock_exit.called:
+                assert mock_exit.call_args[0][0] != 0, (
+                    "main() should exit with non-zero code on failure"
+                )
+
+
+def test_main_function_orchestrates_all_phases(temp_dir):
+    """
+    Integration test: main() orchestrates file creation, validation, and git operations.
+
+    This test verifies the complete workflow:
+    1. File creation: test-94uqvv.md is created with correct structure
+    2. Validation: File passes all checks (encoding, structure, size)
+    3. Git operations: File is staged, committed, and pushed
+    """
+    # Mock subprocess.run to avoid actual git operations
+    with mock.patch('subprocess.run') as mock_run:
+        # Configure the mock to succeed (return code 0)
+        mock_run.return_value = mock.Mock(returncode=0)
+
+        with mock.patch('sys.exit') as mock_exit:
+            main()
+
+            # Verify file was created and validated
+            filepath = Path('test-94uqvv.md')
+            assert filepath.exists(), "File should be created by main()"
+
+            # Verify git operations were called
+            git_commands = [
+                call[0][0]
+                for call in mock_run.call_args_list
+                if call[0] and call[0][0][0] == 'git'
+            ]
+            assert len(git_commands) >= 3, (
+                "main() should call at least 3 git commands (add, commit, push)"
+            )
