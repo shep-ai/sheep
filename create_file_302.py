@@ -62,6 +62,95 @@ def create_file():
     return filepath
 
 
+def validate_encoding(filepath):
+    """
+    Validate that file is UTF-8 encoded without BOM and uses Unix LF line endings.
+
+    This function checks:
+    - File does not contain UTF-8 BOM (byte sequence 0xEF 0xBB 0xBF)
+    - File uses Unix LF (0x0A) line endings, not CRLF (0x0D 0x0A)
+
+    Args:
+        filepath (Path): Path object pointing to the markdown file
+
+    Returns:
+        bool: True if encoding validation passes
+
+    Raises:
+        AssertionError: If file contains BOM or CRLF line endings
+    """
+    # Read file as bytes to check encoding at byte level
+    file_bytes = filepath.read_bytes()
+
+    # Check 1: File should not contain UTF-8 BOM (0xEF 0xBB 0xBF)
+    assert not file_bytes.startswith(b'\xef\xbb\xbf'), (
+        "File contains UTF-8 BOM (Byte Order Mark). Use UTF-8 without BOM."
+    )
+
+    # Check 2: File should not contain CRLF (0x0D 0x0A) line endings
+    assert b'\r\n' not in file_bytes, (
+        "File contains CRLF (Windows) line endings. Use Unix LF (\\n) line endings instead."
+    )
+
+    return True
+
+
+def validate_structure(filepath):
+    """
+    Validate file structure: H1 heading, blank line, 2-3 sentences, and file size.
+
+    This function checks:
+    - File contains H1 heading on first line (starts with "# ")
+    - File contains blank line separator on line 2
+    - File contains 2-3 sentences of prose (counted by periods)
+    - File size is between 300-800 bytes
+
+    Args:
+        filepath (Path): Path object pointing to the markdown file
+
+    Returns:
+        bool: True if all structure validations pass
+
+    Raises:
+        AssertionError: If any structure check fails
+    """
+    # Read content as text for structure validation
+    content = filepath.read_text(encoding='utf-8')
+    lines = content.split('\n')
+
+    # Check 1: File must start with H1 heading (# <title>)
+    assert len(lines) > 0, "File is empty"
+    assert lines[0].startswith('# '), (
+        "File must start with H1 heading on line 1 (format: # <title>)"
+    )
+
+    # Check 2: Line 2 must be blank (blank line separator)
+    assert len(lines) > 1, "File must have at least 2 lines"
+    assert lines[1] == '', (
+        "Line 2 must be blank (blank line separator between heading and prose)"
+    )
+
+    # Check 3: Prose must contain 2-3 sentences (detect by counting periods)
+    # Extract prose after heading and blank line
+    prose_lines = lines[2:]  # Skip H1 and blank line
+    prose = '\n'.join(prose_lines).strip()
+
+    sentence_count = prose.count('.')
+    assert 2 <= sentence_count <= 3, (
+        f"Prose must contain 2-3 sentences; found {sentence_count} period(s). "
+        f"Sentence count is determined by counting periods (.)."
+    )
+
+    # Check 4: File size is in valid range (300-800 bytes)
+    file_size = filepath.stat().st_size
+    assert 300 < file_size < 800, (
+        f"File size {file_size} bytes is outside valid range (300-800 bytes). "
+        f"Expected approximately 400-600 bytes."
+    )
+
+    return True
+
+
 def validate_file(filepath):
     """
     Validate the markdown file structure, encoding, and size.
@@ -150,8 +239,9 @@ def main():
 
     This function coordinates the workflow:
     1. Create the markdown file
-    2. Validate the file structure and content
-    3. Perform git operations (add, commit, push)
+    2. Validate the file encoding (UTF-8 without BOM, Unix LF line endings)
+    3. Validate the file structure (H1 heading, blank line, 2-3 sentences, file size)
+    4. Perform git operations (add, commit, push)
 
     Exits with status code 0 on success, 1 on failure.
     """
@@ -161,11 +251,16 @@ def main():
         filepath = create_file()
         print(f"✓ File created: {filepath}")
 
-        print("Validating file...")
-        validate_file(filepath)
-        print("✓ File validation passed")
+        # Phase 2: Comprehensive validation before git operations
+        print("\nValidating file encoding...")
+        validate_encoding(filepath)
+        print("✓ File encoding validation passed (UTF-8 without BOM, Unix LF line endings)")
 
-        # Phase 2: Git integration and execution
+        print("Validating file structure...")
+        validate_structure(filepath)
+        print("✓ File structure validation passed (H1 heading, blank line, 2-3 sentences, file size)")
+
+        # Phase 3: Git integration and execution
         print("\nPerforming git operations...")
         git_operations()
 
