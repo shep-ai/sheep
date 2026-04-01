@@ -450,6 +450,121 @@ class TestIntegrationTask2FunctionIntegration:
             create_test_t4bvyv_markdown_file()
 
 
+class TestFeature303EndToEndWithMockedContent:
+    """End-to-end tests with mocked content generation (for when API key unavailable)."""
+
+    @patch("sheep.content_generators.generate_markdown_content")
+    def test_file_creation_and_validation_with_mocked_content(self, mock_generate):
+        """Test complete workflow with mocked content generation."""
+        from pathlib import Path
+
+        # Mock content generation to return valid markdown
+        mock_generate.return_value = (
+            "# Artificial Intelligence\n\n"
+            "Artificial intelligence transforms industries globally. "
+            "Machine learning processes vast data patterns. "
+            "This technology reshapes our future society.\n"
+        )
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        # Clean up before test
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            # Execute the feature
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify file was created
+            assert test_file.exists(), f"File {MARKDOWN_FILENAME} was not created"
+
+            # Verify file content
+            content = test_file.read_text(encoding="utf-8")
+            assert content.startswith("# "), "Content should start with H1 heading"
+            assert "\n\n" in content, "Content should have blank line after heading"
+
+            # Verify result contains expected keys
+            assert "filepath" in result
+            assert "content" in result
+            assert "commit_message" in result
+            assert "push_result" in result
+
+            # Verify commit message format
+            assert "feat(303)" in result["commit_message"]
+            assert "test-t4bvyv.md" in result["commit_message"]
+        finally:
+            # Clean up after test
+            if test_file.exists():
+                test_file.unlink()
+
+    @patch("sheep.content_generators.generate_markdown_content")
+    def test_file_encoding_with_mocked_content(self, mock_generate):
+        """Test that file encoding is correct with mocked content."""
+        from pathlib import Path
+
+        mock_generate.return_value = (
+            "# Testing Encoding\n\n"
+            "Unicode characters work correctly. "
+            "Émojis and spëcial çharacters are supported. "
+            "UTF-8 encoding handles everything properly.\n"
+        )
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify UTF-8 encoding without BOM
+            file_bytes = test_file.read_bytes()
+            assert not file_bytes.startswith(b"\xef\xbb\xbf"), (
+                "File should not have UTF-8 BOM"
+            )
+
+            # Verify file can be decoded as UTF-8
+            decoded = file_bytes.decode("utf-8")
+            assert "Testing Encoding" in decoded
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+    @patch("sheep.content_generators.generate_markdown_content")
+    def test_file_line_endings_with_mocked_content(self, mock_generate):
+        """Test that file uses Unix LF line endings with mocked content."""
+        from pathlib import Path
+
+        mock_generate.return_value = (
+            "# Line Endings Test\n\n"
+            "This file should use Unix line endings. "
+            "No CRLF carriage returns here. "
+            "Only LF line feeds are acceptable.\n"
+        )
+
+        repo_path = Path.cwd()
+        test_file = repo_path / MARKDOWN_FILENAME
+
+        if test_file.exists():
+            test_file.unlink()
+
+        try:
+            result = create_test_t4bvyv_markdown_file()
+
+            # Verify file uses LF not CRLF
+            file_bytes = test_file.read_bytes()
+            assert b"\r\n" not in file_bytes, (
+                "File should not contain CRLF (Windows line endings)"
+            )
+            assert b"\n" in file_bytes, "File should contain LF line endings"
+        finally:
+            if test_file.exists():
+                test_file.unlink()
+
+
 class TestFeature303EndToEndIntegration:
     """End-to-end integration tests for feature 303 (task-6)."""
 
