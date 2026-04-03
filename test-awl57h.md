@@ -1,0 +1,3 @@
+# The Art of Procrastination
+
+Procrastination is a timeless art form that humans have perfected over millennia. It involves the delicate balance of convincing yourself that something can be done later while knowing full well that "later" will arrive with the same urgency as the present moment. The beauty of procrastination lies not in its productivity, but in the creative excuses one can generate to justify the delay.
