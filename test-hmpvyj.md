@@ -1,3 +1,5 @@
-# The Wonders of Stargazing
+# Sample Markdown Document
 
-Stargazing offers a unique perspective on our place in the universe, connecting us to the vastness of space and the countless celestial bodies above. Whether you're using a telescope or just your naked eyes, observing the night sky can be a deeply meditative and humbling experience. The stars remind us that we are part of something infinitely larger than ourselves.
+This is a sample markdown document created as part of feature #719. Markdown is a lightweight markup language that makes it easy to format text for display on the web.
+
+Markdown files are commonly used for documentation, README files, and content management because of their simplicity and readability. This file demonstrates the basic structure of a markdown document with a heading and descriptive text.
