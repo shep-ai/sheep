@@ -1,3 +1,3 @@
-# The Science of Sleep
+# Introduction to Markdown
 
-Sleep is one of the most important biological processes for maintaining health and cognitive function. During sleep, the brain consolidates memories, repairs cellular damage, and regulates hormones that control hunger, growth, and stress. Getting adequate quality sleep is essential for improving focus, creativity, and overall well-being.
+Markdown is a lightweight markup language designed for easy readability and writing. It allows you to format text using simple syntax without the complexity of HTML or other markup languages. Markdown has become the standard for documentation, README files, and content across many platforms and tools.
