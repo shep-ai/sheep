@@ -9,7 +9,6 @@ This script demonstrates Phase 1 of the feature 271 implementation:
 - Log the result for verification
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -67,7 +66,7 @@ def main():
         sentence_count = content.count(".")
         logger.info(f"✓ Sentence count: {sentence_count}")
         if 2 <= sentence_count <= 3:
-            logger.info(f"✓ Sentence count within range (2-3)")
+            logger.info("✓ Sentence count within range (2-3)")
         else:
             logger.warning(f"⚠ Sentence count {sentence_count} outside expected range (2-3)")
 

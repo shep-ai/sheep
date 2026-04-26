@@ -50,7 +50,7 @@ def create_markdown_file(repo_root: Path) -> None:
         file_path.write_text(content, encoding='utf-8', newline='\n')
         print(f"✓ Created markdown file: {file_path}")
         print(f"  File size: {file_path.stat().st_size} bytes")
-    except IOError as e:
+    except OSError as e:
         print(f"✗ Failed to create markdown file: {e}", file=sys.stderr)
         raise
 
@@ -120,7 +120,7 @@ def git_push(repo_root: Path) -> None:
             capture_output=True,
             text=True
         )
-        print(f"✓ Pushed commit to remote origin")
+        print("✓ Pushed commit to remote origin")
     except subprocess.CalledProcessError as e:
         print(f"✗ git push failed: {e.stderr}", file=sys.stderr)
         raise

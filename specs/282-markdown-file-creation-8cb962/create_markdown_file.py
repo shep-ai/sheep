@@ -48,7 +48,7 @@ def main():
         result = create_markdown_file(filename, feature_number=feature_number)
 
         # Display results
-        print(f"\n✓ Successfully created markdown file!")
+        print("\n✓ Successfully created markdown file!")
         print(f"  File path: {result['filepath']}")
         print(f"  Content length: {len(result['content'])} bytes")
         print(f"  Commit message: {result['commit_message']}")

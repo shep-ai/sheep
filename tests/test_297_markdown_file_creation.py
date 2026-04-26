@@ -4,8 +4,6 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from sheep.content_generators import create_markdown_file
 from sheep.features.feature_297_markdown_file_creation import (
     FEATURE_NUMBER,

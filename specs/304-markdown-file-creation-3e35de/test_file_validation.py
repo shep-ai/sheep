@@ -12,16 +12,13 @@ Test Coverage:
 - File properties: trailing newline, reasonable file size
 """
 
-import os
 import sys
 from pathlib import Path
-from unittest import mock
 
 # Add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from sheep.content_generators import validate_markdown_file
-
 
 # ============================================================================
 # FILE ENCODING TESTS
@@ -121,7 +118,7 @@ def test_first_line_is_h1_markdown_heading():
         return
 
     # Read file as text
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         content = f.read()
 
     lines = content.split("\n")
@@ -157,7 +154,7 @@ def test_second_line_is_blank_separator():
         return
 
     # Read file as text
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         content = f.read()
 
     lines = content.split("\n")
@@ -172,7 +169,7 @@ def test_second_line_is_blank_separator():
     assert second_line == "", \
         f"Second line must be blank (separator), got: {repr(second_line)}"
 
-    print(f"✓ Second line is blank separator")
+    print("✓ Second line is blank separator")
 
 
 def test_prose_content_has_2_to_3_sentences():
@@ -193,7 +190,7 @@ def test_prose_content_has_2_to_3_sentences():
         return
 
     # Read file as text
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         content = f.read()
 
     lines = content.split("\n")
@@ -236,14 +233,14 @@ def test_file_ends_with_newline():
         return
 
     # Read file as text
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         content = f.read()
 
     # Check that content ends with newline
     assert content.endswith("\n"), \
         "File must end with newline (Unix convention)"
 
-    print(f"✓ File ends with newline")
+    print("✓ File ends with newline")
 
 
 # ============================================================================
@@ -277,7 +274,7 @@ def test_complete_file_validation():
     try:
         result = validate_markdown_file(str(filepath))
         assert result is True, "File validation failed"
-        print(f"✓ Complete file validation passed")
+        print("✓ Complete file validation passed")
     except ValueError as e:
         assert False, f"File validation failed: {e}"
 
@@ -307,7 +304,7 @@ def test_file_exists_at_repository_root():
     assert filepath.is_file(), f"Path is not a file: {filepath}"
 
     # Check it's readable
-    with open(filepath, "r") as f:
+    with open(filepath) as f:
         content = f.read()
 
     assert content, "File is empty"

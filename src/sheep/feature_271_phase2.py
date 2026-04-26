@@ -82,7 +82,7 @@ def execute_phase_2_file_creation_and_validation(
         # Verify file exists and get size
         file_path_obj = Path(filepath)
         if not file_path_obj.exists():
-            raise IOError(f"File creation failed: {filepath} does not exist")
+            raise OSError(f"File creation failed: {filepath} does not exist")
 
         file_size = file_path_obj.stat().st_size
         _logger.info(f"  - File size: {file_size} bytes")

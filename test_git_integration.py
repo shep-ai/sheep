@@ -9,7 +9,6 @@ Tests that verify:
 
 import subprocess
 import sys
-from pathlib import Path
 
 
 def run_git_command(cmd):

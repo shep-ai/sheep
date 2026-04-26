@@ -1,8 +1,6 @@
 """Tests for feature 301: Create markdown file test-wx8ewb.md with prose content."""
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from sheep.features.feature_301_markdown_file_creation import (
     FEATURE_NAME,

@@ -5,13 +5,11 @@ Verifies all success criteria from the feature specification are met.
 """
 
 from pathlib import Path
-import subprocess
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
 from sheep.features.feature_290_markdown_file_creation import (
-    FEATURE_NUMBER,
     MARKDOWN_FILENAME,
     create_test_f7lgjt_markdown_file,
 )
@@ -271,7 +269,7 @@ class TestErrorScenarios:
         """Test that file write failures are properly handled."""
         test_content = "# Testing Feature 290\n\nThis is a test sentence. Another test sentence. And a third.\n"
         mock_generate.return_value = test_content
-        mock_write.side_effect = IOError("Disk write failed")
+        mock_write.side_effect = OSError("Disk write failed")
 
         with pytest.raises(IOError):
             create_test_f7lgjt_markdown_file()
