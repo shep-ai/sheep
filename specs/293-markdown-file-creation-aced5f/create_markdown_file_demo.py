@@ -15,7 +15,6 @@ Workflow:
 5. Push to remote
 """
 
-import subprocess
 import sys
 from pathlib import Path
 
@@ -23,11 +22,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from sheep.content_generators import (
-    write_markdown_file,
-    validate_markdown_file,
     git_add,
     git_commit,
     git_push,
+    validate_markdown_file,
+    write_markdown_file,
 )
 
 
@@ -51,7 +50,7 @@ Cryptography is the science of securing communication through mathematical algor
 
     try:
         # Step 1: Write file
-        print(f"\nStep 1: Writing markdown file to disk...")
+        print("\nStep 1: Writing markdown file to disk...")
         filepath = write_markdown_file(content, filename)
         print(f"✓ File written: {filepath}")
 
@@ -75,7 +74,7 @@ Cryptography is the science of securing communication through mathematical algor
         print("Step 5: Pushing to remote repository...")
         try:
             push_result = git_push()
-            print(f"✓ Pushed to remote")
+            print("✓ Pushed to remote")
         except Exception as e:
             print(f"⚠ Push note: {e}")
             push_result = f"Push result: {e}"

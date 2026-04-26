@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Test script for markdown file creation feature 257."""
 
-import sys
 import re
+import sys
 from pathlib import Path
 
 

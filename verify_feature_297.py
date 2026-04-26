@@ -5,9 +5,9 @@ This script creates the markdown file and verifies it meets all specification re
 It serves as task-4 verification when the Claude API is not available in the environment.
 """
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 # Feature metadata
 FEATURE_NUMBER = 297
@@ -113,7 +113,7 @@ def verify_git_staging():
             text=True,
             check=True
         )
-        print(f"✓ File staged with git add")
+        print("✓ File staged with git add")
         return True
     except subprocess.CalledProcessError as e:
         print(f"❌ Failed to stage file: {e.stderr}")
@@ -136,7 +136,7 @@ def verify_git_commit():
             print(f"✓ File committed with message: {commit_message}")
             return True
         elif "nothing to commit" in result.stderr or "nothing to commit" in result.stdout:
-            print(f"ℹ File already committed (nothing to commit)")
+            print("ℹ File already committed (nothing to commit)")
             return True
         else:
             print(f"❌ Failed to commit: {result.stderr}")
@@ -168,7 +168,7 @@ def verify_git_push():
             print(f"✓ Pushed to origin/{current_branch}")
             return True
         elif "up to date" in result.stderr or "up-to-date" in result.stderr:
-            print(f"ℹ Already up to date with remote")
+            print("ℹ Already up to date with remote")
             return True
         else:
             print(f"❌ Push failed: {result.stderr}")

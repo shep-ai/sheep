@@ -88,8 +88,9 @@ class TestFeature291ContentGeneration:
     @patch("sheep.content_generators.get_reasoning_llm")
     def test_content_generation_completes_within_timeout(self, mock_get_llm):
         """Test that content generation completes in reasonable time (< 30 seconds)."""
-        from sheep.content_generators import generate_markdown_content
         import time
+
+        from sheep.content_generators import generate_markdown_content
 
         mock_llm = MagicMock()
         mock_llm.call.return_value = {
@@ -289,7 +290,6 @@ class TestFeature291FileCreation:
 
     def test_file_does_not_exist_before_creation(self, tmp_path):
         """Test that test-p1rf9x.md does not exist before creation (setup)."""
-        from pathlib import Path
 
         # Verify file doesn't exist at start
         file_path = tmp_path / "test-p1rf9x.md"
@@ -297,7 +297,6 @@ class TestFeature291FileCreation:
 
     def test_create_markdown_file_with_pathlib(self, tmp_path):
         """Test that create_file() creates file using pathlib.Path.write_text()."""
-        from pathlib import Path
 
         # Sample markdown content (simulating phase 1 output)
         content = "# Machine Learning\n\nMachine learning enables systems to learn from data. Algorithms improve performance through experience without explicit programming. Applications range from recommendation systems to autonomous vehicles.\n"

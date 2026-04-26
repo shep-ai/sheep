@@ -226,6 +226,7 @@ class TestPhase2FileCreationAndValidation:
     def test_write_markdown_file_creates_file_at_repo_root(self):
         """Test that write_markdown_file() creates file at repository root."""
         from pathlib import Path
+
         from sheep.content_generators import write_markdown_file
 
         # Create test content
@@ -250,6 +251,7 @@ class TestPhase2FileCreationAndValidation:
     def test_write_markdown_file_contains_correct_content(self):
         """Test that written file contains exact content."""
         from pathlib import Path
+
         from sheep.content_generators import write_markdown_file
 
         test_content = "# Test Heading\n\nThis is sentence one. This is sentence two.\n"
@@ -274,7 +276,8 @@ class TestPhase2FileCreationAndValidation:
     def test_file_validation_passes_for_valid_content(self):
         """Test that validate_markdown_file() passes for valid content."""
         from pathlib import Path
-        from sheep.content_generators import write_markdown_file, validate_markdown_file
+
+        from sheep.content_generators import validate_markdown_file, write_markdown_file
 
         test_content = "# Test Heading\n\nThis is sentence one. This is sentence two.\n"
 
@@ -297,6 +300,7 @@ class TestPhase2FileCreationAndValidation:
     def test_file_size_is_in_expected_range(self):
         """Test that created file size is in range 250-600 bytes for typical content."""
         from pathlib import Path
+
         from sheep.content_generators import write_markdown_file
 
         # Use realistic content similar to generated content
@@ -328,6 +332,7 @@ class TestPhase2FileCreationAndValidation:
     def test_file_uses_utf8_encoding_without_bom(self):
         """Test that file is saved with UTF-8 encoding and no BOM."""
         from pathlib import Path
+
         from sheep.content_generators import write_markdown_file
 
         test_content = "# Test Heading\n\nThis is sentence one. This is sentence two.\n"
@@ -358,6 +363,7 @@ class TestPhase2FileCreationAndValidation:
     def test_file_uses_lf_line_endings_not_crlf(self):
         """Test that file uses Unix LF line endings, not CRLF."""
         from pathlib import Path
+
         from sheep.content_generators import write_markdown_file
 
         test_content = "# Test Heading\n\nThis is sentence one. This is sentence two.\n"

@@ -11,21 +11,21 @@ markdown content and perform the complete workflow:
 5. Push to remote
 """
 
-import subprocess
 import sys
 from pathlib import Path
+
 from anthropic import Anthropic
 
 # Add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from sheep.content_generators import (
-    write_markdown_file,
-    validate_markdown_file,
+    _validate_markdown_content,
     git_add,
     git_commit,
     git_push,
-    _validate_markdown_content,
+    validate_markdown_file,
+    write_markdown_file,
 )
 
 
@@ -122,7 +122,7 @@ def main():
         print("Step 6: Pushing to remote repository...")
         try:
             push_result = git_push()
-            print(f"✓ Pushed to remote")
+            print("✓ Pushed to remote")
         except Exception as e:
             print(f"⚠ Push failed (may be expected in test environment): {e}")
             push_result = f"Push skipped: {e}"

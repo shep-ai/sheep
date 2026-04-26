@@ -23,18 +23,16 @@ import sys
 import tempfile
 from pathlib import Path
 from unittest import mock
-import shutil
 
 # Add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from sheep.content_generators import (
-    create_markdown_file,
-    validate_markdown_file,
+    generate_markdown_content,
     git_add,
     git_commit,
     git_push,
-    generate_markdown_content,
+    validate_markdown_file,
     write_markdown_file,
 )
 
@@ -96,7 +94,7 @@ def test_write_and_validate_markdown_file():
             assert filepath.endswith(filename)
 
             # Verify file is readable
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(filepath, encoding='utf-8') as f:
                 written_content = f.read()
             assert written_content == content
 
@@ -260,7 +258,6 @@ def test_git_push_requires_upstream():
     """Test that git_push() uses upstream tracking (-u flag)."""
     # This test verifies the function signature and basic flow
     # Full push test requires remote setup
-    import subprocess
 
     # Verify git_push function exists and has correct parameters
     import inspect
@@ -506,7 +503,7 @@ def test_error_handling_invalid_file_write():
                 content = "# Test\n\nTest content."
                 write_markdown_file(content, "test.md")
                 assert False, "Should have failed to write to read-only directory"
-            except (IOError, OSError) as e:
+            except OSError as e:
                 assert "Permission denied" in str(e) or "cannot create" in str(e).lower()
             finally:
                 os.chdir(temp_dir)

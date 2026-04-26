@@ -20,7 +20,6 @@ from pathlib import Path
 # Add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from sheep.features.feature_304 import create_feature_304_markdown_file
 
 
 # ============================================================================
@@ -143,11 +142,11 @@ def test_remote_has_file_tracked():
     if result.returncode == 0:
         ls_tree_output = result.stdout
         if "test-ypzjo0.md" in ls_tree_output:
-            print(f"✓ File test-ypzjo0.md is tracked on remote")
+            print("✓ File test-ypzjo0.md is tracked on remote")
         else:
             print(f"ℹ File may not be on remote yet: {ls_tree_output[:100]}")
     else:
-        print(f"ℹ Could not verify remote tracking, remote may not exist yet")
+        print("ℹ Could not verify remote tracking, remote may not exist yet")
 
 
 def test_push_operation_exit_code():
@@ -177,9 +176,9 @@ def test_push_operation_exit_code():
 
     # Exit code 0 is success, exit code 1 with "up to date" is also OK
     if result.returncode == 0:
-        print(f"✓ Push operation succeeded (exit code: 0)")
+        print("✓ Push operation succeeded (exit code: 0)")
     elif result.returncode == 1 and ("up to date" in result.stdout or "up-to-date" in result.stdout or "everything up-to-date" in result.stdout):
-        print(f"✓ Push operation already complete (branch up to date)")
+        print("✓ Push operation already complete (branch up to date)")
     else:
         print(f"ℹ Push status: {result.stdout if result.stdout else result.stderr}")
 
@@ -213,9 +212,9 @@ def test_upstream_tracking_configured():
         remote = result.stdout.strip()
         assert remote == "origin", \
             f"Upstream remote should be 'origin', got: {remote}"
-        print(f"✓ Upstream tracking configured for remote: origin")
+        print("✓ Upstream tracking configured for remote: origin")
     else:
-        print(f"ℹ Upstream tracking may not be configured yet")
+        print("ℹ Upstream tracking may not be configured yet")
 
 
 def test_branch_push_and_tracking():
@@ -249,7 +248,7 @@ def test_branch_push_and_tracking():
             f"Merge base should be set, got: {merge_base}"
         print(f"✓ Tracking merge base configured: {merge_base}")
     else:
-        print(f"ℹ Tracking merge base may not be configured yet")
+        print("ℹ Tracking merge base may not be configured yet")
 
 
 def test_no_unpushed_commits():
@@ -279,7 +278,7 @@ def test_no_unpushed_commits():
     unpushed = result.stdout.strip()
 
     if not unpushed:
-        print(f"✓ No unpushed commits (all commits are on remote)")
+        print("✓ No unpushed commits (all commits are on remote)")
     else:
         print(f"ℹ Found unpushed commits:\n{unpushed}")
 
@@ -301,7 +300,7 @@ def test_remote_reference_is_reachable():
     )
 
     if result.returncode == 0 or "up to date" in result.stdout or "already up to date" in result.stdout:
-        print(f"✓ Remote is reachable and accessible")
+        print("✓ Remote is reachable and accessible")
     else:
         print(f"ℹ Remote check result: {result.stderr if result.stderr else result.stdout}")
 
@@ -333,9 +332,9 @@ def test_file_commit_is_on_remote():
     if result.returncode == 0:
         log_output = result.stdout
         if "test-ypzjo0.md" in log_output and "feat(304)" in log_output:
-            print(f"✓ File creation commit is on remote branch")
+            print("✓ File creation commit is on remote branch")
         else:
-            print(f"ℹ File commit not found on remote yet")
+            print("ℹ File commit not found on remote yet")
     else:
         print(f"ℹ Could not verify remote log: {result.stderr}")
 

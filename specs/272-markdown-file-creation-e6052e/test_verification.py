@@ -263,7 +263,7 @@ class TestGitCommitAndPush:
         assert modified_files[0] == "test-visstj.md", (
             f"Expected 'test-visstj.md' to be modified, found '{modified_files[0]}'"
         )
-        print(f"✓ Only test-visstj.md was modified in commit")
+        print("✓ Only test-visstj.md was modified in commit")
 
     @staticmethod
     def test_current_branch_is_feature_branch():
@@ -331,7 +331,7 @@ class TestGitCommitAndPush:
             f"Commit does not appear to be on feature branch. "
             f"Branch info: {branch_info}"
         )
-        print(f"✓ Commit is on feature branch")
+        print("✓ Commit is on feature branch")
 
 
 def run_all_tests():

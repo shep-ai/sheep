@@ -195,7 +195,7 @@ def validate_file(filepath):
     # Check 2: File is valid UTF-8 without BOM
     binary_content = filepath.read_bytes()
     assert not binary_content.startswith(b'\xef\xbb\xbf'), (
-        f"File must be UTF-8 encoded without BOM (Byte Order Mark)"
+        "File must be UTF-8 encoded without BOM (Byte Order Mark)"
     )
 
     try:

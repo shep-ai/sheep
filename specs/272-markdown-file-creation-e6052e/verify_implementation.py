@@ -98,7 +98,7 @@ def verify_implementation():
                             result = create_markdown_file("test-visstj.md", feature_number=272)
 
                             # Verify results
-                            print(f"   ✓ Orchestration function executed successfully")
+                            print("   ✓ Orchestration function executed successfully")
                             print(f"   ✓ Result dictionary keys: {list(result.keys())}")
 
                             # Verify file was created
@@ -112,9 +112,9 @@ def verify_implementation():
                             # Verify file content
                             file_content = filepath.read_text(encoding="utf-8")
                             if file_content.startswith("# "):
-                                print(f"   ✓ File contains H1 heading")
+                                print("   ✓ File contains H1 heading")
                             else:
-                                print(f"   ✗ File missing H1 heading")
+                                print("   ✗ File missing H1 heading")
                                 return False
 
                             # Verify commit message format
@@ -128,19 +128,19 @@ def verify_implementation():
                             # Verify encoding
                             binary_content = filepath.read_bytes()
                             if not binary_content.startswith(b"\xef\xbb\xbf"):
-                                print(f"   ✓ File has UTF-8 encoding without BOM")
+                                print("   ✓ File has UTF-8 encoding without BOM")
                             else:
-                                print(f"   ✗ File has unwanted BOM")
+                                print("   ✗ File has unwanted BOM")
                                 return False
 
                             # Verify line endings
                             if b"\r\n" not in binary_content and b"\n" in binary_content:
-                                print(f"   ✓ File uses Unix LF line endings")
+                                print("   ✓ File uses Unix LF line endings")
                             else:
-                                print(f"   ✗ File has incorrect line endings")
+                                print("   ✗ File has incorrect line endings")
                                 return False
 
-                            print(f"   ✓ Workflow execution complete")
+                            print("   ✓ Workflow execution complete")
 
             finally:
                 os.chdir(original_cwd)
@@ -163,7 +163,7 @@ def verify_implementation():
             print("   ✓ Test suite syntax is valid")
             print("   ✓ All 19 tests passing (verified separately)")
         else:
-            print(f"   ✗ Test suite not found")
+            print("   ✗ Test suite not found")
             return False
     except Exception as e:
         print(f"   ✗ Test suite verification failed: {e}")

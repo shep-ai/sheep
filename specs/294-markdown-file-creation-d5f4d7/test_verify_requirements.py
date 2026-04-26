@@ -37,12 +37,10 @@ Non-Functional Requirements Coverage:
 - NFR-7: Idempotency
 """
 
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Tuple
 
 # Constants
 TEST_FILENAME = "test-xvaf7y.md"
@@ -63,13 +61,13 @@ def read_file_bytes(filepath: Path) -> bytes:
 
 def read_file_text(filepath: Path) -> str:
     """Read file as text with UTF-8 encoding."""
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         return f.read()
 
 
-def get_file_lines(filepath: Path) -> List[str]:
+def get_file_lines(filepath: Path) -> list[str]:
     """Get file lines, preserving line structure."""
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         return f.read().split("\n")
 
 
@@ -211,7 +209,7 @@ def test_h1_heading_format():
 
     # Extract title
     title = first_line[2:].strip()
-    print(f"✓ SC-3: H1 heading format is correct")
+    print("✓ SC-3: H1 heading format is correct")
     print(f"   Title: '{title}'")
 
 
@@ -238,7 +236,7 @@ def test_h1_title_descriptive_and_relevant():
     words_in_prose = sum(1 for word in important_words if word in prose)
     assert words_in_prose > 0, f"Title not relevant to prose. Title: '{title}'"
 
-    print(f"✓ SC-4: H1 title is descriptive and relevant to prose")
+    print("✓ SC-4: H1 title is descriptive and relevant to prose")
 
 
 def test_blank_line_separator():
@@ -314,7 +312,7 @@ def test_prose_grammar():
             assert sentence.strip()[-1] in ".!?", \
                 f"Sentence {i+1} does not end with punctuation: '{sentence}'"
 
-    print(f"✓ SC-9: Prose is grammatically correct")
+    print("✓ SC-9: Prose is grammatically correct")
 
 
 # ============================================================================
@@ -398,7 +396,7 @@ def test_conventional_commit_format():
     assert re.match(pattern, commit_message), \
         f"Commit message does not follow conventional format: {commit_message}"
 
-    print(f"✓ NFR-4: Commit message follows conventional format")
+    print("✓ NFR-4: Commit message follows conventional format")
     print(f"   Message: {commit_message}")
 
 
@@ -410,7 +408,7 @@ def test_fr1_file_creation_at_root():
     """FR-1: File created at repository root using pathlib."""
     filepath = REPO_ROOT / TEST_FILENAME
     assert filepath.exists(), f"File not at repository root: {filepath}"
-    assert filepath.parent == REPO_ROOT, f"File not at repository root"
+    assert filepath.parent == REPO_ROOT, "File not at repository root"
     print("✓ FR-1: File created at repository root")
 
 
@@ -479,7 +477,7 @@ def test_fr7_git_commit_message():
     assert TEST_FILENAME in commit_message, f"Filename {TEST_FILENAME} not in commit message"
     assert "prose content" in commit_message, "Commit message lacks 'prose content'"
 
-    print(f"✓ FR-7: Conventional commit message present")
+    print("✓ FR-7: Conventional commit message present")
 
 
 def test_fr8_branch_isolation():
@@ -507,9 +505,9 @@ def test_fr9_remote_push():
         )
 
         if remote_check.returncode == 0:
-            print(f"✓ FR-9: Changes verified in remote repository")
+            print("✓ FR-9: Changes verified in remote repository")
         else:
-            print(f"⚠ FR-9: Remote branch verification inconclusive (may not be visible yet)")
+            print("⚠ FR-9: Remote branch verification inconclusive (may not be visible yet)")
     except Exception as e:
         print(f"⚠ FR-9: Could not verify remote push: {e}")
 
@@ -641,7 +639,7 @@ def run_all_tests():
                 print(error_msg)
 
     # Summary
-    print(f"\n" + "="*70)
+    print("\n" + "="*70)
     print("TEST SUMMARY")
     print("="*70)
     print(f"Passed: {passed}")
@@ -649,12 +647,12 @@ def run_all_tests():
     print(f"Total:  {passed + failed}")
 
     if errors:
-        print(f"\nErrors:")
+        print("\nErrors:")
         for error in errors:
             print(f"  {error}")
 
     if failed == 0:
-        print(f"\n✓ ALL TESTS PASSED!")
+        print("\n✓ ALL TESTS PASSED!")
     else:
         print(f"\n✗ {failed} TEST(S) FAILED")
         sys.exit(1)

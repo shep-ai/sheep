@@ -3,9 +3,7 @@
 import os
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 from sheep.content_generators import create_markdown_file, validate_markdown_file
 from sheep.features.feature_294_markdown_file_creation import (

@@ -15,13 +15,10 @@ Test Coverage:
 import subprocess
 import sys
 from pathlib import Path
-from unittest import mock
 
 # Add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from sheep.features.feature_304 import create_feature_304_markdown_file
-from sheep.content_generators import create_markdown_file
 
 
 # ============================================================================
@@ -177,7 +174,7 @@ def test_commit_message_includes_filename():
     assert "test-ypzjo0.md" in commit_line, \
         f"Commit message should include 'test-ypzjo0.md', got: {repr(commit_line)}"
 
-    print(f"✓ Commit message includes filename: test-ypzjo0.md")
+    print("✓ Commit message includes filename: test-ypzjo0.md")
 
 
 def test_commit_message_includes_prose_reference():
@@ -312,7 +309,7 @@ def test_commit_includes_markdown_file():
     assert "A" in name_status and "test-ypzjo0.md" in name_status, \
         f"File should be added (A) in commit, status: {name_status}"
 
-    print(f"✓ Commit includes markdown file as tracked content")
+    print("✓ Commit includes markdown file as tracked content")
 
 
 def test_commit_message_is_not_empty():

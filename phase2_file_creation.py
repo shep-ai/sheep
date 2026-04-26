@@ -8,7 +8,6 @@ This script demonstrates Phase 2 of the feature 271 implementation:
 - Validate the file meets all format requirements
 """
 
-import os
 import sys
 from pathlib import Path
 

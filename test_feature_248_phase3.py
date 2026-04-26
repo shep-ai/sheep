@@ -15,7 +15,8 @@ Tests verify:
 
 import unittest
 from pathlib import Path
-from git import Repo, GitCommandError
+
+from git import Repo
 
 
 class TestGitStaging(unittest.TestCase):

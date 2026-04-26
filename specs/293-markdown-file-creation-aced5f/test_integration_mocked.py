@@ -11,17 +11,15 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from unittest import mock
 
 # Add src directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from sheep.content_generators import (
-    write_markdown_file,
-    validate_markdown_file,
     git_add,
     git_commit,
-    git_push,
+    validate_markdown_file,
+    write_markdown_file,
 )
 
 
