@@ -1,3 +1,3 @@
-# The Art of Simplicity
+# Sample Markdown File
 
-Simplicity is a powerful principle that often gets overlooked in our complex world. When we strip away unnecessary details and focus on what truly matters, we create space for clarity and understanding. This approach transforms how we think, design, and communicate with one another.
+This is a sample markdown file created as part of the test feature. It demonstrates basic markdown formatting with a title and a few sentences to provide context and information. This example shows how easy it is to create well-structured documents using markdown syntax.
