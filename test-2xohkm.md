@@ -1,3 +1,3 @@
-# The Art of Stargazing
+# Sample Markdown File
 
-Stargazing is one of the most accessible and rewarding hobbies anyone can pursue. All you need is a clear night sky and a little patience to observe the wonders of the universe. Whether you're tracking constellations, spotting planets, or catching a meteor shower, the night sky offers endless opportunities for discovery and wonder.
+This is a simple markdown file created as part of feature testing. It demonstrates basic markdown formatting with headings and paragraphs. This file serves as a minimal example for documentation purposes.
