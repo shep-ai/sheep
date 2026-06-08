@@ -1,3 +1,3 @@
-# The Beauty of Mountain Streams
+# Sample Markdown File
 
-Mountain streams are among nature's most dynamic water systems, carved through rock formations over millennia by constant water flow. They provide essential habitat for diverse aquatic species and serve as vital water sources for downstream ecosystems. The sound of flowing water combined with surrounding natural landscapes creates one of the most peaceful environments found in nature.
+This is a sample markdown file created for documentation purposes. It demonstrates basic markdown formatting with a simple title and descriptive content. This file serves as an example for testing markdown file creation workflows.
