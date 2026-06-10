@@ -1,0 +1,2 @@
+# The Art of Reading
+Reading is one of the most enriching activities a person can pursue, offering both knowledge and escape from the everyday world. Through books, we travel to distant places, meet fascinating characters, and explore ideas that shape our understanding of life. Whether it's fiction, non-fiction, or poetry, each word on a page carries the potential to transform how we think and see the world around us.
