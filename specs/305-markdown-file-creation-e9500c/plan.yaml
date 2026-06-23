@@ -1,0 +1,260 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: "markdown-file-creation-e9500c"
+summary: >
+  Feature 305 implements a minimal markdown file creation feature that leverages existing
+  infrastructure from content_generators.py. The entire workflow (generate content via Claude API,
+  write file with proper encoding, validate structure, commit with conventional message, push to
+  remote) is handled by the existing create_markdown_file() orchestration function. The feature
+  implementation requires only creating a simple feature module that calls this function with
+  the correct parameters (filename and feature_number).
+
+# Relationships
+relatedFeatures:
+  - number: 304
+    name: "markdown-file-creation-3e35de"
+  - number: 303
+    name: "markdown-file-creation"
+
+technologies:
+  - "Python 3.10+"
+  - "pathlib (standard library)"
+  - "CrewAI LLM Framework"
+  - "Claude API"
+  - "subprocess (git operations)"
+  - "structlog (structured logging)"
+
+relatedLinks:
+  - title: "Content Generators Utility Module"
+    url: "src/sheep/content_generators.py"
+  - title: "Feature 304 Reference Implementation"
+    url: "specs/304-markdown-file-creation-3e35de/spec.yaml"
+  - title: "LLM Configuration"
+    url: "src/sheep/config/llm.py"
+  - title: "Structured Logging"
+    url: "src/sheep/observability/logging.py"
+
+# Structured implementation phases
+phases:
+  - id: "phase-1"
+    name: "Foundation and Module Setup"
+    description: "Create the feature module structure with proper imports and configuration. This establishes the foundation for the orchestration logic that follows."
+    parallel: false
+  - id: "phase-2"
+    name: "Implementation and Orchestration"
+    description: "Implement the feature function that calls the existing create_markdown_file() orchestration function with proper error handling and logging."
+    parallel: false
+  - id: "phase-3"
+    name: "Validation and Testing"
+    description: "Verify the implementation works end-to-end, validate file creation, and ensure all success criteria are met through comprehensive testing."
+    parallel: false
+  - id: "phase-4"
+    name: "Git Integration and Finalization"
+    description: "Commit the feature module to the repository and push to the remote. Perform final verification that all success criteria are satisfied."
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - "src/sheep/features/feature_305.py"
+
+filesToModify: []
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  Feature 305 integrates seamlessly with the established Sheep project architecture. All
+  infrastructure components are production-ready and located in `src/sheep/content_generators.py`:
+
+  **LLM Layer**: Uses `get_reasoning_llm()` from `config/llm.py` for Claude API client with
+  model selection, temperature tuning (0.2 for consistency), API key injection, and CrewAI
+  LLM abstraction.
+
+  **Utility Layer**: Orchestration functions handle all complexity:
+  - `generate_markdown_content()` - Generates H1 heading + 2-3 sentences via Claude API
+  - `write_markdown_file(content, filename)` - Writes with UTF-8 encoding, validates path safety
+  - `validate_markdown_file(filepath)` - Comprehensive validation (encoding, line endings, structure)
+  - `commit_markdown_file()` - Stages and commits with conventional message format
+  - `push_markdown_file()` - Pushes with upstream tracking
+  - `create_markdown_file()` - Orchestrates complete workflow (generate → write → validate → commit → push)
+
+  **Logging Layer**: Uses structlog integration from `observability/logging.py` with structured
+  logging, contextvars merging, ISO timestamps, colored console output, and proper filtering.
+
+  **Git Layer**: Subprocess-based git operations (project standard, not GitPython) with error
+  handling and conventional commit message format: `feat(305): create markdown file test-9s145k.md with prose content`.
+
+  The feature implementation is a thin orchestration wrapper that instantiates the existing
+  `create_markdown_file()` function with filename and feature_number parameters.
+
+  ## Key Design Decisions
+
+  ### 1. Reuse Existing Orchestration Function
+
+  **Chosen**: Call `create_markdown_file()` directly from content_generators.py
+
+  **Rationale from Research**:
+  - Function is production-ready and tested across 304+ features
+  - Provides comprehensive error handling, logging, and validation
+  - Eliminates code duplication and maintenance burden
+  - Ensures consistency with established pattern from prior features
+  - Feature implementation becomes trivial (2-5 lines of functional code per spec)
+
+  **Alternatives Rejected**:
+  - Manual orchestration: duplicates logic, violates DRY principle
+  - Custom orchestration wrapper: adds unnecessary abstraction with no value
+  - Agent-based orchestration: overkill for deterministic sequential workflow
+
+  ### 2. Content Generation via Claude API
+
+  **Chosen**: Use existing `generate_markdown_content()` via Claude API and CrewAI
+
+  **Rationale from Research**:
+  - Claude API consistently produces high-quality prose (basic validation sufficient)
+  - CrewAI LLM abstraction already configured, tested, and proven stable
+  - Temperature set to 0.2 for consistency and reliability
+  - Prompt template and response validation logic already implemented
+  - Matches established pattern from 304+ preceding features
+
+  **Product Decision Alignment**: Confirmed in research \"free-form topics\" approach and
+  \"basic validation only\" (trust Claude quality, no grammar checking needed).
+
+  ### 3. File I/O with Encoding Guarantees
+
+  **Chosen**: Use existing `write_markdown_file()` with pathlib and UTF-8 encoding
+
+  **Rationale from Research**:
+  - Validates filename against path traversal attacks (rejects \"/\" or \"\\\\\" or leading \".\")
+  - Opens with `encoding=\"utf-8\"` and Python uses LF on Unix automatically
+  - Verifies file creation and validates content exists
+  - Prevents security vulnerabilities while maintaining simplicity
+  - Ensures consistent encoding behavior across platforms
+
+  **Alternatives Rejected**:
+  - Direct open() calls: loses validation and error handling
+  - Binary mode with manual byte handling: unnecessarily complex and error-prone
+
+  ### 4. Comprehensive File Validation
+
+  **Chosen**: Use existing `validate_markdown_file()` with full validation suite
+
+  **Rationale from Research**:
+  - Checks UTF-8 encoding and rejects BOM (Byte Order Mark)
+  - Validates LF line endings exclusively (rejects CRLF)
+  - Verifies H1 heading structure and format
+  - Counts sentences (requires 2-3 as per spec)
+  - Enforces trailing newline for Unix compatibility
+  - Includes structured logging for observability
+  - Prevents malformed content from entering repository (fail-fast approach)
+
+  **Product Decision Alignment**: Matches selected \"basic validation only\" approach that
+  catches encoding/structure issues while avoiding external dependencies.
+
+  ### 5. Git Operations via Subprocess
+
+  **Chosen**: Use existing `commit_markdown_file()` and `push_markdown_file()` wrappers
+
+  **Rationale from Research**:
+  - Project standard: uses subprocess (not GitPython library)
+  - Generates conventional commit message automatically
+  - Handles error cases (e.g., \"nothing to commit\" scenarios)
+  - Upstream tracking via `-u` flag for automatic branch setup
+  - Integrated logging at each step
+
+  **Alternatives Rejected**:
+  - GitPython library: adds external dependency, project doesn't use it
+  - GitCommitTool/GitPushTool: designed for agent workflows, adds unnecessary indirection
+
+  ### 6. Error Handling Strategy
+
+  **Chosen**: Fail-fast with error reporting and logging (no automatic retries)
+
+  **Rationale from Research**:
+  - Keeps orchestration logic simple and transparent
+  - Errors are rare in stable infrastructure (retries add complexity for minimal benefit)
+  - Fast failure enables quick debugging and re-runs without intervention
+  - Matches established pattern proven across 304+ features
+  - Supports fully automated workflow without manual review queues
+
+  **Product Decision Alignment**: Confirmed in research as \"fail-fast with error reporting\"
+  with rationale that errors are rare in stable infrastructure.
+
+  ### 7. Logging and Observability
+
+  **Chosen**: Rely on existing structlog integration in utility functions
+
+  **Rationale from Research**:
+  - All functions in content_generators.py already use structlog
+  - Project infrastructure configured with contextvars, ISO timestamps, colors, filtering
+  - Avoids duplication of logging logic
+  - Consistent logging across all 305 features
+  - Provides full observability without feature-specific logging overhead
+
+  **Alternatives Rejected**:
+  - print() statements: loses structured logging and project infrastructure
+  - Additional logging in feature code: duplicates information already logged
+
+  ## Implementation Strategy
+
+  The implementation follows four phases designed for clarity, testability, and validation:
+
+  **Phase 1 - Foundation**: Create feature module with imports and structure following the
+  pattern established in features 304+. This foundation is minimal but essential.
+
+  **Phase 2 - Implementation**: Implement the orchestration function call with error handling
+  and logging integration. The actual implementation is 2-5 lines of functional code as all
+  complexity is handled by existing infrastructure.
+
+  **Phase 3 - Validation**: Verify file creation and structure through comprehensive testing
+  (encoding, line endings, markdown format, prose quality). Also verify git operations
+  (commit message format, upstream push).
+
+  **Phase 4 - Finalization**: Perform final comprehensive check that all success criteria
+  from the feature spec are met. Ensure implementation is ready for integration.
+
+  Phase ordering is critical: modules must exist before implementing (1→2), implementation
+  must work before validating (2→3), validation must pass before finalizing (3→4).
+
+  ## Risk Mitigation
+
+  | Risk | Impact | Mitigation | Notes |
+  | ---- | ------ | ---------- | ----- |
+  | Claude API rate limiting | High | Fail-fast approach enables quick retry. Rate limits rare in stable environments. Existing error handling logs API errors. | Monitoring required if frequency increases |
+  | Network timeout during git push | Medium | Subprocess error handling detects and logs failures. Fast failure enables manual retry or investigation. | Manual intervention sometimes needed |
+  | File already exists | Low | write_markdown_file() will overwrite (consistent with pattern from 304+). Not a failure condition per established workflow. | Expected behavior across all 305 features |
+  | Invalid UTF-8 from API | Very Low | validate_markdown_file() performs UTF-8 decoding check. Claude API responses always valid UTF-8 per research. | No known incidents across 304 features |
+  | Git repository state issues | Low | Fail-fast approach will catch and report git errors (detached HEAD, merge conflicts). No automatic recovery. | Requires manual investigation |
+  | API credentials missing | Medium | get_reasoning_llm() raises clear error if ANTHROPIC_API_KEY not set in environment. Setup documentation covers credential configuration. | Error message guides user to fix |
+
+  ## Success Criteria Mapping
+
+  All success criteria from the feature specification are automatically satisfied by
+  existing infrastructure (verified in research):
+
+  - ✅ File `test-9s145k.md` exists - `create_markdown_file()` handles
+  - ✅ UTF-8 encoding, no BOM - `write_markdown_file()` enforces via Python's open()
+  - ✅ Unix LF line endings - `write_markdown_file()` + pathlib on Unix
+  - ✅ H1 heading `# Title` - `generate_markdown_content()` + `validate_markdown_file()`
+  - ✅ 2-3 sentences prose - `generate_markdown_content()` prompt + `validate_markdown_file()`
+  - ✅ Coherent prose - Claude API quality (per research, basic validation sufficient)
+  - ✅ File passes validation - `validate_markdown_file()` comprehensive checks per spec
+  - ✅ Staged and committed - `commit_markdown_file()` handles
+  - ✅ Conventional commit format - `commit_markdown_file()` generates required format
+  - ✅ Author metadata and timestamp - Built into git commit operations
+  - ✅ Changes pushed to remote - `push_markdown_file()` with upstream tracking
+  - ✅ No existing files modified - Feature only creates markdown file and module
+  - ✅ Feature module created - `src/sheep/features/feature_305.py`
+  - ✅ Follows 304+ pattern - Implementation reuses established utilities
+
+  ## Conclusion
+
+  Feature 305 is a straightforward, low-risk implementation built entirely on production-ready
+  infrastructure. The research phase confirmed all architectural decisions are predetermined by
+  the established pattern from 304+ preceding features. No new libraries, no new abstractions,
+  no new security considerations beyond standard file I/O (already validated). The implementation
+  is a thin orchestration wrapper (2-5 lines) that makes existing infrastructure accessible.
+  This approach maximizes code reuse, minimizes risk, and ensures consistency.
