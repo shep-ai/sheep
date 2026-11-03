@@ -94,4 +94,4 @@ def validate_file(file_path: Path) -> None:
 
 
 if __name__ == '__main__':
-    validate_file(Path('test-nl1k6h.md'))
+    validate_file(Path('test-phtmco.md'))
