@@ -1,0 +1,452 @@
+name: markdown-file-creation-060d58
+summary: >
+  Feature 131 is a straightforward markdown file creation task following the established pattern from features 125-130.
+  All technical infrastructure is already in place: content generation, file I/O, validation, and git operations are
+  implemented in the `content_generators.py` module. No new external dependencies are required. The implementation
+  reuses existing utility functions with only the filename and feature number changing from the pattern.
+
+relatedFeatures:
+  - "130: Create markdown file test-laceiq.md"
+  - "129: Create markdown file test-3pz04c.md"
+  - "128: Create markdown file test-zihquv.md"
+  - "127: Create markdown file test-xkd1zo.md"
+  - "126: Create markdown file test-zlzcz0.md"
+
+technologies:
+  - "Python 3.10+ (pathlib, built-in file I/O)"
+  - "Claude API (via CrewAI LLM framework)"
+  - "Git (via GitCommitTool, GitPushTool)"
+  - "Markdown (file format)"
+
+relatedLinks:
+  - title: "Sheep Repository Architecture"
+    url: "https://github.com/anthropics/sheep"
+  - title: "Content Generators Module"
+    url: "src/sheep/content_generators.py"
+  - title: "Feature 127 Implementation Reference"
+    url: "src/sheep/features/feature_127_markdown_file_creation.py"
+  - title: "Feature 130 Specification"
+    url: "specs/130-markdown-file-create-e5ecf9/spec.yaml"
+
+decisions:
+  - title: "Content Generation Method"
+    chosen: "Use existing `generate_markdown_content()` from `content_generators.py`"
+    rejected:
+      - "Custom content generation implementation — duplicates existing, tested code; adds maintenance burden; breaks consistency with features 125-130"
+      - "Direct LLM API calls instead of utility wrapper — bypasses validation layer; increases complexity; harder to debug failures"
+    rationale: >
+      The `generate_markdown_content()` function in `content_generators.py` (lines 26-67) already handles all content generation:
+      uses Claude API via `get_reasoning_llm()`, enforces markdown format with internal validation, ensures trailing newline,
+      and includes comprehensive logging. This function is proven across features 125-130. Reusing it ensures consistency,
+      reduces risk, and maintains a single source of truth for content generation logic.
+
+  - title: "File Writing Approach"
+    chosen: "Use existing `write_markdown_file()` utility function"
+    rejected:
+      - "Direct pathlib file I/O — loses path safety checks (directory traversal protection), encoding guarantees, and post-write verification built into the utility"
+      - "Custom file writer implementation — duplicates tested code; loses built-in size validation (lines 135-137); increases error handling complexity"
+    rationale: >
+      The `write_markdown_file()` function (lines 100-146) provides security (validates filename against path traversal attacks),
+      correct encoding (UTF-8 per spec), verification (checks file exists and is non-empty), and comprehensive logging.
+      These details matter for test reliability. The utility is battle-tested across 125-130 features.
+
+  - title: "Content Validation Strategy"
+    chosen: "Use strict validation via existing `validate_markdown_file()` with fail-immediately semantics"
+    rejected:
+      - "Lenient validation (warn but allow) — appropriate for production but test features require strict compliance to detect platform issues reliably"
+      - "No validation — loses ability to catch formatting errors; defeats purpose of test suite to verify platform reliability"
+    rationale: >
+      Per spec requirements and resolved open questions: strict validation is appropriate because this is a platform reliability
+      test (feature 131 in series 125+). The `validate_markdown_file()` function (lines 149-243) enforces all requirements:
+      H1 heading presence, 2-3 sentence count, UTF-8 encoding (no BOM), Unix LF line endings (not CRLF), and trailing newline.
+      Any deviation from spec = platform issue that should be caught and reported. This matches the pattern established in features 125-130.
+
+  - title: "Git Integration Method"
+    chosen: "Use existing `commit_markdown_file()` and `push_markdown_file()` utility functions"
+    rejected:
+      - "Manual git commands via shell or GitPython — loses abstraction; harder to track operations; duplicates existing tool logic"
+      - "GitCommitTool and GitPushTool directly — possible but utilities add convenience layer (custom message support, unified logging, error handling)"
+    rationale: >
+      The `commit_markdown_file()` (lines 273-327) and `push_markdown_file()` (lines 330-359) functions wrap GitCommitTool and GitPushTool
+      with appropriate defaults (auto-staging, upstream tracking, logging). They support custom commit messages (required for feature number).
+      These utilities are consistently used across features 125-130. Direct tool usage would be more verbose.
+
+  - title: "Content Topic Scope"
+    chosen: "Allow any topic (content generated by Claude about any subject)"
+    rejected:
+      - "Restrict to specific domain (e.g., technology, science) — spec explicitly requests \"about anything\"; constraining reduces test coverage"
+      - "Use templated/placeholder content (Lorem ipsum) — unrealistic; doesn't exercise Claude API; reduces test value"
+    rationale: >
+      Spec explicitly states: \"Create markdown file... with a title and 2-3 sentences about anything.\" This aligns with the open question
+      resolution in feature 130 and established pattern across 125-130. Allowing any topic tests platform flexibility and content diversity.
+      Claude API is already in use, so generation cost is the same regardless of topic. This approach maximizes test coverage.
+
+  - title: "Error Handling and Retry Strategy"
+    chosen: "Fail immediately on any validation error (no retries)"
+    rejected:
+      - "Retry with new content on validation failure — masks root causes; makes debugging harder; slower failure detection inappropriate for test suite"
+      - "Lenient error handling (warn and continue) — contradicts strict validation requirement; doesn't signal platform failures"
+    rationale: >
+      Per spec requirements and resolved open question: fail immediately is recommended for platform test features.
+      Test failures are diagnostic signals; retries obscure root causes and slow failure detection. This matches features 125-130 pattern.
+      Immediate failure ensures clear error reporting and faster issue diagnosis.
+
+  - title: "Encoding and Line Ending Specification"
+    chosen: "UTF-8 encoding without BOM, Unix LF (\\n) line endings"
+    rejected:
+      - "UTF-8 with BOM — Python's default open() in text mode handles BOM fine, but spec explicitly says UTF-8 without BOM; unnecessary complication"
+      - "CRLF line endings — Windows-style; spec requires Unix LF for consistency across all features in series"
+    rationale: >
+      Spec explicitly requires: \"UTF-8 encoding with Unix LF (\\n) line endings, not Windows CRLF.\" The `write_markdown_file()` function
+      uses Python's default text mode (lines 127: `open(file_path, \"w\", encoding=\"utf-8\")`), which automatically uses Unix LF on Linux/Mac
+      and CRLF on Windows. The validation function explicitly checks for CRLF and rejects it (line 196). This is deterministic and correct.
+
+  - title: "Commit Message Format"
+    chosen: "Use feature-number format: `feat(131): create markdown file test-957h8f.md`"
+    rejected:
+      - "Descriptive format with topic — would require topic extraction; adds complexity; spec asks for simple format per resolution in feature 130"
+      - "Generic message without feature number — loses traceability; harder to correlate commits with spec requirements"
+    rationale: >
+      Spec explicitly provides the required message format: \"feat(131): create markdown file test-957h8f.md.\"
+      This is conventional commit format with feature scope. Feature 130 resolved to use simple format (without topic descriptors).
+      This format is enforced by `commit_markdown_file()` when custom_message is provided (line 305-307).
+
+  - title: "Module Structure and Code Organization"
+    chosen: "Create feature-specific wrapper function in `src/sheep/features/feature_131_markdown_file_creation.py` following feature_127 pattern"
+    rejected:
+      - "Inline implementation in flow/agent — mixes concerns; harder to test and reuse; inconsistent with modular feature architecture"
+      - "Use generic `create_markdown_file()` from content_generators.py directly — possible but feature modules provide documentation, logging, feature-specific metadata"
+    rationale: >
+      Features 125-130 each have their own module in `src/sheep/features/feature_NNN_markdown_file_creation.py` with a wrapper function.
+      This provides: feature-specific metadata (FEATURE_NUMBER, FEATURE_NAME, MARKDOWN_FILENAME), clear orchestration of the 5-step workflow,
+      feature-specific logging (\"Creating feature 131 markdown file...\"), and proper error handling. The pattern is proven and maintainable.
+
+openQuestions:
+  - question: "Should the implementation use the generic `create_markdown_file()` orchestration function or manually call utilities?"
+    resolved: true
+    options:
+      - option: "Use `create_markdown_file(\"test-957h8f.md\")` from content_generators.py directly"
+        description: >
+          The `create_markdown_file()` function (lines 362-439) is a complete, ready-made orchestrator that handles all 5 workflow steps.
+          Minimal boilerplate. However, it auto-generates commit message from content rather than accepting custom message in some versions.
+        selected: false
+      - option: "Manual orchestration: call utilities sequentially in feature module (recommended)"
+        description: >
+          Call `generate_markdown_content()`, `write_markdown_file()`, `validate_markdown_file()`, `commit_markdown_file()`,
+          and `push_markdown_file()` in sequence within a feature wrapper function. Provides explicit control over commit message,
+          feature-specific logging, and metadata. Matches feature_127 pattern exactly.
+        selected: true
+      - option: "Create a custom combined function accepting filename and custom message parameters"
+        description: >
+          Extend `content_generators.py` with a variant that accepts feature number and custom message. More flexible but adds complexity
+          to shared utilities and creates maintenance burden for future features.
+        selected: false
+    selectionRationale: >
+      Manual orchestration is recommended and selected because: (1) it matches the established pattern in feature_127 exactly,
+      ensuring consistency; (2) it provides explicit control over the commit message format required by spec; (3) it allows
+      feature-specific logging and metadata; (4) the utilities are designed to be composable, not monolithic; (5) it's clearer
+      for debugging and testing. While `create_markdown_file()` is complete, the feature module pattern is more maintainable
+      across 125+ features in the series.
+
+  - title: "Where should the feature module be executed: from a flow, agent, or CLI?"
+    resolved: true
+    options:
+      - option: "From implementation agent workflow (CrewAI Flow) — allows agentic decision-making"
+        description: >
+          The feature function could be called within an agent task or flow orchestration. Provides flexibility for multi-step workflows
+          or conditional execution. However, for simple deterministic tasks (file creation), adds unnecessary complexity.
+        selected: false
+      - option: "From CLI entry point or direct function call (recommended)"
+        description: >
+          The feature function can be called directly from a CLI command or entrypoint. Simplest approach. Matches how features 125-130
+          are likely executed. No orchestration overhead.
+        selected: true
+      - option: "From a dedicated Flow class inheriting from CrewAI Flow"
+        description: >
+          Create a Flow subclass that encapsulates the file creation workflow. More structured but adds abstraction for a simple task.
+          Useful if future features require decision-making or parallel steps.
+        selected: false
+    selectionRationale: >
+      Direct function call from CLI is recommended because: (1) this is a deterministic, non-negotiable workflow (always do all 5 steps);
+      (2) no multi-agent coordination or decision-making is required; (3) features 125-130 appear to use simple execution patterns;
+      (4) adding Flow or agent orchestration adds complexity without benefit for a 30-minute task; (5) the feature module
+      with clear logging is sufficient for observability and debugging.
+
+content: |
+  ## Research Summary
+
+  Feature 131 is the 131st iteration of a markdown file creation test series (features 125+) that validates the Sheep platform's
+  ability to execute simple, deterministic file creation tasks reliably. The technical foundation is fully in place: the
+  `content_generators.py` module (lines 26-439) provides all required utilities for content generation, file I/O, validation,
+  git operations, and orchestration.
+
+  ## Technology Decisions
+
+  ### 1. Content Generation Method
+
+  **Chosen:** Use existing `generate_markdown_content()` from `content_generators.py`
+
+  **Why:** The function encapsulates Claude API integration, format validation, and logging. It's battle-tested across features 125-130.
+
+  **Details:**
+  - Function: `content_generators.py:26-67`
+  - Uses: `get_reasoning_llm()` from CrewAI config for Claude API
+  - Enforces: H1 heading, 2-3 sentences, trailing newline, UTF-8 compatibility
+  - Logging: Comprehensive debug and error logging
+
+  ### 2. File Writing Approach
+
+  **Chosen:** Use `write_markdown_file(content, filename)` from `content_generators.py`
+
+  **Why:** Provides security (filename validation), correct encoding, verification (file exists, non-empty), and logging.
+
+  **Details:**
+  - Function: `content_generators.py:100-146`
+  - Security: Prevents directory traversal via path validation (line 116)
+  - Encoding: UTF-8 in text mode, automatic LF line endings on Unix (line 127)
+  - Verification: Checks file creation success and minimum size (lines 131-137)
+
+  ### 3. Validation Strategy
+
+  **Chosen:** Strict validation via `validate_markdown_file(filepath)` with fail-immediately semantics
+
+  **Why:** Test features require strict compliance to catch platform issues reliably. Lenient validation would mask failures.
+
+  **Details:**
+  - Function: `content_generators.py:149-243`
+  - Checks: H1 heading (line 200), sentence count 2-3 (lines 226-230), UTF-8 encoding (lines 190-193),
+    no UTF-8 BOM (lines 186-187), Unix LF not CRLF (line 196), blank line separator (line 210), trailing newline (line 233)
+  - Error reporting: Descriptive ValueError messages for each failure mode
+  - No retries: Immediate failure on validation error per spec requirements
+
+  ### 4. Git Integration
+
+  **Chosen:** Use `commit_markdown_file()` and `push_markdown_file()` from `content_generators.py`
+
+  **Why:** These utilities wrap GitCommitTool and GitPushTool with appropriate conventions, logging, and custom message support.
+
+  **Details:**
+  - Commit function: `content_generators.py:273-327`
+    - Accepts custom_message parameter for feature-specific format (line 305-307)
+    - Uses GitCommitTool with add_all=True to auto-stage (line 320)
+    - Supports message format: `feat(131): create markdown file test-957h8f.md`
+  - Push function: `content_generators.py:330-359`
+    - Uses GitPushTool with set_upstream=True for branch tracking (line 352)
+    - Remote defaults to "origin"
+
+  ### 5. Encoding and Line Ending Enforcement
+
+  **Chosen:** UTF-8 encoding without BOM, Unix LF line endings
+
+  **Why:** Spec explicitly requires this. Python's default behavior on Unix ensures LF. Validation explicitly rejects CRLF.
+
+  **Details:**
+  - Write: `open(file_path, "w", encoding="utf-8")` on Unix produces LF line endings
+  - Validate: Checks for CRLF (line 196 in validate_markdown_file) and rejects it
+  - Validation: Checks for UTF-8 BOM and rejects it (line 186)
+  - Result: Deterministic encoding across all features in series
+
+  ### 6. Content Topic Scope
+
+  **Chosen:** Allow any topic (Claude generates about any subject)
+
+  **Why:** Spec says "about anything." Tests platform flexibility. Matches features 125-130 pattern.
+
+  **Details:**
+  - Prompt: `MARKDOWN_GENERATION_PROMPT` (lines 12-23) says "about any topic you choose"
+  - Provides variety: Each feature generates unique content
+  - Tests generality: Validates that Claude integration works across domains
+
+  ### 7. Commit Message Format
+
+  **Chosen:** Feature-number conventional format: `feat(131): create markdown file test-957h8f.md`
+
+  **Why:** Spec explicitly provides this format. Conventional commit format. Provides traceability.
+
+  **Details:**
+  - Format per spec: `feat(131): create markdown file test-957h8f.md`
+  - Uses custom_message parameter in `commit_markdown_file()` (line 305)
+  - Matches feature 130 resolution: simple format without topic descriptors
+
+  ### 8. Module Structure and Orchestration
+
+  **Chosen:** Create `feature_131_markdown_file_creation.py` with wrapper function following feature_127 pattern
+
+  **Why:** Feature modules provide metadata, structured logging, and clear orchestration. Pattern proven across 125-130.
+
+  **Details:**
+  - Location: `src/sheep/features/feature_131_markdown_file_creation.py`
+  - Based on: `src/sheep/features/feature_127_markdown_file_creation.py`
+  - Function: `create_feature_131_markdown_file(repo_path=None)`
+  - Metadata: FEATURE_NUMBER=131, FEATURE_NAME, MARKDOWN_FILENAME="test-957h8f.md"
+  - Orchestration: 5-step workflow with logging at each step
+  - Returns: Dictionary with filepath, content, commit_message, push_result
+
+  ## Library Analysis
+
+  | Library/Module | Purpose | Decision | Reasoning |
+  | --- | --- | --- | --- |
+  | `pathlib` (Python built-in) | Path operations and file existence checks | Use | Part of Python stdlib; already used in content_generators.py; safe API prevents path traversal |
+  | `content_generators.py` | Markdown generation, file I/O, validation, git operations | Use | All utilities already implemented, tested, and proven across features 125-130; no reimplementation needed |
+  | Claude API (via CrewAI) | LLM for content generation | Use | Existing integration via `get_reasoning_llm()`; already configured in repo; used by all preceding features |
+  | `GitCommitTool`, `GitPushTool` from `sheep.tools` | Git commit and push operations | Use | Already available in codebase; wrapped by content_generators utilities; proven pattern |
+  | `get_logger()` from `sheep.observability.logging` | Structured logging | Use | Consistent with codebase observability infrastructure; enables debugging and tracing |
+  | Langfuse | Observability and tracing | Use (existing) | Already integrated; logging automatically captured; no additional configuration needed |
+  | Pydantic | Data validation (if needed) | Not required | No custom data models needed for feature 131; content_generators handles all validation |
+  | External markdown libraries (markdown, mistune) | Advanced markdown parsing | Reject | Unnecessary; validation uses simple string operations (count periods, check H1, check BOM) which are more efficient and require no dependencies |
+
+  ## Security Considerations
+
+  1. **Path Traversal Prevention**
+     - Risk: Filename parameter could contain `../` or absolute paths
+     - Mitigation: `write_markdown_file()` validates filename (line 116-117) rejects `/`, `\`, and `.` prefixes
+     - Implementation: Safe and proven across 125-130 features
+
+  2. **Encoding Safety**
+     - Risk: Malformed UTF-8 could cause issues in downstream processing
+     - Mitigation: `write_markdown_file()` uses UTF-8 explicitly; `validate_markdown_file()` verifies UTF-8 decoding (line 191)
+     - Result: Only valid UTF-8 files pass validation
+
+  3. **Git Operation Safety**
+     - Risk: Unbounded git operations could affect unintended files
+     - Mitigation: `commit_markdown_file()` uses `add_all=True` which stages only tracked changes; feature module controls what gets committed
+     - Detail: In this context (fresh feature branch), add_all=True is appropriate and safe
+
+  4. **LLM Output Injection**
+     - Risk: Claude API could generate content with special characters that break markdown or shell commands
+     - Mitigation: Content is validated (H1 check, sentence count) and written directly to file; no shell execution or code interpretation
+     - Result: Content is inert — rendered as markdown only
+
+  5. **File Permissions**
+     - Risk: Created file could have overly permissive permissions
+     - Mitigation: Python's default file creation uses umask; file is readable by owner/group only
+     - Standard: Appropriate for repository files
+
+  ## Performance Implications
+
+  1. **Content Generation Latency**
+     - Driver: Claude API call latency (typically 1-3 seconds)
+     - Impact: Dominates total execution time
+     - Mitigation: No optimization possible; inherent to LLM-based generation
+     - Expectation: Feature should complete in < 30 minutes per size estimate
+
+  2. **File I/O Performance**
+     - File size: ~400-600 bytes (single H1 + 2-3 sentences)
+     - Operations: Single write, read for validation, single commit, single push
+     - Impact: Negligible (< 100ms total)
+     - Optimization: Already optimal; utilities are efficient
+
+  3. **Validation Performance**
+     - Strategy: Single-pass string operations (count periods, check prefix, split lines)
+     - Complexity: O(n) where n = file size; negligible for ~500 byte file
+     - Impact: < 1ms
+     - No expensive operations: No regex, no external parsing libraries
+
+  4. **Git Operations Performance**
+     - Commit: Fast (single file, small diff)
+     - Push: Depends on network; expected to complete in seconds
+     - Impact: Dominated by network latency, not local computation
+     - Expectation: Complete within size estimate (30 minutes)
+
+  5. **Scalability Notes**
+     - This feature is not "scalable" in traditional sense (single file, deterministic workflow)
+     - Series of 100+ features: Each independent; no coordination overhead
+     - Parallelization: Each feature can run independently without resource contention
+
+  ## Architecture Notes
+
+  ### Fit into Sheep Architecture
+
+  Feature 131 follows the established pattern in Sheep:
+
+  1. **Modular Feature Structure**
+     - Each feature gets its own module in `src/sheep/features/feature_NNN_*.py`
+     - Clear entry point: `create_feature_NNN_*()` function
+     - Feature metadata: FEATURE_NUMBER, FEATURE_NAME, MARKDOWN_FILENAME
+     - Consistent pattern across 125-130 features
+
+  2. **Utility Reuse**
+     - All file and git operations delegated to `content_generators.py`
+     - Single source of truth for content generation, validation, and git operations
+     - Reduces code duplication; improves maintainability
+
+  3. **Observable Execution**
+     - Structured logging at each step using `get_logger()`
+     - Logging automatically captured by Langfuse integration
+     - Enables debugging and failure diagnosis
+
+  4. **Error Handling Convention**
+     - Fail immediately on any error
+     - Let exceptions propagate (calling code decides how to handle)
+     - Clear error messages from validation functions
+
+  5. **No Impact on Other Components**
+     - File creation: Only repository root affected
+     - Git: Only current feature branch affected
+     - Content generation: Uses existing CrewAI/Claude configuration, no changes needed
+     - No modifications to agents, flows, tools, or config
+
+  ### Integration with Feature Workflow
+
+  The feature fits into the standard Sheep feature development workflow:
+
+  1. **Specification Phase** ✓ (Complete)
+     - Requirements defined in spec.yaml
+     - Related features (125-130) provide pattern reference
+
+  2. **Research Phase** ⟵ (Current)
+     - Technology decisions documented in this research.yaml
+     - No new libraries needed; all infrastructure present
+
+  3. **Implementation Phase** (Next)
+     - Create `feature_131_markdown_file_creation.py`
+     - Orchestrate utilities: generate → write → validate → commit → push
+     - Total implementation: ~50 lines following feature_127 pattern
+
+  4. **Review Phase** (After implementation)
+     - Code review checks for consistency with feature_127
+     - Commit message validation
+     - File creation in correct location
+
+  5. **Execution/CI Phase** (After merge)
+     - Feature module executed as part of platform test suite
+     - Validates Sheep's ability to execute specified workflow
+     - File and commit pushed to remote repository
+
+  ## Why No New Dependencies
+
+  The spec notes: "No new external dependencies should be added; must use only existing Sheep infrastructure."
+
+  This is fully achievable because:
+
+  1. **Content Generation:** CrewAI LLM framework already configured for Claude API
+  2. **File I/O:** Python pathlib (stdlib) sufficient for all operations
+  3. **Markdown Validation:** Simple string operations (no parsing library needed)
+  4. **Git Operations:** GitCommitTool and GitPushTool already implemented
+  5. **Logging:** Observability infrastructure (get_logger, Langfuse) already in place
+
+  Adding external libraries (e.g., markdown parser, git client) would be unnecessary and would break the established pattern.
+
+  ## Why This Approach is Best
+
+  1. **Proven Pattern:** Features 125-130 have already executed this exact workflow
+  2. **Low Risk:** No new code to debug; utilities are well-tested
+  3. **Fast Implementation:** ~50 lines following feature_127 template
+  4. **Maintainability:** Consistent with codebase conventions
+  5. **Reliability:** Strict validation catches platform issues
+  6. **Observability:** Structured logging enables debugging
+  7. **Scalability:** Pattern can repeat for 200+ features without modification
+
+  ## Summary of Key Decisions
+
+  | Decision | Chosen Approach | Key Reason |
+  | --- | --- | --- |
+  | Content Generation | Use `generate_markdown_content()` | Proven, tested, includes validation |
+  | File Writing | Use `write_markdown_file()` utility | Handles encoding, verification, security |
+  | Validation | Strict validation, fail immediately | Test features require precision |
+  | Git Operations | Use `commit_markdown_file()` and `push_markdown_file()` | Utilities provide conventions and logging |
+  | Encoding | UTF-8, Unix LF, no BOM | Spec requirement; validated explicitly |
+  | Content Topics | Allow any topic | Spec says "about anything" |
+  | Error Handling | Fail fast, propagate exceptions | Test failures are diagnostic signals |
+  | Module Structure | Feature wrapper following feature_127 pattern | Consistent with 125-130 pattern |
+  | New Dependencies | None | All infrastructure already present |
